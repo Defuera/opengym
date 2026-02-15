@@ -1,15 +1,19 @@
 # OpenGym MVP Plan
 
-## Phase 0: Scaffold + Local Logging
+## Phase 0: UI + SQLite DB (Implemented)
 - Next.js (App Router) + TypeScript + Tailwind + PWA shell
-- SQLite with a light ORM or direct access (Prisma planned but can be wired later due to env limits)
-- Base models (conceptually): User, Session, Exercise, Set, ExternalActivity (stub)
+- SQLite with Prisma ORM and libSQL adapter
+- Models: User, Session (with date, status), Exercise (name, muscle group), Set (reps, weight, order)
+- Seeded database with default user and sample sessions (past completed + active session)
 - Routes:
-  - `/` home: start new session, list recent sessions
-  - `/session/new`: stub session proposal (hardcoded exercises)
-  - `/session/[id]`: in-session UI skeleton (exercise list + main card)
-  - `/session/[id]/summary`: static placeholder summary
-- No real AI yet; all deterministic placeholders.
+  - `/` home: start new session button + recent sessions list from DB
+  - `/session/[id]`: phone-first in-session UI with exercise navigation and main exercise card, editable sets saved via API
+  - `/session/[id]/summary`: static DB-based summary with totals, muscle groups, exercise breakdown
+- API routes:
+  - `POST /api/sessions`: create new session
+  - `PATCH /api/sets/[id]`: update set reps/weight
+  - `POST /api/sessions/[id]/complete`: mark session as completed
+- No AI yet; all deterministic data from SQLite.
 
 ## Phase 1: Rule-Based Session Proposer
 - Simple logic based on recent sessions + external activities:

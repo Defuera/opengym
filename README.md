@@ -24,6 +24,12 @@ npm run dev
 
 Then open http://localhost:3000
 
+### Checks
+
+- **Typecheck**: `npm run typecheck` - Run TypeScript compiler to check for type errors
+- **Lint**: `npm run lint` - Run ESLint
+- **Build**: `npm run build` - Full production build (includes typechecking)
+
 ## PWA
 
 The app is intended to run as a Progressive Web App on mobile, so it can be installed on the home screen and used like a native app.

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
+import StartSessionButton from "./start-session-button";
 
 export default async function Home() {
   const sessions = await prisma.session.findMany({
@@ -29,12 +30,7 @@ export default async function Home() {
 
       <main className="flex-1 px-4 py-6">
         <div className="mx-auto max-w-2xl space-y-6">
-          <Link
-            href="/session/new"
-            className="flex h-14 w-full items-center justify-center rounded-lg bg-blue-600 px-6 text-base font-semibold text-white transition-colors hover:bg-blue-700 active:bg-blue-800"
-          >
-            Start New Session
-          </Link>
+          <StartSessionButton />
 
           <div>
             <h2 className="mb-4 text-lg font-semibold text-zinc-900 dark:text-zinc-50">

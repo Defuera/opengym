@@ -15,12 +15,19 @@
   - `POST /api/sessions/[id]/complete`: mark session as completed
 - No AI yet; all deterministic data from SQLite.
 
-## Phase 1: Rule-Based Session Proposer
-- Simple logic based on recent sessions + external activities:
-  - Alternate upper/lower or push/pull/legs based on last session.
-  - Adjust total volume if recent load was high.
-- Implement editable pre-session plan on `/session/new`.
-- Persist completed sets with actual reps/weights.
+## Phase 1: Rule-Based Session Proposer (Implemented)
+- Deterministic session proposer module (`src/lib/session-proposer.ts`):
+  - Analyzes recent completed sessions from SQLite to determine workout type (push/pull/legs).
+  - Implements simple rotation: push → pull → legs → push.
+  - Categorizes past sessions by muscle groups to maintain rotation continuity.
+  - Adjusts volume downward if last 3 sessions were all high volume (≥12 sets).
+  - Generates 3-4 exercises per session with 3 sets each, all starting at 0 reps/weight.
+- Integration:
+  - "Start New Session" button on home page calls `POST /api/sessions/propose`.
+  - API route uses proposer logic to create a new active session in DB.
+  - User is redirected to `/session/[id]` to begin logging sets.
+  - Client-side button disables during creation to prevent duplicate sessions.
+- No AI/LLM calls; all logic is pure TypeScript against Prisma models.
 
 ## Phase 2: OpenGym Coach Agent
 - Introduce AI layer with access to DB via API:

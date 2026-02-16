@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import StartSessionButton from "./start-session-button";
+export const dynamic = 'force-dynamic';
 
 export default async function Home() {
   const sessions = await prisma.session.findMany({

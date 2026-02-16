@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import SessionView from "./session-view";
+export const dynamic = 'force-dynamic';
 
 export default async function SessionPage({
   params,

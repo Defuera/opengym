@@ -47,14 +47,15 @@ export default async function Home() {
               <div className="space-y-3">
                 {sessions.map((session: SessionWithExercisesAndSets) => {
                   const totalSets = session.exercises.reduce(
-                    (acc, ex) => acc + ex.sets.length,
+                    (acc: number, ex) => acc + ex.sets.length,
                     0
                   );
                   const totalVolume = session.exercises.reduce(
-                    (acc, ex) =>
+                    (acc: number, ex) =>
                       acc +
                       ex.sets.reduce(
-                        (setAcc, set) => setAcc + set.reps * set.weight,
+                        (setAcc: number, set) =>
+                          setAcc + set.reps * set.weight,
                         0
                       ),
                     0

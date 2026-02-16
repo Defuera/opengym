@@ -3,25 +3,48 @@ import { prisma } from "@/lib/prisma";
 import StartSessionButton from "./start-session-button";
 export const dynamic = 'force-dynamic';
 
+type SessionWithExercisesAndSets = {
+  id: string;
+  date: Date;
+  status: string;
+  exercises: {
+    id: string;
+    name: string;
+    sets: {
+      reps: number;
+      weight: number;
+    }[];
+  }[];
+};
+
+
 export default async function Home() {
-  const sessions = await prisma.session.findMany({
-    where: {
-      userId: "default-user",
-    },
-    orderBy: {
-      date: "desc",
-    },
-    take: 10,
-    include: {
-      exercises: {
-        include: {
-          sets: true,
+  let sessions: SessionWithExercisesAndSets[] = [];
+
+  try {
+    const result = await prisma.session.findMany({
+      where: {
+        userId: "default-user",
+      },
+      orderBy: {
+        date: "desc",
+      },
+      take: 10,
+      include: {
+        exercises: {
+          include: {
+            sets: true,
+          },
         },
       },
-    },
-  });
+    });
 
-  type SessionWithExercisesAndSets = (typeof sessions)[number];
+    sessions = result as unknown as SessionWithExercisesAndSets[];
+  } catch (error) {
+    // During build or when the DB schema is not initialized, gracefully render an empty list
+    console.error("Failed to load sessions on home page", error);
+    sessions = [];
+  }
 
   return (
     <div className="flex min-h-screen flex-col bg-zinc-50 dark:bg-black">

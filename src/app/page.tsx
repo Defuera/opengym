@@ -1,20 +1,9 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
-import type { Prisma } from "@prisma/client";
 import StartSessionButton from "./start-session-button";
 
-type SessionWithExercisesAndSets = Prisma.SessionGetPayload<{
-  include: {
-    exercises: {
-      include: {
-        sets: true;
-      };
-    };
-  };
-}>;
-
 export default async function Home() {
-  const sessions: SessionWithExercisesAndSets[] = await prisma.session.findMany({
+  const sessions = await prisma.session.findMany({
     where: {
       userId: "default-user",
     },
@@ -30,6 +19,8 @@ export default async function Home() {
       },
     },
   });
+
+  type SessionWithExercisesAndSets = (typeof sessions)[number];
 
   return (
     <div className="flex min-h-screen flex-col bg-zinc-50 dark:bg-black">
@@ -54,7 +45,7 @@ export default async function Home() {
               </p>
             ) : (
               <div className="space-y-3">
-                {sessions.map((session) => {
+                {sessions.map((session: SessionWithExercisesAndSets) => {
                   const totalSets = session.exercises.reduce(
                     (acc, ex) => acc + ex.sets.length,
                     0

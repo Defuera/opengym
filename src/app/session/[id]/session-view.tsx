@@ -13,6 +13,7 @@ import {
   DrawerTitle,
   DrawerTrigger,
 } from "@/components/ui/drawer";
+import { WheelPicker } from "@/components/ui/wheel-picker";
 import ExerciseStrip from "./exercise-strip";
 import AddExerciseDialog from "./add-exercise-dialog";
 
@@ -71,6 +72,7 @@ export default function SessionView({ session }: { session: Session }) {
       },
     }));
 
+    // Debounce the API call slightly to avoid too many requests during dragging
     try {
       await fetch(`/api/sets/${setId}`, {
         method: "PATCH",
@@ -183,50 +185,38 @@ export default function SessionView({ session }: { session: Session }) {
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="grid grid-cols-[50px_1fr_1fr] gap-2 text-sm font-semibold text-muted-foreground">
-                    <div>Set</div>
-                    <div className="text-center">Reps</div>
-                    <div className="text-center">Weight</div>
-                  </div>
-
                   {currentExercise.sets.map((set, index) => {
                     const currentSet = sets[set.id];
                     return (
-                      <div
-                        key={set.id}
-                        className="grid grid-cols-[50px_1fr_1fr] gap-2 items-center"
-                      >
-                        <div className="flex items-center justify-center h-12 text-lg font-bold text-foreground">
-                          {index + 1}
+                      <div key={set.id} className="space-y-2">
+                        <div className="text-center text-sm font-semibold text-muted-foreground">
+                          Set {index + 1}
                         </div>
-                        <input
-                          type="number"
-                          inputMode="numeric"
-                          value={currentSet.reps || ""}
-                          onChange={(e) =>
-                            handleSetChange(
-                              set.id,
-                              "reps",
-                              parseInt(e.target.value) || 0
-                            )
-                          }
-                          className="h-12 w-full rounded-lg border-2 bg-background px-2 text-center text-lg font-semibold focus:border-primary focus:outline-none"
-                          placeholder="0"
-                        />
-                        <input
-                          type="number"
-                          inputMode="decimal"
-                          value={currentSet.weight || ""}
-                          onChange={(e) =>
-                            handleSetChange(
-                              set.id,
-                              "weight",
-                              parseFloat(e.target.value) || 0
-                            )
-                          }
-                          className="h-12 w-full rounded-lg border-2 bg-background px-2 text-center text-lg font-semibold focus:border-primary focus:outline-none"
-                          placeholder="0"
-                        />
+                        <div className="grid grid-cols-2 gap-4">
+                          <WheelPicker
+                            label="Reps"
+                            value={currentSet.reps || 0}
+                            onChange={(value) =>
+                              handleSetChange(set.id, "reps", value)
+                            }
+                            min={0}
+                            max={50}
+                            step={1}
+                          />
+                          <WheelPicker
+                            label="Weight"
+                            value={currentSet.weight || 0}
+                            onChange={(value) =>
+                              handleSetChange(set.id, "weight", value)
+                            }
+                            min={0}
+                            max={500}
+                            step={5}
+                          />
+                        </div>
+                        {index < currentExercise.sets.length - 1 && (
+                          <div className="border-t pt-2" />
+                        )}
                       </div>
                     );
                   })}

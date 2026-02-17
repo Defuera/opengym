@@ -64,8 +64,14 @@ Always treat these guides as **hard constraints**, not suggestions.
 - ALWAYS use repositories for data access:
   - Import from `@/lib/repositories` in pages and API routes.
   - NEVER access database clients or storage directly.
-  - Current implementation uses in-memory repositories while we evaluate Convex/hosted DB.
   - Repository layer is at `src/lib/repositories/`.
+
+- **Backend Target: Convex**
+  - Convex is the intended production backend for OpenGym.
+  - Current implementation uses in-memory repositories for development.
+  - Repositories MUST be designed to be swappable between implementations.
+  - All repository interfaces should support both in-memory and Convex backends.
+  - See `docs/convex-plan.md` for migration strategy and implementation details.
 
 ## How To Work (Claude Code)
 

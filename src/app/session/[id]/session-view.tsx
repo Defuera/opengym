@@ -13,6 +13,8 @@ import {
   DrawerTitle,
   DrawerTrigger,
 } from "@/components/ui/drawer";
+import ExerciseStrip from "./exercise-strip";
+import AddExerciseDialog from "./add-exercise-dialog";
 
 type Set = {
   id: string;
@@ -52,6 +54,7 @@ export default function SessionView({ session }: { session: Session }) {
   );
   const [isSaving, setIsSaving] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [isAddExerciseOpen, setIsAddExerciseOpen] = useState(false);
 
   const currentExercise = session.exercises[currentExerciseIndex];
 
@@ -97,6 +100,37 @@ export default function SessionView({ session }: { session: Session }) {
     setIsDrawerOpen(false);
   };
 
+  const handleAddExercise = async (data: {
+    name: string;
+    muscleGroup: string;
+    numSets: number;
+    defaultReps: number;
+    defaultWeight: number;
+  }) => {
+    try {
+      const sets = Array.from({ length: data.numSets }, (_, i) => ({
+        reps: data.defaultReps,
+        weight: data.defaultWeight,
+        order: i,
+      }));
+
+      await fetch(`/api/sessions/${session.id}/exercises`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: data.name,
+          muscleGroup: data.muscleGroup,
+          sets,
+        }),
+      });
+
+      router.refresh();
+      setCurrentExerciseIndex(session.exercises.length);
+    } catch (error) {
+      console.error("Failed to add exercise:", error);
+    }
+  };
+
   return (
     <div className="flex min-h-screen w-full flex-col overflow-x-hidden bg-zinc-50 dark:bg-zinc-950">
       <header className="sticky top-0 z-10 w-full border-b bg-white/80 backdrop-blur-lg px-4 py-4 dark:bg-zinc-900/80">
@@ -120,6 +154,13 @@ export default function SessionView({ session }: { session: Session }) {
           </Button>
         </div>
       </header>
+
+      <ExerciseStrip
+        exercises={session.exercises}
+        currentIndex={currentExerciseIndex}
+        onExerciseSelect={handleExerciseSelect}
+        onAddExercise={() => setIsAddExerciseOpen(true)}
+      />
 
       <main className="flex-1 w-full px-4 py-6 pb-32 overflow-x-hidden">
         <div className="mx-auto w-full max-w-2xl">
@@ -257,6 +298,12 @@ export default function SessionView({ session }: { session: Session }) {
           </div>
         </div>
       </div>
+
+      <AddExerciseDialog
+        open={isAddExerciseOpen}
+        onOpenChange={setIsAddExerciseOpen}
+        onAdd={handleAddExercise}
+      />
     </div>
   );
 }

@@ -221,4 +221,29 @@ export const workoutRepository = {
       order: 0, // Not available without additional query
     };
   },
+
+  // Add a new exercise to a session
+  async addExerciseToSession(
+    sessionId: string,
+    data: {
+      name: string;
+      muscleGroup: string;
+      sets: Array<{
+        reps: number;
+        weight: number;
+        order: number;
+      }>;
+    }
+  ): Promise<string> {
+    const convexSessionId = stringToId<"sessions">(sessionId);
+
+    const exerciseId = await client.mutation(api.exercises.addToSession, {
+      sessionId: convexSessionId,
+      name: data.name,
+      muscleGroup: data.muscleGroup,
+      sets: data.sets,
+    });
+
+    return idToString(exerciseId);
+  },
 };

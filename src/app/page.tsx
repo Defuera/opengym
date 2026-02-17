@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { workoutRepository } from "@/lib/repositories";
 import StartSessionButton from "./start-session-button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 export const dynamic = 'force-dynamic';
 
 type SessionWithExercisesAndSets = {
@@ -22,26 +24,31 @@ export default async function Home() {
   const sessions = await workoutRepository.listRecentSessionsForUser("default-user", 10);
 
   return (
-    <div className="flex min-h-screen flex-col bg-zinc-50 dark:bg-black">
-      <header className="border-b border-zinc-200 bg-white px-4 py-6 dark:border-zinc-800 dark:bg-zinc-900">
-        <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-50">
+    <div className="flex min-h-screen flex-col bg-zinc-50 dark:bg-zinc-950">
+      <header className="sticky top-0 z-10 border-b bg-white/80 backdrop-blur-lg px-4 py-4 dark:bg-zinc-900/80">
+        <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-50">
           OpenGym
         </h1>
       </header>
 
-      <main className="flex-1 px-4 py-6">
-        <div className="mx-auto max-w-2xl space-y-6">
-          <StartSessionButton />
-
+      <main className="flex-1 px-4 pb-24">
+        <div className="mx-auto max-w-2xl space-y-6 pt-6">
           <div>
             <h2 className="mb-4 text-lg font-semibold text-zinc-900 dark:text-zinc-50">
               Recent Sessions
             </h2>
 
             {sessions.length === 0 ? (
-              <p className="text-zinc-600 dark:text-zinc-400">
-                No sessions yet. Start your first workout!
-              </p>
+              <Card className="text-center py-12">
+                <CardContent className="pt-6">
+                  <p className="text-zinc-600 dark:text-zinc-400 mb-2">
+                    No sessions yet
+                  </p>
+                  <p className="text-sm text-zinc-500 dark:text-zinc-500">
+                    Start your first workout below
+                  </p>
+                </CardContent>
+              </Card>
             ) : (
               <div className="space-y-3">
                 {sessions.map((session: SessionWithExercisesAndSets) => {
@@ -71,12 +78,11 @@ export default async function Home() {
                           ? `/session/${session.id}`
                           : `/session/${session.id}/summary`
                       }
-                      className="block rounded-lg border border-zinc-200 bg-white p-4 transition-colors hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900 dark:hover:bg-zinc-800"
                     >
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <div className="mb-1 flex items-center gap-2">
-                            <p className="font-medium text-zinc-900 dark:text-zinc-50">
+                      <Card className="transition-all active:scale-[0.98] hover:shadow-md">
+                        <CardHeader className="pb-3">
+                          <div className="flex items-center justify-between">
+                            <CardTitle className="text-base font-semibold">
                               {new Date(session.date).toLocaleDateString(
                                 "en-US",
                                 {
@@ -85,25 +91,30 @@ export default async function Home() {
                                   day: "numeric",
                                 }
                               )}
-                            </p>
+                            </CardTitle>
                             {session.status === "active" && (
-                              <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700 dark:bg-green-900 dark:text-green-300">
+                              <Badge variant="default" className="bg-green-600">
                                 Active
-                              </span>
+                              </Badge>
                             )}
                           </div>
-                          <p className="text-sm text-zinc-600 dark:text-zinc-400">
-                            {session.exercises.length}{" "}
-                            {session.exercises.length === 1
-                              ? "exercise"
-                              : "exercises"}{" "}
-                            · {totalSets}{" "}
-                            {totalSets === 1 ? "set" : "sets"}
-                            {totalVolume > 0 &&
-                              ` · ${Math.round(totalVolume)} lbs`}
-                          </p>
-                        </div>
-                      </div>
+                        </CardHeader>
+                        <CardContent className="pt-0">
+                          <div className="flex gap-4 text-sm text-muted-foreground">
+                            <span>{session.exercises.length} exercises</span>
+                            <span>·</span>
+                            <span>{totalSets} sets</span>
+                            {totalVolume > 0 && (
+                              <>
+                                <span>·</span>
+                                <span className="font-medium text-foreground">
+                                  {Math.round(totalVolume)} lbs
+                                </span>
+                              </>
+                            )}
+                          </div>
+                        </CardContent>
+                      </Card>
                     </Link>
                   );
                 })}
@@ -112,6 +123,12 @@ export default async function Home() {
           </div>
         </div>
       </main>
+
+      <div className="fixed bottom-0 left-0 right-0 border-t bg-white/95 backdrop-blur-lg p-4 dark:bg-zinc-900/95">
+        <div className="mx-auto max-w-2xl">
+          <StartSessionButton />
+        </div>
+      </div>
     </div>
   );
 }

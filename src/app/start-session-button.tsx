@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { Button } from "@/components/ui/button";
 
 export default function StartSessionButton() {
   const router = useRouter();
@@ -33,12 +34,13 @@ export default function StartSessionButton() {
   };
 
   return (
-    <button
+    <Button
       onClick={handleStartSession}
       disabled={isCreating}
-      className="flex h-14 w-full items-center justify-center rounded-lg bg-blue-600 px-6 text-base font-semibold text-white transition-colors hover:bg-blue-700 active:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50"
+      size="lg"
+      className="h-14 w-full text-base"
     >
       {isCreating ? "Starting..." : "Start New Session"}
-    </button>
+    </Button>
   );
 }

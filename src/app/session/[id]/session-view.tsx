@@ -184,11 +184,11 @@ export default function SessionView({ session }: { session: Session }) {
                     </div>
                   </div>
                 </CardHeader>
-                <CardContent className="space-y-4">
+                <CardContent className="space-y-3">
                   {currentExercise.sets.map((set, index) => {
                     const currentSet = sets[set.id];
                     return (
-                      <div key={set.id} className="space-y-2">
+                      <div key={set.id} className="space-y-1">
                         <div className="text-center text-sm font-semibold text-muted-foreground">
                           Set {index + 1}
                         </div>
@@ -215,7 +215,7 @@ export default function SessionView({ session }: { session: Session }) {
                           />
                         </div>
                         {index < currentExercise.sets.length - 1 && (
-                          <div className="border-t pt-2" />
+                          <div className="border-t pt-1" />
                         )}
                       </div>
                     );

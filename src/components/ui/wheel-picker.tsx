@@ -23,7 +23,7 @@ export function WheelPicker({
   const [startY, setStartY] = useState(0);
   const [scrollOffset, setScrollOffset] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
-  const itemHeight = 48; // Height of each item in pixels
+  const itemHeight = 32; // Height of each item in pixels
 
   // Generate list of values
   const values: number[] = [];
@@ -34,8 +34,8 @@ export function WheelPicker({
   const currentIndex = values.indexOf(value);
   const validIndex = currentIndex === -1 ? 0 : currentIndex;
 
-  // Calculate visible range (show 2 items above and below)
-  const visibleCount = 5;
+  // Calculate visible range (show 1 item above and below)
+  const visibleCount = 3;
   const halfVisible = Math.floor(visibleCount / 2);
 
   const getVisibleValues = (): (number | null)[] => {
@@ -155,12 +155,12 @@ export function WheelPicker({
         <button
           type="button"
           onClick={handleDecrement}
-          className="absolute top-0 left-0 right-0 h-6 flex items-center justify-center text-muted-foreground hover:text-foreground z-10"
+          className="absolute top-0 left-0 right-0 h-8 flex items-center justify-center text-muted-foreground hover:text-foreground z-10"
           disabled={validIndex === 0}
         >
           <svg
-            width="16"
-            height="16"
+            width="12"
+            height="12"
             viewBox="0 0 16 16"
             fill="none"
             xmlns="http://www.w3.org/2000/svg"
@@ -179,14 +179,14 @@ export function WheelPicker({
         {/* Wheel container */}
         <div
           ref={containerRef}
-          className="relative h-60 overflow-hidden select-none cursor-grab active:cursor-grabbing"
+          className="relative h-24 overflow-hidden select-none cursor-grab active:cursor-grabbing"
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
           onMouseDown={handleMouseDown}
         >
           {/* Selection indicator */}
-          <div className="absolute left-0 right-0 top-1/2 -translate-y-1/2 h-12 border-y-2 border-primary/20 bg-primary/5 pointer-events-none z-10" />
+          <div className="absolute left-0 right-0 top-1/2 -translate-y-1/2 h-8 border-y-2 border-primary/20 bg-primary/5 pointer-events-none z-10" />
 
           {/* Values */}
           <div
@@ -213,7 +213,7 @@ export function WheelPicker({
                   }}
                 >
                   <span
-                    className={`text-2xl font-bold transition-colors ${
+                    className={`text-lg font-bold transition-colors ${
                       isCenter
                         ? "text-foreground"
                         : "text-muted-foreground"
@@ -231,12 +231,12 @@ export function WheelPicker({
         <button
           type="button"
           onClick={handleIncrement}
-          className="absolute bottom-0 left-0 right-0 h-6 flex items-center justify-center text-muted-foreground hover:text-foreground z-10"
+          className="absolute bottom-0 left-0 right-0 h-8 flex items-center justify-center text-muted-foreground hover:text-foreground z-10"
           disabled={validIndex === values.length - 1}
         >
           <svg
-            width="16"
-            height="16"
+            width="12"
+            height="12"
             viewBox="0 0 16 16"
             fill="none"
             xmlns="http://www.w3.org/2000/svg"

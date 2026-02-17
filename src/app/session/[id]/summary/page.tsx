@@ -1,6 +1,9 @@
 import { workoutRepository } from "@/lib/repositories";
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 export const dynamic = 'force-dynamic';
 
 export default async function SessionSummaryPage({
@@ -38,12 +41,12 @@ export default async function SessionSummaryPage({
   );
 
   return (
-    <div className="flex min-h-screen flex-col bg-zinc-50 dark:bg-black">
-      <header className="border-b border-zinc-200 bg-white px-4 py-6 dark:border-zinc-800 dark:bg-zinc-900">
+    <div className="flex min-h-screen flex-col bg-zinc-50 dark:bg-zinc-950">
+      <header className="sticky top-0 z-10 border-b bg-white/80 backdrop-blur-lg px-4 py-6 dark:bg-zinc-900/80">
         <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-50">
-          Session Summary
+          Session Complete
         </h1>
-        <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+        <p className="mt-1 text-sm text-muted-foreground">
           {new Date(session.date).toLocaleDateString("en-US", {
             weekday: "long",
             month: "long",
@@ -53,64 +56,69 @@ export default async function SessionSummaryPage({
         </p>
       </header>
 
-      <main className="flex-1 px-4 py-6">
+      <main className="flex-1 px-4 py-6 pb-24">
         <div className="mx-auto max-w-2xl space-y-6">
-          {/* Stats cards */}
           <div className="grid grid-cols-2 gap-3">
-            <div className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
-              <p className="text-sm text-zinc-600 dark:text-zinc-400">
-                Total Volume
-              </p>
-              <p className="mt-1 text-2xl font-bold text-zinc-900 dark:text-zinc-50">
-                {Math.round(totalVolume)} lbs
-              </p>
-            </div>
-            <div className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
-              <p className="text-sm text-zinc-600 dark:text-zinc-400">
-                Total Reps
-              </p>
-              <p className="mt-1 text-2xl font-bold text-zinc-900 dark:text-zinc-50">
-                {totalReps}
-              </p>
-            </div>
-            <div className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
-              <p className="text-sm text-zinc-600 dark:text-zinc-400">
-                Exercises
-              </p>
-              <p className="mt-1 text-2xl font-bold text-zinc-900 dark:text-zinc-50">
-                {session.exercises.length}
-              </p>
-            </div>
-            <div className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
-              <p className="text-sm text-zinc-600 dark:text-zinc-400">
-                Total Sets
-              </p>
-              <p className="mt-1 text-2xl font-bold text-zinc-900 dark:text-zinc-50">
-                {totalSets}
-              </p>
-            </div>
+            <Card>
+              <CardContent className="pt-6">
+                <p className="text-sm text-muted-foreground mb-1">
+                  Total Volume
+                </p>
+                <p className="text-3xl font-bold">
+                  {Math.round(totalVolume)}
+                  <span className="text-lg text-muted-foreground ml-1">lbs</span>
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-6">
+                <p className="text-sm text-muted-foreground mb-1">
+                  Total Reps
+                </p>
+                <p className="text-3xl font-bold">
+                  {totalReps}
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-6">
+                <p className="text-sm text-muted-foreground mb-1">
+                  Exercises
+                </p>
+                <p className="text-3xl font-bold">
+                  {session.exercises.length}
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-6">
+                <p className="text-sm text-muted-foreground mb-1">
+                  Total Sets
+                </p>
+                <p className="text-3xl font-bold">
+                  {totalSets}
+                </p>
+              </CardContent>
+            </Card>
           </div>
 
-          {/* Muscle groups */}
-          <div className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
-            <h2 className="mb-2 text-sm font-semibold text-zinc-900 dark:text-zinc-50">
-              Muscle Groups Trained
-            </h2>
-            <div className="flex flex-wrap gap-2">
-              {muscleGroups.map((group) => (
-                <span
-                  key={group}
-                  className="rounded-full bg-blue-100 px-3 py-1 text-sm font-medium capitalize text-blue-700 dark:bg-blue-950 dark:text-blue-300"
-                >
-                  {group}
-                </span>
-              ))}
-            </div>
-          </div>
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Muscle Groups Trained</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-wrap gap-2">
+                {muscleGroups.map((group) => (
+                  <Badge key={group} variant="secondary" className="capitalize">
+                    {group}
+                  </Badge>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
 
-          {/* Exercise breakdown */}
           <div>
-            <h2 className="mb-3 text-lg font-semibold text-zinc-900 dark:text-zinc-50">
+            <h2 className="mb-3 text-lg font-semibold">
               Exercise Breakdown
             </h2>
             <div className="space-y-3">
@@ -125,45 +133,48 @@ export default async function SessionSummaryPage({
                 );
 
                 return (
-                  <div
-                    key={exercise.id}
-                    className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900"
-                  >
-                    <h3 className="mb-1 font-semibold text-zinc-900 dark:text-zinc-50">
-                      {exercise.name}
-                    </h3>
-                    <p className="mb-3 text-sm text-zinc-600 dark:text-zinc-400">
-                      {exercise.sets.length} sets · {exerciseReps} reps ·{" "}
-                      {Math.round(exerciseVolume)} lbs
-                    </p>
-                    <div className="space-y-1">
-                      {exercise.sets.map((set, index) => (
-                        <div
-                          key={set.id}
-                          className="flex items-center text-sm text-zinc-700 dark:text-zinc-300"
-                        >
-                          <span className="w-16">Set {index + 1}:</span>
-                          <span>
-                            {set.reps} reps × {set.weight} lbs
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
+                  <Card key={exercise.id}>
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-base">
+                        {exercise.name}
+                      </CardTitle>
+                      <p className="text-sm text-muted-foreground">
+                        {exercise.sets.length} sets · {exerciseReps} reps ·{" "}
+                        {Math.round(exerciseVolume)} lbs
+                      </p>
+                    </CardHeader>
+                    <CardContent className="pt-0">
+                      <div className="space-y-2">
+                        {exercise.sets.map((set, index) => (
+                          <div
+                            key={set.id}
+                            className="flex items-center justify-between text-sm p-2 rounded bg-muted/50"
+                          >
+                            <span className="font-medium">Set {index + 1}</span>
+                            <span className="text-muted-foreground">
+                              {set.reps} reps × {set.weight} lbs
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
                 );
               })}
             </div>
           </div>
-
-          {/* Back to home button */}
-          <Link
-            href="/"
-            className="flex h-12 w-full items-center justify-center rounded-lg bg-blue-600 font-semibold text-white transition-colors hover:bg-blue-700 active:bg-blue-800"
-          >
-            Back to Home
-          </Link>
         </div>
       </main>
+
+      <div className="fixed bottom-0 left-0 right-0 border-t bg-white/95 backdrop-blur-lg p-4 dark:bg-zinc-900/95">
+        <div className="mx-auto max-w-2xl">
+          <Link href="/">
+            <Button size="lg" className="w-full h-14 text-base">
+              Back to Home
+            </Button>
+          </Link>
+        </div>
+      </div>
     </div>
   );
 }

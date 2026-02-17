@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Sheet,
   SheetContent,
@@ -32,6 +32,32 @@ export default function AddExerciseDialog({
   const [numSets, setNumSets] = useState(3);
   const [defaultReps, setDefaultReps] = useState(10);
   const [defaultWeight, setDefaultWeight] = useState(0);
+  const [isLoadingDefaults, setIsLoadingDefaults] = useState(false);
+
+  // Fetch last values when exercise name changes (debounced)
+  useEffect(() => {
+    if (!name.trim()) return;
+
+    const timeoutId = setTimeout(async () => {
+      setIsLoadingDefaults(true);
+      try {
+        const response = await fetch(
+          `/api/exercises/last-values?name=${encodeURIComponent(name.trim())}`
+        );
+        if (response.ok) {
+          const data = await response.json();
+          setDefaultReps(data.reps);
+          setDefaultWeight(data.weight);
+        }
+      } catch (error) {
+        console.error("Failed to fetch last values:", error);
+      } finally {
+        setIsLoadingDefaults(false);
+      }
+    }, 500);
+
+    return () => clearTimeout(timeoutId);
+  }, [name]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

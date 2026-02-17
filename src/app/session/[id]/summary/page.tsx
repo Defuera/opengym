@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/prisma";
+import { workoutRepository } from "@/lib/repositories";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 export const dynamic = 'force-dynamic';
@@ -10,23 +10,7 @@ export default async function SessionSummaryPage({
 }) {
   const { id } = await params;
 
-  const session = await prisma.session.findUnique({
-    where: { id },
-    include: {
-      exercises: {
-        include: {
-          sets: {
-            orderBy: {
-              order: "asc",
-            },
-          },
-        },
-        orderBy: {
-          order: "asc",
-        },
-      },
-    },
-  });
+  const session = await workoutRepository.getSessionWithDetails(id);
 
   if (!session) {
     notFound();

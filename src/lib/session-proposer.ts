@@ -1,4 +1,4 @@
-import { prisma } from "./prisma";
+import { workoutRepository } from "./repositories";
 
 // Exercise templates grouped by workout type
 const EXERCISE_TEMPLATES = {
@@ -55,23 +55,10 @@ function categorizeSession(
  * Proposes the next workout type based on recent sessions
  */
 async function proposeNextWorkoutType(userId: string): Promise<WorkoutType> {
-  const recentSessions = await prisma.session.findMany({
-    where: {
-      userId,
-      status: "completed",
-    },
-    orderBy: {
-      date: "desc",
-    },
-    take: 1,
-    include: {
-      exercises: {
-        select: {
-          muscleGroup: true,
-        },
-      },
-    },
-  });
+  const recentSessions = await workoutRepository.getRecentCompletedSessions(
+    userId,
+    1
+  );
 
   if (recentSessions.length === 0) {
     // No history, start with push
@@ -94,23 +81,10 @@ async function proposeNextWorkoutType(userId: string): Promise<WorkoutType> {
  * Checks if recent sessions were high volume and adjusts accordingly
  */
 async function shouldReduceVolume(userId: string): Promise<boolean> {
-  const recentSessions = await prisma.session.findMany({
-    where: {
-      userId,
-      status: "completed",
-    },
-    orderBy: {
-      date: "desc",
-    },
-    take: 3,
-    include: {
-      exercises: {
-        include: {
-          sets: true,
-        },
-      },
-    },
-  });
+  const recentSessions = await workoutRepository.getRecentCompletedSessions(
+    userId,
+    3
+  );
 
   if (recentSessions.length < 2) {
     return false;

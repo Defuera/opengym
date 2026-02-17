@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { workoutRepository } from "@/lib/repositories";
 
 export async function POST(
   request: NextRequest,
@@ -8,12 +8,14 @@ export async function POST(
   try {
     const { id } = await params;
 
-    const session = await prisma.session.update({
-      where: { id },
-      data: {
-        status: "completed",
-      },
-    });
+    const session = await workoutRepository.updateSessionStatus(id, "completed");
+
+    if (!session) {
+      return NextResponse.json(
+        { error: "Session not found" },
+        { status: 404 }
+      );
+    }
 
     return NextResponse.json(session);
   } catch (error) {

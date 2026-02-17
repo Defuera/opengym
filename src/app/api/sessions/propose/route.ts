@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { workoutRepository } from "@/lib/repositories";
 import { proposeSession } from "@/lib/session-proposer";
 
 export async function POST(request: NextRequest) {
@@ -11,31 +11,10 @@ export async function POST(request: NextRequest) {
     const proposal = await proposeSession(userId);
 
     // Create the session with proposed exercises
-    const session = await prisma.session.create({
-      data: {
-        userId,
-        status: "active",
-        exercises: {
-          create: proposal.exercises.map((ex) => ({
-            name: ex.name,
-            muscleGroup: ex.muscleGroup,
-            order: ex.order,
-            sets: {
-              create: ex.sets,
-            },
-          })),
-        },
-      },
-      include: {
-        exercises: {
-          include: {
-            sets: true,
-          },
-          orderBy: {
-            order: "asc",
-          },
-        },
-      },
+    const session = await workoutRepository.createSession({
+      userId,
+      status: "active",
+      exercises: proposal.exercises,
     });
 
     return NextResponse.json(session, { status: 201 });

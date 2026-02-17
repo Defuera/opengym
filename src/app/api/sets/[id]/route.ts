@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { workoutRepository } from "@/lib/repositories";
 
 export async function PATCH(
   request: NextRequest,
@@ -10,13 +10,17 @@ export async function PATCH(
     const body = await request.json();
     const { reps, weight } = body;
 
-    const set = await prisma.set.update({
-      where: { id },
-      data: {
-        reps: reps !== undefined ? reps : undefined,
-        weight: weight !== undefined ? weight : undefined,
-      },
+    const set = await workoutRepository.updateSet(id, {
+      ...(reps !== undefined && { reps }),
+      ...(weight !== undefined && { weight }),
     });
+
+    if (!set) {
+      return NextResponse.json(
+        { error: "Set not found" },
+        { status: 404 }
+      );
+    }
 
     return NextResponse.json(set);
   } catch (error) {

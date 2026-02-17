@@ -22,3 +22,25 @@ export const create = mutation({
     return userId;
   },
 });
+
+// Get or create the default user (for development/testing)
+export const getOrCreateDefaultUser = mutation({
+  args: {},
+  handler: async (ctx, args) => {
+    // Look for a user named "Default User"
+    const users = await ctx.db.query("users").collect();
+    const defaultUser = users.find((u) => u.name === "Default User");
+
+    if (defaultUser) {
+      return defaultUser._id;
+    }
+
+    // Create default user if it doesn't exist
+    const userId = await ctx.db.insert("users", {
+      name: "Default User",
+      createdAt: Date.now(),
+    });
+
+    return userId;
+  },
+});

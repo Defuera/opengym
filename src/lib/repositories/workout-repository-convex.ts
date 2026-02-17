@@ -246,4 +246,18 @@ export const workoutRepository = {
 
     return idToString(exerciseId);
   },
+
+  // Get last recorded values for an exercise by name
+  async getLastValuesForExercise(
+    exerciseName: string
+  ): Promise<{ reps: number; weight: number } | null> {
+    const userId = await getDefaultUserId();
+
+    const lastValues = await client.query(api.exercises.getLastValuesByName, {
+      userId,
+      exerciseName,
+    });
+
+    return lastValues;
+  },
 };

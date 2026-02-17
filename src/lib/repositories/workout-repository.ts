@@ -15,6 +15,14 @@ const sessions = new Map<string, Session>();
 const exercises = new Map<string, Exercise>();
 const sets = new Map<string, Set>();
 
+// Track last values per exercise name (for prefilling)
+type ExerciseLastValues = {
+  reps: number;
+  weight: number;
+  updatedAt: Date;
+};
+const exerciseLastValues = new Map<string, ExerciseLastValues>();
+
 // ID generator
 let idCounter = 0;
 function generateId(prefix: string): string {
@@ -162,6 +170,28 @@ function ensureSeeded() {
       order: idx + 1,
     };
     sets.set(set.id, set);
+  });
+
+  // Seed last values for these exercises
+  exerciseLastValues.set("Bench Press", {
+    reps: 6,
+    weight: 185,
+    updatedAt: twoDaysAgo,
+  });
+  exerciseLastValues.set("Overhead Press", {
+    reps: 8,
+    weight: 115,
+    updatedAt: twoDaysAgo,
+  });
+  exerciseLastValues.set("Pull-ups", {
+    reps: 6,
+    weight: 0,
+    updatedAt: yesterday,
+  });
+  exerciseLastValues.set("Barbell Rows", {
+    reps: 8,
+    weight: 175,
+    updatedAt: yesterday,
   });
 }
 
@@ -350,6 +380,83 @@ export const workoutRepository = {
       ...(data.weight !== undefined && { weight: data.weight }),
     };
     sets.set(id, updated);
+
+    // Update last values for this exercise
+    const exercise = exercises.get(set.exerciseId);
+    if (exercise && updated.reps > 0) {
+      exerciseLastValues.set(exercise.name, {
+        reps: updated.reps,
+        weight: updated.weight,
+        updatedAt: new Date(),
+      });
+    }
+
     return updated;
+  },
+
+  // Get last recorded values for an exercise by name
+  async getLastValuesForExercise(
+    exerciseName: string
+  ): Promise<{ reps: number; weight: number } | null> {
+    ensureSeeded();
+
+    const lastValues = exerciseLastValues.get(exerciseName);
+    if (!lastValues) return null;
+
+    return {
+      reps: lastValues.reps,
+      weight: lastValues.weight,
+    };
+  },
+
+  // Add exercise to existing session
+  async addExerciseToSession(
+    sessionId: string,
+    data: {
+      name: string;
+      muscleGroup: string;
+      sets: Array<{
+        reps: number;
+        weight: number;
+        order: number;
+      }>;
+    }
+  ): Promise<Exercise & { sets: Set[] } | null> {
+    ensureSeeded();
+
+    const session = sessions.get(sessionId);
+    if (!session) return null;
+
+    // Get the next order number
+    const existingExercises = Array.from(exercises.values()).filter(
+      (ex) => ex.sessionId === sessionId
+    );
+    const nextOrder = existingExercises.length + 1;
+
+    const exercise: Exercise = {
+      id: generateId("exercise"),
+      sessionId,
+      name: data.name,
+      muscleGroup: data.muscleGroup,
+      order: nextOrder,
+    };
+    exercises.set(exercise.id, exercise);
+
+    const exerciseSets = data.sets.map((setData) => {
+      const set: Set = {
+        id: generateId("set"),
+        exerciseId: exercise.id,
+        reps: setData.reps,
+        weight: setData.weight,
+        order: setData.order,
+      };
+      sets.set(set.id, set);
+      return set;
+    });
+
+    return {
+      ...exercise,
+      sets: exerciseSets,
+    };
   },
 };

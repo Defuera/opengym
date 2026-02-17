@@ -59,6 +59,14 @@ Short, always-loaded guide for coding agents working on this repo.
 
 Always treat these guides as **hard constraints**, not suggestions.
 
+## Data Access Pattern
+
+- ALWAYS use repositories for data access:
+  - Import from `@/lib/repositories` in pages and API routes.
+  - NEVER access database clients or storage directly.
+  - Current implementation uses in-memory repositories while we evaluate Convex/hosted DB.
+  - Repository layer is at `src/lib/repositories/`.
+
 ## How To Work (Claude Code)
 
 - ALWAYS follow the Commit Guide:

@@ -98,15 +98,15 @@ export default function SessionView({ session }: { session: Session }) {
   };
 
   return (
-    <div className="flex min-h-screen flex-col bg-zinc-50 dark:bg-zinc-950">
-      <header className="sticky top-0 z-10 border-b bg-white/80 backdrop-blur-lg px-4 py-4 dark:bg-zinc-900/80">
-        <div className="flex items-center justify-between">
+    <div className="flex min-h-screen w-full flex-col overflow-x-hidden bg-zinc-50 dark:bg-zinc-950">
+      <header className="sticky top-0 z-10 w-full border-b bg-white/80 backdrop-blur-lg px-4 py-4 dark:bg-zinc-900/80">
+        <div className="flex items-center justify-between gap-2">
           <Link href="/">
             <Button variant="ghost" size="sm">
               ← Back
             </Button>
           </Link>
-          <Badge variant="default" className="bg-green-600">
+          <Badge variant="default" className="bg-green-600 shrink-0">
             Active Session
           </Badge>
           <Button
@@ -114,34 +114,35 @@ export default function SessionView({ session }: { session: Session }) {
             disabled={isSaving}
             variant="ghost"
             size="sm"
+            className="shrink-0"
           >
             {isSaving ? "Saving..." : "Finish"}
           </Button>
         </div>
       </header>
 
-      <main className="flex-1 px-4 py-6 pb-32">
-        <div className="mx-auto max-w-2xl">
+      <main className="flex-1 w-full px-4 py-6 pb-32 overflow-x-hidden">
+        <div className="mx-auto w-full max-w-2xl">
           {currentExercise && (
-            <div className="space-y-6">
-              <Card className="border-2 shadow-xl">
+            <div className="w-full space-y-6">
+              <Card className="w-full border-2 shadow-xl">
                 <CardHeader className="pb-4">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <CardTitle className="text-2xl mb-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <CardTitle className="text-2xl mb-2 break-words">
                         {currentExercise.name}
                       </CardTitle>
                       <Badge variant="secondary" className="capitalize">
                         {currentExercise.muscleGroup}
                       </Badge>
                     </div>
-                    <div className="text-sm text-muted-foreground">
+                    <div className="text-sm text-muted-foreground shrink-0">
                       {currentExerciseIndex + 1} / {session.exercises.length}
                     </div>
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="grid grid-cols-[50px_1fr_1fr] gap-3 text-sm font-semibold text-muted-foreground">
+                  <div className="grid grid-cols-[50px_1fr_1fr] gap-2 text-sm font-semibold text-muted-foreground">
                     <div>Set</div>
                     <div className="text-center">Reps</div>
                     <div className="text-center">Weight</div>
@@ -152,7 +153,7 @@ export default function SessionView({ session }: { session: Session }) {
                     return (
                       <div
                         key={set.id}
-                        className="grid grid-cols-[50px_1fr_1fr] gap-3 items-center"
+                        className="grid grid-cols-[50px_1fr_1fr] gap-2 items-center"
                       >
                         <div className="flex items-center justify-center h-12 text-lg font-bold text-foreground">
                           {index + 1}
@@ -168,7 +169,7 @@ export default function SessionView({ session }: { session: Session }) {
                               parseInt(e.target.value) || 0
                             )
                           }
-                          className="h-12 rounded-lg border-2 bg-background px-4 text-center text-lg font-semibold focus:border-primary focus:outline-none"
+                          className="h-12 w-full rounded-lg border-2 bg-background px-2 text-center text-lg font-semibold focus:border-primary focus:outline-none"
                           placeholder="0"
                         />
                         <input
@@ -182,7 +183,7 @@ export default function SessionView({ session }: { session: Session }) {
                               parseFloat(e.target.value) || 0
                             )
                           }
-                          className="h-12 rounded-lg border-2 bg-background px-4 text-center text-lg font-semibold focus:border-primary focus:outline-none"
+                          className="h-12 w-full rounded-lg border-2 bg-background px-2 text-center text-lg font-semibold focus:border-primary focus:outline-none"
                           placeholder="0"
                         />
                       </div>
@@ -195,21 +196,21 @@ export default function SessionView({ session }: { session: Session }) {
         </div>
       </main>
 
-      <div className="fixed bottom-0 left-0 right-0 border-t bg-white/95 backdrop-blur-lg p-4 dark:bg-zinc-900/95">
-        <div className="mx-auto max-w-2xl space-y-3">
-          <div className="flex gap-3">
+      <div className="fixed bottom-0 left-0 right-0 w-full border-t bg-white/95 backdrop-blur-lg p-4 dark:bg-zinc-900/95">
+        <div className="mx-auto w-full max-w-2xl">
+          <div className="flex gap-2 w-full">
             <Button
               onClick={() => setCurrentExerciseIndex(currentExerciseIndex - 1)}
               disabled={currentExerciseIndex === 0}
               variant="outline"
               size="lg"
-              className="flex-1 h-12"
+              className="flex-1 h-12 min-w-0"
             >
               Previous
             </Button>
             <Drawer open={isDrawerOpen} onOpenChange={setIsDrawerOpen}>
               <DrawerTrigger asChild>
-                <Button variant="outline" size="lg" className="h-12">
+                <Button variant="outline" size="lg" className="h-12 shrink-0">
                   All ({session.exercises.length})
                 </Button>
               </DrawerTrigger>
@@ -228,15 +229,15 @@ export default function SessionView({ session }: { session: Session }) {
                           : "border-border hover:border-primary/50"
                       }`}
                     >
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="font-semibold">{exercise.name}</p>
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <p className="font-semibold break-words">{exercise.name}</p>
                           <p className="text-sm text-muted-foreground capitalize">
                             {exercise.muscleGroup} · {exercise.sets.length} sets
                           </p>
                         </div>
                         {index === currentExerciseIndex && (
-                          <Badge variant="default">Current</Badge>
+                          <Badge variant="default" className="shrink-0">Current</Badge>
                         )}
                       </div>
                     </button>
@@ -249,7 +250,7 @@ export default function SessionView({ session }: { session: Session }) {
               disabled={currentExerciseIndex >= session.exercises.length - 1}
               variant="default"
               size="lg"
-              className="flex-1 h-12"
+              className="flex-1 h-12 min-w-0"
             >
               Next
             </Button>

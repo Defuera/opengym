@@ -25,6 +25,7 @@ export default async function Home() {
   const sessions = await workoutRepository.listRecentSessionsForUser("default-user", 10);
   const user = await workoutRepository.getUser("default-user");
   const unit = user?.unit ?? "metric";
+  const aiEnabled = process.env.NEXT_PUBLIC_AI_ENABLED === "true";
 
   return (
     <div className="flex min-h-screen flex-col bg-zinc-50 dark:bg-zinc-950">
@@ -33,12 +34,22 @@ export default async function Home() {
           <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-50">
             OpenGym
           </h1>
-          <Link
-            href="/settings"
-            className="text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-50 text-sm font-medium"
-          >
-            Settings
-          </Link>
+          <div className="flex items-center gap-3">
+            {aiEnabled && (
+              <Link
+                href="/coach"
+                className="text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-50 text-sm font-medium"
+              >
+                Ask Coach
+              </Link>
+            )}
+            <Link
+              href="/settings"
+              className="text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-50 text-sm font-medium"
+            >
+              Settings
+            </Link>
+          </div>
         </div>
       </header>
 

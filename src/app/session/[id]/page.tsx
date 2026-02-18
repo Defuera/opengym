@@ -16,5 +16,8 @@ export default async function SessionPage({
     notFound();
   }
 
-  return <SessionView session={session} />;
+  const user = await workoutRepository.getUser("default-user");
+  const unit = user?.unit ?? "metric";
+
+  return <SessionView session={session} unit={unit} />;
 }

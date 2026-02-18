@@ -17,6 +17,7 @@ import ExerciseStrip from "./exercise-strip";
 import AddExerciseDialog from "./add-exercise-dialog";
 import ExerciseSetList from "./components/exercise-set-list";
 import ExerciseSetEditor from "./components/exercise-set-editor";
+import { convertWeightForStorage, type Unit } from "@/lib/units";
 
 type Set = {
   id: string;
@@ -41,7 +42,7 @@ type Session = {
   exercises: Exercise[];
 };
 
-export default function SessionView({ session }: { session: Session }) {
+export default function SessionView({ session, unit }: { session: Session; unit: Unit }) {
   const router = useRouter();
   const [currentExerciseIndex, setCurrentExerciseIndex] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
@@ -103,6 +104,8 @@ export default function SessionView({ session }: { session: Session }) {
     status: "todo" | "later" | "complete";
   }) => {
     try {
+      const weightInKg = convertWeightForStorage(data.weight, unit);
+
       if (isNewSet) {
         // Create new set
         const createResponse = await fetch(`/api/exercises/${currentExercise.id}/sets`, {
@@ -110,7 +113,7 @@ export default function SessionView({ session }: { session: Session }) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             reps: data.reps,
-            weight: data.weight,
+            weight: weightInKg,
             order: currentExercise.sets.length,
             sessionId: session.id,
           }),
@@ -140,7 +143,7 @@ export default function SessionView({ session }: { session: Session }) {
         const response = await fetch(`/api/sets/${editingSet.id}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ ...data, sessionId: session.id }),
+          body: JSON.stringify({ reps: data.reps, weight: weightInKg, status: data.status, sessionId: session.id }),
         });
 
         if (!response.ok) {
@@ -193,9 +196,10 @@ export default function SessionView({ session }: { session: Session }) {
     defaultWeight: number;
   }) => {
     try {
+      const weightInKg = convertWeightForStorage(data.defaultWeight, unit);
       const sets = Array.from({ length: data.numSets }, (_, i) => ({
         reps: data.defaultReps,
-        weight: data.defaultWeight,
+        weight: weightInKg,
         order: i,
       }));
 
@@ -272,6 +276,7 @@ export default function SessionView({ session }: { session: Session }) {
                     sets={currentExercise.sets}
                     onSetClick={handleSetClick}
                     onAddSet={handleAddSet}
+                    unit={unit}
                   />
                 </CardContent>
               </Card>
@@ -346,6 +351,7 @@ export default function SessionView({ session }: { session: Session }) {
         open={isAddExerciseOpen}
         onOpenChange={setIsAddExerciseOpen}
         onAdd={handleAddExercise}
+        unit={unit}
       />
 
       <ExerciseSetEditor
@@ -355,6 +361,7 @@ export default function SessionView({ session }: { session: Session }) {
         isNewSet={isNewSet}
         onSave={handleSaveSet}
         onDelete={handleDeleteSet}
+        unit={unit}
       />
     </div>
   );

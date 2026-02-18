@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Minus, Plus, Trash2 } from "lucide-react";
+import { convertWeightForDisplay, getUnitLabel, getWeightIncrement, type Unit } from "@/lib/units";
 
 type Set = {
   id: string;
@@ -31,6 +32,7 @@ type ExerciseSetEditorProps = {
     status: "todo" | "later" | "complete";
   }) => void;
   onDelete?: () => void;
+  unit: Unit;
 };
 
 export default function ExerciseSetEditor({
@@ -40,16 +42,19 @@ export default function ExerciseSetEditor({
   isNewSet = false,
   onSave,
   onDelete,
+  unit,
 }: ExerciseSetEditorProps) {
   const [reps, setReps] = useState(set?.reps ?? 12);
-  const [weight, setWeight] = useState(set?.weight ?? 0);
+  const [weight, setWeight] = useState(
+    set ? convertWeightForDisplay(set.weight, unit) : 0
+  );
 
   useEffect(() => {
     if (set) {
       setReps(set.reps);
-      setWeight(set.weight);
+      setWeight(convertWeightForDisplay(set.weight, unit));
     }
-  }, [set]);
+  }, [set, unit]);
 
   const handleComplete = () => {
     onSave({ reps, weight, status: "complete" });
@@ -73,7 +78,8 @@ export default function ExerciseSetEditor({
   };
 
   const adjustWeight = (delta: number) => {
-    setWeight(Math.max(0, weight + delta));
+    const increment = getWeightIncrement(unit);
+    setWeight(Math.max(0, weight + delta * increment));
   };
 
   return (
@@ -117,13 +123,13 @@ export default function ExerciseSetEditor({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="weight">Weight (kg)</Label>
+              <Label htmlFor="weight">Weight ({getUnitLabel(unit)})</Label>
               <div className="flex items-center gap-2">
                 <Button
                   type="button"
                   variant="outline"
                   size="icon"
-                  onClick={() => adjustWeight(-2.5)}
+                  onClick={() => adjustWeight(-1)}
                   className="h-12 w-12 shrink-0"
                 >
                   <Minus className="h-4 w-4" />
@@ -134,14 +140,14 @@ export default function ExerciseSetEditor({
                   value={weight}
                   onChange={(e: React.ChangeEvent<HTMLInputElement>) => setWeight(Math.max(0, parseFloat(e.target.value) || 0))}
                   className="text-center text-lg font-semibold h-12"
-                  step="2.5"
+                  step={getWeightIncrement(unit)}
                   min="0"
                 />
                 <Button
                   type="button"
                   variant="outline"
                   size="icon"
-                  onClick={() => adjustWeight(2.5)}
+                  onClick={() => adjustWeight(1)}
                   className="h-12 w-12 shrink-0"
                 >
                   <Plus className="h-4 w-4" />

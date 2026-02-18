@@ -9,6 +9,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
+import { convertWeightForDisplay, getUnitLabel, type Unit } from "@/lib/units";
 
 type AddExerciseDialogProps = {
   open: boolean;
@@ -20,12 +21,14 @@ type AddExerciseDialogProps = {
     defaultReps: number;
     defaultWeight: number;
   }) => void;
+  unit: Unit;
 };
 
 export default function AddExerciseDialog({
   open,
   onOpenChange,
   onAdd,
+  unit,
 }: AddExerciseDialogProps) {
   const [name, setName] = useState("");
   const [muscleGroup, setMuscleGroup] = useState("");
@@ -47,7 +50,7 @@ export default function AddExerciseDialog({
         if (response.ok) {
           const data = await response.json();
           setDefaultReps(data.reps);
-          setDefaultWeight(data.weight);
+          setDefaultWeight(convertWeightForDisplay(data.weight, unit));
         }
       } catch (error) {
         console.error("Failed to fetch last values:", error);
@@ -57,7 +60,7 @@ export default function AddExerciseDialog({
     }, 500);
 
     return () => clearTimeout(timeoutId);
-  }, [name]);
+  }, [name, unit]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -164,7 +167,7 @@ export default function AddExerciseDialog({
                 htmlFor="defaultWeight"
                 className="text-sm font-medium text-foreground"
               >
-                Default Weight
+                Default Weight ({getUnitLabel(unit)})
               </label>
               <input
                 id="defaultWeight"

@@ -3,6 +3,7 @@
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { formatWeight, type Unit } from "@/lib/units";
 
 type Set = {
   id: string;
@@ -16,12 +17,14 @@ type ExerciseSetListProps = {
   sets: Set[];
   onSetClick: (setId: string) => void;
   onAddSet: () => void;
+  unit: Unit;
 };
 
 export default function ExerciseSetList({
   sets,
   onSetClick,
   onAddSet,
+  unit,
 }: ExerciseSetListProps) {
   return (
     <div className="space-y-2">
@@ -55,7 +58,7 @@ export default function ExerciseSetList({
             </div>
             <div className="flex-1">
               <div className="font-semibold text-base">
-                {set.reps} × {set.weight}kg
+                {set.reps} × {formatWeight(set.weight, unit)}
               </div>
               <div className="text-xs text-muted-foreground capitalize">
                 {set.status === "complete" && "Complete"}

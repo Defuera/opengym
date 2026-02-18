@@ -33,10 +33,12 @@ export default defineSchema({
     reps: v.number(),
     weight: v.number(),
     order: v.number(),
-    status: v.union(
-      v.literal("todo"),
-      v.literal("later"),
-      v.literal("complete")
+    status: v.optional(
+      v.union(
+        v.literal("todo"),
+        v.literal("later"),
+        v.literal("complete")
+      )
     ),
   }).index("by_exercise", ["exerciseId"]),
 });

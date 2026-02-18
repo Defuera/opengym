@@ -7,6 +7,7 @@ export default defineSchema({
   users: defineTable({
     name: v.string(),
     createdAt: v.number(),
+    unit: v.optional(v.union(v.literal("metric"), v.literal("imperial"))),
   }),
 
   sessions: defineTable({

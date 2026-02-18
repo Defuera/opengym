@@ -35,12 +35,26 @@ export const getOrCreateDefaultUser = mutation({
       return defaultUser._id;
     }
 
-    // Create default user if it doesn't exist
+    // Create default user if it doesn't exist with metric as default
     const userId = await ctx.db.insert("users", {
       name: "Default User",
       createdAt: Date.now(),
+      unit: "metric",
     });
 
     return userId;
+  },
+});
+
+// Update user unit preference
+export const updateUnit = mutation({
+  args: {
+    userId: v.id("users"),
+    unit: v.union(v.literal("metric"), v.literal("imperial")),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.userId, {
+      unit: args.unit,
+    });
   },
 });

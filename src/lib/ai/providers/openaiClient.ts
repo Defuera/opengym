@@ -1,6 +1,8 @@
-"use server";
-
 import { LLMClient, ChatOptions, ChatResult } from "../client";
+
+// This client is only used from server-side code (API routes, Convex helpers).
+// We deliberately do NOT mark this file with "use server" because Next.js
+// requires only async exports in such files, and this class is a sync export.
 
 export class OpenAIClient implements LLMClient {
   private apiKey: string;
@@ -44,5 +46,3 @@ export class OpenAIClient implements LLMClient {
     return { content };
   }
 }
-
-export default OpenAIClient;

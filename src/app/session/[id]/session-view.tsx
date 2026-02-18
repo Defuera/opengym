@@ -105,42 +105,48 @@ export default function SessionView({ session }: { session: Session }) {
     try {
       if (isNewSet) {
         // Create new set
-        await fetch(`/api/exercises/${currentExercise.id}/sets`, {
+        const createResponse = await fetch(`/api/exercises/${currentExercise.id}/sets`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             reps: data.reps,
             weight: data.weight,
             order: currentExercise.sets.length,
+            sessionId: session.id,
           }),
         });
 
+        if (!createResponse.ok) {
+          throw new Error("Failed to create set");
+        }
+
         // If status is not todo, update it
         if (data.status !== "todo") {
-          router.refresh();
-          // Wait for refresh then update status
-          setTimeout(async () => {
-            const updatedExercise = session.exercises[currentExerciseIndex];
-            const newSet = updatedExercise.sets[updatedExercise.sets.length - 1];
-            if (newSet) {
-              await fetch(`/api/sets/${newSet.id}`, {
-                method: "PATCH",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ status: data.status }),
-              });
-            }
-            router.refresh();
-          }, 100);
-        } else {
-          router.refresh();
+          const newSet = await createResponse.json();
+          const updateResponse = await fetch(`/api/sets/${newSet.id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ status: data.status, sessionId: session.id }),
+          });
+
+          if (!updateResponse.ok) {
+            throw new Error("Failed to update set status");
+          }
         }
+
+        router.refresh();
       } else if (editingSet) {
         // Update existing set
-        await fetch(`/api/sets/${editingSet.id}`, {
+        const response = await fetch(`/api/sets/${editingSet.id}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(data),
+          body: JSON.stringify({ ...data, sessionId: session.id }),
         });
+
+        if (!response.ok) {
+          throw new Error("Failed to update set");
+        }
+
         router.refresh();
       }
     } catch (error) {
@@ -151,7 +157,7 @@ export default function SessionView({ session }: { session: Session }) {
   const handleDeleteSet = async () => {
     if (editingSet && !isNewSet) {
       try {
-        await fetch(`/api/sets/${editingSet.id}`, {
+        await fetch(`/api/sets/${editingSet.id}?sessionId=${session.id}`, {
           method: "DELETE",
         });
         router.refresh();

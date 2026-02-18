@@ -1,5 +1,3 @@
-"use server";
-
 import { OpenAIClient } from "./providers/openaiClient";
 import type { AIPlanner, AIChat, AIMemoryManager } from "./interfaces";
 import {

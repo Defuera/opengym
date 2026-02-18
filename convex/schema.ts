@@ -42,4 +42,21 @@ export default defineSchema({
       )
     ),
   }).index("by_exercise", ["exerciseId"]),
+
+  aiMemories: defineTable({
+    userId: v.id("users"),
+    type: v.union(
+      v.literal("preference"),
+      v.literal("constraint"),
+      v.literal("injury"),
+      v.literal("meta")
+    ),
+    key: v.string(),
+    value: v.string(),
+    source: v.union(v.literal("ai"), v.literal("user")),
+    expiresAt: v.optional(v.number()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    archivedAt: v.optional(v.number()),
+  }).index("by_user", ["userId"]),
 });

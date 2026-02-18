@@ -12,7 +12,7 @@ export class OpenAIClient implements LLMClient {
     this.apiKey = apiKey;
     // TEMP: hardcode model while Vercel env access is blocked.
     // To revert, change back to: process.env.OPENAI_MODEL || "gpt-4o-mini".
-    this.model = "gpt-4o-mini";
+    this.model = "gpt-5.2";
   }
 
   async chat(options: ChatOptions): Promise<ChatResult> {

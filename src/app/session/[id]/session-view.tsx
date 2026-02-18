@@ -13,15 +13,17 @@ import {
   DrawerTitle,
   DrawerTrigger,
 } from "@/components/ui/drawer";
-import { WheelPicker } from "@/components/ui/wheel-picker";
 import ExerciseStrip from "./exercise-strip";
 import AddExerciseDialog from "./add-exercise-dialog";
+import ExerciseSetList from "./components/exercise-set-list";
+import ExerciseSetEditor from "./components/exercise-set-editor";
 
 type Set = {
   id: string;
   reps: number;
   weight: number;
   order: number;
+  status: "todo" | "later" | "complete";
 };
 
 type Exercise = {
@@ -42,45 +44,120 @@ type Session = {
 export default function SessionView({ session }: { session: Session }) {
   const router = useRouter();
   const [currentExerciseIndex, setCurrentExerciseIndex] = useState(0);
-  const [sets, setSets] = useState<{ [key: string]: Set }>(
-    session.exercises.reduce(
-      (acc, ex) => {
-        ex.sets.forEach((set) => {
-          acc[set.id] = set;
-        });
-        return acc;
-      },
-      {} as { [key: string]: Set }
-    )
-  );
   const [isSaving, setIsSaving] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isAddExerciseOpen, setIsAddExerciseOpen] = useState(false);
+  const [isEditorOpen, setIsEditorOpen] = useState(false);
+  const [editingSet, setEditingSet] = useState<Set | null>(null);
+  const [isNewSet, setIsNewSet] = useState(false);
 
   const currentExercise = session.exercises[currentExerciseIndex];
 
-  const handleSetChange = async (
-    setId: string,
-    field: "reps" | "weight",
-    value: number
-  ) => {
-    setSets((prev) => ({
-      ...prev,
-      [setId]: {
-        ...prev[setId],
-        [field]: value,
-      },
-    }));
+  const handleSetClick = (setId: string) => {
+    const set = currentExercise.sets.find((s) => s.id === setId);
+    if (set) {
+      setEditingSet(set);
+      setIsNewSet(false);
+      setIsEditorOpen(true);
+    }
+  };
 
-    // Debounce the API call slightly to avoid too many requests during dragging
+  const handleAddSet = async () => {
+    // Fetch last values for this exercise
     try {
-      await fetch(`/api/sets/${setId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ [field]: value }),
+      const response = await fetch(
+        `/api/exercises/last-values?name=${encodeURIComponent(currentExercise.name)}`
+      );
+      const lastValues = await response.json();
+
+      const defaultReps = lastValues?.reps ?? 12;
+      const defaultWeight = lastValues?.weight ?? 0;
+
+      setEditingSet({
+        id: "",
+        reps: defaultReps,
+        weight: defaultWeight,
+        order: currentExercise.sets.length,
+        status: "todo",
       });
+      setIsNewSet(true);
+      setIsEditorOpen(true);
     } catch (error) {
-      console.error("Failed to update set:", error);
+      console.error("Failed to fetch last values:", error);
+      // Use defaults if fetch fails
+      setEditingSet({
+        id: "",
+        reps: 12,
+        weight: 0,
+        order: currentExercise.sets.length,
+        status: "todo",
+      });
+      setIsNewSet(true);
+      setIsEditorOpen(true);
+    }
+  };
+
+  const handleSaveSet = async (data: {
+    reps: number;
+    weight: number;
+    status: "todo" | "later" | "complete";
+  }) => {
+    try {
+      if (isNewSet) {
+        // Create new set
+        await fetch(`/api/exercises/${currentExercise.id}/sets`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            reps: data.reps,
+            weight: data.weight,
+            order: currentExercise.sets.length,
+          }),
+        });
+
+        // If status is not todo, update it
+        if (data.status !== "todo") {
+          router.refresh();
+          // Wait for refresh then update status
+          setTimeout(async () => {
+            const updatedExercise = session.exercises[currentExerciseIndex];
+            const newSet = updatedExercise.sets[updatedExercise.sets.length - 1];
+            if (newSet) {
+              await fetch(`/api/sets/${newSet.id}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ status: data.status }),
+              });
+            }
+            router.refresh();
+          }, 100);
+        } else {
+          router.refresh();
+        }
+      } else if (editingSet) {
+        // Update existing set
+        await fetch(`/api/sets/${editingSet.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data),
+        });
+        router.refresh();
+      }
+    } catch (error) {
+      console.error("Failed to save set:", error);
+    }
+  };
+
+  const handleDeleteSet = async () => {
+    if (editingSet && !isNewSet) {
+      try {
+        await fetch(`/api/sets/${editingSet.id}`, {
+          method: "DELETE",
+        });
+        router.refresh();
+      } catch (error) {
+        console.error("Failed to delete set:", error);
+      }
     }
   };
 
@@ -184,42 +261,12 @@ export default function SessionView({ session }: { session: Session }) {
                     </div>
                   </div>
                 </CardHeader>
-                <CardContent className="space-y-3">
-                  {currentExercise.sets.map((set, index) => {
-                    const currentSet = sets[set.id];
-                    return (
-                      <div key={set.id} className="space-y-1">
-                        <div className="text-center text-sm font-semibold text-muted-foreground">
-                          Set {index + 1}
-                        </div>
-                        <div className="grid grid-cols-2 gap-4">
-                          <WheelPicker
-                            label="Reps"
-                            value={currentSet.reps || 0}
-                            onChange={(value) =>
-                              handleSetChange(set.id, "reps", value)
-                            }
-                            min={0}
-                            max={50}
-                            step={1}
-                          />
-                          <WheelPicker
-                            label="Weight"
-                            value={currentSet.weight || 0}
-                            onChange={(value) =>
-                              handleSetChange(set.id, "weight", value)
-                            }
-                            min={0}
-                            max={500}
-                            step={5}
-                          />
-                        </div>
-                        {index < currentExercise.sets.length - 1 && (
-                          <div className="border-t pt-1" />
-                        )}
-                      </div>
-                    );
-                  })}
+                <CardContent>
+                  <ExerciseSetList
+                    sets={currentExercise.sets}
+                    onSetClick={handleSetClick}
+                    onAddSet={handleAddSet}
+                  />
                 </CardContent>
               </Card>
             </div>
@@ -293,6 +340,15 @@ export default function SessionView({ session }: { session: Session }) {
         open={isAddExerciseOpen}
         onOpenChange={setIsAddExerciseOpen}
         onAdd={handleAddExercise}
+      />
+
+      <ExerciseSetEditor
+        open={isEditorOpen}
+        onOpenChange={setIsEditorOpen}
+        set={editingSet}
+        isNewSet={isNewSet}
+        onSave={handleSaveSet}
+        onDelete={handleDeleteSet}
       />
     </div>
   );

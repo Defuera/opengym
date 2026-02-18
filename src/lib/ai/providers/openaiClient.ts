@@ -44,3 +44,5 @@ export class OpenAIClient implements LLMClient {
     return { content };
   }
 }
+
+export default OpenAIClient;

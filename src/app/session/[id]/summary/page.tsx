@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { formatWeight, convertWeightForDisplay, getUnitLabel } from "@/lib/units";
 export const dynamic = 'force-dynamic';
 
 export default async function SessionSummaryPage({
@@ -18,6 +19,9 @@ export default async function SessionSummaryPage({
   if (!session) {
     notFound();
   }
+
+  const user = await workoutRepository.getUser("default-user");
+  const unit = user?.unit ?? "metric";
 
   const totalSets = session.exercises.reduce(
     (acc, ex) => acc + ex.sets.length,
@@ -65,8 +69,8 @@ export default async function SessionSummaryPage({
                   Total Volume
                 </p>
                 <p className="text-3xl font-bold">
-                  {Math.round(totalVolume)}
-                  <span className="text-lg text-muted-foreground ml-1">lbs</span>
+                  {Math.round(convertWeightForDisplay(totalVolume, unit))}
+                  <span className="text-lg text-muted-foreground ml-1">{getUnitLabel(unit)}</span>
                 </p>
               </CardContent>
             </Card>
@@ -140,7 +144,7 @@ export default async function SessionSummaryPage({
                       </CardTitle>
                       <p className="text-sm text-muted-foreground">
                         {exercise.sets.length} sets · {exerciseReps} reps ·{" "}
-                        {Math.round(exerciseVolume)} lbs
+                        {formatWeight(exerciseVolume, unit)}
                       </p>
                     </CardHeader>
                     <CardContent className="pt-0">
@@ -152,7 +156,7 @@ export default async function SessionSummaryPage({
                           >
                             <span className="font-medium">Set {index + 1}</span>
                             <span className="text-muted-foreground">
-                              {set.reps} reps × {set.weight} lbs
+                              {set.reps} reps × {formatWeight(set.weight, unit)}
                             </span>
                           </div>
                         ))}

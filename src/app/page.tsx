@@ -3,6 +3,7 @@ import { workoutRepository } from "@/lib/repositories";
 import StartSessionButton from "./start-session-button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { formatWeight } from "@/lib/units";
 export const dynamic = 'force-dynamic';
 
 type SessionWithExercisesAndSets = {
@@ -22,13 +23,23 @@ type SessionWithExercisesAndSets = {
 
 export default async function Home() {
   const sessions = await workoutRepository.listRecentSessionsForUser("default-user", 10);
+  const user = await workoutRepository.getUser("default-user");
+  const unit = user?.unit ?? "metric";
 
   return (
     <div className="flex min-h-screen flex-col bg-zinc-50 dark:bg-zinc-950">
       <header className="sticky top-0 z-10 border-b bg-white/80 backdrop-blur-lg px-4 py-4 dark:bg-zinc-900/80">
-        <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-50">
-          OpenGym
-        </h1>
+        <div className="flex items-center justify-between">
+          <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-50">
+            OpenGym
+          </h1>
+          <Link
+            href="/settings"
+            className="text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-50 text-sm font-medium"
+          >
+            Settings
+          </Link>
+        </div>
       </header>
 
       <main className="flex-1 px-4 pb-24">
@@ -108,7 +119,7 @@ export default async function Home() {
                               <>
                                 <span>·</span>
                                 <span className="font-medium text-foreground">
-                                  {Math.round(totalVolume)} lbs
+                                  {formatWeight(totalVolume, unit)}
                                 </span>
                               </>
                             )}

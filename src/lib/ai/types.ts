@@ -1,4 +1,4 @@
-import type { AIMemory } from "@/types/aiMemory";
+import type { AIMemory } from "../../types/aiMemory";
 
 export interface SessionPlanInput {
   userId: string;

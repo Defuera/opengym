@@ -6,9 +6,10 @@ set -e
 echo "🔨 Compiling tests..."
 npx tsc tests/session-flow-simple.test.ts --outDir dist/tests --module commonjs --moduleResolution node --esModuleInterop --resolveJsonModule --skipLibCheck --target ES2020 >/dev/null 2>&1
 
-# Copy Convex generated files
-mkdir -p dist/tests/convex
-cp -r convex/_generated dist/tests/convex/
+# Copy Convex code (including generated API)
+rm -rf dist/tests/convex
+mkdir -p dist/tests
+cp -r convex dist/tests/convex
 
 echo "🧪 Running Session Flow Integration Tests"
 echo ""

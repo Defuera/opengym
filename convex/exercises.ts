@@ -73,20 +73,19 @@ export const getLastValuesByName = query({
     exerciseName: v.string(),
   },
   handler: async (ctx, args) => {
-    // Find all exercises with this name for this user
+    // Find all sessions for this user (not just completed ones)
     const userSessions = await ctx.db
       .query("sessions")
       .withIndex("by_user", (q) => q.eq("userId", args.userId))
-      .filter((q) => q.eq(q.field("status"), "completed"))
       .collect();
 
     if (userSessions.length === 0) {
       return null;
     }
 
-    // Find all exercises with this name in completed sessions
+    // Find all exercises with this name across all sessions
     let latestExercise: { _id: Id<"exercises">; sessionId: Id<"sessions"> } | null = null;
-    let latestSessionDate = 0;
+    let latestCompletedSetDate = 0;
 
     for (const session of userSessions) {
       const exercises = await ctx.db
@@ -95,9 +94,21 @@ export const getLastValuesByName = query({
         .filter((q) => q.eq(q.field("name"), args.exerciseName))
         .collect();
 
-      if (exercises.length > 0 && session.date > latestSessionDate) {
-        latestSessionDate = session.date;
-        latestExercise = exercises[0];
+      for (const exercise of exercises) {
+        // Check if this exercise has any completed sets
+        const sets = await ctx.db
+          .query("sets")
+          .withIndex("by_exercise", (q) => q.eq("exerciseId", exercise._id))
+          .collect();
+
+        const completedSets = sets.filter((s) => s.status === "complete");
+        if (
+          completedSets.length > 0 &&
+          session.date > latestCompletedSetDate
+        ) {
+          latestCompletedSetDate = session.date;
+          latestExercise = exercise;
+        }
       }
     }
 
@@ -105,18 +116,19 @@ export const getLastValuesByName = query({
       return null;
     }
 
-    // Get the last set from this exercise
+    // Get the completed sets from this exercise
     const sets = await ctx.db
       .query("sets")
       .withIndex("by_exercise", (q) => q.eq("exerciseId", latestExercise._id))
       .collect();
 
-    if (sets.length === 0) {
+    const completedSets = sets.filter((s) => s.status === "complete");
+    if (completedSets.length === 0) {
       return null;
     }
 
-    // Return the last set's values
-    const lastSet = sets.sort((a, b) => b.order - a.order)[0];
+    // Return the last completed set's values
+    const lastSet = completedSets.sort((a, b) => b.order - a.order)[0];
     return {
       reps: lastSet.reps,
       weight: lastSet.weight,

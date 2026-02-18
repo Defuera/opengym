@@ -103,6 +103,33 @@ function convertSession(convexSession: any): Session {
 
 // Repository implementation
 export const workoutRepository = {
+  // Get user by ID
+  async getUser(userId: string): Promise<User | null> {
+    const convexUserId = await resolveUserId(userId);
+    const convexUser = await client.query(api.users.get, { id: convexUserId });
+
+    if (!convexUser) return null;
+
+    return {
+      id: idToString(convexUser._id),
+      name: convexUser.name,
+      createdAt: timestampToDate(convexUser.createdAt),
+      unit: convexUser.unit ?? "metric",
+    };
+  },
+
+  // Update user unit preference
+  async updateUserUnit(
+    userId: string,
+    unit: "metric" | "imperial"
+  ): Promise<void> {
+    const convexUserId = await resolveUserId(userId);
+    await client.mutation(api.users.updateUnit, {
+      userId: convexUserId,
+      unit,
+    });
+  },
+
   // List recent sessions for a user
   async listRecentSessionsForUser(
     userId: string,

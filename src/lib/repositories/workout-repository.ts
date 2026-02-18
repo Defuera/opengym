@@ -91,6 +91,7 @@ function ensureSeeded() {
       reps: data.reps,
       weight: data.weight,
       order: idx + 1,
+      status: "complete",
     };
     sets.set(set.id, set);
   });
@@ -107,6 +108,7 @@ function ensureSeeded() {
       reps: data.reps,
       weight: data.weight,
       order: idx + 1,
+      status: "complete",
     };
     sets.set(set.id, set);
   });
@@ -152,6 +154,7 @@ function ensureSeeded() {
       reps: data.reps,
       weight: data.weight,
       order: idx + 1,
+      status: "complete",
     };
     sets.set(set.id, set);
   });
@@ -168,6 +171,7 @@ function ensureSeeded() {
       reps: data.reps,
       weight: data.weight,
       order: idx + 1,
+      status: "complete",
     };
     sets.set(set.id, set);
   });
@@ -328,6 +332,7 @@ export const workoutRepository = {
           reps: setData.reps,
           weight: setData.weight,
           order: setData.order,
+          status: "todo",
         };
         sets.set(set.id, set);
         return set;
@@ -364,10 +369,10 @@ export const workoutRepository = {
     return updated;
   },
 
-  // Update a set's reps and/or weight
+  // Update a set's reps, weight, and/or status
   async updateSet(
     id: string,
-    data: { reps?: number; weight?: number }
+    data: { reps?: number; weight?: number; status?: "todo" | "later" | "complete" }
   ): Promise<Set | null> {
     ensureSeeded();
 
@@ -378,12 +383,13 @@ export const workoutRepository = {
       ...set,
       ...(data.reps !== undefined && { reps: data.reps }),
       ...(data.weight !== undefined && { weight: data.weight }),
+      ...(data.status !== undefined && { status: data.status }),
     };
     sets.set(id, updated);
 
-    // Update last values for this exercise
+    // Update last values for this exercise when completed
     const exercise = exercises.get(set.exerciseId);
-    if (exercise && updated.reps > 0) {
+    if (exercise && updated.reps > 0 && updated.status === "complete") {
       exerciseLastValues.set(exercise.name, {
         reps: updated.reps,
         weight: updated.weight,
@@ -392,6 +398,32 @@ export const workoutRepository = {
     }
 
     return updated;
+  },
+
+  // Create a new set for an exercise
+  async createSet(
+    exerciseId: string,
+    data: { reps: number; weight: number; order: number }
+  ): Promise<string> {
+    ensureSeeded();
+
+    const set: Set = {
+      id: generateId("set"),
+      exerciseId,
+      reps: data.reps,
+      weight: data.weight,
+      order: data.order,
+      status: "todo",
+    };
+    sets.set(set.id, set);
+
+    return set.id;
+  },
+
+  // Delete a set
+  async deleteSet(id: string): Promise<void> {
+    ensureSeeded();
+    sets.delete(id);
   },
 
   // Get last recorded values for an exercise by name
@@ -449,6 +481,7 @@ export const workoutRepository = {
         reps: setData.reps,
         weight: setData.weight,
         order: setData.order,
+        status: "todo",
       };
       sets.set(set.id, set);
       return set;

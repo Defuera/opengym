@@ -53,6 +53,7 @@ export const addToSession = mutation({
         reps: setData.reps,
         weight: setData.weight,
         order: setData.order,
+        status: "todo",
       });
     }
 

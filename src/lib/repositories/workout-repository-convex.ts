@@ -83,6 +83,7 @@ function convertSessionWithDetails(
         reps: set.reps,
         weight: set.weight,
         order: set.order,
+        status: set.status ?? "todo",
       })),
     })),
   };
@@ -196,10 +197,10 @@ export const workoutRepository = {
     return convertSession(session);
   },
 
-  // Update a set's reps and/or weight
+  // Update a set's reps, weight, and/or status
   async updateSet(
     id: string,
-    data: { reps?: number; weight?: number }
+    data: { reps?: number; weight?: number; status?: "todo" | "later" | "complete" }
   ): Promise<Set | null> {
     const setId = stringToId<"sets">(id);
 
@@ -207,6 +208,7 @@ export const workoutRepository = {
       id: setId,
       reps: data.reps,
       weight: data.weight,
+      status: data.status,
     });
 
     // Note: Convex doesn't have a direct way to fetch a single set
@@ -219,7 +221,34 @@ export const workoutRepository = {
       reps: data.reps ?? 0,
       weight: data.weight ?? 0,
       order: 0, // Not available without additional query
+      status: data.status ?? "todo",
     };
+  },
+
+  // Create a new set for an exercise
+  async createSet(
+    exerciseId: string,
+    data: { reps: number; weight: number; order: number }
+  ): Promise<string> {
+    const convexExerciseId = stringToId<"exercises">(exerciseId);
+
+    const setId = await client.mutation(api.sets.create, {
+      exerciseId: convexExerciseId,
+      reps: data.reps,
+      weight: data.weight,
+      order: data.order,
+    });
+
+    return idToString(setId);
+  },
+
+  // Delete a set
+  async deleteSet(id: string): Promise<void> {
+    const setId = stringToId<"sets">(id);
+
+    await client.mutation(api.sets.remove, {
+      id: setId,
+    });
   },
 
   // Add a new exercise to a session

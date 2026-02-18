@@ -29,6 +29,7 @@ export type Set = {
   reps: number;
   weight: number;
   order: number;
+  status: "todo" | "later" | "complete";
 };
 
 export type SessionWithExercisesAndSets = Session & {

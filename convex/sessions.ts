@@ -200,6 +200,7 @@ export const create = mutation({
           reps: setData.reps,
           weight: setData.weight,
           order: setData.order,
+          status: "todo",
         });
       }
     }

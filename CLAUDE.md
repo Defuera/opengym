@@ -73,6 +73,16 @@ Always treat these guides as **hard constraints**, not suggestions.
   - All repository interfaces should support both in-memory and Convex backends.
   - See `docs/convex-plan.md` for migration strategy and implementation details.
 
+## Deployment
+
+- **Frontend (Vercel):** Auto-deploys on push to `main`.
+- **Backend (Convex):** Must be deployed separately. After changing any file in `convex/`, run:
+  ```bash
+  npx convex deploy
+  ```
+  Convex deployment URL: `https://wary-mockingbird-65.eu-west-1.convex.cloud`
+- **Always deploy Convex before verifying the app** if you touched `convex/` files.
+
 ## How To Work (Claude Code)
 
 - ALWAYS follow the Commit Guide:

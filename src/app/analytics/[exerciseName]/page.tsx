@@ -2,7 +2,7 @@ import { workoutRepository } from "@/lib/repositories";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatWeight } from "@/lib/units";
 import Link from "next/link";
-import { WeightProgressionChart, VolumePerSessionChart } from "./exercise-charts";
+import { ExerciseProgressChart } from "./exercise-charts";
 export const dynamic = 'force-dynamic';
 
 export default async function ExerciseDetailPage({
@@ -69,26 +69,18 @@ export default async function ExerciseDetailPage({
             </div>
           </div>
 
-          {/* Weight Progression Chart */}
+          {/* Progress Chart */}
           {weightProgression.length > 0 && (
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">Weight Progression</CardTitle>
+                <CardTitle className="text-base">Progress</CardTitle>
               </CardHeader>
               <CardContent>
-                <WeightProgressionChart data={weightProgression} unit={unit} />
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Volume Per Session Chart */}
-          {volumePerSession.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Volume Per Session</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <VolumePerSessionChart data={volumePerSession} unit={unit} />
+                <ExerciseProgressChart
+                  weightData={weightProgression}
+                  volumeData={volumePerSession}
+                  unit={unit}
+                />
               </CardContent>
             </Card>
           )}

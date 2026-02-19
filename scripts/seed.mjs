@@ -23,7 +23,6 @@ async function callQuery(name, args) {
   return data.value;
 }
 
-// Exercise templates with realistic weights/reps
 const workouts = [
   {
     name: "Push Day",
@@ -63,31 +62,24 @@ const workouts = [
 ];
 
 async function seed() {
-  // Get or create default user
   const userId = await callMutation("users:getOrCreateDefaultUser", {});
   console.log("User ID:", userId);
 
-  // Create 12 sessions over the past ~4 weeks
   const now = Date.now();
   const DAY = 24 * 60 * 60 * 1000;
-
-  const sessionDates = [];
-  // 3-4 workouts per week for ~4 weeks
   const daysAgo = [1, 3, 5, 7, 9, 12, 14, 16, 19, 21, 23, 26];
 
   for (let i = 0; i < daysAgo.length; i++) {
     const workout = workouts[i % workouts.length];
-    const date = now - daysAgo[i] * DAY;
-
-    // Add small weight variations for progression feel
-    const variation = Math.random() * 0.1 - 0.05; // ±5%
+    const sessionDate = now - daysAgo[i] * DAY;
+    const variation = Math.random() * 0.1 - 0.05;
 
     const exercises = workout.exercises.map((ex, order) => ({
       name: ex.name,
       muscleGroup: ex.muscleGroup,
       order,
       sets: ex.sets.map((s, sOrder) => ({
-        reps: s.r + Math.floor(Math.random() * 3 - 1),
+        reps: Math.max(1, s.r + Math.floor(Math.random() * 3 - 1)),
         weight: Math.round(s.w * (1 + variation)),
         order: sOrder,
       })),
@@ -95,6 +87,7 @@ async function seed() {
 
     const sessionId = await callMutation("sessions:create", {
       userId,
+      date: sessionDate,
       status: "completed",
       exercises,
     });

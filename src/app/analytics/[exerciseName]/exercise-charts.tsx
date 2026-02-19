@@ -55,10 +55,11 @@ export function WeightProgressionChart({
           <Line
             type="monotone"
             dataKey="weight"
-            stroke="hsl(var(--primary))"
+            stroke="#3b82f6"
             strokeWidth={2}
-            dot={{ fill: "hsl(var(--primary))", r: 4 }}
+            dot={{ fill: "#3b82f6", r: 4 }}
             activeDot={{ r: 6 }}
+            connectNulls
           />
         </LineChart>
       </ResponsiveContainer>
@@ -105,7 +106,7 @@ export function VolumePerSessionChart({
             }}
             formatter={(value) => [`${value} ${unit === "metric" ? "kg" : "lbs"}`, "Volume"]}
           />
-          <Bar dataKey="volume" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+          <Bar dataKey="volume" fill="#3b82f6" radius={[4, 4, 0, 0]} />
         </BarChart>
       </ResponsiveContainer>
     </div>

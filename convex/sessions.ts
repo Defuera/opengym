@@ -153,6 +153,7 @@ export const listRecentCompleted = query({
 export const create = mutation({
   args: {
     userId: v.id("users"),
+    date: v.optional(v.number()),
     status: v.union(
       v.literal("planned"),
       v.literal("active"),
@@ -179,7 +180,7 @@ export const create = mutation({
     // Create the session
     const sessionId = await ctx.db.insert("sessions", {
       userId: args.userId,
-      date: now,
+      date: args.date ?? now,
       status: args.status,
       createdAt: now,
       updatedAt: now,

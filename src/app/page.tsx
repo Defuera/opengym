@@ -72,7 +72,7 @@ export default async function Home() {
                 </CardContent>
               </Card>
             ) : (
-              <div className="space-y-4">
+              <div className="space-y-6">
                 {sessions.map((session: SessionWithExercisesAndSets) => {
                   type ExerciseWithSets = SessionWithExercisesAndSets["exercises"][number];
                   type SetWithFields = ExerciseWithSets["sets"][number];

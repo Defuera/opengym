@@ -44,6 +44,12 @@ export default async function Home() {
               </Link>
             )}
             <Link
+              href="/analytics"
+              className="text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-50 text-sm font-medium"
+            >
+              Analytics
+            </Link>
+            <Link
               href="/settings"
               className="text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-50 text-sm font-medium"
             >

@@ -13,6 +13,8 @@ import type {
   Exercise,
   Set,
   SessionWithExercisesAndSets,
+  Analytics,
+  ExerciseAnalytics,
 } from "./types";
 
 // Initialize Convex client for server-side use
@@ -315,5 +317,21 @@ export const workoutRepository = {
     });
 
     return lastValues;
+  },
+
+  // Get analytics data for a user
+  async getAnalytics(userId: string): Promise<Analytics> {
+    const convexUserId = await resolveUserId(userId);
+    return await client.query(api.analytics.getAnalytics, {
+      userId: convexUserId,
+    });
+  },
+
+  // Get exercise analytics for a user
+  async getExerciseAnalytics(userId: string): Promise<ExerciseAnalytics[]> {
+    const convexUserId = await resolveUserId(userId);
+    return await client.query(api.analytics.getExerciseAnalytics, {
+      userId: convexUserId,
+    });
   },
 };

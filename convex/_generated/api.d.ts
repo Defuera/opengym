@@ -11,6 +11,7 @@
 import type * as aiMemories from "../aiMemories.js";
 import type * as aiSessionPlanner from "../aiSessionPlanner.js";
 import type * as aiUserContext from "../aiUserContext.js";
+import type * as analytics from "../analytics.js";
 import type * as exercises from "../exercises.js";
 import type * as sessions from "../sessions.js";
 import type * as sets from "../sets.js";
@@ -26,6 +27,7 @@ declare const fullApi: ApiFromModules<{
   aiMemories: typeof aiMemories;
   aiSessionPlanner: typeof aiSessionPlanner;
   aiUserContext: typeof aiUserContext;
+  analytics: typeof analytics;
   exercises: typeof exercises;
   sessions: typeof sessions;
   sets: typeof sets;

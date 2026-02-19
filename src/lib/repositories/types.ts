@@ -38,3 +38,38 @@ export type SessionWithExercisesAndSets = Session & {
     sets: Set[];
   })[];
 };
+
+export type Analytics = {
+  lastSession: {
+    id: string;
+    date: number;
+    exercises: string[];
+    volume: number;
+    comparison: {
+      current: number;
+      previous: number;
+      percentChange: number;
+    } | null;
+  } | null;
+  currentWeek: {
+    sessionCount: number;
+    totalVolume: number;
+  };
+  lastWeek: {
+    sessionCount: number;
+    totalVolume: number;
+  };
+  weeklyTrend: Array<{
+    week: number;
+    volume: number;
+    sessionCount: number;
+  }>;
+};
+
+export type ExerciseAnalytics = {
+  name: string;
+  muscleGroup: string;
+  lastWeight: number;
+  trend: "up" | "down" | "stable";
+  sessionCount: number;
+};

@@ -39,37 +39,30 @@ export default async function ExerciseDetailPage({
           {/* Personal Records */}
           <div>
             <h2 className="mb-3 text-lg font-semibold">Personal Records</h2>
-            <div className="grid gap-3">
+            <div className="grid grid-cols-3 gap-2">
               <Card className="bg-gradient-to-br from-blue-500 to-blue-600 text-white">
-                <CardContent className="pt-6">
-                  <p className="text-sm opacity-90 mb-1">Heaviest Weight</p>
-                  <p className="text-3xl font-bold">
+                <CardContent className="p-3">
+                  <p className="text-[10px] opacity-90 mb-1">Heaviest Weight</p>
+                  <p className="text-lg font-bold">
                     {formatWeight(personalRecords.maxWeight, unit)}
                   </p>
                 </CardContent>
               </Card>
 
               <Card className="bg-gradient-to-br from-green-500 to-green-600 text-white">
-                <CardContent className="pt-6">
-                  <p className="text-sm opacity-90 mb-1">Highest Volume Session</p>
-                  <p className="text-3xl font-bold">
+                <CardContent className="p-3">
+                  <p className="text-[10px] opacity-90 mb-1">Best Volume</p>
+                  <p className="text-lg font-bold">
                     {formatWeight(personalRecords.maxVolumeSession.volume, unit)}
-                  </p>
-                  <p className="text-xs opacity-75 mt-1">
-                    {new Date(personalRecords.maxVolumeSession.date).toLocaleDateString("en-US", {
-                      month: "short",
-                      day: "numeric",
-                      year: "numeric",
-                    })}
                   </p>
                 </CardContent>
               </Card>
 
               <Card className="bg-gradient-to-br from-purple-500 to-purple-600 text-white">
-                <CardContent className="pt-6">
-                  <p className="text-sm opacity-90 mb-1">Most Reps at Heavy Weight</p>
-                  <p className="text-3xl font-bold">
-                    {personalRecords.maxRepsAtHeaviestWeight.reps} × {formatWeight(personalRecords.maxRepsAtHeaviestWeight.weight, unit)}
+                <CardContent className="p-3">
+                  <p className="text-[10px] opacity-90 mb-1">Best Reps</p>
+                  <p className="text-lg font-bold">
+                    {personalRecords.maxRepsAtHeaviestWeight.reps}×{formatWeight(personalRecords.maxRepsAtHeaviestWeight.weight, unit)}
                   </p>
                 </CardContent>
               </Card>

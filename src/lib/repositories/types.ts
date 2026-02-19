@@ -73,3 +73,33 @@ export type ExerciseAnalytics = {
   trend: "up" | "down" | "stable";
   sessionCount: number;
 };
+
+export type ExerciseDetail = {
+  personalRecords: {
+    maxWeight: number;
+    maxVolumeSession: {
+      volume: number;
+      date: number;
+    };
+    maxRepsAtHeaviestWeight: {
+      reps: number;
+      weight: number;
+    };
+  };
+  weightProgression: Array<{
+    date: number;
+    weight: number;
+  }>;
+  volumePerSession: Array<{
+    date: number;
+    volume: number;
+  }>;
+  sessionHistory: Array<{
+    sessionId: string;
+    date: number;
+    sets: Array<{
+      reps: number;
+      weight: number;
+    }>;
+  }>;
+};

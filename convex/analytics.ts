@@ -244,3 +244,125 @@ export const getExerciseAnalytics = query({
     });
   },
 });
+
+// Get detailed analytics for a specific exercise
+export const getExerciseDetail = query({
+  args: {
+    userId: v.id("users"),
+    exerciseName: v.string(),
+  },
+  handler: async (ctx, args) => {
+    // Get all completed sessions
+    const sessions = await ctx.db
+      .query("sessions")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .filter((q) => q.eq(q.field("status"), "completed"))
+      .order("desc")
+      .collect();
+
+    // Collect all sessions that include this exercise
+    const sessionHistory: Array<{
+      sessionId: string;
+      date: number;
+      sets: Array<{ reps: number; weight: number }>;
+    }> = [];
+
+    let maxWeight = 0;
+    let maxVolumeSession = { volume: 0, sessionId: "", date: 0 };
+    let maxRepsAtHeaviestWeight = { reps: 0, weight: 0 };
+
+    for (const session of sessions) {
+      const exercises = await ctx.db
+        .query("exercises")
+        .withIndex("by_session", (q) => q.eq("sessionId", session._id))
+        .filter((q) => q.eq(q.field("name"), args.exerciseName))
+        .collect();
+
+      // This exercise might appear multiple times in a session (rare but possible)
+      for (const exercise of exercises) {
+        const sets = await ctx.db
+          .query("sets")
+          .withIndex("by_exercise", (q) => q.eq("exerciseId", exercise._id))
+          .collect();
+
+        if (sets.length === 0) continue;
+
+        // Store session history
+        const sessionSets = sets
+          .sort((a, b) => a.order - b.order)
+          .map((s) => ({ reps: s.reps, weight: s.weight }));
+
+        sessionHistory.push({
+          sessionId: session._id,
+          date: session.date,
+          sets: sessionSets,
+        });
+
+        // Calculate records
+        for (const set of sets) {
+          // Max weight
+          if (set.weight > maxWeight) {
+            maxWeight = set.weight;
+          }
+
+          // Max reps at heaviest weight
+          if (
+            set.weight > maxRepsAtHeaviestWeight.weight ||
+            (set.weight === maxRepsAtHeaviestWeight.weight &&
+              set.reps > maxRepsAtHeaviestWeight.reps)
+          ) {
+            maxRepsAtHeaviestWeight = { reps: set.reps, weight: set.weight };
+          }
+        }
+
+        // Session volume
+        const sessionVolume = sets.reduce(
+          (acc, set) => acc + set.reps * set.weight,
+          0
+        );
+        if (sessionVolume > maxVolumeSession.volume) {
+          maxVolumeSession = {
+            volume: sessionVolume,
+            sessionId: session._id,
+            date: session.date,
+          };
+        }
+      }
+    }
+
+    // Sort sessions by date descending (most recent first)
+    sessionHistory.sort((a, b) => b.date - a.date);
+
+    // Calculate weight progression (best weight per session)
+    const weightProgression = sessionHistory.map((sh) => {
+      const bestWeight = Math.max(...sh.sets.map((s) => s.weight), 0);
+      return {
+        date: sh.date,
+        weight: bestWeight,
+      };
+    });
+
+    // Calculate volume per session
+    const volumePerSession = sessionHistory.map((sh) => {
+      const volume = sh.sets.reduce((acc, s) => acc + s.reps * s.weight, 0);
+      return {
+        date: sh.date,
+        volume,
+      };
+    });
+
+    return {
+      personalRecords: {
+        maxWeight,
+        maxVolumeSession: {
+          volume: maxVolumeSession.volume,
+          date: maxVolumeSession.date,
+        },
+        maxRepsAtHeaviestWeight,
+      },
+      weightProgression: weightProgression.reverse(), // oldest to newest for chart
+      volumePerSession: volumePerSession.reverse(), // oldest to newest for chart
+      sessionHistory, // Already sorted newest first
+    };
+  },
+});

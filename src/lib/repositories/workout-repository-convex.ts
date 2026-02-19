@@ -15,6 +15,7 @@ import type {
   SessionWithExercisesAndSets,
   Analytics,
   ExerciseAnalytics,
+  ExerciseDetail,
 } from "./types";
 
 // Initialize Convex client for server-side use
@@ -332,6 +333,18 @@ export const workoutRepository = {
     const convexUserId = await resolveUserId(userId);
     return await client.query(api.analytics.getExerciseAnalytics, {
       userId: convexUserId,
+    });
+  },
+
+  // Get detailed analytics for a specific exercise
+  async getExerciseDetail(
+    userId: string,
+    exerciseName: string
+  ): Promise<ExerciseDetail> {
+    const convexUserId = await resolveUserId(userId);
+    return await client.query(api.analytics.getExerciseDetail, {
+      userId: convexUserId,
+      exerciseName,
     });
   },
 };

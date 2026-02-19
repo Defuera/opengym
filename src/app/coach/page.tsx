@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import Link from "next/link";
 import { Card } from "@/components/ui/card";
 
 interface Message {
@@ -68,18 +67,6 @@ export default function CoachPage() {
 
   return (
     <div className="flex min-h-screen flex-col bg-zinc-50 dark:bg-zinc-950">
-      <header className="sticky top-0 z-10 border-b bg-white/80 backdrop-blur-lg px-4 py-4 dark:bg-zinc-900/80">
-        <div className="flex items-center justify-between">
-          <Link href="/" className="text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-50">
-            ← Back
-          </Link>
-          <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-50">
-            Ask Coach
-          </h1>
-          <div className="w-16" />
-        </div>
-      </header>
-
       <main className="flex-1 px-4 pb-32 pt-4 overflow-y-auto">
         <div className="mx-auto max-w-2xl space-y-4">
           {messages.length === 0 && (

@@ -79,8 +79,8 @@ export function ExerciseProgressChart({
               borderRadius: "8px",
               fontSize: 12,
             }}
-            formatter={(value: number, name: string) => [
-              `${value} ${unitLabel}`,
+            formatter={(value: number | undefined, name: string | undefined) => [
+              `${value ?? 0} ${unitLabel}`,
               name === "weight" ? "Max Weight" : "Volume",
             ]}
           />

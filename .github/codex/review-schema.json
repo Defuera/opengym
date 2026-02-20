@@ -1,0 +1,54 @@
+{
+  "type": "object",
+  "properties": {
+    "overall_assessment": {
+      "type": "string",
+      "description": "1-3 sentence summary of the PR quality and key findings"
+    },
+    "should_merge": {
+      "type": "boolean",
+      "description": "true if the PR is ready to merge with no critical or high issues"
+    },
+    "confidence": {
+      "type": "string",
+      "enum": ["high", "medium", "low"],
+      "description": "How confident the reviewer is in the assessment"
+    },
+    "issues": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "severity": {
+            "type": "string",
+            "enum": ["critical", "high", "medium", "low"]
+          },
+          "title": {
+            "type": "string",
+            "description": "Short title for the issue"
+          },
+          "description": {
+            "type": "string",
+            "description": "Detailed explanation of the problem"
+          },
+          "file": {
+            "type": "string",
+            "description": "File path where the issue was found"
+          },
+          "line": {
+            "type": ["integer", "null"],
+            "description": "Line number if applicable"
+          },
+          "suggestion": {
+            "type": ["string", "null"],
+            "description": "Suggested fix or improvement"
+          }
+        },
+        "required": ["severity", "title", "description", "file"],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": ["overall_assessment", "should_merge", "confidence", "issues"],
+  "additionalProperties": false
+}

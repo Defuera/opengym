@@ -1,0 +1,207 @@
+name: Codex Code Review
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  codex-review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get PR diff
+        run: |
+          git diff origin/${{ github.event.pull_request.base.ref }}...HEAD \
+            -- . ':!*.lock' ':!*.min.*' ':!dist/' \
+            | head -c 100000 > /tmp/pr-diff.txt
+
+      - name: Count review rounds
+        id: rounds
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const comments = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            const roundMarkers = comments.data.filter(c =>
+              c.body.includes('<!-- codex-review-round:')
+            );
+            const round = roundMarkers.length + 1;
+            core.setOutput('round', round);
+            core.info(`Review round: ${round}`);
+
+      - name: Skip if max rounds exceeded
+        if: steps.rounds.outputs.round > 3
+        run: echo "Max review rounds (3) exceeded — skipping automated review."
+
+      - name: Run Codex review
+        if: steps.rounds.outputs.round <= 3
+        id: review
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          # Build the request JSON safely using jq with file inputs
+          jq -n \
+            --arg system "$(cat .github/codex/review-prompt.md 2>/dev/null || echo 'Review this PR diff for bugs and security issues.')" \
+            --arg diff "$(cat /tmp/pr-diff.txt)" \
+            --arg pr_title "$PR_TITLE" \
+            --arg pr_body "$PR_BODY" \
+            --slurpfile schema <(cat .github/codex/review-schema.json 2>/dev/null || echo '{}') \
+            '{
+              model: "gpt-5.2-codex",
+              messages: [
+                { role: "system", content: $system },
+                { role: "user", content: ("PR Title: " + $pr_title + "\n\nPR Description: " + $pr_body + "\n\nDiff:\n```\n" + $diff + "\n```") }
+              ],
+              response_format: {
+                type: "json_schema",
+                json_schema: {
+                  name: "code_review",
+                  strict: true,
+                  schema: $schema[0]
+                }
+              },
+              temperature: 0.1,
+              max_tokens: 4096
+            }' > /tmp/review-request.json
+
+          # Call OpenAI API
+          curl -s https://api.openai.com/v1/chat/completions \
+            -H "Authorization: Bearer $OPENAI_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d @/tmp/review-request.json > /tmp/review-response.json
+
+          # Check for API errors
+          ERROR=$(jq -r '.error.message // empty' /tmp/review-response.json)
+          if [ -n "$ERROR" ]; then
+            echo "::error::OpenAI API error: $ERROR"
+            exit 1
+          fi
+
+          # Extract the review content
+          jq -r '.choices[0].message.content' /tmp/review-response.json > /tmp/review.json
+
+          # Parse results for downstream steps
+          SHOULD_MERGE=$(jq -r '.should_merge' /tmp/review.json)
+          ISSUE_COUNT=$(jq '.issues | length' /tmp/review.json)
+          CRITICAL_COUNT=$(jq '[.issues[] | select(.severity == "critical" or .severity == "high")] | length' /tmp/review.json)
+
+          echo "should_merge=$SHOULD_MERGE" >> "$GITHUB_OUTPUT"
+          echo "issue_count=$ISSUE_COUNT" >> "$GITHUB_OUTPUT"
+          echo "critical_count=$CRITICAL_COUNT" >> "$GITHUB_OUTPUT"
+
+      - name: Format and post review comment
+        if: steps.rounds.outputs.round <= 3 && steps.review.outcome == 'success'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const review = JSON.parse(fs.readFileSync('/tmp/review.json', 'utf8'));
+            const round = parseInt('${{ steps.rounds.outputs.round }}');
+            const shouldMerge = review.should_merge;
+
+            let body = `<!-- codex-review-round:${round} -->\n`;
+            body += `## Codex Code Review (Round ${round}/3)\n\n`;
+            body += `**Assessment:** ${review.overall_assessment}\n`;
+            body += `**Recommendation:** ${shouldMerge ? 'Ready to merge' : 'Changes requested'}\n`;
+            body += `**Confidence:** ${review.confidence || 'N/A'}\n\n`;
+
+            if (review.issues && review.issues.length > 0) {
+              body += `### Issues Found (${review.issues.length})\n\n`;
+              for (const issue of review.issues) {
+                const icon = issue.severity === 'critical' ? '[CRITICAL]' :
+                             issue.severity === 'high' ? '[HIGH]' :
+                             issue.severity === 'medium' ? '[MEDIUM]' : '[LOW]';
+                body += `**${icon}** ${issue.title}\n`;
+                if (issue.file) body += `- File: \`${issue.file}${issue.line ? ':' + issue.line : ''}\`\n`;
+                body += `- ${issue.description}\n`;
+                if (issue.suggestion) body += `- Suggestion: *${issue.suggestion}*\n`;
+                body += `\n`;
+              }
+            } else {
+              body += `No issues found.\n\n`;
+            }
+
+            body += `---\n*Reviewed by GPT-5.2-Codex via GitHub Actions*`;
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: body,
+            });
+
+      - name: Notify Prismo via webhook (issues found, under round limit)
+        if: |
+          steps.rounds.outputs.round <= 3 &&
+          steps.review.outcome == 'success' &&
+          steps.review.outputs.should_merge == 'false'
+        env:
+          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
+          OPENCLAW_HOOK_TOKEN: ${{ secrets.OPENCLAW_HOOK_TOKEN }}
+        run: |
+          ROUND=${{ steps.rounds.outputs.round }}
+          PR_NUMBER=${{ github.event.pull_request.number }}
+          REPO=${{ github.repository }}
+
+          # Authenticate with GCP service account
+          echo "$GCP_SA_KEY" > /tmp/sa-key.json
+          gcloud auth activate-service-account --key-file=/tmp/sa-key.json --quiet
+          gcloud config set project digital-workforce-1 --quiet
+
+          # Build the webhook payload safely with jq
+          PAYLOAD=$(jq -n \
+            --arg type "code_review" \
+            --argjson round "$ROUND" \
+            --argjson pr_number "$PR_NUMBER" \
+            --arg repo "$REPO" \
+            --arg message "Codex review round $ROUND found issues on PR #$PR_NUMBER in $REPO. Read the review comments, fix the issues, and push to the same branch." \
+            '{type: $type, round: $round, pr_number: $pr_number, repo: $repo, message: $message}')
+
+          # SSH into VM and send webhook to OpenClaw
+          gcloud compute ssh admin@prismo-gateway \
+            --zone=europe-west1-b \
+            --project=digital-workforce-1 \
+            --tunnel-through-iap \
+            --command="curl -s -X POST http://127.0.0.1:18789/hooks/agent \
+              -H 'Content-Type: application/json' \
+              -H 'Authorization: Bearer ${OPENCLAW_HOOK_TOKEN}' \
+              -d '${PAYLOAD}'" \
+            2>/dev/null || echo "::warning::Could not reach Prismo webhook — VM may be unreachable"
+
+          # Clean up
+          rm -f /tmp/sa-key.json
+
+      - name: Escalate to user (max rounds exceeded)
+        if: |
+          steps.rounds.outputs.round > 3 ||
+          (steps.review.outcome == 'success' && steps.review.outputs.should_merge == 'false' && steps.rounds.outputs.round == 3)
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const round = parseInt('${{ steps.rounds.outputs.round }}');
+            let body = `## ⚠️ Review Escalation\n\n`;
+            body += `Automated review has run ${round} round(s) without reaching a clean state.\n`;
+            body += `@Defuera — this PR needs your manual review.\n\n`;
+            body += `---\n*Escalated by Codex Code Review Action*`;
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: body,
+            });

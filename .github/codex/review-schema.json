@@ -44,7 +44,7 @@
             "description": "Suggested fix or improvement"
           }
         },
-        "required": ["severity", "title", "description", "file"],
+        "required": ["severity", "title", "description", "file", "line", "suggestion"],
         "additionalProperties": false
       }
     }

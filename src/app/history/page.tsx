@@ -1,16 +1,19 @@
+"use client";
+
 import Link from "next/link";
-import { workoutRepository } from "@/lib/repositories";
+import { useQuery } from "convex/react";
+import { api } from "../../../convex/_generated/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatWeight } from "@/lib/units";
-export const dynamic = 'force-dynamic';
+import { Id } from "../../../convex/_generated/dataModel";
 
 type SessionWithExercisesAndSets = {
-  id: string;
-  date: Date;
+  _id: Id<"sessions">;
+  date: number;
   status: string;
   exercises: {
-    id: string;
+    _id: Id<"exercises">;
     name: string;
     sets: {
       reps: number;
@@ -20,10 +23,38 @@ type SessionWithExercisesAndSets = {
 };
 
 
-export default async function HistoryPage() {
-  const sessions = await workoutRepository.listRecentSessionsForUser("default-user", 10);
-  const user = await workoutRepository.getUser("default-user");
+export default function HistoryPage() {
+  const user = useQuery(api.users.getDefaultUser, {});
+  const sessions = useQuery(
+    api.sessions.listWithDetails,
+    user ? { userId: user._id, limit: 10 } : "skip"
+  );
+
   const unit = user?.unit ?? "metric";
+
+  // Show loading state while data is being fetched
+  if (user === undefined || sessions === undefined) {
+    return (
+      <div className="flex min-h-screen flex-col bg-zinc-50 dark:bg-zinc-950">
+        <main className="flex-1 px-4 pb-24">
+          <div className="mx-auto max-w-2xl space-y-6 pt-6">
+            <div>
+              <h2 className="mb-4 text-lg font-semibold text-zinc-900 dark:text-zinc-50">
+                Recent Sessions
+              </h2>
+              <Card className="text-center py-12">
+                <CardContent className="pt-6">
+                  <p className="text-zinc-600 dark:text-zinc-400">
+                    Loading...
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen flex-col bg-zinc-50 dark:bg-zinc-950">
@@ -68,11 +99,11 @@ export default async function HistoryPage() {
 
                   return (
                     <Link
-                      key={session.id}
+                      key={session._id}
                       href={
                         session.status === "active"
-                          ? `/session/${session.id}`
-                          : `/session/${session.id}/summary`
+                          ? `/session/${session._id}`
+                          : `/session/${session._id}/summary`
                       }
                     >
                       <Card className="transition-all active:scale-[0.98] hover:shadow-md">

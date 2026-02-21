@@ -325,6 +325,7 @@ export const workoutRepository = {
     const convexUserId = await resolveUserId(userId);
     return await client.query(api.analytics.getAnalytics, {
       userId: convexUserId,
+      currentTime: Date.now(),
     });
   },
 

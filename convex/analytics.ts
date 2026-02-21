@@ -5,12 +5,12 @@ import { query } from "./_generated/server";
 export const getAnalytics = query({
   args: {
     userId: v.id("users"),
+    currentTime: v.number(),
   },
   handler: async (ctx, args) => {
-    const now = Date.now();
     const oneWeekMs = 7 * 24 * 60 * 60 * 1000;
-    // Calculate proper calendar week boundaries (Monday-based, UTC)
-    const nowDate = new Date(now);
+    // Week boundaries computed from client-provided time (avoids Convex caching Date.now())
+    const nowDate = new Date(args.currentTime);
     const dayOfWeek = nowDate.getUTCDay(); // 0=Sun, 1=Mon, ...6=Sat
     const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
     const startOfThisWeek = Date.UTC(

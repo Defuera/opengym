@@ -1,16 +1,35 @@
-import { workoutRepository } from "@/lib/repositories";
+"use client";
+
+import { useState } from "react";
+import { useQuery } from "convex/react";
+import { api } from "../../convex/_generated/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatWeight } from "@/lib/units";
 import Link from "next/link";
 import { AnalyticsCharts } from "./analytics/analytics-charts";
-export const dynamic = 'force-dynamic';
 
-export default async function Home() {
-  const analytics = await workoutRepository.getAnalytics("default-user");
-  const exerciseAnalytics = await workoutRepository.getExerciseAnalytics("default-user");
-  const user = await workoutRepository.getUser("default-user");
+export default function Home() {
+  const [currentTime] = useState(() => Date.now());
+  const user = useQuery(api.users.getDefaultUser, {});
+  const analytics = useQuery(
+    api.analytics.getAnalytics,
+    user ? { userId: user._id, currentTime } : "skip"
+  );
+  const exerciseAnalytics = useQuery(
+    api.analytics.getExerciseAnalytics,
+    user ? { userId: user._id } : "skip"
+  );
+
   const unit = user?.unit ?? "metric";
+
+  if (!analytics || !exerciseAnalytics) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-zinc-50 dark:bg-zinc-950">
+        <div className="text-lg text-muted-foreground">Loading...</div>
+      </div>
+    );
+  }
 
   // Calculate week-over-week change
   const weekChange =

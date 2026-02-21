@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { ComposedChart, Line, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, Legend } from "recharts";
 import { convertWeightForDisplay } from "@/lib/units";
 
@@ -8,6 +9,8 @@ type ExerciseProgressData = {
   weight: number;
   volume: number;
 };
+
+type TimeRange = "1M" | "3M" | "All";
 
 export function ExerciseProgressChart({
   weightData,
@@ -18,6 +21,8 @@ export function ExerciseProgressChart({
   volumeData: { date: number; volume: number }[];
   unit: "metric" | "imperial";
 }) {
+  const [timeRange, setTimeRange] = useState<TimeRange>("3M");
+
   // Merge weight and volume data by date
   const dateMap = new Map<number, { weight: number; volume: number }>();
 
@@ -33,9 +38,10 @@ export function ExerciseProgressChart({
     }
   }
 
-  const chartData = Array.from(dateMap.entries())
+  const allChartData = Array.from(dateMap.entries())
     .sort(([a], [b]) => a - b)
     .map(([date, values]) => ({
+      timestamp: date,
       date: new Date(date).toLocaleDateString("en-US", {
         month: "short",
         day: "numeric",
@@ -44,11 +50,41 @@ export function ExerciseProgressChart({
       volume: Math.round(convertWeightForDisplay(values.volume, unit)),
     }));
 
+  // Filter data based on time range
+  const now = Date.now();
+  const cutoffTime =
+    timeRange === "1M" ? now - 30 * 24 * 60 * 60 * 1000 :
+    timeRange === "3M" ? now - 90 * 24 * 60 * 60 * 1000 :
+    0;
+
+  const chartData = timeRange === "All"
+    ? allChartData
+    : allChartData.filter(d => d.timestamp >= cutoffTime);
+
   const unitLabel = unit === "metric" ? "kg" : "lbs";
 
   return (
-    <div className="h-56 w-full">
-      <ResponsiveContainer width="100%" height="100%">
+    <div className="space-y-4">
+      <div className="flex justify-end">
+        <div className="inline-flex items-center rounded-full bg-zinc-100 dark:bg-zinc-800 p-1">
+          {(["1M", "3M", "All"] as TimeRange[]).map((range) => (
+            <button
+              key={range}
+              onClick={() => setTimeRange(range)}
+              className={`px-3 py-1 text-xs font-medium rounded-full transition-colors ${
+                timeRange === range
+                  ? "bg-blue-500 text-white"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {range}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="h-56 w-full">
+        <ResponsiveContainer width="100%" height="100%">
         <ComposedChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 10 }}>
           <XAxis
             dataKey="date"
@@ -106,6 +142,7 @@ export function ExerciseProgressChart({
           />
         </ComposedChart>
       </ResponsiveContainer>
+      </div>
     </div>
   );
 }

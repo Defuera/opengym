@@ -1,20 +1,32 @@
-import { workoutRepository } from "@/lib/repositories";
+"use client";
+
+import { useParams } from "next/navigation";
+import { useQuery } from "convex/react";
+import { api } from "../../../../convex/_generated/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatWeight } from "@/lib/units";
 import { ExerciseProgressChart } from "./exercise-charts";
 import { SessionHistory } from "./session-history";
-export const dynamic = 'force-dynamic';
 
-export default async function ExerciseDetailPage({
-  params,
-}: {
-  params: Promise<{ exerciseName: string }>;
-}) {
-  const { exerciseName } = await params;
-  const decodedName = decodeURIComponent(exerciseName);
-  const exerciseDetail = await workoutRepository.getExerciseDetail("default-user", decodedName);
-  const user = await workoutRepository.getUser("default-user");
-  const unit = user?.unit ?? "metric";
+export default function ExerciseDetailPage() {
+  const params = useParams();
+  const decodedName = decodeURIComponent(params.exerciseName as string);
+
+  const user = useQuery(api.users.getDefaultUser, {});
+  const exerciseDetail = useQuery(
+    api.analytics.getExerciseDetail,
+    user ? { userId: user._id, exerciseName: decodedName } : "skip"
+  );
+
+  if (!exerciseDetail || !user) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-zinc-50 dark:bg-zinc-950">
+        <p className="text-muted-foreground">Loading...</p>
+      </div>
+    );
+  }
+
+  const unit = user.unit ?? "metric";
 
   const { personalRecords, weightProgression, volumePerSession, sessionHistory } = exerciseDetail;
 

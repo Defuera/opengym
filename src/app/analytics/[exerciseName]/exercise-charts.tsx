@@ -62,6 +62,7 @@ export function ExerciseProgressChart({
     : allChartData.filter(d => d.timestamp >= cutoffTime);
 
   const unitLabel = unit === "metric" ? "kg" : "lbs";
+  const manyPoints = chartData.length > 12;
 
   return (
     <div className="space-y-4">
@@ -83,7 +84,7 @@ export function ExerciseProgressChart({
         </div>
       </div>
 
-      <div className="h-56 w-full">
+      <div className="h-64 w-full">
         <ResponsiveContainer width="100%" height="100%">
         <ComposedChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 10 }}>
           <XAxis
@@ -91,6 +92,7 @@ export function ExerciseProgressChart({
             axisLine={false}
             tickLine={false}
             tick={{ fill: "#9ca3af", fontSize: 11 }}
+            interval={manyPoints ? Math.floor(chartData.length / 5) : 0}
           />
           <YAxis
             yAxisId="volume"
@@ -136,7 +138,7 @@ export function ExerciseProgressChart({
             dataKey="weight"
             stroke="#3b82f6"
             strokeWidth={2}
-            dot={{ fill: "#3b82f6", r: 4 }}
+            dot={manyPoints ? false : { fill: "#3b82f6", r: 4 }}
             activeDot={{ r: 6 }}
             connectNulls
           />

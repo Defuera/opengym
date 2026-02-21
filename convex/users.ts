@@ -9,6 +9,15 @@ export const get = query({
   },
 });
 
+// Get the default user (for development/testing)
+export const getDefaultUser = query({
+  args: {},
+  handler: async (ctx) => {
+    const users = await ctx.db.query("users").collect();
+    return users.find((u) => u.name === "Default User") ?? null;
+  },
+});
+
 // Create a new user
 export const create = mutation({
   args: {

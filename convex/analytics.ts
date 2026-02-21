@@ -9,7 +9,15 @@ export const getAnalytics = query({
   handler: async (ctx, args) => {
     const now = Date.now();
     const oneWeekMs = 7 * 24 * 60 * 60 * 1000;
-    const startOfThisWeek = now - (now % oneWeekMs);
+    // Calculate proper calendar week boundaries (Monday-based, UTC)
+    const nowDate = new Date(now);
+    const dayOfWeek = nowDate.getUTCDay(); // 0=Sun, 1=Mon, ...6=Sat
+    const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+    const startOfThisWeek = Date.UTC(
+      nowDate.getUTCFullYear(),
+      nowDate.getUTCMonth(),
+      nowDate.getUTCDate() - daysToMonday
+    );
     const startOfLastWeek = startOfThisWeek - oneWeekMs;
 
     // Get all completed sessions

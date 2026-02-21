@@ -210,6 +210,26 @@ export const create = mutation({
   },
 });
 
+// Delete a session and all its exercises and sets
+export const deleteSession = mutation({
+  args: { id: v.id("sessions") },
+  handler: async (ctx, args) => {
+    const exercises = await ctx.db
+      .query("exercises")
+      .withIndex("by_session", (q) => q.eq("sessionId", args.id))
+      .collect();
+    for (const exercise of exercises) {
+      const sets = await ctx.db
+        .query("sets")
+        .withIndex("by_exercise", (q) => q.eq("exerciseId", exercise._id))
+        .collect();
+      for (const set of sets) await ctx.db.delete(set._id);
+      await ctx.db.delete(exercise._id);
+    }
+    await ctx.db.delete(args.id);
+  },
+});
+
 // Update session status
 export const updateStatus = mutation({
   args: {

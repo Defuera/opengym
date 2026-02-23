@@ -86,7 +86,7 @@ export function ExerciseProgressChart({
 
       <div className="h-64 w-full">
         <ResponsiveContainer width="100%" height="100%">
-        <ComposedChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 10 }}>
+        <ComposedChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 10 }} barCategoryGap="35%">
           <XAxis
             dataKey="date"
             axisLine={false}

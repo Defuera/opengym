@@ -1,23 +1,50 @@
-import { workoutRepository } from "@/lib/repositories";
-import { notFound } from "next/navigation";
+"use client";
+
+import { useParams } from "next/navigation";
+import { useQuery } from "convex/react";
+import { api } from "../../../../convex/_generated/api";
 import SessionView from "./session-view";
-export const dynamic = 'force-dynamic';
 
-export default async function SessionPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
-  const { id } = await params;
+export default function SessionPage() {
+  const params = useParams();
+  const id = params.id as string;
 
-  const session = await workoutRepository.getSessionWithDetails(id);
+  const user = useQuery(api.users.getDefaultUser, {});
+  const session = useQuery(api.sessions.getWithDetails, { id: id as any });
 
-  if (!session) {
-    notFound();
+  if (user === undefined || session === undefined) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-zinc-50 dark:bg-zinc-950">
+        <p className="text-zinc-600 dark:text-zinc-400">Loading...</p>
+      </div>
+    );
   }
 
-  const user = await workoutRepository.getUser("default-user");
+  if (!session) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-zinc-50 dark:bg-zinc-950">
+        <p className="text-zinc-600 dark:text-zinc-400">Session not found</p>
+      </div>
+    );
+  }
+
   const unit = user?.unit ?? "metric";
 
-  return <SessionView session={session} unit={unit} />;
+  // Map Convex types (_id/number) to what SessionView expects (id/Date)
+  const normalizedSession = {
+    ...session,
+    id: session._id,
+    date: new Date(session.date),
+    exercises: session.exercises.map((ex) => ({
+      ...ex,
+      id: ex._id,
+      sets: ex.sets.map((s) => ({
+        ...s,
+        id: s._id,
+        status: (s.status ?? "todo") as "todo" | "later" | "complete",
+      })),
+    })),
+  };
+
+  return <SessionView session={normalizedSession as any} unit={unit} />;
 }

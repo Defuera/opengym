@@ -91,8 +91,11 @@ export function ExerciseProgressChart({
             dataKey="date"
             axisLine={false}
             tickLine={false}
-            tick={{ fill: "#9ca3af", fontSize: 11 }}
-            interval={manyPoints ? Math.floor(chartData.length / 5) : 0}
+            tick={{ fill: "#9ca3af", fontSize: 10 }}
+            angle={-35}
+            textAnchor="end"
+            interval={manyPoints ? Math.floor(chartData.length / 5) : "preserveStartEnd"}
+            height={50}
           />
           <YAxis
             yAxisId="volume"

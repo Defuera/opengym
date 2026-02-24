@@ -3,27 +3,26 @@
 import { useState } from "react";
 import { useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
 import { formatWeight } from "@/lib/units";
 import Link from "next/link";
-import { AnalyticsCharts } from "./analytics/analytics-charts";
+import { WeeklyCarousel } from "@/components/weekly-carousel";
 
 export default function Home() {
   const [currentTime] = useState(() => Date.now());
   const user = useQuery(api.users.getDefaultUser, {});
-  const analytics = useQuery(
-    api.analytics.getAnalytics,
-    user ? { userId: user._id, currentTime } : "skip"
-  );
   const exerciseAnalytics = useQuery(
     api.analytics.getExerciseAnalytics,
     user ? { userId: user._id } : "skip"
   );
+  const weeklyData = useQuery(
+    api.sessions.getWeeklySessionsWithSummaries,
+    user ? { userId: user._id, weeksBack: 8 } : "skip"
+  );
 
   const unit = user?.unit ?? "metric";
 
-  if (!analytics || !exerciseAnalytics) {
+  if (!exerciseAnalytics || !weeklyData) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-zinc-50 dark:bg-zinc-950">
         <div className="text-lg text-muted-foreground">Loading...</div>
@@ -31,115 +30,15 @@ export default function Home() {
     );
   }
 
-  // Calculate week-over-week change
-  const weekChange =
-    analytics.lastWeek.totalVolume > 0
-      ? ((analytics.currentWeek.totalVolume - analytics.lastWeek.totalVolume) /
-          analytics.lastWeek.totalVolume) *
-        100
-      : 0;
-
   return (
     <div className="flex min-h-screen flex-col bg-zinc-50 dark:bg-zinc-950">
       <main className="flex-1 px-4 pb-24">
         <div className="mx-auto max-w-2xl space-y-6 pt-6">
-          {/* Last Session Card */}
-          {analytics.lastSession && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Last Session</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">
-                    {new Date(analytics.lastSession.date).toLocaleDateString("en-US", {
-                      weekday: "short",
-                      month: "short",
-                      day: "numeric",
-                    })}
-                  </span>
-                  <span className="font-medium">
-                    {formatWeight(analytics.lastSession.volume, unit)}
-                  </span>
-                </div>
-                <div className="text-sm text-muted-foreground">
-                  {analytics.lastSession.exercises.join(", ")}
-                </div>
-                {analytics.lastSession.comparison && (
-                  <div className="flex items-center gap-2 text-sm">
-                    <span className="text-muted-foreground">vs similar session:</span>
-                    {analytics.lastSession.comparison.percentChange > 0 ? (
-                      <Badge variant="default" className="bg-green-600">
-                        ↑ {Math.abs(Math.round(analytics.lastSession.comparison.percentChange))}%
-                      </Badge>
-                    ) : analytics.lastSession.comparison.percentChange < 0 ? (
-                      <Badge variant="secondary">
-                        ↓ {Math.abs(Math.round(analytics.lastSession.comparison.percentChange))}%
-                      </Badge>
-                    ) : (
-                      <Badge variant="secondary">→ 0%</Badge>
-                    )}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Weekly Stats */}
-          <div className="grid grid-cols-2 gap-3">
-            <Card>
-              <CardContent className="pt-6">
-                <p className="text-sm text-muted-foreground mb-1">This Week</p>
-                <p className="text-2xl font-bold">
-                  {analytics.currentWeek.sessionCount}
-                </p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {analytics.currentWeek.sessionCount === 1 ? "session" : "sessions"}
-                </p>
-                <p className="text-lg font-semibold mt-2">
-                  {formatWeight(analytics.currentWeek.totalVolume, unit)}
-                </p>
-                {weekChange !== 0 && (
-                  <div className="mt-2">
-                    {weekChange > 0 ? (
-                      <Badge variant="default" className="bg-green-600 text-xs">
-                        ↑ {Math.abs(Math.round(weekChange))}%
-                      </Badge>
-                    ) : (
-                      <Badge variant="secondary" className="text-xs">
-                        ↓ {Math.abs(Math.round(weekChange))}%
-                      </Badge>
-                    )}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardContent className="pt-6">
-                <p className="text-sm text-muted-foreground mb-1">Last Week</p>
-                <p className="text-2xl font-bold">
-                  {analytics.lastWeek.sessionCount}
-                </p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {analytics.lastWeek.sessionCount === 1 ? "session" : "sessions"}
-                </p>
-                <p className="text-lg font-semibold mt-2">
-                  {formatWeight(analytics.lastWeek.totalVolume, unit)}
-                </p>
-              </CardContent>
-            </Card>
+          {/* Weekly Carousel */}
+          <div>
+            <h2 className="mb-3 text-lg font-semibold">Weekly Overview</h2>
+            <WeeklyCarousel weeks={weeklyData} />
           </div>
-
-          {/* Monthly Trend Chart */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Last 4 Weeks</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <AnalyticsCharts data={analytics.weeklyTrend} unit={unit} />
-            </CardContent>
-          </Card>
 
           {/* Exercise Cards */}
           <div>
@@ -172,7 +71,8 @@ export default function Home() {
                                 {formatWeight(exercise.lastWeight, unit)}
                               </p>
                               <p className="text-xs text-muted-foreground">
-                                {exercise.sessionCount} {exercise.sessionCount === 1 ? "session" : "sessions"}
+                                {exercise.sessionCount}{" "}
+                                {exercise.sessionCount === 1 ? "session" : "sessions"}
                               </p>
                             </div>
                             <div className="text-2xl">

@@ -179,8 +179,9 @@ jobs:
             --argjson round "$ROUND" \
             --argjson pr_number "$PR_NUMBER" \
             --arg repo "$REPO" \
+            --arg sessionKey "hook:codex:${REPO}:pr-${PR_NUMBER}" \
             --arg message "Codex review round $ROUND found issues on PR #$PR_NUMBER in $REPO. Read the review comments, fix the issues, and push to the same branch." \
-            '{type: $type, round: $round, pr_number: $pr_number, repo: $repo, message: $message}')
+            '{type: $type, round: $round, pr_number: $pr_number, repo: $repo, sessionKey: $sessionKey, message: $message}')
 
           # SSH into VM and send webhook to OpenClaw
           gcloud compute ssh admin@prismo-gateway \

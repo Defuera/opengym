@@ -248,7 +248,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const effectiveUserId = userId ?? "default-user";
+    // TODO: In production, derive userId from server-side auth (cookie/JWT) rather than trusting client payload
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized: no user session" }, { status: 401 });
+    }
+    const effectiveUserId = userId as string;
     const convex = getConvexClient();
     const model = process.env.OPENAI_MODEL || "gpt-4o-mini";
 

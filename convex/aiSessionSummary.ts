@@ -197,19 +197,15 @@ export const listSessionsWithoutSummaries = internalQuery({
       .filter((q) => q.eq(q.field("status"), "completed"))
       .collect();
 
-    // Check each session for an existing summary using the by_session index
-    const result = [];
-    for (const session of sessions) {
-      const existing = await ctx.db
-        .query("sessionSummaries")
-        .withIndex("by_session", (q) => q.eq("sessionId", session._id))
-        .first();
-      if (!existing) {
-        result.push(session);
-      }
-    }
+    // Fetch all summaries for this user in a single query to avoid N+1
+    const allSummaries = await ctx.db
+      .query("sessionSummaries")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .collect();
+    const sessionIdsWithSummary = new Set(allSummaries.map((s) => s.sessionId));
 
-    return result;
+    // Filter sessions in memory
+    return sessions.filter((session) => !sessionIdsWithSummary.has(session._id));
   },
 });
 
@@ -223,10 +219,22 @@ export const backfillSessionSummaries = action({
     userId: v.id("users"),
   },
   handler: async (ctx, args): Promise<{ generated: number; errors: number }> => {
-    // Verify the user exists
+    // Verify the caller is authenticated via Convex auth
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error("Unauthorized: not authenticated");
+    }
+    // Verify the requested userId corresponds to a real user
+    // and that the authenticated identity's subject matches the userId
+    // (Convex stores the subject as the user's unique identifier)
     const user = await ctx.runQuery(api.users.get, { id: args.userId });
     if (!user) {
-      throw new Error("Unauthorized: invalid user");
+      throw new Error("Unauthorized: invalid userId");
+    }
+    // Ensure the authenticated identity subject corresponds to this userId
+    // The identity.subject uniquely identifies the authenticated user
+    if (identity.subject !== args.userId) {
+      throw new Error("Unauthorized: caller does not match the requested userId");
     }
 
     const sessions = await ctx.runQuery(

@@ -183,36 +183,55 @@ export const storeSessionSummary = internalMutation({
 });
 
 /**
- * Internal query: fetch all completed sessions that don't yet have a summary.
+ * Internal query: fetch completed sessions for a user that don't yet have a summary.
  */
 export const listSessionsWithoutSummaries = internalQuery({
-  args: {},
-  handler: async (ctx) => {
-    // Fetch all completed sessions
+  args: {
+    userId: v.id("users"),
+  },
+  handler: async (ctx, args) => {
+    // Fetch completed sessions for this user
     const sessions = await ctx.db
       .query("sessions")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
       .filter((q) => q.eq(q.field("status"), "completed"))
       .collect();
 
-    // Get all existing session summary IDs
-    const summaries = await ctx.db.query("sessionSummaries").collect();
-    const summarizedSessionIds = new Set(summaries.map((s) => s.sessionId as string));
+    // Check each session for an existing summary using the by_session index
+    const result = [];
+    for (const session of sessions) {
+      const existing = await ctx.db
+        .query("sessionSummaries")
+        .withIndex("by_session", (q) => q.eq("sessionId", session._id))
+        .first();
+      if (!existing) {
+        result.push(session);
+      }
+    }
 
-    // Return sessions without summaries
-    return sessions.filter((s) => !summarizedSessionIds.has(s._id as string));
+    return result;
   },
 });
 
 /**
  * Public action: backfill AI summaries for all completed sessions that don't have one yet.
  * Can be triggered from the Convex dashboard or the Settings page.
+ * Requires a valid userId to ensure only authenticated users can trigger it.
  */
 export const backfillSessionSummaries = action({
-  args: {},
-  handler: async (ctx): Promise<{ generated: number; errors: number }> => {
+  args: {
+    userId: v.id("users"),
+  },
+  handler: async (ctx, args): Promise<{ generated: number; errors: number }> => {
+    // Verify the user exists
+    const user = await ctx.runQuery(api.users.get, { id: args.userId });
+    if (!user) {
+      throw new Error("Unauthorized: invalid user");
+    }
+
     const sessions = await ctx.runQuery(
       internal.aiSessionSummary.listSessionsWithoutSummaries,
-      {}
+      { userId: args.userId }
     );
 
     let generated = 0;

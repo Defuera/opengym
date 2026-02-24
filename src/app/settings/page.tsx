@@ -16,7 +16,7 @@ export default function SettingsPage() {
     setBackfillLoading(true);
     setBackfillStatus(null);
     try {
-      const result = await backfillSummaries({});
+      const result = await backfillSummaries({ userId: user!._id });
       setBackfillStatus(`Done! Generated ${result.generated} summaries${result.errors > 0 ? `, ${result.errors} errors` : ""}.`);
     } catch (err) {
       setBackfillStatus(`Error: ${err instanceof Error ? err.message : String(err)}`);

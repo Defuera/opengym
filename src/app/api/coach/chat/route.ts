@@ -248,7 +248,16 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // TODO: In production, derive userId from server-side auth (cookie/JWT) rather than trusting client payload
+    // SECURITY TODO: This route currently trusts the userId supplied by the client.
+    // When Clerk (or another auth provider) is integrated:
+    //   1. Import `auth()` from "@clerk/nextjs/server" (or equivalent).
+    //   2. Replace the block below with:
+    //        const { userId: clerkId } = auth();
+    //        if (!clerkId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    //        const effectiveUserId = clerkId;
+    //   3. Remove `userId` from the request body entirely.
+    // Until then, the Convex tool handlers enforce ownership on write operations
+    // by verifying the session/exercise belongs to the supplied userId before mutating.
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized: no user session" }, { status: 401 });
     }

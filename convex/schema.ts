@@ -25,10 +25,15 @@ export default defineSchema({
 
   exercises: defineTable({
     sessionId: v.id("sessions"),
+    // userId is stored here for efficient by-user queries (avoids N+1 through sessions).
+    // Optional for backward compatibility with records created before this field was added.
+    userId: v.optional(v.id("users")),
     name: v.string(),
     muscleGroup: v.string(),
     order: v.number(),
-  }).index("by_session", ["sessionId"]),
+  })
+    .index("by_session", ["sessionId"])
+    .index("by_user", ["userId"]),
 
   sets: defineTable({
     exerciseId: v.id("exercises"),

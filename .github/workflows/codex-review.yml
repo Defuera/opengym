@@ -179,19 +179,23 @@ jobs:
             --argjson round "$ROUND" \
             --argjson pr_number "$PR_NUMBER" \
             --arg repo "$REPO" \
+            --arg sessionKey "hook:codex:${REPO}:pr-${PR_NUMBER}" \
             --arg message "Codex review round $ROUND found issues on PR #$PR_NUMBER in $REPO. Read the review comments, fix the issues, and push to the same branch." \
-            '{type: $type, round: $round, pr_number: $pr_number, repo: $repo, message: $message}')
+            '{type: $type, round: $round, pr_number: $pr_number, repo: $repo, sessionKey: $sessionKey, message: $message}')
 
           # SSH into VM and send webhook to OpenClaw
           gcloud compute ssh admin@prismo-gateway \
             --zone=europe-west1-b \
             --project=digital-workforce-1 \
             --tunnel-through-iap \
+            --quiet \
+            --ssh-flag="-o StrictHostKeyChecking=no" \
+            --ssh-flag="-o UserKnownHostsFile=/dev/null" \
             --command="curl -s -X POST http://127.0.0.1:18789/hooks/agent \
               -H 'Content-Type: application/json' \
               -H 'Authorization: Bearer ${OPENCLAW_HOOK_TOKEN}' \
               -d '${PAYLOAD}'" \
-            2>/dev/null || echo "::warning::Could not reach Prismo webhook — VM may be unreachable"
+            || echo "::warning::Could not reach Prismo webhook — VM may be unreachable"
 
           # Clean up
           rm -f /tmp/sa-key.json

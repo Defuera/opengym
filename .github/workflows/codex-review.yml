@@ -187,11 +187,14 @@ jobs:
             --zone=europe-west1-b \
             --project=digital-workforce-1 \
             --tunnel-through-iap \
+            --quiet \
+            --ssh-flag="-o StrictHostKeyChecking=no" \
+            --ssh-flag="-o UserKnownHostsFile=/dev/null" \
             --command="curl -s -X POST http://127.0.0.1:18789/hooks/agent \
               -H 'Content-Type: application/json' \
               -H 'Authorization: Bearer ${OPENCLAW_HOOK_TOKEN}' \
               -d '${PAYLOAD}'" \
-            2>/dev/null || echo "::warning::Could not reach Prismo webhook — VM may be unreachable"
+            || echo "::warning::Could not reach Prismo webhook — VM may be unreachable"
 
           # Clean up
           rm -f /tmp/sa-key.json

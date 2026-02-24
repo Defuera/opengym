@@ -12,6 +12,7 @@ export default defineSchema({
 
   sessions: defineTable({
     userId: v.id("users"),
+    name: v.optional(v.string()),
     date: v.number(),
     status: v.union(
       v.literal("planned"),

@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "test": "NODE_ENV=development vitest run",
+    "test": "vitest run",
     "test:headless": "./tests/run-compiled.sh",
     "db:seed": "node -r dotenv/config prisma/seed-compiled.js",
     "validate": "prisma generate && tsc --noEmit && npm run test",
@@ -30,7 +30,7 @@
     "radix-ui": "^1.4.3",
     "react": "19.2.3",
     "react-dom": "19.2.3",
-    "react-markdown": "^10.1.0",
+    "react-markdown": "9.0.1",
     "recharts": "^3.7.0",
     "tailwind-merge": "^3.4.1",
     "vaul": "^1.1.2"

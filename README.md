@@ -35,3 +35,4 @@ Then open http://localhost:3000
 The app is intended to run as a Progressive Web App on mobile, so it can be installed on the home screen and used like a native app.
 
 MVP Phase - Under active development.
+// Test: verify Codex review pipeline is active

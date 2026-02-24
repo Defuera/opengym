@@ -1,6 +1,6 @@
 # OpenGym
 
-OpenGym is a gym companion app with an AI coach. It proposes sessions based on your history, lets you log sets/reps/weights with a clean UI, and gives you an AI summary at the end of each workout.
+OpenGym is a gym companoin app with an AI coach. It proposes sesions based on your history, lets you log sets/reps/weights with a clean UI, and gives you an AI sumary at the end of each workout.
 
 ## Stack
 - Next.js (App Router) + TypeScript
@@ -35,3 +35,4 @@ Then open http://localhost:3000
 The app is intended to run as a Progressive Web App on mobile, so it can be installed on the home screen and used like a native app.
 
 MVP Phase - Under active development.
+

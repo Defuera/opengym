@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { internalAction } from "./_generated/server";
+import { action, internalAction, internalQuery } from "./_generated/server";
 import { api, internal } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
 
@@ -179,5 +179,58 @@ export const storeSessionSummary = internalMutation({
       muscleGroups: args.muscleGroups,
       generatedAt: Date.now(),
     });
+  },
+});
+
+/**
+ * Internal query: fetch all completed sessions that don't yet have a summary.
+ */
+export const listSessionsWithoutSummaries = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    // Fetch all completed sessions
+    const sessions = await ctx.db
+      .query("sessions")
+      .filter((q) => q.eq(q.field("status"), "completed"))
+      .collect();
+
+    // Get all existing session summary IDs
+    const summaries = await ctx.db.query("sessionSummaries").collect();
+    const summarizedSessionIds = new Set(summaries.map((s) => s.sessionId as string));
+
+    // Return sessions without summaries
+    return sessions.filter((s) => !summarizedSessionIds.has(s._id as string));
+  },
+});
+
+/**
+ * Public action: backfill AI summaries for all completed sessions that don't have one yet.
+ * Can be triggered from the Convex dashboard or the Settings page.
+ */
+export const backfillSessionSummaries = action({
+  args: {},
+  handler: async (ctx): Promise<{ generated: number; errors: number }> => {
+    const sessions = await ctx.runQuery(
+      internal.aiSessionSummary.listSessionsWithoutSummaries,
+      {}
+    );
+
+    let generated = 0;
+    let errors = 0;
+
+    for (const session of sessions) {
+      try {
+        await ctx.runAction(internal.aiSessionSummary.generateSessionSummary, {
+          sessionId: session._id,
+        });
+        generated++;
+      } catch (err) {
+        console.error("backfillSessionSummaries: failed for session", session._id, err);
+        errors++;
+      }
+    }
+
+    console.log(`backfillSessionSummaries: generated=${generated}, errors=${errors}`);
+    return { generated, errors };
   },
 });

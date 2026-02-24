@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 
 type SessionSummary = {
@@ -80,6 +80,17 @@ export function WeeklyCarousel({ weeks }: WeeklyCarouselProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
 
+  // Auto-scroll to the rightmost (current week) card on mount
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (el) {
+      el.scrollLeft = el.scrollWidth;
+    }
+  }, []);
+
+  // Render oldest week first, current week last (rightmost)
+  const reversedWeeks = [...weeks].reverse();
+
   return (
     <div
       ref={scrollRef}
@@ -91,7 +102,9 @@ export function WeeklyCarousel({ weeks }: WeeklyCarouselProps) {
         msOverflowStyle: "none",
       }}
     >
-      {weeks.map((week, index) => {
+      {reversedWeeks.map((week, reversedIndex) => {
+        // Map reversed index back to original index (0 = current week, 1 = last week, ...)
+        const index = reversedWeeks.length - 1 - reversedIndex;
         const label = formatWeekLabel(week.weekStart, index);
         const overallTrend = weekOverallTrend(week.sessions);
 

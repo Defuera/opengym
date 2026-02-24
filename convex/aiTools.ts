@@ -56,6 +56,7 @@ export const getSessionDetail = query({
     const sessionId = args.sessionId as Id<"sessions">;
     const session = await ctx.db.get(sessionId);
     if (!session) return null;
+    if (session.userId !== (args.userId as Id<"users">)) return null;
 
     const exercises = await ctx.db
       .query("exercises")
@@ -116,42 +117,44 @@ export const getExerciseHistory = query({
       .order("desc")
       .collect();
 
-    const results: Array<{
-      sessionId: string;
-      sessionDate: number;
-      sessionName: string | null;
-      sets: Array<{ reps: number; weight: number; status?: string }>;
-    }> = [];
+    // Fetch all exercises for all sessions in parallel
+    const exercisesBySession = await Promise.all(
+      sessions.map((session) =>
+        ctx.db.query("exercises")
+          .withIndex("by_session", (q) => q.eq("sessionId", session._id))
+          .collect()
+          .then((exercises) => ({ session, exercises }))
+      )
+    );
 
-    for (const session of sessions) {
-      if (results.length >= limit) break;
+    // Find matching exercises and limit
+    const matches = exercisesBySession
+      .filter(({ exercises }) =>
+        exercises.some((e) => e.name.toLowerCase() === args.exerciseName.toLowerCase())
+      )
+      .slice(0, limit)
+      .map(({ session, exercises }) => ({
+        session,
+        exercise: exercises.find((e) => e.name.toLowerCase() === args.exerciseName.toLowerCase())!,
+      }));
 
-      const exercises = await ctx.db
-        .query("exercises")
-        .withIndex("by_session", (q) => q.eq("sessionId", session._id))
-        .collect();
-
-      const match = exercises.find(
-        (e) => e.name.toLowerCase() === args.exerciseName.toLowerCase()
-      );
-
-      if (match) {
+    // Fetch sets for all matches in parallel
+    const results = await Promise.all(
+      matches.map(async ({ session, exercise }) => {
         const sets = await ctx.db
           .query("sets")
-          .withIndex("by_exercise", (q) => q.eq("exerciseId", match._id))
+          .withIndex("by_exercise", (q) => q.eq("exerciseId", exercise._id))
           .collect();
-
-        results.push({
+        return {
           sessionId: session._id as string,
           sessionDate: session.date,
           sessionName: session.name ?? null,
           sets: sets
             .sort((a, b) => a.order - b.order)
             .map((s) => ({ reps: s.reps, weight: s.weight, status: s.status })),
-        });
-      }
-    }
-
+        };
+      })
+    );
     return results;
   },
 });
@@ -169,25 +172,20 @@ export const getExercises = query({
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .collect();
 
+    const allExercisesArrays = await Promise.all(
+      sessions.map((session) =>
+        ctx.db.query("exercises").withIndex("by_session", (q) => q.eq("sessionId", session._id)).collect()
+      )
+    );
     const seen = new Map<string, { name: string; muscleGroup: string; exerciseId: string }>();
-
-    for (const session of sessions) {
-      const exercises = await ctx.db
-        .query("exercises")
-        .withIndex("by_session", (q) => q.eq("sessionId", session._id))
-        .collect();
+    for (const exercises of allExercisesArrays) {
       for (const e of exercises) {
         const key = e.name.toLowerCase();
         if (!seen.has(key)) {
-          seen.set(key, {
-            name: e.name,
-            muscleGroup: e.muscleGroup,
-            exerciseId: e._id as string,
-          });
+          seen.set(key, { name: e.name, muscleGroup: e.muscleGroup, exerciseId: e._id as string });
         }
       }
     }
-
     return Array.from(seen.values());
   },
 });
@@ -226,7 +224,17 @@ export const logSet = mutation({
     weight: v.number(),
   },
   handler: async (ctx, args) => {
+    const sessionId = args.sessionId as Id<"sessions">;
+    const session = await ctx.db.get(sessionId);
+    if (!session || session.userId !== (args.userId as Id<"users">)) {
+      throw new Error("Session not found or access denied");
+    }
+
     const exerciseId = args.exerciseId as Id<"exercises">;
+    const exercise = await ctx.db.get(exerciseId);
+    if (!exercise || exercise.sessionId !== sessionId) {
+      throw new Error("Exercise not found or does not belong to this session");
+    }
 
     // Get existing sets for ordering
     const existingSets = await ctx.db
@@ -243,7 +251,6 @@ export const logSet = mutation({
     });
 
     // Update session updatedAt
-    const sessionId = args.sessionId as Id<"sessions">;
     await ctx.db.patch(sessionId, { updatedAt: Date.now() });
 
     return setId as string;
@@ -258,6 +265,10 @@ export const completeSession = mutation({
   },
   handler: async (ctx, args) => {
     const sessionId = args.sessionId as Id<"sessions">;
+    const session = await ctx.db.get(sessionId);
+    if (!session || session.userId !== (args.userId as Id<"users">)) {
+      throw new Error("Session not found or access denied");
+    }
     await ctx.db.patch(sessionId, {
       status: "completed",
       updatedAt: Date.now(),
@@ -276,6 +287,10 @@ export const addExercise = mutation({
   },
   handler: async (ctx, args) => {
     const sessionId = args.sessionId as Id<"sessions">;
+    const session = await ctx.db.get(sessionId);
+    if (!session || session.userId !== (args.userId as Id<"users">)) {
+      throw new Error("Session not found or access denied");
+    }
 
     const existingExercises = await ctx.db
       .query("exercises")

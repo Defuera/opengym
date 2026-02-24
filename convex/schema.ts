@@ -59,4 +59,21 @@ export default defineSchema({
     updatedAt: v.number(),
     archivedAt: v.optional(v.number()),
   }).index("by_user", ["userId"]),
+
+  sessionSummaries: defineTable({
+    userId: v.string(),
+    sessionId: v.id("sessions"),
+    trend: v.union(
+      v.literal("improving"),
+      v.literal("stable"),
+      v.literal("declining"),
+      v.literal("insufficient_data")
+    ),
+    score: v.number(),
+    headline: v.string(),
+    highlights: v.array(v.string()),
+    flags: v.array(v.string()),
+    muscleGroups: v.array(v.string()),
+    generatedAt: v.number(),
+  }).index("by_user", ["userId"]).index("by_session", ["sessionId"]),
 });

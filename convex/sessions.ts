@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import { internal } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
 
 // List recent sessions for a user
@@ -245,5 +246,114 @@ export const updateStatus = mutation({
       status: args.status,
       updatedAt: Date.now(),
     });
+
+    // When a session is completed, schedule AI summary generation
+    if (args.status === "completed") {
+      await ctx.scheduler.runAfter(
+        0,
+        internal.aiSessionSummary.generateSessionSummary,
+        { sessionId: args.id }
+      );
+    }
+  },
+});
+
+// Get sessions grouped by ISO week with their AI summaries
+export const getWeeklySessionsWithSummaries = query({
+  args: {
+    userId: v.id("users"),
+    weeksBack: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const weeksBack = args.weeksBack ?? 8;
+    const now = Date.now();
+
+    // Compute the start of the current ISO week (Monday)
+    const nowDate = new Date(now);
+    const dayOfWeek = nowDate.getUTCDay(); // 0=Sun
+    const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+    const startOfThisWeek = Date.UTC(
+      nowDate.getUTCFullYear(),
+      nowDate.getUTCMonth(),
+      nowDate.getUTCDate() - daysToMonday
+    );
+
+    const oneWeekMs = 7 * 24 * 60 * 60 * 1000;
+    const rangeStart = startOfThisWeek - (weeksBack - 1) * oneWeekMs;
+
+    // Fetch all completed sessions in range
+    const sessions = await ctx.db
+      .query("sessions")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .filter((q) =>
+        q.and(
+          q.eq(q.field("status"), "completed"),
+          q.gte(q.field("date"), rangeStart)
+        )
+      )
+      .order("desc")
+      .collect();
+
+    // Fetch exercises for each session
+    const sessionsWithExercises = await Promise.all(
+      sessions.map(async (session) => {
+        const exercises = await ctx.db
+          .query("exercises")
+          .withIndex("by_session", (q) => q.eq("sessionId", session._id))
+          .collect();
+        return { ...session, exercises };
+      })
+    );
+
+    // Fetch summaries for all sessions in one pass
+    const summaryMap = new Map<string, any>();
+    for (const session of sessions) {
+      const summary = await ctx.db
+        .query("sessionSummaries")
+        .withIndex("by_session", (q) => q.eq("sessionId", session._id))
+        .first();
+      if (summary) {
+        summaryMap.set(session._id, summary);
+      }
+    }
+
+    // Build week buckets from newest to oldest
+    const weeks: Array<{
+      weekStart: number;
+      weekEnd: number;
+      sessions: Array<{
+        sessionId: string;
+        date: number;
+        exerciseNames: string[];
+        summary?: {
+          trend: string;
+          score: number;
+          headline: string;
+          highlights: string[];
+          flags: string[];
+          muscleGroups: string[];
+          generatedAt: number;
+        };
+      }>;
+    }> = [];
+
+    for (let i = 0; i < weeksBack; i++) {
+      const weekStart = startOfThisWeek - i * oneWeekMs;
+      const weekEnd = weekStart + oneWeekMs - 1;
+
+      const weekSessions = sessionsWithExercises
+        .filter((s) => s.date >= weekStart && s.date <= weekEnd)
+        .sort((a, b) => a.date - b.date)
+        .map((s) => ({
+          sessionId: s._id as string,
+          date: s.date,
+          exerciseNames: (s.exercises ?? []).map((e: any) => e.name),
+          summary: summaryMap.get(s._id) ?? undefined,
+        }));
+
+      weeks.push({ weekStart, weekEnd, sessions: weekSessions });
+    }
+
+    return weeks;
   },
 });

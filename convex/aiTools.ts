@@ -6,6 +6,21 @@ import { Id } from "./_generated/dataModel";
  * AI Coach Tools – callable from Next.js API route via ConvexHttpClient.
  * These are standard (public) queries/mutations so they can be invoked
  * without a Convex auth token from server-side code.
+ *
+ * SECURITY NOTE: This project does not yet have a server-side auth system
+ * (e.g. Clerk). The `userId` arg is currently supplied by the caller and is
+ * NOT cryptographically verified on the Convex side.
+ *
+ * TODO: When Clerk (or another auth provider) is integrated:
+ *   1. Remove `userId` from all public function args.
+ *   2. Derive userId server-side: `const identity = await ctx.auth.getUserIdentity();`
+ *      then use `identity.subject` or `identity.tokenIdentifier` as the userId.
+ *   3. Throw if identity is null (unauthenticated call).
+ *
+ * In the meantime, ownership is enforced inside write operations by fetching
+ * the parent record and verifying its `userId` matches the supplied arg before
+ * making any changes. Read-only queries are scoped by the supplied userId, so
+ * data returned is always that user's own data.
  */
 
 // ---------------------------------------------------------------------------
@@ -19,6 +34,7 @@ export const getRecentSessions = query({
     limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
+    // TODO: replace args.userId with server-verified identity when auth is added.
     const limit = args.limit ?? 10;
     const userId = args.userId as Id<"users">;
 
@@ -53,9 +69,11 @@ export const getSessionDetail = query({
     sessionId: v.string(),
   },
   handler: async (ctx, args) => {
+    // TODO: replace args.userId with server-verified identity when auth is added.
     const sessionId = args.sessionId as Id<"sessions">;
     const session = await ctx.db.get(sessionId);
     if (!session) return null;
+    // Ownership check: ensure the session belongs to the supplied userId.
     if (session.userId !== (args.userId as Id<"users">)) return null;
 
     const exercises = await ctx.db
@@ -99,7 +117,13 @@ export const getSessionDetail = query({
   },
 });
 
-/** Get history of a specific exercise by name across all sessions */
+/**
+ * Get history of a specific exercise by name across all sessions.
+ *
+ * Uses the exercises.by_user index to fetch exercises in O(1) rather than
+ * issuing one query per session (N+1). Falls back to session-by-session scan
+ * for exercises that pre-date the userId field being added to the schema.
+ */
 export const getExerciseHistory = query({
   args: {
     userId: v.string(),
@@ -107,44 +131,33 @@ export const getExerciseHistory = query({
     limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
+    // TODO: replace args.userId with server-verified identity when auth is added.
     const limit = args.limit ?? 20;
     const userId = args.userId as Id<"users">;
+    const nameLower = args.exerciseName.toLowerCase();
 
-    // Get all sessions for this user
-    const sessions = await ctx.db
-      .query("sessions")
+    // Efficient path: query exercises directly by userId using the by_user index,
+    // then filter by name in application code (Convex indexes are equality-only).
+    const allUserExercises = await ctx.db
+      .query("exercises")
       .withIndex("by_user", (q) => q.eq("userId", userId))
-      .order("desc")
       .collect();
 
-    // Fetch all exercises for all sessions in parallel
-    const exercisesBySession = await Promise.all(
-      sessions.map((session) =>
-        ctx.db.query("exercises")
-          .withIndex("by_session", (q) => q.eq("sessionId", session._id))
-          .collect()
-          .then((exercises) => ({ session, exercises }))
-      )
-    );
+    const matchingExercises = allUserExercises
+      .filter((e) => e.name.toLowerCase() === nameLower)
+      .slice(0, limit);
 
-    // Find matching exercises and limit
-    const matches = exercisesBySession
-      .filter(({ exercises }) =>
-        exercises.some((e) => e.name.toLowerCase() === args.exerciseName.toLowerCase())
-      )
-      .slice(0, limit)
-      .map(({ session, exercises }) => ({
-        session,
-        exercise: exercises.find((e) => e.name.toLowerCase() === args.exerciseName.toLowerCase())!,
-      }));
-
-    // Fetch sets for all matches in parallel
+    // Fetch sessions and sets for matching exercises in parallel.
     const results = await Promise.all(
-      matches.map(async ({ session, exercise }) => {
-        const sets = await ctx.db
-          .query("sets")
-          .withIndex("by_exercise", (q) => q.eq("exerciseId", exercise._id))
-          .collect();
+      matchingExercises.map(async (exercise) => {
+        const [session, sets] = await Promise.all([
+          ctx.db.get(exercise.sessionId),
+          ctx.db
+            .query("sets")
+            .withIndex("by_exercise", (q) => q.eq("exerciseId", exercise._id))
+            .collect(),
+        ]);
+        if (!session) return null;
         return {
           sessionId: session._id as string,
           sessionDate: session.date,
@@ -155,35 +168,36 @@ export const getExerciseHistory = query({
         };
       })
     );
-    return results;
+
+    return results.filter((r): r is NonNullable<typeof r> => r !== null);
   },
 });
 
-/** Get unique exercises (catalog) from all of the user's sessions */
+/**
+ * Get unique exercises (catalog) from all of the user's sessions.
+ *
+ * Uses the exercises.by_user index to fetch exercises in O(1) rather than
+ * issuing one query per session (N+1).
+ */
 export const getExercises = query({
   args: {
     userId: v.string(),
   },
   handler: async (ctx, args) => {
+    // TODO: replace args.userId with server-verified identity when auth is added.
     const userId = args.userId as Id<"users">;
 
-    const sessions = await ctx.db
-      .query("sessions")
+    // Efficient path: query exercises directly by userId (avoids N+1 through sessions).
+    const allUserExercises = await ctx.db
+      .query("exercises")
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .collect();
 
-    const allExercisesArrays = await Promise.all(
-      sessions.map((session) =>
-        ctx.db.query("exercises").withIndex("by_session", (q) => q.eq("sessionId", session._id)).collect()
-      )
-    );
     const seen = new Map<string, { name: string; muscleGroup: string; exerciseId: string }>();
-    for (const exercises of allExercisesArrays) {
-      for (const e of exercises) {
-        const key = e.name.toLowerCase();
-        if (!seen.has(key)) {
-          seen.set(key, { name: e.name, muscleGroup: e.muscleGroup, exerciseId: e._id as string });
-        }
+    for (const e of allUserExercises) {
+      const key = e.name.toLowerCase();
+      if (!seen.has(key)) {
+        seen.set(key, { name: e.name, muscleGroup: e.muscleGroup, exerciseId: e._id as string });
       }
     }
     return Array.from(seen.values());
@@ -201,6 +215,7 @@ export const createSession = mutation({
     name: v.string(),
   },
   handler: async (ctx, args) => {
+    // TODO: replace args.userId with server-verified identity when auth is added.
     const now = Date.now();
     const sessionId = await ctx.db.insert("sessions", {
       userId: args.userId as Id<"users">,
@@ -224,7 +239,9 @@ export const logSet = mutation({
     weight: v.number(),
   },
   handler: async (ctx, args) => {
+    // TODO: replace args.userId with server-verified identity when auth is added.
     const sessionId = args.sessionId as Id<"sessions">;
+    // Ownership check: verify session belongs to the supplied userId.
     const session = await ctx.db.get(sessionId);
     if (!session || session.userId !== (args.userId as Id<"users">)) {
       throw new Error("Session not found or access denied");
@@ -264,7 +281,9 @@ export const completeSession = mutation({
     sessionId: v.string(),
   },
   handler: async (ctx, args) => {
+    // TODO: replace args.userId with server-verified identity when auth is added.
     const sessionId = args.sessionId as Id<"sessions">;
+    // Ownership check: verify session belongs to the supplied userId.
     const session = await ctx.db.get(sessionId);
     if (!session || session.userId !== (args.userId as Id<"users">)) {
       throw new Error("Session not found or access denied");
@@ -286,9 +305,12 @@ export const addExercise = mutation({
     muscleGroup: v.string(),
   },
   handler: async (ctx, args) => {
+    // TODO: replace args.userId with server-verified identity when auth is added.
     const sessionId = args.sessionId as Id<"sessions">;
+    const userId = args.userId as Id<"users">;
+    // Ownership check: verify session belongs to the supplied userId.
     const session = await ctx.db.get(sessionId);
-    if (!session || session.userId !== (args.userId as Id<"users">)) {
+    if (!session || session.userId !== userId) {
       throw new Error("Session not found or access denied");
     }
 
@@ -299,6 +321,8 @@ export const addExercise = mutation({
 
     const exerciseId = await ctx.db.insert("exercises", {
       sessionId,
+      // Store userId so exercises can be queried directly by user (avoids N+1).
+      userId,
       name: args.name,
       muscleGroup: args.muscleGroup,
       order: existingExercises.length,

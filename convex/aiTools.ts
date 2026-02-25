@@ -143,33 +143,67 @@ export const getExerciseHistory = query({
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .collect();
 
-    const matchingExercises = allUserExercises
-      .filter((e) => e.name.toLowerCase() === nameLower)
-      .slice(0, limit);
-
-    // Fetch sessions and sets for matching exercises in parallel.
-    const results = await Promise.all(
-      matchingExercises.map(async (exercise) => {
-        const [session, sets] = await Promise.all([
-          ctx.db.get(exercise.sessionId),
-          ctx.db
-            .query("sets")
-            .withIndex("by_exercise", (q) => q.eq("exerciseId", exercise._id))
-            .collect(),
-        ]);
-        if (!session) return null;
-        return {
-          sessionId: session._id as string,
-          sessionDate: session.date,
-          sessionName: session.name ?? null,
-          sets: sets
-            .sort((a, b) => a.order - b.order)
-            .map((s) => ({ reps: s.reps, weight: s.weight, status: s.status })),
-        };
-      })
+    const matchingExercises = allUserExercises.filter(
+      (e) => e.name.toLowerCase() === nameLower
     );
 
-    return results.filter((r): r is NonNullable<typeof r> => r !== null);
+    // Track IDs from primary path to avoid duplicates in fallback.
+    const seenExerciseIds = new Set(matchingExercises.map((e) => e._id as string));
+
+    // Fallback: include legacy exercises that pre-date the userId field.
+    // Fetch sessions for this user, then exercises by session where userId is absent.
+    const userSessions = await ctx.db
+      .query("sessions")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .collect();
+
+    const legacyMatches = (
+      await Promise.all(
+        userSessions.map((session) =>
+          ctx.db
+            .query("exercises")
+            .withIndex("by_session", (q) => q.eq("sessionId", session._id))
+            .collect()
+        )
+      )
+    )
+      .flat()
+      .filter(
+        (e) =>
+          !e.userId &&
+          e.name.toLowerCase() === nameLower &&
+          !seenExerciseIds.has(e._id as string)
+      );
+
+    const combined = [...matchingExercises, ...legacyMatches];
+
+    // Fetch sessions and sets for matching exercises in parallel, sort by date desc.
+    const results = (
+      await Promise.all(
+        combined.map(async (exercise) => {
+          const [session, sets] = await Promise.all([
+            ctx.db.get(exercise.sessionId),
+            ctx.db
+              .query("sets")
+              .withIndex("by_exercise", (q) => q.eq("exerciseId", exercise._id))
+              .collect(),
+          ]);
+          if (!session) return null;
+          return {
+            sessionId: session._id as string,
+            sessionDate: session.date,
+            sessionName: session.name ?? null,
+            sets: sets
+              .sort((a, b) => a.order - b.order)
+              .map((s) => ({ reps: s.reps, weight: s.weight, status: s.status })),
+          };
+        })
+      )
+    ).filter((r): r is NonNullable<typeof r> => r !== null);
+
+    return results
+      .sort((a, b) => b.sessionDate - a.sessionDate)
+      .slice(0, limit);
   },
 });
 
@@ -200,6 +234,33 @@ export const getExercises = query({
         seen.set(key, { name: e.name, muscleGroup: e.muscleGroup, exerciseId: e._id as string });
       }
     }
+
+    // Fallback: include legacy exercises that pre-date the userId field.
+    const userSessions = await ctx.db
+      .query("sessions")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .collect();
+
+    const legacyExercises = (
+      await Promise.all(
+        userSessions.map((session) =>
+          ctx.db
+            .query("exercises")
+            .withIndex("by_session", (q) => q.eq("sessionId", session._id))
+            .collect()
+        )
+      )
+    )
+      .flat()
+      .filter((e) => !e.userId);
+
+    for (const e of legacyExercises) {
+      const key = e.name.toLowerCase();
+      if (!seen.has(key)) {
+        seen.set(key, { name: e.name, muscleGroup: e.muscleGroup, exerciseId: e._id as string });
+      }
+    }
+
     return Array.from(seen.values());
   },
 });

@@ -95,7 +95,7 @@ export function WeeklyCarousel({ weeks }: WeeklyCarouselProps) {
   return (
     <div
       ref={scrollRef}
-      className="flex gap-3 overflow-x-auto pb-2 px-4"
+      className="flex gap-3 overflow-x-auto pb-2"
         style={{
           scrollSnapType: "x mandatory",
           WebkitOverflowScrolling: "touch",
@@ -103,6 +103,8 @@ export function WeeklyCarousel({ weeks }: WeeklyCarouselProps) {
           msOverflowStyle: "none",
         }}
       >
+        {/* Leading spacer matches page px-4 */}
+        <div className="w-4 shrink-0" />
         {reversedWeeks.map((week, reversedIndex) => {
           // Map reversed index back to original index (0 = current week, 1 = last week, ...)
           const index = reversedWeeks.length - 1 - reversedIndex;

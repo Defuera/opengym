@@ -285,7 +285,7 @@ export const storeReviewText = internalMutation({
 // Public action: generate a detailed AI review for a completed session
 // ---------------------------------------------------------------------------
 export const generateDetailedReview = action({
-  args: { sessionId: v.id("sessions") },
+  args: { sessionId: v.id("sessions"), userId: v.id("users") },
   handler: async (ctx, args) => {
     // 1. Get session to find userId
     const session = await ctx.runQuery(api.sessions.getWithDetails, {
@@ -293,6 +293,11 @@ export const generateDetailedReview = action({
     });
     if (!session) {
       throw new Error("Session not found: " + args.sessionId);
+    }
+
+    // Authorization: ensure the session belongs to the requesting user
+    if (session.userId !== args.userId) {
+      throw new Error("Unauthorized: session does not belong to this user");
     }
 
     const userId = session.userId as string;
@@ -345,12 +350,20 @@ Use markdown formatting with headers (##). Keep the review concise but insightfu
 // Public query: fetch review text for a session
 // ---------------------------------------------------------------------------
 export const getSessionReview = query({
-  args: { sessionId: v.id("sessions") },
+  args: { sessionId: v.id("sessions"), userId: v.id("users") },
   handler: async (ctx, args) => {
     const summary = await ctx.db
       .query("sessionSummaries")
       .withIndex("by_session", (q) => q.eq("sessionId", args.sessionId))
       .first();
-    return summary?.reviewText ?? null;
+
+    if (!summary) return null;
+
+    // Authorization: ensure the summary belongs to the requesting user
+    if (summary.userId !== args.userId) {
+      throw new Error("Unauthorized: session does not belong to this user");
+    }
+
+    return summary.reviewText ?? null;
   },
 });

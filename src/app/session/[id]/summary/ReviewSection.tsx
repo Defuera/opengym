@@ -10,15 +10,17 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface ReviewSectionProps {
   sessionId: string;
+  userId: string;
   isCompleted: boolean;
 }
 
-export default function ReviewSection({ sessionId, isCompleted }: ReviewSectionProps) {
+export default function ReviewSection({ sessionId, userId, isCompleted }: ReviewSectionProps) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const reviewText = useQuery(api.aiSessionSummary.getSessionReview, {
     sessionId: sessionId as Id<"sessions">,
+    userId: userId as Id<"users">,
   });
 
   const generateReview = useAction(api.aiSessionSummary.generateDetailedReview);
@@ -27,7 +29,7 @@ export default function ReviewSection({ sessionId, isCompleted }: ReviewSectionP
     setIsGenerating(true);
     setError(null);
     try {
-      await generateReview({ sessionId: sessionId as Id<"sessions"> });
+      await generateReview({ sessionId: sessionId as Id<"sessions">, userId: userId as Id<"users"> });
     } catch (err) {
       setError("Failed to generate review. Please try again.");
       console.error("Review generation failed:", err);

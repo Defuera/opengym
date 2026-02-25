@@ -27,7 +27,7 @@ export default function HistoryPage() {
   const user = useQuery(api.users.getDefaultUser, {});
   const sessions = useQuery(
     api.sessions.listWithDetails,
-    user ? { userId: user._id, limit: 10 } : "skip"
+    user ? { userId: user._id, limit: 200 } : "skip"
   );
 
   const unit = user?.unit ?? "metric";

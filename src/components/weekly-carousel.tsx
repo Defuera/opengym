@@ -80,13 +80,12 @@ export function WeeklyCarousel({ weeks }: WeeklyCarouselProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
 
-  // Auto-scroll to the rightmost (current week) card on mount
+  // Auto-scroll to the rightmost (current week) card when weeks data is ready
   useEffect(() => {
-    const el = scrollRef.current;
-    if (el) {
-      el.scrollLeft = el.scrollWidth;
+    if (scrollRef.current && weeks.length) {
+      scrollRef.current.scrollLeft = scrollRef.current.scrollWidth;
     }
-  }, []);
+  }, [weeks.length]);
 
   // Render oldest week first, current week last (rightmost)
   const reversedWeeks = [...weeks].reverse();

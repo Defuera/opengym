@@ -93,11 +93,9 @@ export function WeeklyCarousel({ weeks }: WeeklyCarouselProps) {
   const reversedWeeks = [...weeks].reverse();
 
   return (
-    // Outer wrapper: break out of parent px-4 with negative margins
-    <div className="mx-[-1rem]">
-      <div
-        ref={scrollRef}
-        className="flex gap-3 overflow-x-auto pb-2 px-4"
+    <div
+      ref={scrollRef}
+      className="flex gap-3 overflow-x-auto pb-2 px-4"
         style={{
           scrollSnapType: "x mandatory",
           WebkitOverflowScrolling: "touch",
@@ -200,7 +198,6 @@ export function WeeklyCarousel({ weeks }: WeeklyCarouselProps) {
             </div>
           );
         })}
-      </div>
     </div>
   );
 }

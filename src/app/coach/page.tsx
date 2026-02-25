@@ -39,7 +39,6 @@ export default function CoachPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          userId: "default-user",
           messages: newMessages,
         }),
       });

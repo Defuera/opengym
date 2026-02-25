@@ -239,7 +239,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { userId, messages } = body;
+    const { messages } = body;
 
     if (!messages || !Array.isArray(messages)) {
       return NextResponse.json(
@@ -248,20 +248,10 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // SECURITY TODO: This route currently trusts the userId supplied by the client.
-    // When Clerk (or another auth provider) is integrated:
-    //   1. Import `auth()` from "@clerk/nextjs/server" (or equivalent).
-    //   2. Replace the block below with:
-    //        const { userId: clerkId } = auth();
-    //        if (!clerkId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    //        const effectiveUserId = clerkId;
-    //   3. Remove `userId` from the request body entirely.
-    // Until then, the Convex tool handlers enforce ownership on write operations
-    // by verifying the session/exercise belongs to the supplied userId before mutating.
-    if (!userId) {
-      return NextResponse.json({ error: "Unauthorized: no user session" }, { status: 401 });
-    }
-    const effectiveUserId = userId as string;
+    // userId is derived server-side — never trusted from client input.
+    // TODO: When Clerk (or another auth provider) is integrated, replace this
+    // constant with: const { userId: clerkId } = auth(); and use clerkId.
+    const effectiveUserId = "default-user";
     const convex = getConvexClient();
     const model = process.env.OPENAI_MODEL || "gpt-4o-mini";
 

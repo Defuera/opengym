@@ -24,15 +24,15 @@ export const generateSessionSummary = internalAction({
 
     const userId = session.userId as string;
 
-    // Fetch past completed sessions for comparison (last 10)
+    // Fetch past completed sessions for comparison (last 30, before current session)
     const pastSessions = await ctx.runQuery(api.sessions.listRecentCompleted, {
       userId: session.userId,
-      limit: 10,
+      limit: 30,
     });
 
-    // Filter out the current session from past sessions
+    // Only compare against sessions that happened BEFORE this one
     const comparableSessions = pastSessions.filter(
-      (s) => s._id !== args.sessionId
+      (s) => s._id !== args.sessionId && s.date < session.date
     );
 
     // Build a concise text representation for the AI prompt

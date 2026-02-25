@@ -148,6 +148,15 @@ jobs:
               body: body,
             });
 
+      - name: Authenticate to GCP
+        if: |
+          steps.rounds.outputs.round <= 3 &&
+          steps.review.outcome == 'success' &&
+          steps.review.outputs.should_merge == 'false'
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
       - name: Set up gcloud CLI
         if: |
           steps.rounds.outputs.round <= 3 &&
@@ -161,16 +170,12 @@ jobs:
           steps.review.outcome == 'success' &&
           steps.review.outputs.should_merge == 'false'
         env:
-          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
           OPENCLAW_HOOK_TOKEN: ${{ secrets.OPENCLAW_HOOK_TOKEN }}
         run: |
           ROUND=${{ steps.rounds.outputs.round }}
           PR_NUMBER=${{ github.event.pull_request.number }}
           REPO=${{ github.repository }}
 
-          # Authenticate with GCP service account
-          echo "$GCP_SA_KEY" > /tmp/sa-key.json
-          gcloud auth activate-service-account --key-file=/tmp/sa-key.json --quiet
           gcloud config set project digital-workforce-1 --quiet
 
           # Build the webhook payload safely with jq
@@ -196,9 +201,6 @@ jobs:
               -H 'Authorization: Bearer ${OPENCLAW_HOOK_TOKEN}' \
               -d '${PAYLOAD}'" \
             || echo "::warning::Could not reach Prismo webhook — VM may be unreachable"
-
-          # Clean up
-          rm -f /tmp/sa-key.json
 
       - name: Escalate to user (max rounds exceeded)
         if: |

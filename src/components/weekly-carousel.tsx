@@ -198,6 +198,8 @@ export function WeeklyCarousel({ weeks }: WeeklyCarouselProps) {
             </div>
           );
         })}
+        {/* Trailing spacer so last card aligns with page padding */}
+        <div className="w-4 shrink-0" />
     </div>
   );
 }

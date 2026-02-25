@@ -32,14 +32,14 @@ export default function Home() {
 
   return (
     <div className="flex min-h-screen flex-col bg-zinc-50 dark:bg-zinc-950">
-      <main className="flex-1 px-4 pb-24">
-        <div className="mx-auto max-w-2xl space-y-6 pt-6">
-          {/* Weekly Carousel */}
-          <div>
-            <h2 className="mb-3 text-lg font-semibold">Weekly Overview</h2>
-            <WeeklyCarousel weeks={weeklyData} />
-          </div>
+      <main className="flex-1 pb-24">
+        {/* Weekly Carousel — full bleed, no horizontal padding */}
+        <div className="mx-auto max-w-2xl pt-6 px-4">
+          <h2 className="mb-3 text-lg font-semibold">Weekly Overview</h2>
+        </div>
+        <WeeklyCarousel weeks={weeklyData} />
 
+        <div className="mx-auto max-w-2xl space-y-6 px-4 mt-6">
           {/* Exercise Cards */}
           <div>
             <h2 className="mb-3 text-lg font-semibold">Exercises</h2>

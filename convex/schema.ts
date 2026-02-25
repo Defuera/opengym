@@ -75,5 +75,6 @@ export default defineSchema({
     flags: v.array(v.string()),
     muscleGroups: v.array(v.string()),
     generatedAt: v.number(),
+    reviewText: v.optional(v.string()),
   }).index("by_user", ["userId"]).index("by_session", ["sessionId"]),
 });

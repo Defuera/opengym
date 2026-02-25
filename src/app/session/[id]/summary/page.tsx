@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { formatWeight, convertWeightForDisplay, getUnitLabel } from "@/lib/units";
+import ReviewSection from "./ReviewSection";
 export const dynamic = 'force-dynamic';
 
 export default async function SessionSummaryPage({
@@ -166,6 +167,8 @@ export default async function SessionSummaryPage({
               })}
             </div>
           </div>
+
+          <ReviewSection sessionId={id} isCompleted={session.status === "completed"} />
         </div>
       </main>
 

@@ -1,7 +1,6 @@
 import { v } from "convex/values";
 import { internalAction } from "./_generated/server";
 import { api, internal } from "./_generated/api";
-import { Id } from "./_generated/dataModel";
 
 /**
  * AI-powered session summary generation.
@@ -181,3 +180,4 @@ export const storeSessionSummary = internalMutation({
     });
   },
 });
+

@@ -37,9 +37,8 @@ export const generateSessionSummary = internalAction({
 
     // Build a concise text representation for the AI prompt
     const exerciseLines = (session as any).exercises?.map((ex: any) => {
-      const completedSets = ex.sets?.filter(
-        (s: any) => s.status === "complete"
-      ) ?? ex.sets ?? [];
+      // Use all sets — status "todo" is the norm since sets aren't individually marked complete
+      const completedSets = ex.sets ?? [];
       const totalVol = completedSets.reduce(
         (sum: number, s: any) => sum + s.reps * s.weight,
         0

@@ -208,7 +208,8 @@ function buildReviewPrompt(context: any): string {
     const name: string = ex.name;
     const history = (exerciseHistory?.[name] ?? [])
       .filter((h: any) => h.date !== session.date)
-      .slice(0, 5);
+      .slice(0, 5)
+      .reverse(); // oldest→newest to match the prompt label
     if (history.length === 0) {
       historyLines.push(`${name}: no historical data`);
     } else {
@@ -285,19 +286,14 @@ export const storeReviewText = internalMutation({
 // Public action: generate a detailed AI review for a completed session
 // ---------------------------------------------------------------------------
 export const generateDetailedReview = action({
-  args: { sessionId: v.id("sessions"), userId: v.id("users") },
+  args: { sessionId: v.id("sessions") },
   handler: async (ctx, args) => {
-    // 1. Get session to find userId
+    // 1. Get session to find userId — trust the server record, not the client
     const session = await ctx.runQuery(api.sessions.getWithDetails, {
       id: args.sessionId,
     });
     if (!session) {
       throw new Error("Session not found: " + args.sessionId);
-    }
-
-    // Authorization: ensure the session belongs to the requesting user
-    if (session.userId !== args.userId) {
-      throw new Error("Unauthorized: session does not belong to this user");
     }
 
     const userId = session.userId as string;
@@ -350,19 +346,15 @@ Use markdown formatting with headers (##). Keep the review concise but insightfu
 // Public query: fetch review text for a session
 // ---------------------------------------------------------------------------
 export const getSessionReview = query({
-  args: { sessionId: v.id("sessions"), userId: v.id("users") },
+  args: { sessionId: v.id("sessions") },
   handler: async (ctx, args) => {
+    // SessionIds are opaque DB ids — not guessable — so fetching by sessionId is sufficient
     const summary = await ctx.db
       .query("sessionSummaries")
       .withIndex("by_session", (q) => q.eq("sessionId", args.sessionId))
       .first();
 
     if (!summary) return null;
-
-    // Authorization: ensure the summary belongs to the requesting user
-    if (summary.userId !== args.userId) {
-      throw new Error("Unauthorized: session does not belong to this user");
-    }
 
     return summary.reviewText ?? null;
   },

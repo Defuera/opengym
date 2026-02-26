@@ -20,7 +20,6 @@ export default function ReviewSection({ sessionId, userId, isCompleted }: Review
 
   const reviewText = useQuery(api.aiSessionSummary.getSessionReview, {
     sessionId: sessionId as Id<"sessions">,
-    userId: userId as Id<"users">,
   });
 
   const generateReview = useAction(api.aiSessionSummary.generateDetailedReview);
@@ -29,7 +28,7 @@ export default function ReviewSection({ sessionId, userId, isCompleted }: Review
     setIsGenerating(true);
     setError(null);
     try {
-      await generateReview({ sessionId: sessionId as Id<"sessions">, userId: userId as Id<"users"> });
+      await generateReview({ sessionId: sessionId as Id<"sessions"> });
     } catch (err) {
       setError("Failed to generate review. Please try again.");
       console.error("Review generation failed:", err);

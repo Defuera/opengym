@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { internalAction } from "./_generated/server";
+import { action, internalAction, internalMutation, query } from "./_generated/server";
 import { api, internal } from "./_generated/api";
 
 /**
@@ -138,8 +138,6 @@ ${pastExerciseSummaries.length > 0 ? pastExerciseSummaries.join("\n") : "None av
   },
 });
 
-import { internalMutation } from "./_generated/server";
-
 export const storeSessionSummary = internalMutation({
   args: {
     userId: v.string(),
@@ -180,3 +178,184 @@ export const storeSessionSummary = internalMutation({
   },
 });
 
+
+// ---------------------------------------------------------------------------
+// Helper to format review prompt from rich AI context
+// ---------------------------------------------------------------------------
+function buildReviewPrompt(context: any): string {
+  const { currentSession, recentSessions, exerciseHistory, recoveryContext, aiMemories } = context;
+  const session = currentSession ?? recentSessions?.[0];
+  if (!session) return "No session data available.";
+
+  const dateStr = new Date(session.date).toLocaleDateString("en-US", {
+    weekday: "long", month: "long", day: "numeric", year: "numeric",
+  });
+
+  // Today's session
+  const exerciseLines = (session.exercises ?? []).map((ex: any) => {
+    const setDescs = (ex.sets ?? []).map((s: any) => `${s.reps}×${s.weight}kg`).join(", ");
+    return `- ${ex.name} (${ex.muscleGroup}): ${setDescs || "no sets"}`;
+  });
+
+  // Recovery
+  const recovery = recoveryContext
+    ? `${recoveryContext.daysSinceLastSession ?? "?"} days since last session, ${recoveryContext.sessionsThisWeek} sessions this week`
+    : "Recovery data unavailable";
+
+  // Per-exercise history (last 5 occurrences, skip current session date)
+  const historyLines: string[] = [];
+  for (const ex of (session.exercises ?? [])) {
+    const name: string = ex.name;
+    const history = (exerciseHistory?.[name] ?? [])
+      .filter((h: any) => h.date !== session.date)
+      .slice(0, 5)
+      .reverse(); // oldest→newest to match the prompt label
+    if (history.length === 0) {
+      historyLines.push(`${name}: no historical data`);
+    } else {
+      const occurrences = history.map((h: any) => {
+        const d = new Date(h.date).toISOString().slice(0, 10);
+        return `${d}: top set ${h.topSet.reps}×${h.topSet.weight}kg, vol ${h.totalVolume}kg`;
+      }).join(" | ");
+      historyLines.push(`${name}: ${occurrences}`);
+    }
+  }
+
+  // AI memories
+  const memoryLines = (aiMemories ?? []).map((m: any) => `- [${m.type}] ${m.key}: ${m.value}`);
+
+  return `
+DATE: ${dateStr}
+
+TODAY'S SESSION:
+${exerciseLines.join("\n") || "No exercises recorded"}
+
+RECOVERY CONTEXT:
+${recovery}
+
+EXERCISE HISTORY (last 5 per exercise, oldest→newest):
+${historyLines.join("\n") || "No history available"}
+
+USER GOALS & NOTES:
+${memoryLines.join("\n") || "No notes"}
+
+---
+Please write a detailed review with these sections:
+## Overall Assessment
+## Exercise Breakdown
+## Next Session Focus
+`.trim();
+}
+
+// ---------------------------------------------------------------------------
+// Internal mutation: upsert reviewText on sessionSummaries
+// ---------------------------------------------------------------------------
+export const storeReviewText = internalMutation({
+  args: {
+    sessionId: v.id("sessions"),
+    userId: v.string(),
+    reviewText: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const existing = await ctx.db
+      .query("sessionSummaries")
+      .withIndex("by_session", (q) => q.eq("sessionId", args.sessionId))
+      .first();
+
+    if (existing) {
+      await ctx.db.patch(existing._id, { reviewText: args.reviewText });
+    } else {
+      // Create minimal summary record with just the review
+      await ctx.db.insert("sessionSummaries", {
+        userId: args.userId,
+        sessionId: args.sessionId,
+        trend: "insufficient_data",
+        score: 0,
+        headline: "Review generated",
+        highlights: [],
+        flags: [],
+        muscleGroups: [],
+        generatedAt: Date.now(),
+        reviewText: args.reviewText,
+      });
+    }
+  },
+});
+
+// ---------------------------------------------------------------------------
+// Public action: generate a detailed AI review for a completed session
+// ---------------------------------------------------------------------------
+export const generateDetailedReview = action({
+  args: { sessionId: v.id("sessions") },
+  handler: async (ctx, args) => {
+    // 1. Get session to find userId — trust the server record, not the client
+    const session = await ctx.runQuery(api.sessions.getWithDetails, {
+      id: args.sessionId,
+    });
+    if (!session) {
+      throw new Error("Session not found: " + args.sessionId);
+    }
+
+    const userId = session.userId as string;
+
+    // 2. Build rich context
+    const context = await ctx.runQuery(internal.aiUserContext.buildAIContext, {
+      userId: session.userId,
+      sessionLimit: 10,
+      currentSessionId: args.sessionId,
+    });
+
+    // 3. Format prompt
+    const systemPrompt = `You are a personal strength coach writing a detailed workout review.
+Be specific with numbers. Compare to historical data where available. Be honest but motivating.
+Use markdown formatting with headers (##). Keep the review concise but insightful (200-400 words).`;
+
+    const userContent = buildReviewPrompt(context);
+
+    // 4. Call OpenAI
+    const { OpenAIClient } = await import("../src/lib/ai/providers/openaiClient");
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) {
+      throw new Error("OPENAI_API_KEY not set");
+    }
+
+    const client = new OpenAIClient(apiKey);
+    let reviewText: string;
+    try {
+      const result = await client.chat({
+        systemPrompt,
+        messages: [{ role: "user", content: userContent }],
+      });
+      reviewText = result.content;
+    } catch (err) {
+      throw new Error("OpenAI call failed: " + String(err));
+    }
+
+    // 5. Store reviewText
+    await ctx.runMutation(internal.aiSessionSummary.storeReviewText, {
+      sessionId: args.sessionId,
+      userId,
+      reviewText,
+    });
+
+    return { reviewText };
+  },
+});
+
+// ---------------------------------------------------------------------------
+// Public query: fetch review text for a session
+// ---------------------------------------------------------------------------
+export const getSessionReview = query({
+  args: { sessionId: v.id("sessions") },
+  handler: async (ctx, args) => {
+    // SessionIds are opaque DB ids — not guessable — so fetching by sessionId is sufficient
+    const summary = await ctx.db
+      .query("sessionSummaries")
+      .withIndex("by_session", (q) => q.eq("sessionId", args.sessionId))
+      .first();
+
+    if (!summary) return null;
+
+    return summary.reviewText ?? null;
+  },
+});

@@ -8,8 +8,10 @@
  * @module
  */
 
+import type * as aiCoach from "../aiCoach.js";
 import type * as aiMemories from "../aiMemories.js";
 import type * as aiSessionPlanner from "../aiSessionPlanner.js";
+import type * as aiTools from "../aiTools.js";
 import type * as aiSessionSummary from "../aiSessionSummary.js";
 import type * as aiUserContext from "../aiUserContext.js";
 import type * as analytics from "../analytics.js";
@@ -25,8 +27,10 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  aiCoach: typeof aiCoach;
   aiMemories: typeof aiMemories;
   aiSessionPlanner: typeof aiSessionPlanner;
+  aiTools: typeof aiTools;
   aiSessionSummary: typeof aiSessionSummary;
   aiUserContext: typeof aiUserContext;
   analytics: typeof analytics;

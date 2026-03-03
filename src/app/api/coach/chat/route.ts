@@ -1,21 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAI } from "@/lib/ai";
-import type { ChatMessage } from "@/lib/ai/types";
+import { ConvexHttpClient } from "convex/browser";
+import { api } from "../../../../../convex/_generated/api";
+
+function getConvexClient() {
+  const url = process.env.NEXT_PUBLIC_CONVEX_URL;
+  if (!url) throw new Error("NEXT_PUBLIC_CONVEX_URL is not set");
+  return new ConvexHttpClient(url);
+}
 
 export async function POST(req: NextRequest) {
   try {
-    // Check if API key is configured
-    if (!process.env.OPENAI_API_KEY) {
-      return NextResponse.json(
-        { error: "AI service not configured. Missing OPENAI_API_KEY." },
-        { status: 503 }
-      );
-    }
-
     const body = await req.json();
-    const { userId, sessionId, messages } = body;
+    const { messages } = body;
 
-    // Validate input
     if (!messages || !Array.isArray(messages)) {
       return NextResponse.json(
         { error: "Invalid request: messages array required" },
@@ -23,22 +20,16 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Default userId if not provided
-    const effectiveUserId = userId ?? "default-user";
-
-    // Get AI services
-    const ai = getAI();
-
-    // Call chat.reply
-    const result = await ai.chat.reply({
-      userId: effectiveUserId,
-      sessionId: sessionId ?? null,
-      messages: messages as ChatMessage[],
+    const convex = getConvexClient();
+    const reply = await convex.action(api.aiCoach.chat, {
+      messages: messages.map((m: { role: string; content: string }) => ({
+        role: String(m.role),
+        content: String(m.content ?? ""),
+      })),
     });
 
     return NextResponse.json({
-      reply: result.reply,
-      memoryChanges: result.memoryChanges,
+      reply: { role: "assistant", content: reply },
     });
   } catch (error) {
     console.error("Coach chat error:", error);

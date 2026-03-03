@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import ReactMarkdown from "react-markdown";
 import { Card } from "@/components/ui/card";
 
 interface Message {
@@ -38,7 +39,6 @@ export default function CoachPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          userId: "default-user",
           messages: newMessages,
         }),
       });
@@ -89,7 +89,58 @@ export default function CoachPage() {
                     : "bg-white dark:bg-zinc-800"
                 }`}
               >
-                <p className="whitespace-pre-wrap text-sm">{msg.content}</p>
+                {msg.role === "assistant" ? (
+                  <div
+                    className="prose prose-sm dark:prose-invert max-w-none text-sm"
+                    style={{
+                      /* Ensure prose styles render nicely even without Tailwind typography plugin */
+                      lineHeight: "1.6",
+                    }}
+                  >
+                    <ReactMarkdown
+                      components={{
+                        p: ({ children }) => (
+                          <p className="mb-2 last:mb-0">{children}</p>
+                        ),
+                        ul: ({ children }) => (
+                          <ul className="mb-2 list-disc pl-4">{children}</ul>
+                        ),
+                        ol: ({ children }) => (
+                          <ol className="mb-2 list-decimal pl-4">{children}</ol>
+                        ),
+                        li: ({ children }) => (
+                          <li className="mb-0.5">{children}</li>
+                        ),
+                        strong: ({ children }) => (
+                          <strong className="font-semibold">{children}</strong>
+                        ),
+                        h1: ({ children }) => (
+                          <h1 className="mb-2 mt-3 text-base font-bold first:mt-0">{children}</h1>
+                        ),
+                        h2: ({ children }) => (
+                          <h2 className="mb-2 mt-3 text-sm font-bold first:mt-0">{children}</h2>
+                        ),
+                        h3: ({ children }) => (
+                          <h3 className="mb-1 mt-2 text-sm font-semibold first:mt-0">{children}</h3>
+                        ),
+                        code: ({ children }) => (
+                          <code className="rounded bg-zinc-100 px-1 py-0.5 text-xs dark:bg-zinc-700">
+                            {children}
+                          </code>
+                        ),
+                        blockquote: ({ children }) => (
+                          <blockquote className="border-l-2 border-zinc-300 pl-3 italic dark:border-zinc-600">
+                            {children}
+                          </blockquote>
+                        ),
+                      }}
+                    >
+                      {msg.content}
+                    </ReactMarkdown>
+                  </div>
+                ) : (
+                  <p className="whitespace-pre-wrap text-sm">{msg.content}</p>
+                )}
               </Card>
             </div>
           ))}
@@ -97,7 +148,7 @@ export default function CoachPage() {
           {isLoading && (
             <div className="flex justify-start">
               <Card className="max-w-[85%] p-4 bg-white dark:bg-zinc-800">
-                <p className="text-sm text-zinc-500 dark:text-zinc-400">Coach is typing...</p>
+                <p className="text-sm text-zinc-500 dark:text-zinc-400">Coach is thinking…</p>
               </Card>
             </div>
           )}

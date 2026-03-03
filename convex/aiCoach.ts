@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { action } from "./_generated/server";
-import { internal } from "./_generated/api";
+import { api, internal } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
 import { COACH_TOOLS, SYSTEM_PROMPT, type ToolName, type OpenAIMessage } from "./aiCoachDefs";
 
@@ -72,8 +72,8 @@ export const chat = action({
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) throw new Error("OPENAI_API_KEY not configured");
 
-    // Hardcoded until auth is added
-    const userId = "default-user" as Id<"users">;
+    // Resolve the real Convex user ID (hardcoded default until auth is added)
+    const userId: Id<"users"> = await ctx.runMutation(api.users.getOrCreateDefaultUser, {});
     const model = process.env.OPENAI_MODEL || "gpt-4o-mini";
 
     // Sanitize message roles — only allow user/assistant from client input

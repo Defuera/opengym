@@ -10,11 +10,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface ReviewSectionProps {
   sessionId: string;
-  userId: string;
   isCompleted: boolean;
 }
 
-export default function ReviewSection({ sessionId, userId, isCompleted }: ReviewSectionProps) {
+export default function ReviewSection({ sessionId, isCompleted }: ReviewSectionProps) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 

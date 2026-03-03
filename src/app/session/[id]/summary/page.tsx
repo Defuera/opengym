@@ -168,7 +168,7 @@ export default async function SessionSummaryPage({
             </div>
           </div>
 
-          <ReviewSection sessionId={id} userId={session.userId} isCompleted={session.status === "completed"} />
+          <ReviewSection sessionId={id} isCompleted={session.status === "completed"} />
         </div>
       </main>
 

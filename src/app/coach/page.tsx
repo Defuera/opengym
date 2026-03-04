@@ -53,9 +53,9 @@ export default function CoachPage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-zinc-50 dark:bg-zinc-950">
-      {/* Header with thread switcher */}
-      <div className="border-b bg-white/95 px-4 py-2 backdrop-blur-lg dark:bg-zinc-900/95">
+    <div className="flex h-full flex-col bg-zinc-50 dark:bg-zinc-950">
+      {/* Header with thread switcher — pinned */}
+      <div className="shrink-0 border-b bg-white/95 px-4 py-2 backdrop-blur-lg dark:bg-zinc-900/95">
         <div className="mx-auto flex max-w-2xl items-center justify-between">
           <ThreadSwitcher
             threads={threads}
@@ -67,7 +67,7 @@ export default function CoachPage() {
         </div>
       </div>
 
-      <main className="flex-1 px-4 pb-32 pt-4 overflow-y-auto">
+      <main className="flex-1 overflow-y-auto px-4 py-4">
         <div className="mx-auto max-w-2xl space-y-4">
           {messages.length === 0 && !isLoading && (
             <Card className="p-6 text-center">
@@ -124,7 +124,7 @@ export default function CoachPage() {
         </div>
       </main>
 
-      <div className="fixed bottom-0 left-0 right-0 border-t bg-white/95 backdrop-blur-lg p-4 dark:bg-zinc-900/95">
+      <div className="shrink-0 border-t bg-white/95 backdrop-blur-lg p-4 dark:bg-zinc-900/95">
         <div className="mx-auto max-w-2xl">
           <ChatInput onSend={sendMessage} disabled={isLoading} />
         </div>

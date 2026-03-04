@@ -7,7 +7,7 @@ export function TopBar() {
   const pathname = usePathname();
 
   return (
-    <header className="sticky top-0 z-10 border-b bg-white/80 backdrop-blur-lg px-4 py-4 dark:bg-zinc-900/80">
+    <header className="shrink-0 z-10 border-b bg-white/80 backdrop-blur-lg px-4 py-4 dark:bg-zinc-900/80">
       <div className="flex items-center justify-between">
         <Link href="/" className="text-xl font-bold text-zinc-900 dark:text-zinc-50">
           OpenGym

@@ -37,8 +37,12 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased overflow-x-hidden`}
       >
         <ConvexClientProvider>
-          <TopBar />
-          {children}
+          <div className="flex h-[100dvh] flex-col overflow-hidden">
+            <TopBar />
+            <div className="flex-1 overflow-y-auto">
+              {children}
+            </div>
+          </div>
           <FabGroup />
         </ConvexClientProvider>
       </body>

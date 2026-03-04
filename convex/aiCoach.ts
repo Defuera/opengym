@@ -34,7 +34,7 @@ export const chat = action({
       ctx.runQuery(api.aiMessages.listMessages, {
         threadId: args.threadId,
       }),
-      ctx.runQuery(internal.aiCoachContext.buildCoachContext, { userId }),
+      ctx.runQuery(internal.aiContext.buildContext, { userId }),
     ]);
 
     // Build system prompt with injected user context

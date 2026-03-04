@@ -11,9 +11,9 @@
 import type * as aiActions from "../aiActions.js";
 import type * as aiActions_internal from "../aiActions_internal.js";
 import type * as aiCoach from "../aiCoach.js";
-import type * as aiCoachContext from "../aiCoachContext.js";
 import type * as aiCoachDefs from "../aiCoachDefs.js";
 import type * as aiCoachTools from "../aiCoachTools.js";
+import type * as aiContext from "../aiContext.js";
 import type * as aiMemories from "../aiMemories.js";
 import type * as aiMessages from "../aiMessages.js";
 import type * as aiSessionPlanner from "../aiSessionPlanner.js";
@@ -37,9 +37,9 @@ declare const fullApi: ApiFromModules<{
   aiActions: typeof aiActions;
   aiActions_internal: typeof aiActions_internal;
   aiCoach: typeof aiCoach;
-  aiCoachContext: typeof aiCoachContext;
   aiCoachDefs: typeof aiCoachDefs;
   aiCoachTools: typeof aiCoachTools;
+  aiContext: typeof aiContext;
   aiMemories: typeof aiMemories;
   aiMessages: typeof aiMessages;
   aiSessionPlanner: typeof aiSessionPlanner;

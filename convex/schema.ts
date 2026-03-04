@@ -66,6 +66,51 @@ export default defineSchema({
     archivedAt: v.optional(v.number()),
   }).index("by_user", ["userId"]),
 
+  aiThreads: defineTable({
+    userId: v.id("users"),
+    title: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    archivedAt: v.optional(v.number()),
+  }).index("by_user", ["userId"]),
+
+  aiMessages: defineTable({
+    threadId: v.id("aiThreads"),
+    role: v.union(v.literal("user"), v.literal("assistant")),
+    content: v.string(),
+    toolCalls: v.optional(
+      v.array(
+        v.object({
+          id: v.string(),
+          name: v.string(),
+          arguments: v.string(),
+        })
+      )
+    ),
+    model: v.optional(v.string()),
+    createdAt: v.number(),
+    deletedAt: v.optional(v.number()),
+  }).index("by_thread", ["threadId"]),
+
+  aiActions: defineTable({
+    messageId: v.id("aiMessages"),
+    threadId: v.id("aiThreads"),
+    toolCallId: v.string(),
+    toolName: v.string(),
+    toolArgs: v.string(),
+    description: v.string(),
+    status: v.union(
+      v.literal("pending"),
+      v.literal("confirmed"),
+      v.literal("rejected")
+    ),
+    result: v.optional(v.string()),
+    createdAt: v.number(),
+    resolvedAt: v.optional(v.number()),
+  })
+    .index("by_thread", ["threadId"])
+    .index("by_message", ["messageId"]),
+
   sessionSummaries: defineTable({
     userId: v.string(),
     sessionId: v.id("sessions"),

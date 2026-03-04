@@ -2,110 +2,81 @@ import { v } from "convex/values";
 import { action } from "./_generated/server";
 import { api, internal } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
-import { COACH_TOOLS, SYSTEM_PROMPT, type ToolName, type OpenAIMessage } from "./aiCoachDefs";
+import { COACH_TOOLS, buildSystemPrompt, type ToolName, type OpenAIMessage } from "./aiCoachDefs";
+import { READ_TOOLS, WRITE_TOOLS, executeReadTool, describeWriteAction } from "./aiCoachTools";
 
 const MAX_ROUNDS = 5;
 
-async function executeTool(
-  ctx: { runQuery: typeof action.prototype; runMutation: typeof action.prototype },
-  userId: Id<"users">,
-  toolName: ToolName,
-  args: Record<string, unknown>
-): Promise<unknown> {
-  switch (toolName) {
-    case "get_recent_sessions":
-      return (ctx as any).runQuery(internal.aiTools.getRecentSessions, {
-        userId,
-        limit: (args.limit as number) ?? 10,
-      });
-    case "get_session_detail":
-      return (ctx as any).runQuery(internal.aiTools.getSessionDetail, {
-        userId,
-        sessionId: args.session_id as Id<"sessions">,
-      });
-    case "get_exercise_history":
-      return (ctx as any).runQuery(internal.aiTools.getExerciseHistory, {
-        userId,
-        exerciseName: args.exercise_name as string,
-        limit: (args.limit as number) ?? 20,
-      });
-    case "get_exercises":
-      return (ctx as any).runQuery(internal.aiTools.getExercises, { userId });
-    case "create_session":
-      return (ctx as any).runMutation(internal.aiTools.createSession, {
-        userId,
-        name: args.name as string,
-      });
-    case "log_set":
-      return (ctx as any).runMutation(internal.aiTools.logSet, {
-        userId,
-        sessionId: args.session_id as Id<"sessions">,
-        exerciseId: args.exercise_id as Id<"exercises">,
-        reps: args.reps as number,
-        weight: args.weight as number,
-      });
-    case "complete_session":
-      return (ctx as any).runMutation(internal.aiTools.completeSession, {
-        userId,
-        sessionId: args.session_id as Id<"sessions">,
-      });
-    case "add_exercise":
-      return (ctx as any).runMutation(internal.aiTools.addExercise, {
-        userId,
-        sessionId: args.session_id as Id<"sessions">,
-        name: args.name as string,
-        muscleGroup: args.muscle_group as string,
-      });
-    default:
-      return { error: `Unknown tool: ${toolName}` };
-  }
-}
-
 export const chat = action({
   args: {
-    messages: v.array(v.object({
-      role: v.string(),
-      content: v.string(),
-    })),
+    threadId: v.id("aiThreads"),
+    userMessage: v.string(),
   },
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<{ threadId: Id<"aiThreads">; messageId: Id<"aiMessages"> }> => {
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) throw new Error("OPENAI_API_KEY not configured");
 
-    // Resolve the real Convex user ID (hardcoded default until auth is added)
-    const userId: Id<"users"> = await ctx.runMutation(api.users.getOrCreateDefaultUser, {});
-    const model = process.env.OPENAI_MODEL || "gpt-4o-mini";
+    const userId: Id<"users"> = await ctx.runMutation(
+      api.users.getOrCreateDefaultUser,
+      {}
+    );
+    const model = process.env.OPENAI_MODEL || "gpt-5.2";
 
-    // Sanitize message roles — only allow user/assistant from client input
-    const sanitizedMessages: OpenAIMessage[] = args.messages
-      .filter((m) => m.role === "user" || m.role === "assistant")
-      .map((m) => ({
+    // Save user message to DB
+    await ctx.runMutation(internal.aiMessages.saveMessage, {
+      threadId: args.threadId,
+      role: "user" as const,
+      content: args.userMessage,
+    });
+
+    // Load thread history and user context in parallel
+    const [dbMessages, userContext] = await Promise.all([
+      ctx.runQuery(api.aiMessages.listMessages, {
+        threadId: args.threadId,
+      }),
+      ctx.runQuery(internal.aiCoachContext.buildCoachContext, { userId }),
+    ]);
+
+    // Build system prompt with injected user context
+    const systemContent = userContext
+      ? `${buildSystemPrompt()}\n\n---\n${userContext}`
+      : buildSystemPrompt();
+
+    // Build OpenAI messages from DB history (cap at last 30)
+    const recentMessages = dbMessages.slice(-30);
+    const openaiMessages: OpenAIMessage[] = [
+      { role: "system", content: systemContent },
+      ...recentMessages.map((m: { role: string; content: string }) => ({
         role: m.role as "user" | "assistant",
         content: m.content,
-      }));
-
-    const openaiMessages: OpenAIMessage[] = [
-      { role: "system", content: SYSTEM_PROMPT },
-      ...sanitizedMessages,
+      })),
     ];
 
     let finalContent = "";
+    const pendingWriteCalls: Array<{
+      toolCallId: string;
+      toolName: string;
+      toolArgs: Record<string, unknown>;
+    }> = [];
 
     for (let round = 0; round < MAX_ROUNDS; round++) {
-      const response = await fetch("https://api.openai.com/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-          model,
-          messages: openaiMessages,
-          tools: COACH_TOOLS,
-          tool_choice: "auto",
-          temperature: 0.7,
-        }),
-      });
+      const response = await fetch(
+        "https://api.openai.com/v1/chat/completions",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${apiKey}`,
+          },
+          body: JSON.stringify({
+            model,
+            messages: openaiMessages,
+            tools: COACH_TOOLS,
+            tool_choice: "auto",
+            temperature: 0.7,
+          }),
+        }
+      );
 
       if (!response.ok) {
         const errText = await response.text();
@@ -118,7 +89,6 @@ export const chat = action({
 
       const message = choice.message;
 
-      // Check for tool calls — use message.tool_calls presence (more reliable than finish_reason)
       if (message.tool_calls?.length) {
         openaiMessages.push({
           role: "assistant",
@@ -135,23 +105,57 @@ export const chat = action({
             openaiMessages.push({
               role: "tool",
               tool_call_id: toolCall.id,
-              content: JSON.stringify({ error: "Failed to parse tool arguments" }),
+              content: JSON.stringify({
+                error: "Failed to parse tool arguments",
+              }),
             });
             continue;
           }
 
-          let toolResult: unknown;
-          try {
-            toolResult = await executeTool(ctx as any, userId, toolName, toolArgs);
-          } catch (err) {
-            toolResult = { error: err instanceof Error ? err.message : String(err) };
-          }
+          if (READ_TOOLS.has(toolName)) {
+            let toolResult: unknown;
+            try {
+              toolResult = await executeReadTool(
+                ctx as any,
+                userId,
+                toolName,
+                toolArgs
+              );
+            } catch (err) {
+              toolResult = {
+                error: err instanceof Error ? err.message : String(err),
+              };
+            }
 
-          openaiMessages.push({
-            role: "tool",
-            tool_call_id: toolCall.id,
-            content: JSON.stringify(toolResult),
-          });
+            openaiMessages.push({
+              role: "tool",
+              tool_call_id: toolCall.id,
+              content: JSON.stringify(toolResult),
+            });
+          } else if (WRITE_TOOLS.has(toolName)) {
+            // Queue write tool for user confirmation
+            pendingWriteCalls.push({
+              toolCallId: toolCall.id,
+              toolName,
+              toolArgs,
+            });
+
+            openaiMessages.push({
+              role: "tool",
+              tool_call_id: toolCall.id,
+              content: JSON.stringify({
+                status: "pending_confirmation",
+                message:
+                  "This action requires user confirmation before executing.",
+              }),
+            });
+          } else {
+            openaiMessages.push({
+              role: "tool",
+              tool_call_id: toolCall.id,
+              content: JSON.stringify({ error: `Unknown tool: ${toolName}` }),
+            });
+          }
         }
         continue;
       }
@@ -164,6 +168,40 @@ export const chat = action({
       finalContent = "I wasn't able to generate a response. Please try again.";
     }
 
-    return finalContent;
+    // Build toolCalls array for the assistant message
+    const toolCallsForDb =
+      pendingWriteCalls.length > 0
+        ? pendingWriteCalls.map((tc) => ({
+            id: tc.toolCallId,
+            name: tc.toolName,
+            arguments: JSON.stringify(tc.toolArgs),
+          }))
+        : undefined;
+
+    // Save assistant message to DB
+    const messageId: Id<"aiMessages"> = await ctx.runMutation(
+      internal.aiMessages.saveMessage,
+      {
+        threadId: args.threadId,
+        role: "assistant" as const,
+        content: finalContent,
+        toolCalls: toolCallsForDb,
+        model,
+      }
+    );
+
+    // Create aiActions rows for write tool calls
+    for (const tc of pendingWriteCalls) {
+      await ctx.runMutation(internal.aiActions_internal.createAction, {
+        messageId,
+        threadId: args.threadId,
+        toolCallId: tc.toolCallId,
+        toolName: tc.toolName,
+        toolArgs: JSON.stringify(tc.toolArgs),
+        description: describeWriteAction(tc.toolName, tc.toolArgs),
+      });
+    }
+
+    return { threadId: args.threadId, messageId };
   },
 });

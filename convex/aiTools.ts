@@ -27,19 +27,25 @@ async function getLegacyExercises(ctx: any, userId: Id<"users">) {
     .filter((e: any) => !e.userId);
 }
 
-/** Get recent workout sessions with their exercise names */
-export const getRecentSessions = internalQuery({
+/** Get workout sessions with optional status filter */
+export const getSessions = internalQuery({
   args: {
     userId: v.id("users"),
+    status: v.optional(v.string()),
     limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const limit = args.limit ?? 10;
-    const sessions = await ctx.db
+    let sessions = await ctx.db
       .query("sessions")
       .withIndex("by_user", (q) => q.eq("userId", args.userId))
       .order("desc")
-      .take(limit);
+      .collect();
+
+    if (args.status) {
+      sessions = sessions.filter((s) => s.status === args.status);
+    }
+    sessions = sessions.slice(0, limit);
 
     return await Promise.all(
       sessions.map(async (session) => {
@@ -310,5 +316,227 @@ export const addExercise = internalMutation({
     });
 
     return exerciseId as string;
+  },
+});
+
+/** Rename a session */
+export const renameSession = internalMutation({
+  args: {
+    userId: v.id("users"),
+    sessionId: v.id("sessions"),
+    name: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const session = await ctx.db.get(args.sessionId);
+    if (!session || session.userId !== args.userId) {
+      throw new Error("Session not found or access denied");
+    }
+    await ctx.db.patch(args.sessionId, { name: args.name, updatedAt: Date.now() });
+    return true;
+  },
+});
+
+/** Delete a session and all its exercises and sets */
+export const deleteSession = internalMutation({
+  args: {
+    userId: v.id("users"),
+    sessionId: v.id("sessions"),
+  },
+  handler: async (ctx, args) => {
+    const session = await ctx.db.get(args.sessionId);
+    if (!session || session.userId !== args.userId) {
+      throw new Error("Session not found or access denied");
+    }
+
+    const exercises = await ctx.db
+      .query("exercises")
+      .withIndex("by_session", (q) => q.eq("sessionId", args.sessionId))
+      .collect();
+
+    for (const exercise of exercises) {
+      const sets = await ctx.db
+        .query("sets")
+        .withIndex("by_exercise", (q) => q.eq("exerciseId", exercise._id))
+        .collect();
+      for (const set of sets) {
+        await ctx.db.delete(set._id);
+      }
+      await ctx.db.delete(exercise._id);
+    }
+
+    await ctx.db.delete(args.sessionId);
+    return true;
+  },
+});
+
+/** Delete an exercise and all its sets */
+export const deleteExercise = internalMutation({
+  args: {
+    userId: v.id("users"),
+    exerciseId: v.id("exercises"),
+  },
+  handler: async (ctx, args) => {
+    const exercise = await ctx.db.get(args.exerciseId);
+    if (!exercise) throw new Error("Exercise not found");
+
+    const session = await ctx.db.get(exercise.sessionId);
+    if (!session || session.userId !== args.userId) {
+      throw new Error("Access denied");
+    }
+
+    const sets = await ctx.db
+      .query("sets")
+      .withIndex("by_exercise", (q) => q.eq("exerciseId", args.exerciseId))
+      .collect();
+    for (const set of sets) {
+      await ctx.db.delete(set._id);
+    }
+
+    await ctx.db.delete(args.exerciseId);
+    return true;
+  },
+});
+
+/** Update a set's reps and/or weight */
+export const updateSet = internalMutation({
+  args: {
+    userId: v.id("users"),
+    setId: v.id("sets"),
+    reps: v.optional(v.number()),
+    weight: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const set = await ctx.db.get(args.setId);
+    if (!set) throw new Error("Set not found");
+
+    const exercise = await ctx.db.get(set.exerciseId);
+    if (!exercise) throw new Error("Exercise not found");
+
+    const session = await ctx.db.get(exercise.sessionId);
+    if (!session || session.userId !== args.userId) {
+      throw new Error("Access denied");
+    }
+
+    const patch: Record<string, number> = {};
+    if (args.reps !== undefined) patch.reps = args.reps;
+    if (args.weight !== undefined) patch.weight = args.weight;
+    if (Object.keys(patch).length === 0) throw new Error("Nothing to update");
+
+    await ctx.db.patch(args.setId, patch);
+    return true;
+  },
+});
+
+/** Delete a set */
+export const deleteSet = internalMutation({
+  args: {
+    userId: v.id("users"),
+    setId: v.id("sets"),
+  },
+  handler: async (ctx, args) => {
+    const set = await ctx.db.get(args.setId);
+    if (!set) throw new Error("Set not found");
+
+    const exercise = await ctx.db.get(set.exerciseId);
+    if (!exercise) throw new Error("Exercise not found");
+
+    const session = await ctx.db.get(exercise.sessionId);
+    if (!session || session.userId !== args.userId) {
+      throw new Error("Access denied");
+    }
+
+    await ctx.db.delete(args.setId);
+    return true;
+  },
+});
+
+// ---------------------------------------------------------------------------
+// MEMORY TOOLS
+// ---------------------------------------------------------------------------
+
+/** List non-archived memories for a user */
+export const listMemories = internalQuery({
+  args: { userId: v.id("users") },
+  handler: async (ctx, args) => {
+    const memories = await ctx.db
+      .query("aiMemories")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .filter((q) => q.eq(q.field("archivedAt"), undefined))
+      .collect();
+
+    return memories.map((m) => ({
+      memoryId: m._id as string,
+      type: m.type,
+      key: m.key,
+      value: m.value,
+      createdAt: m.createdAt,
+    }));
+  },
+});
+
+/** Save (upsert) a memory */
+export const saveMemory = internalMutation({
+  args: {
+    userId: v.id("users"),
+    type: v.union(
+      v.literal("preference"),
+      v.literal("constraint"),
+      v.literal("injury"),
+      v.literal("meta")
+    ),
+    key: v.string(),
+    value: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const now = Date.now();
+
+    const existing = await ctx.db
+      .query("aiMemories")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .filter((q) =>
+        q.and(
+          q.eq(q.field("key"), args.key),
+          q.eq(q.field("archivedAt"), undefined)
+        )
+      )
+      .first();
+
+    if (existing) {
+      await ctx.db.patch(existing._id, {
+        type: args.type,
+        value: args.value,
+        source: "ai" as const,
+        updatedAt: now,
+      });
+      return existing._id as string;
+    }
+
+    const id = await ctx.db.insert("aiMemories", {
+      userId: args.userId,
+      type: args.type,
+      key: args.key,
+      value: args.value,
+      source: "ai" as const,
+      createdAt: now,
+      updatedAt: now,
+    });
+    return id as string;
+  },
+});
+
+/** Archive (soft-delete) a memory */
+export const deleteMemory = internalMutation({
+  args: {
+    userId: v.id("users"),
+    memoryId: v.id("aiMemories"),
+  },
+  handler: async (ctx, args) => {
+    const memory = await ctx.db.get(args.memoryId);
+    if (!memory || memory.userId !== args.userId) {
+      throw new Error("Memory not found or access denied");
+    }
+    const now = Date.now();
+    await ctx.db.patch(args.memoryId, { archivedAt: now, updatedAt: now });
+    return true;
   },
 });

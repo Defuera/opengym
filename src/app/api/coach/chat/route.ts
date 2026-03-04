@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "../../../../../convex/_generated/api";
+import { Id } from "../../../../../convex/_generated/dataModel";
 
 function getConvexClient() {
   const url = process.env.NEXT_PUBLIC_CONVEX_URL;
@@ -11,26 +12,22 @@ function getConvexClient() {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { messages } = body;
+    const { threadId, message } = body;
 
-    if (!messages || !Array.isArray(messages)) {
+    if (!threadId || !message) {
       return NextResponse.json(
-        { error: "Invalid request: messages array required" },
+        { error: "Invalid request: threadId and message required" },
         { status: 400 }
       );
     }
 
     const convex = getConvexClient();
-    const reply = await convex.action(api.aiCoach.chat, {
-      messages: messages.map((m: { role: string; content: string }) => ({
-        role: String(m.role),
-        content: String(m.content ?? ""),
-      })),
+    const result = await convex.action(api.aiCoach.chat, {
+      threadId: threadId as Id<"aiThreads">,
+      userMessage: String(message),
     });
 
-    return NextResponse.json({
-      reply: { role: "assistant", content: reply },
-    });
+    return NextResponse.json(result);
   } catch (error) {
     console.error("Coach chat error:", error);
     return NextResponse.json(

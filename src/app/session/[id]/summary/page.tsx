@@ -1,8 +1,6 @@
 import { workoutRepository } from "@/lib/repositories";
 import { notFound } from "next/navigation";
-import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { formatWeight, convertWeightForDisplay, getUnitLabel } from "@/lib/units";
 import ReviewSection from "./ReviewSection";
@@ -172,15 +170,6 @@ export default async function SessionSummaryPage({
         </div>
       </main>
 
-      <div className="fixed bottom-0 left-0 right-0 border-t bg-white/95 backdrop-blur-lg p-4 dark:bg-zinc-900/95">
-        <div className="mx-auto max-w-2xl">
-          <Link href="/">
-            <Button size="lg" className="w-full h-14 text-base">
-              Back to Home
-            </Button>
-          </Link>
-        </div>
-      </div>
     </div>
   );
 }

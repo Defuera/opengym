@@ -123,9 +123,20 @@ export default defineSchema({
     score: v.number(),
     headline: v.string(),
     highlights: v.array(v.string()),
-    flags: v.array(v.string()),
     muscleGroups: v.array(v.string()),
     generatedAt: v.number(),
     reviewText: v.optional(v.string()),
+    exerciseReviews: v.optional(
+      v.array(
+        v.object({
+          name: v.string(),
+          assessment: v.string(),
+          trend: v.string(),
+          topSet: v.string(),
+        })
+      )
+    ),
+    coachNotes: v.optional(v.array(v.string())),
+    nextSessionFocus: v.optional(v.string()),
   }).index("by_user", ["userId"]).index("by_session", ["sessionId"]),
 });

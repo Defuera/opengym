@@ -8,7 +8,6 @@ type SessionSummary = {
   score: number;
   headline: string;
   highlights: string[];
-  flags: string[];
   muscleGroups: string[];
   generatedAt: number;
 };

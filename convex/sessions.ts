@@ -247,14 +247,6 @@ export const updateStatus = mutation({
       updatedAt: Date.now(),
     });
 
-    // When a session is completed, schedule AI summary generation
-    if (args.status === "completed") {
-      await ctx.scheduler.runAfter(
-        0,
-        internal.aiSessionSummary.generateSessionSummary,
-        { sessionId: args.id }
-      );
-    }
   },
 });
 
@@ -330,7 +322,6 @@ export const getWeeklySessionsWithSummaries = query({
           score: number;
           headline: string;
           highlights: string[];
-          flags: string[];
           muscleGroups: string[];
           generatedAt: number;
         };

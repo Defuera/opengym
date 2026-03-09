@@ -6,6 +6,7 @@ import { api } from "../../../convex/_generated/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatWeight } from "@/lib/units";
+import { TrendBadge, ScorePill } from "@/components/summary-badges";
 import { Id } from "../../../convex/_generated/dataModel";
 
 type SessionWithExercisesAndSets = {
@@ -20,6 +21,11 @@ type SessionWithExercisesAndSets = {
       weight: number;
     }[];
   }[];
+  summary?: {
+    headline: string;
+    score: number;
+    trend: string;
+  };
 };
 
 
@@ -140,6 +146,15 @@ export default function HistoryPage() {
                               </>
                             )}
                           </div>
+                          {session.summary && (
+                            <div className="mt-2 flex items-center gap-2">
+                              <p className="flex-1 min-w-0 truncate text-sm text-muted-foreground">
+                                {session.summary.headline}
+                              </p>
+                              <TrendBadge trend={session.summary.trend} />
+                              <ScorePill score={session.summary.score} />
+                            </div>
+                          )}
                         </CardContent>
                       </Card>
                     </Link>

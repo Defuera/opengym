@@ -97,9 +97,17 @@ export const listWithDetails = query({
           })
         );
 
+        const summaryDoc = await ctx.db
+          .query("sessionSummaries")
+          .withIndex("by_session", (q) => q.eq("sessionId", session._id))
+          .first();
+
         return {
           ...session,
           exercises: exercisesWithSets.sort((a, b) => a.order - b.order),
+          summary: summaryDoc
+            ? { headline: summaryDoc.headline, score: summaryDoc.score, trend: summaryDoc.trend }
+            : undefined,
         };
       })
     );

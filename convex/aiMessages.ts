@@ -47,7 +47,10 @@ export const saveMessage = internalMutation({
 });
 
 export const softDeleteFrom = mutation({
-  args: { messageId: v.id("aiMessages") },
+  args: {
+    messageId: v.id("aiMessages"),
+    branchId: v.optional(v.string()),
+  },
   handler: async (ctx, args) => {
     const target = await ctx.db.get(args.messageId);
     if (!target || target.deletedAt) return;
@@ -65,7 +68,11 @@ export const softDeleteFrom = mutation({
     );
 
     for (const msg of toDelete) {
-      await ctx.db.patch(msg._id, { deletedAt: now });
+      const patch: { deletedAt: number; branchId?: string } = { deletedAt: now };
+      if (args.branchId) {
+        patch.branchId = args.branchId;
+      }
+      await ctx.db.patch(msg._id, patch);
 
       // Auto-reject any pending actions on deleted messages
       const actions = await ctx.db
@@ -82,5 +89,58 @@ export const softDeleteFrom = mutation({
         }
       }
     }
+  },
+});
+
+export const listBranches = query({
+  args: { threadId: v.id("aiThreads") },
+  handler: async (ctx, args) => {
+    const messages = await ctx.db
+      .query("aiMessages")
+      .withIndex("by_thread", (q) => q.eq("threadId", args.threadId))
+      .collect();
+
+    const branchMap = new Map<
+      string,
+      { branchId: string; createdAt: number; messageCount: number }
+    >();
+
+    for (const msg of messages) {
+      if (!msg.branchId) continue;
+      const existing = branchMap.get(msg.branchId);
+      if (existing) {
+        existing.messageCount++;
+        if (msg.createdAt < existing.createdAt) {
+          existing.createdAt = msg.createdAt;
+        }
+      } else {
+        branchMap.set(msg.branchId, {
+          branchId: msg.branchId,
+          createdAt: msg.createdAt,
+          messageCount: 1,
+        });
+      }
+    }
+
+    return Array.from(branchMap.values()).sort(
+      (a, b) => b.createdAt - a.createdAt
+    );
+  },
+});
+
+export const listBranchMessages = query({
+  args: {
+    threadId: v.id("aiThreads"),
+    branchId: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const messages = await ctx.db
+      .query("aiMessages")
+      .withIndex("by_thread", (q) => q.eq("threadId", args.threadId))
+      .collect();
+
+    return messages
+      .filter((m) => m.branchId === args.branchId)
+      .sort((a, b) => a.createdAt - b.createdAt);
   },
 });

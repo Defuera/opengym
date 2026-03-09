@@ -11,6 +11,7 @@ export function useCoachChat(userId: Id<"users"> | undefined) {
   );
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [viewingBranchId, setViewingBranchId] = useState<string | null>(null);
 
   const getOrCreateThread = useMutation(api.aiThreads.getOrCreateThread);
   const createThread = useMutation(api.aiThreads.createThread);
@@ -32,6 +33,18 @@ export function useCoachChat(userId: Id<"users"> | undefined) {
   const actions = useQuery(
     api.aiActions.listByThread,
     activeThreadId ? { threadId: activeThreadId } : "skip"
+  );
+
+  const branches = useQuery(
+    api.aiMessages.listBranches,
+    activeThreadId ? { threadId: activeThreadId } : "skip"
+  );
+
+  const branchMessages = useQuery(
+    api.aiMessages.listBranchMessages,
+    activeThreadId && viewingBranchId
+      ? { threadId: activeThreadId, branchId: viewingBranchId }
+      : "skip"
   );
 
   const ensureThread = useCallback(async (): Promise<Id<"aiThreads">> => {
@@ -76,8 +89,9 @@ export function useCoachChat(userId: Id<"users"> | undefined) {
       setError(null);
 
       try {
-        // Soft-delete from the edited message onward
-        await softDeleteFrom({ messageId });
+        // Tag old messages as a branch so they're retrievable
+        const branchId = Date.now().toString();
+        await softDeleteFrom({ messageId, branchId });
 
         // Re-send with new content
         await sendMessage(newContent);
@@ -87,6 +101,14 @@ export function useCoachChat(userId: Id<"users"> | undefined) {
     },
     [activeThreadId, softDeleteFrom, sendMessage]
   );
+
+  const viewBranch = useCallback((branchId: string) => {
+    setViewingBranchId(branchId);
+  }, []);
+
+  const closeBranch = useCallback(() => {
+    setViewingBranchId(null);
+  }, []);
 
   const startNewThread = useCallback(async () => {
     if (!userId) return;
@@ -135,6 +157,9 @@ export function useCoachChat(userId: Id<"users"> | undefined) {
     threads: threads ?? [],
     messages: messages ?? [],
     actions: actions ?? [],
+    branches: branches ?? [],
+    branchMessages: branchMessages ?? [],
+    viewingBranchId,
     isLoading,
     error,
     sendMessage,
@@ -142,6 +167,8 @@ export function useCoachChat(userId: Id<"users"> | undefined) {
     startNewThread,
     switchThread,
     archiveThread,
+    viewBranch,
+    closeBranch,
     confirmAction,
     rejectAction,
     ensureThread,

@@ -9,12 +9,21 @@ interface Thread {
   updatedAt: number;
 }
 
+interface Branch {
+  branchId: string;
+  createdAt: number;
+  messageCount: number;
+}
+
 interface ThreadSwitcherProps {
   threads: Thread[];
   activeThreadId: Id<"aiThreads"> | null;
+  branches?: Branch[];
+  viewingBranchId?: string | null;
   onSwitch: (threadId: Id<"aiThreads">) => void;
   onNew: () => void;
   onArchive: (threadId: Id<"aiThreads">) => void;
+  onViewBranch?: (branchId: string) => void;
 }
 
 function formatThreadLabel(thread: Thread): string {
@@ -29,12 +38,21 @@ function formatThreadLabel(thread: Thread): string {
   return d.toLocaleDateString([], { month: "short", day: "numeric" });
 }
 
+function formatBranchLabel(branch: Branch): string {
+  const d = new Date(branch.createdAt);
+  const dateStr = d.toLocaleDateString([], { month: "short", day: "numeric" });
+  return `Branch · ${dateStr}`;
+}
+
 export function ThreadSwitcher({
   threads,
   activeThreadId,
+  branches = [],
+  viewingBranchId,
   onSwitch,
   onNew,
   onArchive,
+  onViewBranch,
 }: ThreadSwitcherProps) {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -130,46 +148,91 @@ export function ThreadSwitcher({
             {threads.map((thread) => {
               const isActive = thread._id === activeThreadId;
               return (
-                <div
-                  key={thread._id}
-                  className={`group flex items-center justify-between rounded-md px-3 py-2 text-sm ${
-                    isActive
-                      ? "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
-                      : "text-zinc-700 hover:bg-zinc-50 dark:text-zinc-300 dark:hover:bg-zinc-800"
-                  }`}
-                >
-                  <button
-                    onClick={() => {
-                      onSwitch(thread._id);
-                      setIsOpen(false);
-                    }}
-                    className="min-w-0 flex-1 truncate text-left"
+                <div key={thread._id}>
+                  <div
+                    className={`group flex items-center justify-between rounded-md px-3 py-2 text-sm ${
+                      isActive
+                        ? "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
+                        : "text-zinc-700 hover:bg-zinc-50 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                    }`}
                   >
-                    {formatThreadLabel(thread)}
-                  </button>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onArchive(thread._id);
-                    }}
-                    className="shrink-0 opacity-0 group-hover:opacity-100 ml-2 text-zinc-400 hover:text-red-500 dark:hover:text-red-400"
-                    title="Delete conversation"
-                  >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      width="14"
-                      height="14"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
+                    <button
+                      onClick={() => {
+                        onSwitch(thread._id);
+                        setIsOpen(false);
+                      }}
+                      className="min-w-0 flex-1 truncate text-left"
                     >
-                      <path d="M3 6h18" />
-                      <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
-                    </svg>
-                  </button>
+                      {formatThreadLabel(thread)}
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onArchive(thread._id);
+                      }}
+                      className="shrink-0 opacity-0 group-hover:opacity-100 ml-2 text-zinc-400 hover:text-red-500 dark:hover:text-red-400"
+                      title="Delete conversation"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="14"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="M3 6h18" />
+                        <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+                      </svg>
+                    </button>
+                  </div>
+
+                  {/* Branches for the active thread */}
+                  {isActive && branches.length > 0 && (
+                    <div className="ml-5 border-l border-zinc-200 dark:border-zinc-700">
+                      {branches.map((branch) => (
+                        <button
+                          key={branch.branchId}
+                          onClick={() => {
+                            onViewBranch?.(branch.branchId);
+                            setIsOpen(false);
+                          }}
+                          className={`flex w-full items-center gap-2 rounded-md px-3 py-1.5 text-xs ${
+                            viewingBranchId === branch.branchId
+                              ? "bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300"
+                              : "text-zinc-500 hover:bg-zinc-50 dark:text-zinc-400 dark:hover:bg-zinc-800"
+                          }`}
+                        >
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="12"
+                            height="12"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            className="shrink-0"
+                          >
+                            <line x1="6" y1="3" x2="6" y2="15" />
+                            <circle cx="18" cy="6" r="3" />
+                            <circle cx="6" cy="18" r="3" />
+                            <path d="M18 9a9 9 0 0 1-9 9" />
+                          </svg>
+                          <span className="truncate">
+                            {formatBranchLabel(branch)}
+                          </span>
+                          <span className="shrink-0 text-zinc-400">
+                            {branch.messageCount}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               );
             })}

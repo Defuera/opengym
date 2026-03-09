@@ -90,6 +90,7 @@ export default defineSchema({
     model: v.optional(v.string()),
     createdAt: v.number(),
     deletedAt: v.optional(v.number()),
+    branchId: v.optional(v.string()),
   }).index("by_thread", ["threadId"]),
 
   aiActions: defineTable({

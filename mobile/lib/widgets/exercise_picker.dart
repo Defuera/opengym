@@ -1,16 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../planner.dart';
 import '../theme.dart';
 import 'og_button.dart';
+import 'og_icon_button.dart';
 
 /// Bottom sheet to pick a library exercise or type a custom one.
 /// Returns the chosen name (already trimmed), or null if dismissed.
 Future<String?> showExercisePicker(
   BuildContext context, {
   required String title,
-  required List<String> used,
+  required List<String> options,
 }) {
   return showModalBottomSheet<String>(
     context: context,
@@ -20,15 +20,15 @@ Future<String?> showExercisePicker(
       borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       side: BorderSide(color: OG.ink, width: 2),
     ),
-    builder: (BuildContext ctx) => _PickerSheet(title: title, used: used),
+    builder: (BuildContext ctx) => _PickerSheet(title: title, options: options),
   );
 }
 
 class _PickerSheet extends StatefulWidget {
-  const _PickerSheet({required this.title, required this.used});
+  const _PickerSheet({required this.title, required this.options});
 
   final String title;
-  final List<String> used;
+  final List<String> options;
 
   @override
   State<_PickerSheet> createState() => _PickerSheetState();
@@ -55,9 +55,7 @@ class _PickerSheetState extends State<_PickerSheet> {
   Widget build(BuildContext context) {
     final double keyboard = MediaQuery.of(context).viewInsets.bottom;
     final double maxH = MediaQuery.of(context).size.height * 0.82;
-    final List<String> options = exerciseLibrary
-        .where((String n) => !widget.used.contains(n))
-        .toList();
+    final List<String> options = widget.options;
 
     final OutlineInputBorder idle = OutlineInputBorder(
       borderRadius: BorderRadius.circular(16),
@@ -90,14 +88,9 @@ class _PickerSheetState extends State<_PickerSheet> {
                       ),
                     ),
                     const SizedBox(width: 12),
-                    SizedBox(
-                      width: 52,
-                      child: OgButton(
-                        minHeight: 52,
-                        padding: EdgeInsets.zero,
-                        onPressed: () => Navigator.of(context).pop(),
-                        child: const Icon(Icons.close, size: 24),
-                      ),
+                    OgIconButton(
+                      icon: Icons.close,
+                      onPressed: () => Navigator.of(context).pop(),
                     ),
                   ],
                 ),

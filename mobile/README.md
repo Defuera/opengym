@@ -16,3 +16,18 @@ first and fix anything it reports.
 3. `open ios/Runner.xcworkspace` -> Runner target -> Signing & Capabilities ->
    pick your team
 4. Plug in the iPhone (Developer Mode on) -> `flutter run --release`
+
+## Structure
+
+- Domain: `lib/models.dart` (schema) and `lib/planner.dart` (planning rules, pure Dart).
+- Data: `lib/data/` holds the `SessionRepository` interface plus shared_preferences and in-memory implementations.
+- Store: `lib/store.dart` (`AppStore`) takes a repository and holds all mutations.
+- Widgets: `lib/widgets/` are standalone. They import only Flutter, `theme.dart` and each other, and take plain values and callbacks.
+- Screens: `lib/screens/` are thin. They read the store, map models to widget props and pass store methods as callbacks.
+- Gallery: `lib/gallery/` is a dependency-free widget gallery (Storybook equivalent). Add a story with one entry in `lib/gallery/stories.dart`.
+
+## Widget gallery
+
+```
+flutter run -t lib/gallery_main.dart
+```

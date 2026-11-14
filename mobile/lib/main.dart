@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 
+import 'data/shared_prefs_session_repository.dart';
 import 'screens/home_screen.dart';
 import 'store.dart';
 import 'theme.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  final AppStore store = AppStore();
+  final AppStore store = AppStore(SharedPrefsSessionRepository());
   await store.load();
   runApp(OpenGymApp(store: store));
 }

@@ -1,16 +1,17 @@
-import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
+import 'data/session_repository.dart';
 import 'models.dart';
 import 'planner.dart';
 
-/// Single app store. Local only. Everything is saved under one JSON string key,
-/// and the in-progress session is saved on every change.
+/// Single app store. Storage is behind [SessionRepository]; the in-progress
+/// session is saved on every change.
 class AppStore extends ChangeNotifier {
-  static const String _key = 'opengym-v1';
+  AppStore(this._repo);
+
+  final SessionRepository _repo;
 
   List<Session> sessions = <Session>[];
   Session? active;
@@ -20,58 +21,23 @@ class AppStore extends ChangeNotifier {
   int curEx = 0;
   int curSet = 0;
 
-  SharedPreferences? _prefs;
-
-  // ---------- storage ----------
-
   Future<void> load() async {
-    final SharedPreferences p = await SharedPreferences.getInstance();
-    _prefs = p;
-    final String? raw = p.getString(_key);
-    if (raw == null) {
-      return;
-    }
-    try {
-      final Map<String, dynamic> j = jsonDecode(raw) as Map<String, dynamic>;
-      final List<Session> list = <Session>[];
-      final Object? rawSessions = j['sessions'];
-      if (rawSessions is List) {
-        for (final Object? e in rawSessions) {
-          list.add(Session.fromJson(e as Map<String, dynamic>));
-        }
-      }
-      final Object? a = j['active'];
-      sessions = list;
-      active = a == null ? null : Session.fromJson(a as Map<String, dynamic>);
-      final Object? at = j['activeAt'];
-      activeAt = at is num ? at.toInt() : 0;
-    } catch (_) {
-      sessions = <Session>[];
-      active = null;
-    }
+    final StoredState s = await _repo.load();
+    sessions = List<Session>.from(s.sessions);
+    active = s.active;
+    activeAt = s.activeAt;
     _select(0);
-  }
-
-  Future<void> _save() async {
-    final SharedPreferences? p = _prefs;
-    if (p == null) {
-      return;
-    }
-    final Map<String, dynamic> m = <String, dynamic>{
-      'sessions': sessions.map((Session s) => s.toJson()).toList(),
-      'active': active?.toJson(),
-      'activeAt': activeAt,
-    };
-    await p.setString(_key, jsonEncode(m));
   }
 
   void _commit() {
     activeAt = DateTime.now().millisecondsSinceEpoch;
-    _save();
+    _repo.save(StoredState(
+      sessions: sessions,
+      active: active,
+      activeAt: activeAt,
+    ));
     notifyListeners();
   }
-
-  // ---------- selection helpers ----------
 
   Exercise? get currentExercise {
     final Session? a = active;
@@ -107,12 +73,11 @@ class AppStore extends ChangeNotifier {
 
   void begin(String type) {
     if (active == null) {
-      final int now = DateTime.now().millisecondsSinceEpoch;
       active = Session(
         id: newId(),
         kind: 'gym',
         type: type,
-        startedAt: now,
+        startedAt: DateTime.now().millisecondsSinceEpoch,
         exercises: planFor(sessions, type),
       );
       _select(0);
@@ -151,15 +116,13 @@ class AppStore extends ChangeNotifier {
       sessions.add(a);
     }
     active = null;
-    curEx = 0;
-    curSet = 0;
+    _select(0);
     _commit();
   }
 
   void discard() {
     active = null;
-    curEx = 0;
-    curSet = 0;
+    _select(0);
     _commit();
   }
 

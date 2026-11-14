@@ -5,9 +5,11 @@ import '../models.dart';
 import '../planner.dart';
 import '../store.dart';
 import '../theme.dart';
+import '../widgets/choice_sheet.dart';
+import '../widgets/cta_button.dart';
 import '../widgets/exercise_picker.dart';
 import '../widgets/og_button.dart';
-import 'session_carousel.dart';
+import '../widgets/og_icon_button.dart';
 import 'session_parts.dart';
 
 class SessionScreen extends StatelessWidget {
@@ -20,44 +22,22 @@ class SessionScreen extends StatelessWidget {
   }
 
   Future<void> _close(BuildContext context) async {
-    final String? choice = await showModalBottomSheet<String>(
-      context: context,
-      backgroundColor: OG.ground,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-        side: BorderSide(color: OG.ink, width: 2),
-      ),
-      builder: (BuildContext ctx) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: <Widget>[
-                Text('End this session?', style: OG.display(24)),
-                const SizedBox(height: 14),
-                OgButton(
-                  variant: OgVariant.accent,
-                  onPressed: () => Navigator.of(ctx).pop('finish'),
-                  child: const Text('Finish and save'),
-                ),
-                const SizedBox(height: 8),
-                OgButton(
-                  onPressed: () => Navigator.of(ctx).pop('discard'),
-                  child: const Text('Discard without saving'),
-                ),
-                const SizedBox(height: 8),
-                OgButton(
-                  variant: OgVariant.dashed,
-                  onPressed: () => Navigator.of(ctx).pop('keep'),
-                  child: const Text('Keep going'),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
+    final String? choice = await showChoiceSheet(
+      context,
+      title: 'End this session?',
+      choices: const <SheetChoice>[
+        SheetChoice(
+          value: 'finish',
+          label: 'Finish and save',
+          variant: OgVariant.accent,
+        ),
+        SheetChoice(value: 'discard', label: 'Discard without saving'),
+        SheetChoice(
+          value: 'keep',
+          label: 'Keep going',
+          variant: OgVariant.dashed,
+        ),
+      ],
     );
     if (choice == 'finish') {
       store.finish();
@@ -76,13 +56,11 @@ class SessionScreen extends StatelessWidget {
     if (a == null) {
       return;
     }
-    final String title =
-        swap ? 'Swap ${store.currentExercise?.name ?? ''}' : 'Add exercise';
     final List<String> used = a.exercises.map((Exercise e) => e.name).toList();
     final String? name = await showExercisePicker(
       context,
-      title: title,
-      used: used,
+      title: swap ? 'Swap ${store.currentExercise?.name ?? ''}' : 'Add exercise',
+      options: exerciseLibrary.where((String n) => !used.contains(n)).toList(),
     );
     if (name == null || name.isEmpty) {
       return;
@@ -129,27 +107,22 @@ class SessionScreen extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(width: 12),
-                      SizedBox(
-                        width: 52,
-                        child: OgButton(
-                          minHeight: 52,
-                          padding: EdgeInsets.zero,
-                          onPressed: () => _close(context),
-                          child: const Icon(Icons.close, size: 24),
-                        ),
+                      OgIconButton(
+                        icon: Icons.close,
+                        onPressed: () => _close(context),
                       ),
                     ],
                   ),
                 ),
                 const SizedBox(height: 14),
-                ExerciseCarousel(
+                ExerciseStrip(
                   store: store,
                   onAdd: () => _pick(context, swap: false),
                 ),
                 Expanded(
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: ExerciseCard(
+                    child: SessionPanel(
                       store: store,
                       onSwap: () => _pick(context, swap: true),
                     ),
@@ -171,55 +144,31 @@ class SessionScreen extends StatelessWidget {
     final Exercise? ex = store.currentExercise;
     final bool last = store.curEx >= a.exercises.length - 1;
     if (ex != null && !allDone(ex)) {
-      return SizedBox(
-        width: double.infinity,
-        child: OgButton(
-          variant: OgVariant.accent,
-          minHeight: 76,
-          radius: 20,
-          onPressed: () {
-            HapticFeedback.mediumImpact();
-            store.completeSet();
-          },
-          child: _ctaLabel('Complete set', Icons.check),
-        ),
+      return CtaButton(
+        label: 'Complete set',
+        icon: Icons.check,
+        variant: OgVariant.accent,
+        onPressed: () {
+          HapticFeedback.mediumImpact();
+          store.completeSet();
+        },
       );
     }
     if (ex != null && !last) {
-      return SizedBox(
-        width: double.infinity,
-        child: OgButton(
-          variant: OgVariant.ink,
-          minHeight: 76,
-          radius: 20,
-          onPressed: store.nextExercise,
-          child: _ctaLabel('Next exercise', Icons.arrow_forward, trailing: true),
-        ),
+      return CtaButton(
+        label: 'Next exercise',
+        icon: Icons.arrow_forward,
+        iconAfter: true,
+        onPressed: store.nextExercise,
       );
     }
-    return SizedBox(
-      width: double.infinity,
-      child: OgButton(
-        variant: OgVariant.ink,
-        minHeight: 76,
-        radius: 20,
-        onPressed: () {
-          store.finish();
-          _leave(context);
-        },
-        child: _ctaLabel('Finish session', Icons.check),
-      ),
-    );
-  }
-
-  Widget _ctaLabel(String text, IconData icon, {bool trailing = false}) {
-    final Widget label = Text(text, style: OG.display(24, color: OG.white));
-    final Widget ic = Icon(icon, size: 30);
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: trailing
-          ? <Widget>[label, const SizedBox(width: 8), ic]
-          : <Widget>[ic, const SizedBox(width: 8), label],
+    return CtaButton(
+      label: 'Finish session',
+      icon: Icons.check,
+      onPressed: () {
+        store.finish();
+        _leave(context);
+      },
     );
   }
 }

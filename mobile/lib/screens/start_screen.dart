@@ -3,7 +3,8 @@ import 'package:flutter/material.dart';
 import '../planner.dart';
 import '../store.dart';
 import '../theme.dart';
-import '../widgets/og_button.dart';
+import '../widgets/og_icon_button.dart';
+import '../widgets/prediction_card.dart';
 import 'other_activity_screen.dart';
 import 'session_screen.dart';
 
@@ -38,48 +39,23 @@ class StartScreen extends StatelessWidget {
         final List<Widget> options = <Widget>[];
         for (int i = 1; i < p.length; i++) {
           final String type = p[i].type;
-          options.add(_option(
+          options.add(OptionCard(
             number: '${i + 1}',
             title: 'Gym · $type',
-            onPressed: () => _begin(context, type),
+            onTap: () => _begin(context, type),
           ));
         }
-        options.add(_option(
+        options.add(OptionCard(
           number: '${p.length + 1}',
           title: 'Other activity',
-          onPressed: () => _other(context),
+          onTap: () => _other(context),
         ));
-        options.add(OgButton(
-          variant: OgVariant.dashed,
-          minHeight: 112,
-          padding: const EdgeInsets.all(14),
-          alignment: Alignment.topLeft,
-          onPressed: () => _begin(context, 'Custom'),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: <Widget>[
-              const Icon(Icons.add, size: 26),
-              Text('Empty gym session', style: OG.display(24)),
-            ],
-          ),
+        options.add(OptionCard(
+          icon: Icons.add,
+          title: 'Empty gym session',
+          dashed: true,
+          onTap: () => _begin(context, 'Custom'),
         ));
-
-        final List<Widget> rows = <Widget>[];
-        for (int i = 0; i < options.length; i += 2) {
-          rows.add(Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Expanded(child: options[i]),
-              const SizedBox(width: 12),
-              Expanded(
-                child: i + 1 < options.length ? options[i + 1] : const SizedBox(),
-              ),
-            ],
-          ));
-          rows.add(const SizedBox(height: 8));
-        }
-
         return Scaffold(
           body: SafeArea(
             child: ListView(
@@ -88,19 +64,11 @@ class StartScreen extends StatelessWidget {
                 Row(
                   children: <Widget>[
                     Expanded(
-                      child: Text(
-                        'Start',
-                        style: OG.muted(weight: FontWeight.w600),
-                      ),
+                      child: Text('Start', style: OG.muted(weight: FontWeight.w600)),
                     ),
-                    SizedBox(
-                      width: 52,
-                      child: OgButton(
-                        minHeight: 52,
-                        padding: EdgeInsets.zero,
-                        onPressed: () => Navigator.of(context).pop(),
-                        child: const Icon(Icons.close, size: 24),
-                      ),
+                    OgIconButton(
+                      icon: Icons.close,
+                      onPressed: () => Navigator.of(context).pop(),
                     ),
                   ],
                 ),
@@ -109,80 +77,19 @@ class StartScreen extends StatelessWidget {
                 const SizedBox(height: 18),
                 Text('Most likely first, from your log.', style: OG.muted()),
                 const SizedBox(height: 18),
-                OgButton(
-                  variant: OgVariant.accent,
-                  minHeight: 170,
-                  radius: 20,
-                  padding: const EdgeInsets.all(20),
-                  alignment: Alignment.topLeft,
-                  onPressed: () => _begin(context, p[0].type),
-                  child: SizedBox(
-                    width: double.infinity,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: <Widget>[
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: <Widget>[
-                            Text(
-                              '1 · Most likely',
-                              style: OG.body(
-                                weight: FontWeight.w600,
-                                color: OG.white,
-                              ),
-                            ),
-                            const Icon(Icons.arrow_forward, size: 28),
-                          ],
-                        ),
-                        const SizedBox(height: 40),
-                        Text(
-                          'Gym · ${p[0].type}',
-                          style: OG.display(44, color: OG.white),
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          'Session ready to follow',
-                          style: OG.body(
-                            weight: FontWeight.w500,
-                            color: OG.white,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                PredictionCard(
+                  rankLabel: '1 · Most likely',
+                  title: 'Gym · ${p[0].type}',
+                  subtitle: 'Session ready to follow',
+                  onTap: () => _begin(context, p[0].type),
                 ),
                 const SizedBox(height: 18),
-                ...rows,
+                OptionGrid(children: options),
               ],
             ),
           ),
         );
       },
-    );
-  }
-
-  Widget _option({
-    required String number,
-    required String title,
-    required VoidCallback onPressed,
-  }) {
-    return OgButton(
-      minHeight: 112,
-      padding: const EdgeInsets.all(14),
-      alignment: Alignment.topLeft,
-      onPressed: onPressed,
-      child: SizedBox(
-        width: double.infinity,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Text(number, style: OG.muted(weight: FontWeight.w700)),
-            const SizedBox(height: 18),
-            Text(title, style: OG.display(24)),
-          ],
-        ),
-      ),
     );
   }
 }

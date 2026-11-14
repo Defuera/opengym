@@ -3,6 +3,9 @@ import 'package:flutter/material.dart';
 import '../planner.dart';
 import '../store.dart';
 import '../theme.dart';
+import '../widgets/cta_button.dart';
+import '../widgets/og_chip.dart';
+import '../widgets/og_icon_button.dart';
 import '../widgets/og_button.dart';
 import '../widgets/stepper_row.dart';
 
@@ -36,14 +39,9 @@ class _OtherActivityScreenState extends State<OtherActivityScreen> {
                 children: <Widget>[
                   Row(
                     children: <Widget>[
-                      SizedBox(
-                        width: 52,
-                        child: OgButton(
-                          minHeight: 52,
-                          padding: EdgeInsets.zero,
-                          onPressed: () => Navigator.of(context).pop(),
-                          child: const Icon(Icons.chevron_left, size: 28),
-                        ),
+                      OgIconButton(
+                        icon: Icons.chevron_left,
+                        onPressed: () => Navigator.of(context).pop(),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
@@ -56,7 +54,12 @@ class _OtherActivityScreenState extends State<OtherActivityScreen> {
                     spacing: 8,
                     runSpacing: 8,
                     children: <Widget>[
-                      for (final String n in activities) _chip(n),
+                      for (final String n in activities)
+                        OgChip(
+                          label: n,
+                          selected: _act == n,
+                          onTap: () => setState(() => _act = n),
+                        ),
                     ],
                   ),
                   const SizedBox(height: 18),
@@ -77,53 +80,14 @@ class _OtherActivityScreenState extends State<OtherActivityScreen> {
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 0, 20, 18),
-              child: SizedBox(
-                width: double.infinity,
-                child: OgButton(
-                  variant: OgVariant.accent,
-                  minHeight: 76,
-                  radius: 20,
-                  onPressed: _log,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: <Widget>[
-                      const Icon(Icons.check, size: 30),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Log ${_act.toLowerCase()}',
-                        style: OG.display(24, color: OG.white),
-                      ),
-                    ],
-                  ),
-                ),
+              child: CtaButton(
+                label: 'Log ${_act.toLowerCase()}',
+                icon: Icons.check,
+                variant: OgVariant.accent,
+                onPressed: _log,
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-
-  Widget _chip(String name) {
-    final bool on = _act == name;
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: () => setState(() => _act = name),
-      child: Container(
-        height: 48,
-        padding: const EdgeInsets.symmetric(horizontal: 18),
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: on ? OG.ink : OG.card,
-          borderRadius: BorderRadius.circular(999),
-          border: Border.all(color: OG.ink, width: 2),
-        ),
-        child: Text(
-          name,
-          style: OG.body(
-            weight: FontWeight.w600,
-            color: on ? OG.white : OG.ink,
-          ),
         ),
       ),
     );

@@ -112,8 +112,8 @@ List<Exercise> planFor(List<Session> sessions, String type) {
   return use.map((String n) => makeExercise(sessions, n)).toList();
 }
 
-class Prediction {
-  const Prediction({required this.type, required this.at, required this.index});
+class TypeRank {
+  const TypeRank({required this.type, required this.at, required this.index});
 
   final String type;
   final int at;
@@ -121,17 +121,17 @@ class Prediction {
 }
 
 /// Rotation: least recently done first, ties by starter order.
-List<Prediction> predictions(List<Session> sessions) {
+List<TypeRank> predictions(List<Session> sessions) {
   final Map<String, int> last = <String, int>{};
   for (final Session s in gymSessions(sessions)) {
     last[s.type] = s.endedAt ?? 0;
   }
-  final List<Prediction> out = <Prediction>[];
+  final List<TypeRank> out = <TypeRank>[];
   for (int i = 0; i < starterTypes.length; i++) {
     final String t = starterTypes[i];
-    out.add(Prediction(type: t, at: last[t] ?? 0, index: i));
+    out.add(TypeRank(type: t, at: last[t] ?? 0, index: i));
   }
-  out.sort((Prediction a, Prediction b) {
+  out.sort((TypeRank a, TypeRank b) {
     if (a.at != b.at) {
       return a.at.compareTo(b.at);
     }

@@ -76,7 +76,15 @@ class HomeSummary extends StatelessWidget {
     return SessionListItem(
       title: gym ? 'Gym · ${s.type}' : s.type,
       subtitle: whenLabel(s.endedAt ?? s.startedAt),
-      trailing: gym ? '$n sets' : '${s.minutes ?? 0} min',
+      trailing: gym ? '$n sets' : _activityTrailing(s),
     );
+  }
+
+  String _activityTrailing(Session s) {
+    final double? km = s.distanceKm;
+    if (s.minutes == null && km != null) {
+      return '${fmtKg(km)} km';
+    }
+    return '${s.minutes ?? 0} min';
   }
 }

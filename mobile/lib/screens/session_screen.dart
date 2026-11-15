@@ -94,7 +94,9 @@ class SessionScreen extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: <Widget>[
                             Text(
-                              'Prepared from your log',
+                              a.planNote ?? 'Prepared from your log',
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
                               style: OG.muted(size: 14, weight: FontWeight.w600),
                             ),
                             Text(

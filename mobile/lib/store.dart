@@ -13,6 +13,10 @@ class AppStore extends ChangeNotifier {
 
   final SessionRepository _repo;
 
+  /// Called with the session id after a session was saved locally (finished
+  /// gym session or logged activity). Compose wires this to the sync service.
+  void Function(String id)? onSessionSaved;
+
   List<Session> sessions = <Session>[];
   Session? active;
   int activeAt = 0;
@@ -71,14 +75,17 @@ class AppStore extends ChangeNotifier {
     notifyListeners();
   }
 
-  void begin(String type) {
+  /// Starts a gym session. [prepared] (e.g. from a server plan) replaces the
+  /// local planner's exercises; [rationale] is shown on the session screen.
+  void begin(String type, {List<Exercise>? prepared, String? rationale}) {
     if (active == null) {
       active = Session(
         id: newId(),
         kind: 'gym',
         type: type,
         startedAt: DateTime.now().millisecondsSinceEpoch,
-        exercises: planFor(sessions, type),
+        exercises: prepared ?? planFor(sessions, type),
+        planNote: (rationale == null || rationale.isEmpty) ? null : rationale,
       );
       _select(0);
       _commit();
@@ -111,13 +118,61 @@ class AppStore extends ChangeNotifier {
       }
     }
     a.exercises = kept;
+    String? savedId;
     if (kept.isNotEmpty) {
       a.endedAt = DateTime.now().millisecondsSinceEpoch;
       sessions.add(a);
+      savedId = a.id;
     }
     active = null;
     _select(0);
     _commit();
+    _announce(savedId);
+  }
+
+  void _announce(String? id) {
+    final void Function(String id)? cb = onSessionSaved;
+    if (id != null && cb != null) {
+      cb(id);
+    }
+  }
+
+  Session? sessionById(String id) {
+    for (final Session s in sessions) {
+      if (s.id == id) {
+        return s;
+      }
+    }
+    return null;
+  }
+
+  /// Adds sessions from the server that are not on this phone yet (local copy
+  /// wins). Returns how many were added.
+  int mergeRemote(List<Session> remote) {
+    final Set<String> known = sessions.map((Session s) => s.id).toSet();
+    int added = 0;
+    for (final Session r in remote) {
+      if (r.id.isEmpty || known.contains(r.id) || r.endedAt == null) {
+        continue;
+      }
+      known.add(r.id);
+      sessions.add(r);
+      added++;
+    }
+    if (added > 0) {
+      sessions.sort((Session a, Session b) => a.when.compareTo(b.when));
+      _commit();
+    }
+    return added;
+  }
+
+  /// Drops sessions that came from an import that was undone.
+  void removeImported(String importId) {
+    final int before = sessions.length;
+    sessions.removeWhere((Session s) => s.importId == importId);
+    if (sessions.length != before) {
+      _commit();
+    }
   }
 
   void discard() {
@@ -128,8 +183,9 @@ class AppStore extends ChangeNotifier {
 
   void logActivity(String type, int minutes) {
     final int now = DateTime.now().millisecondsSinceEpoch;
+    final String id = newId();
     sessions.add(Session(
-      id: newId(),
+      id: id,
       kind: 'activity',
       type: type,
       startedAt: now - minutes * 60000,
@@ -137,6 +193,7 @@ class AppStore extends ChangeNotifier {
       minutes: minutes,
     ));
     _commit();
+    _announce(id);
   }
 
   // ---------- exercises ----------

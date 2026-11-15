@@ -1,21 +1,20 @@
 import 'package:flutter/material.dart';
 
-import 'data/shared_prefs_session_repository.dart';
+import 'app/compose.dart';
+import 'app/deps.dart';
 import 'screens/home_screen.dart';
-import 'store.dart';
 import 'theme.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  final AppStore store = AppStore(SharedPrefsSessionRepository());
-  await store.load();
-  runApp(OpenGymApp(store: store));
+  final AppDeps deps = await compose();
+  runApp(OpenGymApp(deps: deps));
 }
 
 class OpenGymApp extends StatelessWidget {
-  const OpenGymApp({super.key, required this.store});
+  const OpenGymApp({super.key, required this.deps});
 
-  final AppStore store;
+  final AppDeps deps;
 
   @override
   Widget build(BuildContext context) {
@@ -27,7 +26,7 @@ class OpenGymApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: OG.accent),
         scaffoldBackgroundColor: OG.ground,
       ),
-      home: HomeScreen(store: store),
+      home: HomeScreen(deps: deps),
     );
   }
 }

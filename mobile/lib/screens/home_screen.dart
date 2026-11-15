@@ -1,19 +1,28 @@
 import 'package:flutter/material.dart';
 
+import '../app/deps.dart';
 import '../models.dart';
-import '../store.dart';
+import '../stores/connection_store.dart';
 import '../theme.dart';
+import '../widgets/nav_bar.dart';
 import '../widgets/og_button.dart';
-import '../widgets/plus_bar.dart';
+import '../widgets/og_icon_button.dart';
+import '../widgets/review_card.dart';
 import '../widgets/segmented_toggle.dart';
+import '../widgets/status_line.dart';
+import 'dashboard_view.dart';
+import 'goals_screen.dart';
 import 'home_summary.dart';
+import 'import_screen.dart';
 import 'session_screen.dart';
+import 'settings_screen.dart';
 import 'start_screen.dart';
+import 'threads_screen.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key, required this.store});
+  const HomeScreen({super.key, required this.deps});
 
-  final AppStore store;
+  final AppDeps deps;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -21,48 +30,125 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _period = 7;
+  bool _wasConnected = false;
+  late final Listenable _all;
 
-  void _openStart() {
+  @override
+  void initState() {
+    super.initState();
+    final AppDeps d = widget.deps;
+    _all = Listenable.merge(<Listenable>[d.store, d.connection, d.dashboard, d.reviews]);
+    _wasConnected = d.connection.connected;
+    d.connection.addListener(_onConnection);
+    if (_wasConnected) {
+      d.dashboard.load(_period);
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.deps.connection.removeListener(_onConnection);
+    super.dispose();
+  }
+
+  void _onConnection() {
+    final bool now = widget.deps.connection.connected;
+    if (now && !_wasConnected) {
+      widget.deps.dashboard.load(_period);
+    }
+    _wasConnected = now;
+  }
+
+  void _setPeriod(int days) {
+    setState(() => _period = days);
+    if (widget.deps.connection.connected) {
+      widget.deps.dashboard.load(days);
+    }
+  }
+
+  void _push(Widget screen) {
     Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (BuildContext c) => StartScreen(store: widget.store),
-      ),
+      MaterialPageRoute<void>(builder: (BuildContext c) => screen),
     );
   }
 
   void _resume() {
-    widget.store.resume();
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (BuildContext c) => SessionScreen(store: widget.store),
-      ),
-    );
+    widget.deps.store.resume();
+    _push(SessionScreen(store: widget.deps.store));
+  }
+
+  String get _statusText {
+    final ConnState s = widget.deps.connection.state;
+    if (s == ConnState.connected) {
+      return 'Connected';
+    }
+    if (s == ConnState.checking) {
+      return 'Connecting...';
+    }
+    return 'Offline: saved on this phone';
+  }
+
+  Widget _body() {
+    final AppDeps d = widget.deps;
+    final Dashboard? dash = d.dashboard.current;
+    if (d.connection.connected && dash != null && dash.modules.isNotEmpty) {
+      return DashboardView(dashboard: dash);
+    }
+    return HomeSummary(sessions: d.store.sessions, period: _period);
   }
 
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: widget.store,
+      listenable: _all,
       builder: (BuildContext context, Widget? child) {
-        final AppStore store = widget.store;
-        final Session? a = store.active;
+        final AppDeps d = widget.deps;
+        final Session? a = d.store.active;
+        final Review? review = d.reviews.current;
         return Scaffold(
           body: SafeArea(
             child: Column(
               children: <Widget>[
                 Expanded(
                   child: ListView(
-                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
                     children: <Widget>[
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: <Widget>[
+                          OgIconButton(
+                            icon: Icons.flag_outlined,
+                            onPressed: () => _push(GoalsScreen(deps: d)),
+                          ),
+                          const SizedBox(width: 8),
+                          OgIconButton(
+                            icon: Icons.file_upload_outlined,
+                            onPressed: () => _push(ImportScreen(deps: d)),
+                          ),
+                          const SizedBox(width: 8),
+                          OgIconButton(
+                            icon: Icons.settings_outlined,
+                            onPressed: () => _push(SettingsScreen(deps: d)),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 14),
                       SegmentedToggle(
                         labels: const <String>['Last week', 'Last month'],
                         selectedIndex: _period == 7 ? 0 : 1,
-                        onChanged: (int i) =>
-                            setState(() => _period = i == 0 ? 7 : 30),
+                        onChanged: (int i) => _setPeriod(i == 0 ? 7 : 30),
                       ),
                       const SizedBox(height: 18),
                       Text('How am I doing?', style: OG.display(40)),
                       const SizedBox(height: 18),
+                      if (review != null) ...<Widget>[
+                        ReviewCard(
+                          summary: review.summary,
+                          changes: review.changes,
+                          onDismiss: d.reviews.dismiss,
+                        ),
+                        const SizedBox(height: 18),
+                      ],
                       if (a != null) ...<Widget>[
                         OgButton(
                           variant: OgVariant.ink,
@@ -83,13 +169,20 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                         const SizedBox(height: 18),
                       ],
-                      HomeSummary(sessions: store.sessions, period: _period),
+                      _body(),
                       const SizedBox(height: 18),
-                      Text('Saved on this phone.', style: OG.muted(size: 13)),
+                      StatusLine(
+                        text: _statusText,
+                        connected: d.connection.connected,
+                      ),
                     ],
                   ),
                 ),
-                PlusBar(onPressed: _openStart),
+                NavBar(
+                  onHome: () {},
+                  onPlus: () => _push(StartScreen(deps: d)),
+                  onChat: () => _push(ThreadsScreen(deps: d)),
+                ),
               ],
             ),
           ),

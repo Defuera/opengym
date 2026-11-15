@@ -187,7 +187,12 @@ Widget choiceCardsStory(BuildContext context) {
       ),
       _gap,
       const OptionGrid(children: <Widget>[
-        OptionCard(number: '2', title: 'Gym · Pull', onTap: _noop),
+        OptionCard(
+          number: '2',
+          title: 'Gym · Pull',
+          subtitle: 'Last done 3 days ago',
+          onTap: _noop,
+        ),
         OptionCard(number: '3', title: 'Other activity', onTap: _noop),
         OptionCard(
           icon: Icons.add,

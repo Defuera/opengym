@@ -10,17 +10,26 @@ import '../widgets/og_button.dart';
 import '../widgets/stepper_row.dart';
 
 class OtherActivityScreen extends StatefulWidget {
-  const OtherActivityScreen({super.key, required this.store});
+  const OtherActivityScreen({super.key, required this.store, this.initial = 'Run'});
 
   final AppStore store;
+
+  /// Activity to preselect (e.g. from a prediction).
+  final String initial;
 
   @override
   State<OtherActivityScreen> createState() => _OtherActivityScreenState();
 }
 
 class _OtherActivityScreenState extends State<OtherActivityScreen> {
-  String _act = 'Run';
+  late String _act;
   int _min = 30;
+
+  @override
+  void initState() {
+    super.initState();
+    _act = activities.contains(widget.initial) ? widget.initial : 'Other';
+  }
 
   void _log() {
     widget.store.logActivity(_act, _min);

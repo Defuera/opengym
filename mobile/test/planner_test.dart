@@ -40,16 +40,16 @@ void main() {
   });
 
   test('predictions follow starter order with no history', () {
-    final List<Prediction> p = predictions(<Session>[]);
-    expect(p.map((Prediction x) => x.type).toList(), <String>['Push', 'Pull', 'Legs']);
+    final List<TypeRank> p = predictions(<Session>[]);
+    expect(p.map((TypeRank x) => x.type).toList(), <String>['Push', 'Pull', 'Legs']);
   });
 
   test('predictions rotate after a logged Push session', () {
     final List<Session> sessions = <Session>[
       _gym('Push', 1000, <Exercise>[_ex('Bench press', <double>[60])]),
     ];
-    final List<Prediction> p = predictions(sessions);
-    expect(p.map((Prediction x) => x.type).toList(), <String>['Pull', 'Legs', 'Push']);
+    final List<TypeRank> p = predictions(sessions);
+    expect(p.map((TypeRank x) => x.type).toList(), <String>['Pull', 'Legs', 'Push']);
   });
 
   test('lastSetsFor prefills from the latest session, not done', () {

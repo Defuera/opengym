@@ -96,11 +96,20 @@ class SessionPanel extends StatelessWidget {
     }
     return ExercisePanel(
       name: ex.name,
-      hint: ex.fresh
-          ? 'First time here. Set your numbers once; next time they are pre-filled.'
-          : null,
+      hint: _hint(ex),
       onSwap: onSwap,
       children: body,
     );
   }
+}
+
+String? _hint(Exercise ex) {
+  final String? note = ex.note;
+  final String? fresh = ex.fresh
+      ? 'First time here. Set your numbers once; next time they are pre-filled.'
+      : null;
+  if (note != null && note.isNotEmpty) {
+    return fresh == null ? note : '$note\n$fresh';
+  }
+  return fresh;
 }

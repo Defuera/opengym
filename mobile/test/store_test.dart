@@ -2,6 +2,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:opengym/data/in_memory_session_repository.dart';
 import 'package:opengym/models.dart';
 import 'package:opengym/planner.dart';
+import 'package:opengym/data/api/fake_open_gym_api.dart';
+import 'package:opengym/stores/plan_store.dart';
 import 'package:opengym/store.dart';
 
 Future<AppStore> _newStore(InMemorySessionRepository repo) async {
@@ -116,5 +118,47 @@ void main() {
     expect(second.active, isNotNull);
     expect(second.active!.type, 'Push');
     expect(second.active!.exercises.first.sets.first.done, isTrue);
+  });
+
+  test('begin with a prepared plan uses it instead of the local planner', () async {
+    final AppStore store = await _newStore(InMemorySessionRepository());
+    final PlanStore plans = PlanStore(api: FakeOpenGymApi());
+    final Plan plan = Plan(
+      id: 'p1',
+      type: 'Push',
+      createdAt: 1,
+      source: 'ai',
+      rationale: 'Sample rationale.',
+      exercises: const <PlanExercise>[
+        PlanExercise(
+          name: 'Dips',
+          note: 'Sample note',
+          sets: <PlanSet>[PlanSet(reps: 8, kg: 0), PlanSet(reps: 8, kg: 0)],
+        ),
+      ],
+    );
+
+    store.begin('Push', prepared: plans.exercisesFor(plan), rationale: plan.rationale);
+
+    expect(store.active!.exercises.length, 1);
+    expect(store.currentExercise!.name, 'Dips');
+    expect(store.currentExercise!.note, 'Sample note');
+    expect(store.currentExercise!.sets.length, 2);
+    expect(store.currentExercise!.sets.every((SetEntry s) => !s.done), isTrue);
+    expect(store.active!.planNote, 'Sample rationale.');
+  });
+
+  test('finishing a session announces its id once', () async {
+    final AppStore store = await _newStore(InMemorySessionRepository());
+    final List<String> seen = <String>[];
+    store.onSessionSaved = seen.add;
+    store.begin('Push');
+    store.completeSet();
+    store.finish();
+    expect(seen, <String>[store.sessions.first.id]);
+
+    store.begin('Pull');
+    store.finish(); // nothing done, nothing saved
+    expect(seen.length, 1);
   });
 }

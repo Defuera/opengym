@@ -66,6 +66,7 @@ class OptionCard extends StatelessWidget {
     this.number,
     this.icon,
     this.dashed = false,
+    this.subtitle,
   });
 
   final String title;
@@ -74,10 +75,14 @@ class OptionCard extends StatelessWidget {
   final IconData? icon;
   final bool dashed;
 
+  /// Muted reason line under the title.
+  final String? subtitle;
+
   @override
   Widget build(BuildContext context) {
     final String? n = number;
     final IconData? i = icon;
+    final String? sub = subtitle;
     return OgButton(
       variant: dashed ? OgVariant.dashed : OgVariant.plain,
       minHeight: 112,
@@ -93,6 +98,10 @@ class OptionCard extends StatelessWidget {
             if (i != null) Icon(i, size: 26),
             const SizedBox(height: 18),
             Text(title, style: OG.display(24)),
+            if (sub != null && sub.isNotEmpty) ...<Widget>[
+              const SizedBox(height: 4),
+              Text(sub, style: OG.muted(size: 14)),
+            ],
           ],
         ),
       ),

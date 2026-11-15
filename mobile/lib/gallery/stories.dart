@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import 'story_builders.dart';
+import 'story_net.dart';
+import 'story_net_stateful.dart';
 import 'story_stateful.dart';
 
 /// One entry per widget section. Adding a story is one entry here.
@@ -27,4 +29,22 @@ final List<GalleryStory> galleryStories = <GalleryStory>[
   const GalleryStory(title: 'NoteBox', builder: notesStory),
   const GalleryStory(title: 'PlusBar', builder: plusBarStory),
   const GalleryStory(title: 'Sheets', builder: sheetsStory),
+  const GalleryStory(title: 'ProgressBar', builder: progressStory),
+  const GalleryStory(title: 'StatusLine', builder: statusStory),
+  GalleryStory(title: 'LabeledField', builder: (BuildContext c) => const FieldDemo()),
+  const GalleryStory(title: 'GoalProgressCard', builder: goalCardStory),
+  const GalleryStory(title: 'TrendCard', builder: trendStory),
+  const GalleryStory(title: 'ConsistencyRow', builder: consistencyStory),
+  const GalleryStory(title: 'NoteCard', builder: noteCardStory),
+  const GalleryStory(title: 'ReviewCard', builder: reviewStory),
+  const GalleryStory(title: 'ChatBubble and SavedChips', builder: chatStory),
+  const GalleryStory(title: 'AttachmentChip', builder: attachmentStory),
+  GalleryStory(title: 'ComposerBar', builder: (BuildContext c) => const ComposerDemo()),
+  const GalleryStory(title: 'ThreadCard', builder: threadCardStory),
+  GalleryStory(title: 'ChipStrip', builder: (BuildContext c) => const ChipStripDemo()),
+  const GalleryStory(title: 'NavBar', builder: navBarStory),
+  const GalleryStory(title: 'GoalRow', builder: goalRowStory),
+  const GalleryStory(title: 'ImportJobCard', builder: importStory),
+  const GalleryStory(title: 'PreparingCard', builder: preparingStory),
+  const GalleryStory(title: 'Text sheet', builder: textSheetStory),
 ];

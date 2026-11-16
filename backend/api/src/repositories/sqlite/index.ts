@@ -21,7 +21,12 @@ import { SqliteThreadRepository } from "./thread-repo";
 export function createSqliteRepositories(dbPath: string, filesDir: string): Repositories {
   if (dbPath !== ":memory:") mkdirSync(path.dirname(path.resolve(dbPath)), { recursive: true });
   const db = new Database(dbPath);
-  db.pragma("journal_mode = WAL");
+  // WAL needs shared memory and file locks; on network/FUSE mounts (Cloud Storage via gcsfuse) use DELETE.
+  const mode = (process.env.SQLITE_JOURNAL_MODE ?? "WAL").trim().toUpperCase();
+  if (!["WAL", "DELETE", "TRUNCATE", "PERSIST", "MEMORY", "OFF"].includes(mode)) {
+    throw new Error(`SQLITE_JOURNAL_MODE=${mode} is not a valid SQLite journal mode`);
+  }
+  db.pragma(`journal_mode = ${mode}`);
   return {
     sessions: new SqliteSessionRepository(db),
     goals: new SqliteGoalRepository(db),

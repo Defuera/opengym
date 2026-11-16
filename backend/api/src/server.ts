@@ -46,7 +46,11 @@ function main() {
     console.log("Use one of these URLs in the phone app:");
     for (const u of lanUrls(info.port)) console.log(`  ${u}`);
     console.log(`  http://localhost:${info.port}  (this machine only)`);
-    console.log(`Token: ${cfg.token}${cfg.tokenGenerated ? "   (generated for this run; set APP_TOKEN in .env to keep it)" : ""}`);
+    console.log(
+      cfg.tokenGenerated
+        ? `Token: ${cfg.token}   (generated for this run; set APP_TOKEN in .env to keep it)`
+        : "Token: taken from APP_TOKEN (not printed)",
+    );
   });
   const stop = () => {
     server.close();

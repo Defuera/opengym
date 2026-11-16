@@ -1,6 +1,8 @@
 # OpenGym backend
 
-Single-user backend for the OpenGym app. Implements `docs/api-contract.md` (v1). Hono + SQLite + zod, AI through plain `fetch` (Anthropic, OpenAI, DeepSeek) or a built-in mock.
+Lives in `backend/api/`; run every command below from this directory. The contract is `../../docs/api-contract.md`.
+
+Single-user backend for the OpenGym app. Implements `../../docs/api-contract.md` (v1). Hono + SQLite + zod, AI through plain `fetch` (Anthropic, OpenAI, DeepSeek) or a built-in mock.
 
 ## Setup in 5 steps
 
@@ -46,3 +48,16 @@ Plans, predictions and dashboard layouts are stored proposals. Writes (sessions,
 - Dashboard "days" and active-day counts use UTC calendar days.
 - Background work runs in one in-process queue; pending tasks are lost on restart (proposals are then regenerated on the next write or served from rules).
 - Data lives in `DB_PATH` (default `./data/opengym.db`), uploads in `./data/files`.
+
+## Deploy to Google Cloud Run
+
+Files: `Dockerfile`, `.dockerignore` (here) and `../../infra/deploy-cloud-run.sh` (not run by anyone yet; read it first). The script takes `GCP_PROJECT`, `BUCKET`, optional `GCP_REGION` (default `europe-west1`), `SERVICE` (default `opengym-api`), `GCLOUD_ACCOUNT`, `AI_PROVIDER`, `AI_MODEL`. Create the secrets `opengym-app-token` (APP_TOKEN) and `opengym-ai-key` (provider key) in Secret Manager first.
+
+Env vars the service reads (names only): `APP_TOKEN`, `PORT`, `HOST`, `DB_PATH`, `SQLITE_JOURNAL_MODE`, `AI_PROVIDER`, `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL`, `ANTHROPIC_BASE_URL`, `OPENAI_API_KEY`, `OPENAI_MODEL`, `OPENAI_BASE_URL`, `DEEPSEEK_API_KEY`, `DEEPSEEK_MODEL`, `DEEPSEEK_BASE_URL`. Health check: `GET /v1/health` (no auth). Every other `/v1/*` route needs `Authorization: Bearer <APP_TOKEN>`.
+
+Persistence plan: a Cloud Storage bucket mounted at `/data` (Cloud Run gen2, gcsfuse), `DB_PATH=/data/opengym.db`, uploads in `/data/files`, `--max-instances=1`, `SQLITE_JOURNAL_MODE=DELETE`.
+
+- Verified locally: with `SQLITE_JOURNAL_MODE=DELETE` the database reports `journal_mode=delete` and `scripts/smoke.sh` passes against the mock provider. The default stays `WAL`.
+- Inferred, not tested on Cloud Run: that WAL fails on gcsfuse (WAL needs shared memory and file locks; gcsfuse has no such support). That `DELETE` mode works reliably on gcsfuse is also unverified. gcsfuse writes a file back on close/sync, so a crash or instance stop mid-write could lose recent writes or corrupt the database. Back up the bucket (object versioning) before relying on it.
+- Inferred: one instance only, because two instances writing the same SQLite file on gcsfuse would corrupt it. The in-process task queue also loses pending work on instance shutdown.
+- The deploy uses `--allow-unauthenticated` (the app token is the only protection). Keep the token long and random.

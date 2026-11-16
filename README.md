@@ -40,4 +40,4 @@ Each part has its own dependencies. Run commands from the part's folder.
 
 ## Checks in CI
 
-`.github/workflows/quality.yml` runs checks only for the parts that changed: backend, mobile and web. `codex-review.yml` posts an automated review on pull requests.
+`.github/workflows/quality.yml` runs checks only for the parts that changed: backend, mobile and web.

@@ -23,7 +23,7 @@ opengym/
 │   ├── design.md         # Design canvas link, artboards, visual tokens
 │   ├── guides/           # House rules for agents (hard constraints)
 │   └── strategy/         # Numbered ADRs and their index
-└── .github/workflows/    # quality.yml (path-filtered checks), codex-review.yml
+└── .github/workflows/    # quality.yml (path-filtered checks)
 ```
 
 Each part has its own dependencies. There is no root `package.json`.

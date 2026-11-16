@@ -3,6 +3,9 @@
 
 set -e
 
+# Run from apps/web regardless of where the script is called from
+cd "$(dirname "$0")/.."
+
 echo "🔨 Compiling tests..."
 npx tsc tests/session-flow-simple.test.ts --outDir dist/tests --module commonjs --moduleResolution node --esModuleInterop --resolveJsonModule --skipLibCheck --target ES2020 >/dev/null 2>&1
 
@@ -15,8 +18,6 @@ echo "🧪 Running Session Flow Integration Tests"
 echo ""
 
 # Load environment variables and run test
-cd /home/node/.openclaw/workspace/opengym
-
 # Load environment variables directly
 export NEXT_PUBLIC_CONVEX_URL=$(grep NEXT_PUBLIC_CONVEX_URL .env.local | cut -d '=' -f2 | sed 's/#.*//' | tr -d ' ')
 

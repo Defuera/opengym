@@ -1,7 +1,43 @@
+# OS and editors
 .DS_Store
+.idea/
+.vscode/
+*.iml
+*.swp
+
+# Dependencies and build output
 node_modules/
+dist/
+.next/
+.turbo
+*.tsbuildinfo
+
+# Env files and secrets (never commit)
 .env*
 !.env.example
-*.tsbuildinfo
+*.pem
+*.p12
+*.mobileprovision
+**/GoogleService-Info.plist
+**/google-services.json
+apps/mobile/ios/Flutter/Local.xcconfig
+
+# Local data
+backend/api/data/
+*.sqlite
+*.sqlite-journal
+
+# Vercel
 .vercel
-.turbo
+
+# Flutter / Dart (apps/mobile/.gitignore has more)
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.pub-cache/
+build/
+**/DerivedData/
+xcuserdata/
+
+# Logs
+*.log

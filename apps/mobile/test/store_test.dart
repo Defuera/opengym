@@ -123,13 +123,13 @@ void main() {
   test('begin with a prepared plan uses it instead of the local planner', () async {
     final AppStore store = await _newStore(InMemorySessionRepository());
     final PlanStore plans = PlanStore(api: FakeOpenGymApi());
-    final Plan plan = Plan(
+    const Plan plan = Plan(
       id: 'p1',
       type: 'Push',
       createdAt: 1,
       source: 'ai',
       rationale: 'Sample rationale.',
-      exercises: const <PlanExercise>[
+      exercises: <PlanExercise>[
         PlanExercise(
           name: 'Dips',
           note: 'Sample note',

@@ -149,7 +149,7 @@ class DashboardModule {
       title: str(j['title']),
       current: str(j['current']),
       target: str(j['target']),
-      fraction: f == null ? null : f.clamp(0.0, 1.0).toDouble(),
+      fraction: f?.clamp(0.0, 1.0).toDouble(),
       unit: str(j['unit']),
       points: pts,
       days: days,

@@ -39,7 +39,7 @@ class ExerciseStrip extends StatelessWidget {
       ));
     }
     cards.add(AddCard(onTap: onAdd));
-    return ExerciseCarousel(children: cards, selectedIndex: store.curEx);
+    return ExerciseCarousel(selectedIndex: store.curEx, children: cards);
   }
 }
 

@@ -22,32 +22,32 @@ void _noop() {}
 const SizedBox _gap = SizedBox(height: 12);
 
 Widget buttonsStory(BuildContext context) {
-  return Column(
+  return const Column(
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: <Widget>[
-      OgButton(onPressed: _noop, child: const Text('Plain')),
+      OgButton(onPressed: _noop, child: Text('Plain')),
       _gap,
       OgButton(
         variant: OgVariant.accent,
         onPressed: _noop,
-        child: const Text('Accent'),
+        child: Text('Accent'),
       ),
       _gap,
       OgButton(
         variant: OgVariant.ink,
         onPressed: _noop,
-        child: const Text('Ink'),
+        child: Text('Ink'),
       ),
       _gap,
       OgButton(
         variant: OgVariant.dashed,
         onPressed: _noop,
-        child: const Text('Dashed soft'),
+        child: Text('Dashed soft'),
       ),
       _gap,
-      const OgButton(onPressed: null, child: Text('Disabled')),
+      OgButton(onPressed: null, child: Text('Disabled')),
       _gap,
-      const Row(children: <Widget>[
+      Row(children: <Widget>[
         OgIconButton(icon: Icons.close, onPressed: _noop),
         SizedBox(width: 12),
         OgIconButton(icon: Icons.chevron_left, onPressed: _noop),
@@ -57,7 +57,7 @@ Widget buttonsStory(BuildContext context) {
 }
 
 Widget ctaStory(BuildContext context) {
-  return Column(
+  return const Column(
     children: <Widget>[
       CtaButton(
         label: 'Complete set',
@@ -115,7 +115,7 @@ Widget exerciseCardsStory(BuildContext context) {
     spacing: 10,
     runSpacing: 14,
     children: <Widget>[
-      _fixed(ExerciseCard(
+      _fixed(const ExerciseCard(
         name: 'Bench press',
         progressLabel: '2 / 4 sets',
         state: ItemState.current,
@@ -123,7 +123,7 @@ Widget exerciseCardsStory(BuildContext context) {
         onMoveEarlier: _noop,
         onDiscard: _noop,
       )),
-      _fixed(ExerciseCard(
+      _fixed(const ExerciseCard(
         name: 'Overhead press',
         progressLabel: 'Done',
         state: ItemState.finished,
@@ -131,14 +131,14 @@ Widget exerciseCardsStory(BuildContext context) {
         onMoveEarlier: _noop,
         onDiscard: _noop,
       )),
-      _fixed(ExerciseCard(
+      _fixed(const ExerciseCard(
         name: 'Dips',
         progressLabel: '0 / 3 sets',
         canMoveEarlier: false,
         onTap: _noop,
         onDiscard: _noop,
       )),
-      _fixed(AddCard(onTap: _noop)),
+      _fixed(const AddCard(onTap: _noop)),
     ],
   );
 }
@@ -157,14 +157,14 @@ Widget setTilesStory(BuildContext context) {
 }
 
 Widget panelStory(BuildContext context) {
-  return SizedBox(
+  return const SizedBox(
     height: 470,
     child: ExercisePanel(
       name: 'Bench press',
       hint: 'First time here. Set your numbers once; next time they are pre-filled.',
       onSwap: _noop,
       children: <Widget>[
-        const SetGrid(children: <Widget>[
+        SetGrid(children: <Widget>[
           SetTile(label: 'Set 1', value: '6×20', state: ItemState.current),
           SetTile(label: 'Set 2', value: '6×40'),
           ToolTile(label: '+ Set', onTap: _noop),
@@ -177,16 +177,16 @@ Widget panelStory(BuildContext context) {
 }
 
 Widget choiceCardsStory(BuildContext context) {
-  return Column(
+  return const Column(
     children: <Widget>[
-      const PredictionCard(
+      PredictionCard(
         rankLabel: '1 · Most likely',
         title: 'Gym · Push',
         subtitle: 'Session ready to follow',
         onTap: _noop,
       ),
       _gap,
-      const OptionGrid(children: <Widget>[
+      OptionGrid(children: <Widget>[
         OptionCard(
           number: '2',
           title: 'Gym · Pull',

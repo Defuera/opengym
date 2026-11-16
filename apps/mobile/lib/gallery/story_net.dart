@@ -100,9 +100,9 @@ Widget noteCardStory(BuildContext context) {
 }
 
 Widget reviewStory(BuildContext context) {
-  return ReviewCard(
+  return const ReviewCard(
     summary: 'Sample summary of the last session.',
-    changes: const <String>['Sample change one', 'Sample change two'],
+    changes: <String>['Sample change one', 'Sample change two'],
     onDismiss: _noop,
   );
 }

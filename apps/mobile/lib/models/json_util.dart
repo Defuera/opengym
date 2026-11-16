@@ -1,4 +1,5 @@
 /// Tolerant JSON readers. Never throw on odd input; return a default instead.
+library;
 
 Map<String, dynamic> asMap(Object? v) {
   if (v is Map) {

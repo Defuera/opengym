@@ -114,6 +114,6 @@ class _CarouselDemoState extends State<CarouselDemo> {
     cards.add(AddCard(
       onTap: () => setState(() => _names.add('Exercise ${_names.length + 1}')),
     ));
-    return ExerciseCarousel(children: cards, selectedIndex: _sel);
+    return ExerciseCarousel(selectedIndex: _sel, children: cards);
   }
 }

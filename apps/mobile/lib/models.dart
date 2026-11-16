@@ -1,5 +1,6 @@
 /// Strict data schema. JSON keys match the web prototype (`max` for isMax).
 /// `toJson` is the local persistence shape; `toContractJson` is the API shape.
+library;
 export 'models/chat.dart';
 export 'models/dashboard.dart';
 export 'models/goal.dart';

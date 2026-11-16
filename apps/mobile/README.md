@@ -11,7 +11,7 @@ first and fix anything it reports before anything else.**
 
 ## Install on an iPhone
 
-1. `cd mobile && flutter create . --platforms=ios --org io.devartel --project-name opengym`
+1. `cd apps/mobile && flutter create . --platforms=ios --org io.devartel --project-name opengym`
    (generates `ios/`, keeps `lib/`)
 2. `tool/patch_ios_plist.sh` (adds local-network http, camera and photo
    permissions to `ios/Runner/Info.plist`; macOS only, safe to re-run;

@@ -4,6 +4,7 @@ import { mutation } from "../_generated/server";
 import { requireToken } from "../lib/auth";
 import { IMPORT_BATCH_SIZE, IMPORT_INLINE_MAX } from "../lib/constants";
 import { fromSession, withoutSystemFields } from "../lib/db";
+import { fileByFileId } from "../lib/files";
 import { markFactsChanged } from "../lib/factsChanged";
 import { purgeImportStep, writeImportItems } from "../lib/importWrite";
 import { StructuredImportError, parseStructuredImport } from "../model/structuredImport";
@@ -76,5 +77,26 @@ export const remove = mutation({
     await ctx.db.patch(job._id, { status: "failed", notes: [...job.notes, "Removal in progress."] });
     await ctx.scheduler.runAfter(0, internal.jobs.imports.purge, { importId });
     return true;
+  },
+});
+
+/**
+ * Start an AI import of uploaded files (see commands/files). The job row is `running` at once; the app watches
+ * `processed`, `total`, `counts` and `notes` on queries/imports:get. Resending the same importId returns the stored job.
+ * The work runs in jobs/importFiles: one `import_data` call per text chunk or image, then ONE rebuild at the end.
+ */
+export const start = mutation({
+  args: { token: v.string(), importId: v.string(), fileIds: v.array(v.string()) },
+  handler: async (ctx, { token, importId, fileIds }) => {
+    requireToken(token);
+    if (!importId || importId.length > 100) throw new ConvexError("importId: must be 1 to 100 characters");
+    const existing = await ctx.db.query("imports").withIndex("by_importId", (q) => q.eq("importId", importId)).unique();
+    if (existing) return withoutSystemFields(existing);
+    if (fileIds.length < 1) throw new ConvexError("fileIds: send at least one file");
+    for (const id of fileIds) if (!(await fileByFileId(ctx, id))) throw new ConvexError(`file not found: ${id}`);
+    const job = { importId, status: "running" as const, total: fileIds.length, processed: 0, counts: { sessions: 0, goals: 0, context: 0 }, notes: [], createdAt: Date.now() };
+    await ctx.db.insert("imports", job);
+    await ctx.scheduler.runAfter(0, internal.jobs.importFiles.prepare, { importId, fileIds });
+    return job;
   },
 });

@@ -8,3 +8,6 @@ export const IMPORT_INLINE_MAX = 250;
 export const IMPORT_BATCH_SIZE = 250;
 /** Documents deleted per mutation when an import is removed. */
 export const IMPORT_DELETE_BATCH = 1_000;
+
+/** AI import of files: pause between starting two units, so a long PDF does not fire all its calls at once. */
+export const IMPORT_UNIT_STAGGER_MS = 1_000;

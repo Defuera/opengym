@@ -15,9 +15,24 @@ function inputOf(req: CompleteRequest): Data {
   }
 }
 
+const BODY_PART = /\b(ankle|knee|shoulder|back|wrist|elbow|hip|neck|calf|hamstring)\b/i;
+
+/** Mock of extract_from_chat: a body part with "tight/sore/..." becomes a context note; "I want to ..." becomes a goal. */
+function extract(text: string) {
+  const context: { text: string; topic: string }[] = [];
+  const goals: { title: string; kind: string; exercise?: string; targetKg?: number }[] = [];
+  const part = text.match(BODY_PART);
+  if (part && /(tight|sore|stiff|felt|hurt|pinch|dislike)/i.test(text)) context.push({ text: text.slice(0, 300), topic: part[1]!.toLowerCase() });
+  const want = text.match(/\bi want to ([^.!?]+)/i);
+  if (want) {
+    const bench = want[1]!.match(/bench(?: press)?\D+(\d+(?:\.\d+)?)\s*kg/i);
+    goals.push(bench ? { title: `Bench press ${bench[1]} kg`, kind: "strength", exercise: "Bench press", targetKg: Number(bench[1]) } : { title: want[1]!.trim().slice(0, 80), kind: "custom" });
+  }
+  return { goals, context };
+}
+
 /**
  * Deterministic canned answers per job; needs no network or key.
- * Phase 1 jobs only. The chat, extraction, summary and import jobs come in phase 2.
  */
 export class MockProvider implements AiProvider {
   readonly name = "mock";
@@ -44,6 +59,22 @@ export class MockProvider implements AiProvider {
           ],
         });
       }
+      case "chat":
+        return "Mock coach: noted. Keep your next session simple and stick to the plan.";
+      case "extract_from_chat":
+        return JSON.stringify(extract(String(d.message ?? "")));
+      case "summarise_thread": {
+        const last = [...(d.messages ?? [])].reverse().find((m: Data) => m.role === "user");
+        return JSON.stringify({ summary: `Mock summary: ${String(last?.text ?? d.title ?? "").slice(0, 300)}` });
+      }
+      case "import_data":
+        if (d.hasImage) return JSON.stringify({ sessions: [{ kind: "activity", type: "Cycle", minutes: 30, distanceKm: 12.5 }], goals: [], context: [], notes: ["Mock read the machine screen."] });
+        return JSON.stringify({
+          sessions: [{ kind: "gym", type: "Push", exercises: [{ name: "Bench press", sets: [{ reps: 6, kg: 40 }, { reps: 6, kg: 50 }] }] }],
+          goals: [{ title: "Bench press 80 kg", kind: "strength", exercise: "Bench press", targetKg: 80 }],
+          context: [{ text: "Prefers short sessions", topic: "schedule" }],
+          notes: [],
+        });
       case "review_session":
         return JSON.stringify({ summary: "Mock review: solid session, repeat it next time.", changes: [] });
       default:

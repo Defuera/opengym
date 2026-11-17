@@ -22,3 +22,16 @@ export const moduleSpec = v.union(
 
 export const importCounts = v.object({ sessions: v.number(), goals: v.number(), context: v.number() });
 export const importStatus = v.union(v.literal("running"), v.literal("done"), v.literal("failed"));
+
+export const threadStatus = v.union(v.literal("idle"), v.literal("thinking"), v.literal("failed"));
+export const fileKind = v.union(v.literal("text"), v.literal("image"), v.literal("pdf"), v.literal("audio"), v.literal("other"));
+
+/** What extract_from_chat may propose (the model's GoalInput / ContextInput). */
+export const goalInput = v.object({
+  title: v.string(),
+  kind: goalKind,
+  exercise: v.optional(v.string()),
+  targetKg: v.optional(v.number()),
+  sessionsPerWeek: v.optional(v.number()),
+});
+export const contextInput = v.object({ text: v.string(), topic: v.string() });

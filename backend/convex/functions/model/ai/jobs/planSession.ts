@@ -23,7 +23,8 @@ export const planSessionJob: JobDef<PlanInput, PlanDraft> = {
   description: "Proposes the next session of a given type from the log, active goals and active context notes.",
   fallbackDescription: "Repeats the last session of that type with its last sets; starter template (bench press 6x20, 6x40, 6x60, 1x60 max) if there is none.",
   json: true,
-  maxTokens: 1500,
+  // Reasoning tokens count against this limit on OpenAI; 1500 gave empty answers with real history.
+  maxTokens: 4000,
   output: PlanDraftSchema as z.ZodType<PlanDraft>,
   build: (i) => ({
     system: systemPrompt(

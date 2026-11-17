@@ -1,6 +1,6 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
-import { dashboardDays, goalKind, goalStatus, importCounts, importStatus, itemSource, moduleSpec, planExercise, prediction, proposalSource } from "./lib/validators";
+import { dashboardDays, fileKind, threadStatus, goalKind, goalStatus, importCounts, importStatus, itemSource, moduleSpec, planExercise, prediction, proposalSource } from "./lib/validators";
 
 /** One logged set. `reps` = completed reps; `failed` = one more rep was tried and not completed. */
 export const setEntry = v.object({
@@ -81,6 +81,43 @@ export default defineSchema({
   })
     .index("by_importId", ["importId"])
     .index("by_createdAt", ["createdAt"]),
+
+  // Chat. Written by commands (user messages) and by the chat job (assistant messages, status).
+  threads: defineTable({
+    threadId: v.string(),
+    title: v.string(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    summary: v.string(),
+    lastMessage: v.optional(v.string()),
+    /** thinking: a coach reply is running. failed: the last reply failed (see `error`). */
+    status: threadStatus,
+    error: v.optional(v.string()),
+    /** Coach replies still running (one per unanswered message). Status is `thinking` while > 0. */
+    pending: v.number(),
+  })
+    .index("by_threadId", ["threadId"])
+    .index("by_updatedAt", ["updatedAt"]),
+  messages: defineTable({
+    messageId: v.string(),
+    threadId: v.string(),
+    role: v.union(v.literal("user"), v.literal("assistant")),
+    text: v.string(),
+    fileIds: v.array(v.string()),
+    sources: v.array(v.string()),
+    createdAt: v.number(),
+  })
+    .index("by_messageId", ["messageId"])
+    .index("by_threadId", ["threadId"]),
+  files: defineTable({
+    fileId: v.string(),
+    storageId: v.id("_storage"),
+    name: v.string(),
+    mime: v.string(),
+    size: v.number(),
+    kind: fileKind,
+    createdAt: v.number(),
+  }).index("by_fileId", ["fileId"]),
 
   // Read models. Written only by jobs. `version` is the dirtyAt of the rebuild that made the row;
   // a job result older than the stored row is dropped.

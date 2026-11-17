@@ -20,7 +20,7 @@ export const predictActivityJob: JobDef<PredictInput, Out> = {
   description: "Ranks what the user is most likely to do next (gym types and activities) for the start screen.",
   fallbackDescription: "Rotation: the gym type done longest ago first, then the most frequent activities.",
   json: true,
-  maxTokens: 600,
+  maxTokens: 1500,
   output: OutputSchema,
   build: (i) => ({
     system: systemPrompt(

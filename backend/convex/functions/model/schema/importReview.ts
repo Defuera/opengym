@@ -1,5 +1,7 @@
 import { z } from "zod";
 import { IdSchema, MsSchema } from "./common";
+import { ContextInputSchema, GoalInputSchema } from "./goalContext";
+import { SetEntrySchema } from "./session";
 
 export const ImportJobSchema = z.object({
   id: IdSchema,
@@ -24,6 +26,31 @@ export const ReviewSchema = z.object({
 
 export const ReviewDraftSchema = ReviewSchema.omit({ sessionId: true, source: true });
 
+const ImportExerciseSchema = z.object({
+  name: z.string().min(1).max(60),
+  sets: z.array(SetEntrySchema.extend({ max: z.boolean().default(false) })).max(12),
+});
+
+/** A session as the import job may produce it; the date is optional on purpose (ISO string). */
+export const ImportSessionDraftSchema = z.object({
+  kind: z.enum(["gym", "activity"]),
+  type: z.string().min(1).max(40),
+  date: z.string().optional(),
+  exercises: z.array(ImportExerciseSchema).max(15).default([]),
+  minutes: z.number().int().nonnegative().optional(),
+  distanceKm: z.number().nonnegative().optional(),
+  note: z.string().optional(),
+});
+
+export const ImportOutputSchema = z.object({
+  sessions: z.array(ImportSessionDraftSchema).default([]),
+  goals: z.array(GoalInputSchema).default([]),
+  context: z.array(ContextInputSchema).default([]),
+  notes: z.array(z.string()).default([]),
+});
+
 export type ImportJob = z.infer<typeof ImportJobSchema>;
 export type Review = z.infer<typeof ReviewSchema>;
 export type ReviewDraft = z.infer<typeof ReviewDraftSchema>;
+export type ImportSessionDraft = z.infer<typeof ImportSessionDraftSchema>;
+export type ImportOutput = z.infer<typeof ImportOutputSchema>;

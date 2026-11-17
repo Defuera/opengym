@@ -99,3 +99,9 @@ export function stableJson(value: unknown): string {
   }
   return JSON.stringify(value) ?? "null";
 }
+
+export const threadByThreadId = (ctx: Reader, threadId: string) =>
+  ctx.db.query("threads").withIndex("by_threadId", (q) => q.eq("threadId", threadId)).unique();
+
+export const messageByMessageId = (ctx: Reader, messageId: string) =>
+  ctx.db.query("messages").withIndex("by_messageId", (q) => q.eq("messageId", messageId)).unique();

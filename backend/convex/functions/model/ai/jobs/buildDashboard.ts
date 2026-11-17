@@ -25,7 +25,7 @@ export const buildDashboardJob: JobDef<DashboardInput, DashboardSpecDraft> = {
   description: "Chooses which dashboard modules to show, in what order, and their parameters. Code computes every number.",
   fallbackDescription: "Fixed layout: sessions, active days, top set of the most-trained exercise, one goal_progress per active goal, recent sessions.",
   json: true,
-  maxTokens: 800,
+  maxTokens: 2000,
   output: DashboardSpecDraftSchema,
   build: (i) => ({
     system: systemPrompt(

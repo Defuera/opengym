@@ -17,7 +17,7 @@ export const reviewSessionJob: JobDef<ReviewInput, ReviewDraft> = {
   description: "End-of-session summary and guidance: what changed versus the previous session of that type.",
   fallbackDescription: "Set counts and top sets compared with the previous session of that type.",
   json: true,
-  maxTokens: 500,
+  maxTokens: 1500,
   output: ReviewDraftSchema,
   build: (i) => ({
     system: systemPrompt("review_session", "Review the finished session against the previous one of the same type. Mention only differences visible in the data (sets, reps, weights, duration). Add one practical next-session pointer. Max 400 characters for the summary, at most 5 short change lines.", `{"summary": string (max 400 chars), "changes": string[] (max 5)}`),

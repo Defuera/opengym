@@ -5,22 +5,26 @@ import '../models.dart';
 import '../stores/plan_store.dart';
 import '../stores/start_run.dart';
 import '../theme.dart';
-import '../widgets/og_sheet.dart';
 import '../widgets/preparing_card.dart';
 import '../widgets/proposal_row.dart';
 import '../widgets/sheet_link.dart';
 import '../widgets/something_new_box.dart';
 import 'start_flow.dart';
 
-/// Home "Start session": stored proposals of sessions with sets, one free-text
-/// "Something new", and "Start empty, without a plan".
-Future<void> showStartSheet(BuildContext context, AppDeps deps) {
-  final NavigatorState nav = Navigator.of(context);
-  return showOgSheet<void>(context, (BuildContext c) => StartSheet(deps: deps, nav: nav));
-}
-
 class StartSheet extends StatefulWidget {
-  const StartSheet({super.key, required this.deps, required this.nav});
+  const StartSheet({
+    super.key,
+    required this.deps,
+    required this.nav,
+    required this.controller,
+    required this.onPreparing,
+  });
+
+  /// Kept by the sheet, so typed text survives a switch to the Log tab.
+  final TextEditingController controller;
+
+  /// Tells the sheet a request is running (the tab switch is hidden then).
+  final ValueChanged<bool> onPreparing;
 
   final AppDeps deps;
 
@@ -32,14 +36,13 @@ class StartSheet extends StatefulWidget {
 }
 
 class _StartSheetState extends State<StartSheet> {
-  final TextEditingController _text = TextEditingController();
+  TextEditingController get _text => widget.controller;
   StartRun? _run;
   String _typed = '';
 
   @override
   void dispose() {
     _run?.cancel();
-    _text.dispose();
     super.dispose();
   }
 
@@ -80,6 +83,7 @@ class _StartSheetState extends State<StartSheet> {
       _run = run;
       _typed = t;
     });
+    widget.onPreparing(true);
     final StartProposal? p = await run.result;
     if (!mounted) {
       return;
@@ -96,10 +100,9 @@ class _StartSheetState extends State<StartSheet> {
   Widget build(BuildContext context) {
     if (_run != null) {
       return Column(
+        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
-          Text('Start session', style: OG.display(32)),
-          const SizedBox(height: 16),
           PreparingCard(
             title: 'Preparing…',
             message: 'The coach shapes a session for "$_typed". It opens when ready.',
@@ -115,26 +118,33 @@ class _StartSheetState extends State<StartSheet> {
       builder: (BuildContext context, Widget? child) {
         final List<Prediction> list = _proposals();
         return Column(
+          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
-            Text('Start session', style: OG.display(32)),
-            const SizedBox(height: 6),
             Text(
               list.isEmpty
                   ? 'Say what you want to do. The coach prepares it.'
                   : 'The coach prepares it. Most likely first, from your log.',
               style: OG.muted(),
             ),
-            const SizedBox(height: 16),
-            for (int i = 0; i < list.length; i++) ...<Widget>[
-              ProposalRow(
-                title: _title(list[i]),
-                subtitle: list[i].reason,
-                primary: i == 0,
-                onTap: () => _choose(list[i]),
+            const SizedBox(height: 14),
+            Flexible(
+              child: ListView(
+                shrinkWrap: true,
+                padding: const EdgeInsets.only(bottom: 4),
+                children: <Widget>[
+                  for (int i = 0; i < list.length; i++) ...<Widget>[
+                    ProposalRow(
+                      title: _title(list[i]),
+                      subtitle: list[i].reason,
+                      primary: i == 0,
+                      onTap: () => _choose(list[i]),
+                    ),
+                    const SizedBox(height: 10),
+                  ],
+                ],
               ),
-              const SizedBox(height: 10),
-            ],
+            ),
             SomethingNewBox(
               controller: _text,
               hint: 'Something new: "hotel gym, 30 min"',

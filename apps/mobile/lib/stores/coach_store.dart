@@ -63,6 +63,10 @@ class CoachStore extends ChangeNotifier {
 
   List<Thread> threads = <Thread>[];
   String? currentId;
+
+  /// The open chat is new and not on the server yet. It is created with the
+  /// first message, so backing out leaves no empty thread behind.
+  bool isDraft = false;
   bool loadingThreads = true;
   bool loadingMessages = false;
 
@@ -178,9 +182,24 @@ class CoachStore extends ChangeNotifier {
     }, onError: (Object _) {});
   }
 
+  /// Opens an empty new chat at once, with a client-made id. Nothing is sent to
+  /// the server until the first message, so there is no name prompt and no
+  /// empty thread left behind.
+  Future<void> startNewChat() async {
+    await _msgSub?.cancel();
+    _msgSub = null;
+    currentId = newId();
+    isDraft = true;
+    _server = <Message>[];
+    _pending.clear();
+    loadingMessages = false;
+    error = null;
+    notifyListeners();
+  }
+
   /// Creates a thread and returns its id. The list updates through the
-  /// subscription.
-  Future<String?> createThread(String title) async {
+  /// subscription. No title: the backend names it after the first message.
+  Future<String?> createThread([String? title]) async {
     if (!connected) {
       error = chatOfflineMessage;
       notifyListeners();
@@ -199,6 +218,32 @@ class CoachStore extends ChangeNotifier {
     }
     notifyListeners();
     return null;
+  }
+
+  /// The user names a thread. The backend never replaces that title.
+  /// Returns false (with [error] set) when it did not go through.
+  Future<bool> renameThread(String id, String title) async {
+    final String t = title.trim();
+    if (t.isEmpty) {
+      return false;
+    }
+    if (!connected) {
+      error = chatOfflineMessage;
+      notifyListeners();
+      return false;
+    }
+    try {
+      await _client.renameThread(threadId: id, title: t.length > 60 ? t.substring(0, 60) : t);
+      error = null;
+      notifyListeners();
+      return true;
+    } on ConvexCallException catch (e) {
+      error = e.message;
+    } catch (_) {
+      error = 'Could not rename the thread.';
+    }
+    notifyListeners();
+    return false;
   }
 
   Future<void> deleteThread(String id) async {
@@ -226,11 +271,16 @@ class CoachStore extends ChangeNotifier {
   Future<void> openThread(String id) async {
     await _msgSub?.cancel();
     currentId = id;
+    isDraft = false;
     _server = <Message>[];
     _pending.clear();
     loadingMessages = true;
     error = null;
     notifyListeners();
+    _subscribeMessages(id);
+  }
+
+  void _subscribeMessages(String id) {
     _msgSub = _client.watchMessages(id).listen(
       (List<Message> list) {
         if (currentId != id) {
@@ -254,6 +304,7 @@ class CoachStore extends ChangeNotifier {
     await _msgSub?.cancel();
     _msgSub = null;
     currentId = null;
+    isDraft = false;
     _server = <Message>[];
     _pending.clear();
     notifyListeners();
@@ -291,10 +342,37 @@ class CoachStore extends ChangeNotifier {
       text: body.isEmpty ? 'See attached.' : body,
       files: List<_Attachment>.of(_pending),
     );
+    if (isDraft) {
+      // First message of a new chat: create the thread, then send.
+      sending = true;
+      notifyListeners();
+      final String? made = await _createDraft(id);
+      sending = false;
+      if (made == null) {
+        notifyListeners();
+        return false;
+      }
+    }
     _pending.clear();
     _outgoing.add(out);
     await _deliver(out);
     return true;
+  }
+
+  Future<String?> _createDraft(String id) async {
+    try {
+      await _client.createThread(threadId: id);
+      isDraft = false;
+      error = null;
+      loadingMessages = true;
+      _subscribeMessages(id);
+      return id;
+    } on ConvexCallException catch (e) {
+      error = e.message;
+    } catch (_) {
+      error = 'Could not create the thread.';
+    }
+    return null;
   }
 
   /// Sends again with the same message id: an unsent message, or the last

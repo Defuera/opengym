@@ -34,9 +34,7 @@ void main() {
     expect(find.byType(TextField), findsOneWidget);
     expect(find.textContaining(' · '), findsNothing);
     expect(find.text('Start empty, without a plan ›'), findsOneWidget);
-    await t.tapAt(const Offset(10, 10));
-    await t.pumpAndSettle();
-    await t.tap(find.text('Log'));
+    await t.tap(inSheet(find.text('Log')));
     await t.pumpAndSettle();
     expect(find.byType(TextField), findsOneWidget);
     expect(find.text('Import a photo or a file ›'), findsOneWidget);
@@ -45,8 +43,7 @@ void main() {
   testWidgets('Log sheet: time and distance activities, most often first, with the last record',
       (WidgetTester t) async {
     await openHome(t);
-    await t.tap(find.text('Log'));
-    await t.pumpAndSettle();
+    await openLog(t);
     final List<String> order = <String>['Cycling', 'Run', 'Bouldering'];
     double last = -1;
     for (final String n in order) {
@@ -65,8 +62,7 @@ void main() {
   testWidgets('Log: a tap on an item opens the small log form and saves with distance and note',
       (WidgetTester t) async {
     final (FakeConvexClient _, AppDeps d) = await openHome(t);
-    await t.tap(find.text('Log'));
-    await t.pumpAndSettle();
+    await openLog(t);
     await t.tap(inSheet(find.text('Run')));
     await t.pumpAndSettle();
     expect(find.byType(OtherActivityScreen), findsOneWidget);
@@ -85,8 +81,7 @@ void main() {
 
   testWidgets('Log: a new name opens the form for that name', (WidgetTester t) async {
     final (FakeConvexClient _, AppDeps d) = await openHome(t);
-    await t.tap(find.text('Log'));
-    await t.pumpAndSettle();
+    await openLog(t);
     await t.enterText(find.byType(TextField), 'padel');
     await t.tap(inSheet(find.widgetWithText(OgButton, 'Log')));
     await t.pumpAndSettle();
@@ -98,8 +93,7 @@ void main() {
 
   testWidgets('Log sheet: the import link opens the import screen', (WidgetTester t) async {
     await openHome(t);
-    await t.tap(find.text('Log'));
-    await t.pumpAndSettle();
+    await openLog(t);
     await t.tap(find.text('Import a photo or a file ›'));
     await t.pumpAndSettle();
     expect(find.byType(ImportScreen), findsOneWidget);

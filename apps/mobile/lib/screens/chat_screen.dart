@@ -26,6 +26,7 @@ class ChatScreen extends StatefulWidget {
 
 class _ChatScreenState extends State<ChatScreen> {
   final TextEditingController _text = TextEditingController();
+  final FocusNode _focus = FocusNode();
   String? _pickError;
 
   CoachStore get _coach => widget.deps.coach;
@@ -33,6 +34,7 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   void dispose() {
     _text.dispose();
+    _focus.dispose();
     super.dispose();
   }
 
@@ -42,6 +44,9 @@ class _ChatScreenState extends State<ChatScreen> {
     final bool accepted = await _coach.send(text);
     if (!accepted) {
       _text.text = text; // nothing was sent: keep what the user typed
+    }
+    if (mounted) {
+      _focus.requestFocus(); // sending keeps the keyboard open
     }
   }
 
@@ -93,20 +98,19 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
-  Future<void> _newThread() async {
+  /// A new chat opens at once, without a name.
+  Future<void> _newThread() => _coach.startNewChat();
+
+  Future<void> _rename(Thread t) async {
     final String? title = await showTextSheet(
       context,
-      title: 'New thread',
+      title: 'Rename chat',
       label: 'Title',
-      actionLabel: 'Create',
+      actionLabel: 'Save',
+      initialText: t.title,
     );
-    if (title == null) {
-      return;
-    }
-    final String? id =
-        await _coach.createThread(title.length > 40 ? title.substring(0, 40) : title);
-    if (id != null) {
-      _coach.openThread(id);
+    if (title != null) {
+      await _coach.renameThread(t.id, title);
     }
   }
 
@@ -177,13 +181,24 @@ class _ChatScreenState extends State<ChatScreen> {
                       ),
                       const SizedBox(width: 12),
                       Expanded(
-                        child: Text(
-                          c.currentThread?.title ?? 'Coach',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: OG.display(32),
+                        child: GestureDetector(
+                          key: const ValueKey<String>('chat-title'),
+                          behavior: HitTestBehavior.opaque,
+                          onTap: c.currentThread == null ? null : () => _rename(c.currentThread!),
+                          child: Text(
+                            c.currentThread?.title ?? (c.isDraft ? 'New chat' : 'Coach'),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: OG.display(32),
+                          ),
                         ),
                       ),
+                      if (c.currentThread != null)
+                        OgIconButton(
+                          key: const ValueKey<String>('chat-rename'),
+                          icon: Icons.edit_outlined,
+                          onPressed: () => _rename(c.currentThread!),
+                        ),
                     ],
                   ),
                 ),
@@ -199,14 +214,22 @@ class _ChatScreenState extends State<ChatScreen> {
                     child: Text(err, style: OG.body(size: 15, weight: FontWeight.w600)),
                   ),
                 Expanded(
-                  child: ListView(
-                    reverse: true,
-                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
-                    children: _items(c),
+                  // A tap on the messages closes the keyboard; so does a drag.
+                  child: GestureDetector(
+                    key: const ValueKey<String>('chat-messages'),
+                    behavior: HitTestBehavior.translucent,
+                    onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+                    child: ListView(
+                      reverse: true,
+                      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+                      padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+                      children: _items(c),
+                    ),
                   ),
                 ),
                 ComposerBar(
                   controller: _text,
+                  focusNode: _focus,
                   sending: c.sending,
                   offlineNote: widget.deps.connection.connected
                       ? null

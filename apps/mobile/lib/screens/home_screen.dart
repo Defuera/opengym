@@ -14,13 +14,12 @@ import '../widgets/status_line.dart';
 import 'about_me_screen.dart';
 import 'dashboard_view.dart';
 import 'limit_ask_bar.dart';
-import 'log_sheet.dart';
 import 'goals_screen.dart';
 import 'home_summary.dart';
 import 'import_screen.dart';
 import 'session_screen.dart';
 import 'settings_screen.dart';
-import 'start_sheet.dart';
+import 'plus_sheet.dart';
 import 'threads_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -98,6 +97,7 @@ class _HomeScreenState extends State<HomeScreen> {
         final Review? review = d.reviews.current;
         return Scaffold(
           body: SafeArea(
+            bottom: false,
             child: Column(
               children: <Widget>[
                 Expanded(
@@ -182,35 +182,9 @@ class _HomeScreenState extends State<HomeScreen> {
                     ],
                   ),
                 ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 10, 20, 12),
-                  child: Row(
-                    children: <Widget>[
-                      Expanded(
-                        flex: 3,
-                        child: OgButton(
-                          variant: OgVariant.accent,
-                          minHeight: 64,
-                          radius: 20,
-                          onPressed: () => showStartSheet(context, d),
-                          child: Text('Start session', style: OG.display(22, color: OG.white)),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        flex: 2,
-                        child: OgButton(
-                          minHeight: 64,
-                          radius: 20,
-                          onPressed: () => showLogSheet(context, d),
-                          child: Text('Log', style: OG.display(22)),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
                 NavBar(
                   onHome: () {},
+                  onPlus: () => showPlusSheet(context, d),
                   onChat: () => _push(ThreadsScreen(deps: d)),
                 ),
               ],

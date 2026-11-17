@@ -1,17 +1,22 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../theme.dart';
+import 'og_button.dart';
 
-/// Bottom bar: Home and Chat.
+/// Bottom bar: Home, the big plus, Chat.
 class NavBar extends StatelessWidget {
   const NavBar({
     super.key,
     required this.onHome,
+    required this.onPlus,
     required this.onChat,
     this.homeSelected = true,
   });
 
   final VoidCallback onHome;
+  final VoidCallback onPlus;
   final VoidCallback onChat;
   final bool homeSelected;
 
@@ -19,7 +24,14 @@ class NavBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(12, 10, 12, 6),
+      // The bar reaches the screen edge; the home indicator inset is padding
+      // inside it, kept small.
+      padding: EdgeInsets.fromLTRB(
+        12,
+        10,
+        12,
+        math.max(6, MediaQuery.of(context).padding.bottom - 10),
+      ),
       decoration: const BoxDecoration(
         color: OG.card,
         border: Border(top: BorderSide(color: OG.ink, width: 2)),
@@ -33,6 +45,18 @@ class NavBar extends StatelessWidget {
               label: 'Home',
               selected: homeSelected,
               onTap: onHome,
+            ),
+          ),
+          SizedBox(
+            width: 84,
+            height: 88,
+            child: OgButton(
+              variant: OgVariant.accent,
+              minHeight: 84,
+              radius: 22,
+              padding: EdgeInsets.zero,
+              onPressed: onPlus,
+              child: const Icon(Icons.add, size: 44),
             ),
           ),
           Expanded(

@@ -10,17 +10,20 @@ class ThreadCard extends StatelessWidget {
     required this.onTap,
     this.lastMessage,
     this.onDelete,
+    this.onRename,
   });
 
   final String title;
   final String? lastMessage;
   final VoidCallback onTap;
   final VoidCallback? onDelete;
+  final VoidCallback? onRename;
 
   @override
   Widget build(BuildContext context) {
     final String? last = lastMessage;
     final VoidCallback? del = onDelete;
+    final VoidCallback? ren = onRename;
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
@@ -45,6 +48,17 @@ class ThreadCard extends StatelessWidget {
                 ],
               ),
             ),
+            if (ren != null)
+              GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: ren,
+                child: const SizedBox(
+                  key: ValueKey<String>('thread-rename'),
+                  width: 48,
+                  height: 48,
+                  child: Icon(Icons.edit_outlined, size: 24),
+                ),
+              ),
             if (del != null)
               GestureDetector(
                 behavior: HitTestBehavior.opaque,

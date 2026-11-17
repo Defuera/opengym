@@ -122,6 +122,7 @@ class FakeConvexClient implements ConvexClient {
     serverThreads[id] = Thread(
       id: t.id,
       title: t.title,
+      titleSource: t.titleSource,
       createdAt: t.createdAt,
       updatedAt: ++_clock,
       summary: t.summary,
@@ -307,12 +308,53 @@ class FakeConvexClient implements ConvexClient {
       _messages.putIfAbsent(threadId, () => Live<List<Message>>(<Message>[])).stream();
 
   @override
-  Future<void> createThread({required String threadId, required String title}) async {
+  Future<void> createThread({required String threadId, String? title}) async {
     _command('createThread:$threadId');
     serverThreads.putIfAbsent(
         threadId,
-        () => Thread(id: threadId, title: title, createdAt: ++_clock, updatedAt: _clock));
+        () => Thread(
+              id: threadId,
+              title: title ?? 'New chat',
+              titleSource: title == null ? 'auto' : 'user',
+              createdAt: ++_clock,
+              updatedAt: _clock,
+            ));
     _publish();
+  }
+
+  @override
+  Future<void> renameThread({required String threadId, required String title}) async {
+    _command('renameThread:$threadId');
+    final Thread? t = serverThreads[threadId];
+    if (t != null) {
+      _replaceThread(t, title: title, titleSource: 'user');
+    }
+    _publish();
+  }
+
+  /// The backend's AI title arrives. Like the real backend, it never replaces a title the user set.
+  void aiTitle(String threadId, String title) {
+    serverChanged(() {
+      final Thread? t = serverThreads[threadId];
+      if (t != null && t.titleSource == 'auto') {
+        _replaceThread(t, title: title, titleSource: 'auto');
+      }
+    });
+  }
+
+  void _replaceThread(Thread t, {required String title, required String titleSource}) {
+    serverThreads[t.id] = Thread(
+      id: t.id,
+      title: title,
+      titleSource: titleSource,
+      createdAt: t.createdAt,
+      updatedAt: t.updatedAt,
+      summary: t.summary,
+      lastMessage: t.lastMessage,
+      status: t.status,
+      error: t.error,
+      pending: t.pending,
+    );
   }
 
   @override
@@ -346,6 +388,13 @@ class FakeConvexClient implements ConvexClient {
         text: text,
         createdAt: ++_clock,
         fileIds: fileIds));
+    if (list.length == 1) {
+      final Thread t = serverThreads[threadId]!;
+      if (t.titleSource == 'auto') {
+        final String cut = text.length > 40 ? text.substring(0, 40) : text;
+        _replaceThread(t, title: cut[0].toUpperCase() + cut.substring(1), titleSource: 'auto');
+      }
+    }
     _setThread(threadId, status: 'thinking');
     _publish();
   }

@@ -217,8 +217,12 @@ class SwitchableConvexClient implements ConvexClient {
   Future<void> removeImport(String importId) => _call((ConvexClient c) => c.removeImport(importId));
 
   @override
-  Future<void> createThread({required String threadId, required String title}) =>
+  Future<void> createThread({required String threadId, String? title}) =>
       _call((ConvexClient c) => c.createThread(threadId: threadId, title: title));
+
+  @override
+  Future<void> renameThread({required String threadId, required String title}) =>
+      _call((ConvexClient c) => c.renameThread(threadId: threadId, title: title));
 
   @override
   Future<void> removeThread(String threadId) => _call((ConvexClient c) => c.removeThread(threadId));

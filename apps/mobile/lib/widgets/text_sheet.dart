@@ -11,6 +11,7 @@ Future<String?> showTextSheet(
   required String label,
   required String actionLabel,
   String? hint,
+  String? initialText,
 }) {
   return showModalBottomSheet<String>(
     context: context,
@@ -25,6 +26,7 @@ Future<String?> showTextSheet(
       label: label,
       actionLabel: actionLabel,
       hint: hint,
+      initialText: initialText,
     ),
   );
 }
@@ -35,19 +37,21 @@ class _TextSheet extends StatefulWidget {
     required this.label,
     required this.actionLabel,
     this.hint,
+    this.initialText,
   });
 
   final String title;
   final String label;
   final String actionLabel;
   final String? hint;
+  final String? initialText;
 
   @override
   State<_TextSheet> createState() => _TextSheetState();
 }
 
 class _TextSheetState extends State<_TextSheet> {
-  final TextEditingController _c = TextEditingController();
+  late final TextEditingController _c = TextEditingController(text: widget.initialText);
 
   @override
   void dispose() {
@@ -58,6 +62,7 @@ class _TextSheetState extends State<_TextSheet> {
   void _done() {
     final String v = _c.text.trim();
     if (v.isNotEmpty) {
+      FocusManager.instance.primaryFocus?.unfocus(); // the keyboard closes with the sheet
       Navigator.of(context).pop(v);
     }
   }

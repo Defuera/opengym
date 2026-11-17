@@ -22,6 +22,40 @@ class ThreadsScreen extends StatefulWidget {
 }
 
 class _ThreadsScreenState extends State<ThreadsScreen> {
+  /// The first look at the list is decided once: no threads means the user lands in a new chat.
+  bool _decided = false;
+
+  CoachStore get _coach => widget.deps.coach;
+
+  @override
+  void initState() {
+    super.initState();
+    _coach.addListener(_maybeOpenEmptyChat);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _maybeOpenEmptyChat());
+  }
+
+  @override
+  void dispose() {
+    _coach.removeListener(_maybeOpenEmptyChat);
+    super.dispose();
+  }
+
+  /// No threads (and the list loaded fine): open a new empty chat at once.
+  /// The chat replaces this screen, so back goes to the screen before, not to an empty list.
+  void _maybeOpenEmptyChat() {
+    if (_decided || !mounted || _coach.loadingThreads) {
+      return;
+    }
+    _decided = true;
+    if (_coach.threads.isNotEmpty || _coach.error != null || !widget.deps.connection.connected) {
+      return;
+    }
+    _coach.startNewChat();
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute<void>(builder: (BuildContext c) => ChatScreen(deps: widget.deps)),
+    );
+  }
+
   void _open(String id) {
     widget.deps.coach.openThread(id);
     Navigator.of(context).push(
@@ -31,21 +65,27 @@ class _ThreadsScreenState extends State<ThreadsScreen> {
     );
   }
 
+  /// A new chat opens at once, without a name. The title comes after the first message.
   Future<void> _new() async {
-    final String? title = await showTextSheet(
-      context,
-      title: 'New thread',
-      label: 'Title',
-      hint: 'e.g. Squat progress',
-      actionLabel: 'Create',
-    );
-    if (title == null) {
+    await _coach.startNewChat();
+    if (!mounted) {
       return;
     }
-    final String t = title.length > 40 ? title.substring(0, 40) : title;
-    final String? id = await widget.deps.coach.createThread(t);
-    if (id != null && mounted) {
-      _open(id);
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(builder: (BuildContext c) => ChatScreen(deps: widget.deps)),
+    );
+  }
+
+  Future<void> _rename(Thread t) async {
+    final String? title = await showTextSheet(
+      context,
+      title: 'Rename chat',
+      label: 'Title',
+      actionLabel: 'Save',
+      initialText: t.title,
+    );
+    if (title != null) {
+      await _coach.renameThread(t.id, title);
     }
   }
 
@@ -65,6 +105,7 @@ class _ThreadsScreenState extends State<ThreadsScreen> {
                     ? 'The coach could not answer.'
                     : t.lastMessage,
             onTap: () => _open(t.id),
+            onRename: () => _rename(t),
             onDelete: () => coach.deleteThread(t.id),
           ));
           rows.add(const SizedBox(height: 12));
@@ -104,7 +145,7 @@ class _ThreadsScreenState extends State<ThreadsScreen> {
                         Text('Loading…', style: OG.muted())
                       else if (coach.threads.isEmpty && err == null)
                         const NoteBox(
-                          title: 'No threads yet.',
+                          title: 'No chats yet.',
                           message: 'Start one for a topic, like a lift or a plan.',
                         ),
                       ...rows,
@@ -114,7 +155,7 @@ class _ThreadsScreenState extends State<ThreadsScreen> {
                 Padding(
                   padding: const EdgeInsets.fromLTRB(20, 0, 20, 18),
                   child: CtaButton(
-                    label: 'New thread',
+                    label: 'New chat',
                     icon: Icons.add,
                     variant: OgVariant.accent,
                     onPressed: widget.deps.connection.connected ? _new : null,

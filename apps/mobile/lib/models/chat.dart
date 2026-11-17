@@ -11,10 +11,15 @@ class Thread {
     this.status = 'idle',
     this.error,
     this.pending = 0,
+    this.titleSource = 'user',
   });
 
   final String id;
   final String title;
+
+  /// auto | user. `auto`: the title was made by the backend from the first
+  /// message. `user`: the user named it. A row without it counts as `user`.
+  final String titleSource;
   final int createdAt;
   final int updatedAt;
   final String summary;
@@ -41,6 +46,7 @@ class Thread {
       'summary': summary,
       'status': status,
       'pending': pending,
+      'titleSource': titleSource,
     };
     if (lastMessage != null) {
       m['lastMessage'] = lastMessage;
@@ -62,6 +68,7 @@ class Thread {
       status: str(j['status'], 'idle'),
       error: strOrNull(j['error']),
       pending: intOf(j['pending']),
+      titleSource: str(j['titleSource'], 'user'),
     );
   }
 }

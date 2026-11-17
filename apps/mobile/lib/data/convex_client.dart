@@ -87,7 +87,12 @@ abstract class ConvexClient {
   Future<void> removeRecord(String recordId);
   Future<void> saveCheckin(Checkin checkin);
 
-  Future<void> createThread({required String threadId, required String title});
+  /// Without a title the thread starts as "New chat" and is named after the
+  /// first message. A given title counts as set by the user.
+  Future<void> createThread({required String threadId, String? title});
+
+  /// The user names a thread. The backend never replaces that title.
+  Future<void> renameThread({required String threadId, required String title});
 
   /// Deletes the thread and its messages. Goals and notes it produced stay.
   Future<void> removeThread(String threadId);
@@ -380,8 +385,12 @@ class DartvexConvexClient implements ConvexClient {
       _mutate('commands/limits:checkin', <String, dynamic>{'checkin': checkin.toJson()});
 
   @override
-  Future<void> createThread({required String threadId, required String title}) =>
-      _mutate('commands/threads:create', <String, dynamic>{'threadId': threadId, 'title': title});
+  Future<void> createThread({required String threadId, String? title}) => _mutate(
+      'commands/threads:create', <String, dynamic>{'threadId': threadId, if (title != null) 'title': title});
+
+  @override
+  Future<void> renameThread({required String threadId, required String title}) =>
+      _mutate('commands/threads:rename', <String, dynamic>{'threadId': threadId, 'title': title});
 
   @override
   Future<void> removeThread(String threadId) =>

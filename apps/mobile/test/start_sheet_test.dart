@@ -9,11 +9,34 @@ import 'support/fake_convex_client.dart';
 import 'support/sheet_fixtures.dart';
 
 void main() {
-  testWidgets('Home has Start session and Log, and no old start screen', (WidgetTester t) async {
+  testWidgets('Home has the plus and no button row; the plus opens the sheet on Start',
+      (WidgetTester t) async {
     await openHome(t);
-    expect(find.text('Start session'), findsOneWidget);
-    expect(find.text('Log'), findsOneWidget);
-    expect(find.byIcon(Icons.add), findsNothing);
+    expect(find.text('Start session'), findsNothing);
+    expect(find.text('Log'), findsNothing);
+    expect(find.byIcon(Icons.add), findsOneWidget);
+    await openStart(t);
+    expect(inSheet(find.text('Start session')), findsOneWidget);
+    expect(inSheet(find.text('Log')), findsOneWidget);
+    expect(find.text('Gym · Upper'), findsOneWidget);
+  });
+
+  testWidgets('the switch shows the log items and keeps typed text of the other tab',
+      (WidgetTester t) async {
+    await openHome(t);
+    await openStart(t);
+    await t.enterText(find.byType(TextField), 'hotel gym');
+    await t.tap(inSheet(find.text('Log')));
+    await t.pumpAndSettle();
+    expect(inSheet(find.text('Run')), findsOneWidget);
+    expect(find.text('Gym · Upper'), findsNothing);
+    await t.enterText(find.byType(TextField), 'padel');
+    await t.tap(inSheet(find.text('Start session')));
+    await t.pumpAndSettle();
+    expect(find.text('hotel gym'), findsOneWidget);
+    await t.tap(inSheet(find.text('Log')));
+    await t.pumpAndSettle();
+    expect(find.text('padel'), findsOneWidget);
   });
 
   testWidgets('Start sheet lists stored proposals; a tap opens the stored plan', (WidgetTester t) async {

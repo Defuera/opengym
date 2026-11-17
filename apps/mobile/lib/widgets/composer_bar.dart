@@ -9,6 +9,7 @@ class ComposerBar extends StatelessWidget {
   const ComposerBar({
     super.key,
     required this.controller,
+    this.focusNode,
     required this.onSend,
     required this.onAttachFile,
     required this.onAttachPhoto,
@@ -20,6 +21,7 @@ class ComposerBar extends StatelessWidget {
   });
 
   final TextEditingController controller;
+  final FocusNode? focusNode;
   final VoidCallback onSend;
   final VoidCallback onAttachFile;
   final VoidCallback onAttachPhoto;
@@ -79,6 +81,7 @@ class ComposerBar extends StatelessWidget {
               Expanded(
                 child: TextField(
                   controller: controller,
+                  focusNode: focusNode,
                   enabled: !off,
                   minLines: 1,
                   maxLines: 4,

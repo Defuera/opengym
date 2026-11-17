@@ -3,22 +3,22 @@ import 'package:flutter/material.dart';
 import '../activity_log.dart';
 import '../app/deps.dart';
 import '../theme.dart';
-import '../widgets/og_sheet.dart';
 import '../widgets/proposal_row.dart';
 import '../widgets/sheet_link.dart';
 import '../widgets/something_new_box.dart';
 import 'import_screen.dart';
 import 'other_activity_screen.dart';
 
-/// Home "Log": the time/distance activities from the log (most often first),
-/// one free-text "Something new", and the import link. No AI call.
-Future<void> showLogSheet(BuildContext context, AppDeps deps) {
-  final NavigatorState nav = Navigator.of(context);
-  return showOgSheet<void>(context, (BuildContext c) => LogSheet(deps: deps, nav: nav));
-}
-
 class LogSheet extends StatefulWidget {
-  const LogSheet({super.key, required this.deps, required this.nav});
+  const LogSheet({
+    super.key,
+    required this.deps,
+    required this.nav,
+    required this.controller,
+  });
+
+  /// Kept by the sheet, so typed text survives a switch to the Start tab.
+  final TextEditingController controller;
 
   final AppDeps deps;
   final NavigatorState nav;
@@ -28,11 +28,10 @@ class LogSheet extends StatefulWidget {
 }
 
 class _LogSheetState extends State<LogSheet> {
-  final TextEditingController _text = TextEditingController();
+  TextEditingController get _text => widget.controller;
 
   @override
   void dispose() {
-    _text.dispose();
     super.dispose();
   }
 
@@ -61,21 +60,28 @@ class _LogSheetState extends State<LogSheet> {
   Widget build(BuildContext context) {
     final List<LogActivity> items = logActivities(widget.deps.store.sessions);
     return Column(
+      mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
-        Text('Log', style: OG.display(32)),
-        const SizedBox(height: 6),
         Text(
           items.isEmpty
               ? 'Record what you did.'
               : 'Record what you did. Most often first, from your log.',
           style: OG.muted(),
         ),
-        const SizedBox(height: 16),
-        for (final LogActivity a in items) ...<Widget>[
-          ProposalRow(title: a.name, subtitle: a.lastLine(), onTap: () => _log(a.name)),
-          const SizedBox(height: 10),
-        ],
+        const SizedBox(height: 14),
+        Flexible(
+          child: ListView(
+            shrinkWrap: true,
+            padding: const EdgeInsets.only(bottom: 4),
+            children: <Widget>[
+              for (final LogActivity a in items) ...<Widget>[
+                ProposalRow(title: a.name, subtitle: a.lastLine(), onTap: () => _log(a.name)),
+                const SizedBox(height: 10),
+              ],
+            ],
+          ),
+        ),
         SomethingNewBox(
           controller: _text,
           hint: 'Something new: "padel"',

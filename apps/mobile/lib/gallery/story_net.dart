@@ -145,7 +145,7 @@ Widget threadCardStory(BuildContext context) {
 }
 
 Widget navBarStory(BuildContext context) {
-  return const NavBar(onHome: _noop, onChat: _noop);
+  return const NavBar(onHome: _noop, onPlus: _noop, onChat: _noop);
 }
 
 Widget goalRowStory(BuildContext context) {

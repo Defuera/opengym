@@ -73,8 +73,16 @@ Future<(FakeConvexClient, AppDeps)> openHome(
   return (fake, d);
 }
 
+/// The Home plus opens the sheet on its Start tab.
 Future<void> openStart(WidgetTester t) async {
-  await t.tap(find.text('Start session'));
+  await t.tap(find.byIcon(Icons.add));
+  await t.pumpAndSettle();
+}
+
+/// The Home plus, then the Log tab.
+Future<void> openLog(WidgetTester t) async {
+  await openStart(t);
+  await t.tap(inSheet(find.text('Log')));
   await t.pumpAndSettle();
 }
 

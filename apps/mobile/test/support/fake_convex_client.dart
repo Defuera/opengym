@@ -47,6 +47,15 @@ class FakeConvexClient implements ConvexClient {
   final Map<String, Goal> serverGoals = <String, Goal>{};
   final Map<String, ContextItem> serverContext = <String, ContextItem>{};
   final Map<String, ImportJob> serverImports = <String, ImportJob>{};
+  final Map<String, Thread> serverThreads = <String, Thread>{};
+  final Map<String, List<Message>> serverMessages = <String, List<Message>>{};
+  final Map<String, FileMeta> serverFiles = <String, FileMeta>{};
+
+  /// When set, [sendMessage] waits for it before the server stores anything.
+  Completer<void>? sendGate;
+
+  /// Set to make [uploadFile] fail once.
+  ConvexCallException? failUpload;
 
   final Live<List<Session>> _sessions = Live<List<Session>>(<Session>[]);
   final Live<List<Goal>> _goals = Live<List<Goal>>(<Goal>[]);
@@ -67,6 +76,50 @@ class FakeConvexClient implements ConvexClient {
     _goals.set(serverGoals.values.toList());
     _context.set(serverContext.values.toList());
     _imports.set(serverImports.values.toList());
+    final List<Thread> t = serverThreads.values.toList()
+      ..sort((Thread a, Thread b) => b.updatedAt.compareTo(a.updatedAt));
+    _threads.set(t);
+    for (final MapEntry<String, List<Message>> e in serverMessages.entries) {
+      _messages.putIfAbsent(e.key, () => Live<List<Message>>()).set(List<Message>.from(e.value));
+    }
+  }
+
+  final Live<List<Thread>> _threads = Live<List<Thread>>(<Thread>[]);
+  final Map<String, Live<List<Message>>> _messages = <String, Live<List<Message>>>{};
+  int _clock = 1000;
+
+  /// The coach answers: stores the assistant message, thread goes idle.
+  void coachAnswers(String threadId, String text, {List<String> sources = const <String>[]}) {
+    serverChanged(() {
+      serverMessages.putIfAbsent(threadId, () => <Message>[]).add(Message(
+          id: 'a${++_clock}',
+          threadId: threadId,
+          role: 'assistant',
+          text: text,
+          createdAt: ++_clock,
+          sources: sources));
+      _setThread(threadId, status: 'idle', lastMessage: text);
+    });
+  }
+
+  /// The coach job failed.
+  void coachFails(String threadId, String error) {
+    serverChanged(() => _setThread(threadId, status: 'failed', error: error));
+  }
+
+  void _setThread(String id, {required String status, String? error, String? lastMessage}) {
+    final Thread t = serverThreads[id]!;
+    serverThreads[id] = Thread(
+      id: t.id,
+      title: t.title,
+      createdAt: t.createdAt,
+      updatedAt: ++_clock,
+      summary: t.summary,
+      lastMessage: lastMessage ?? t.lastMessage,
+      status: status,
+      error: error,
+      pending: status == 'thinking' ? 1 : 0,
+    );
   }
 
   /// A change that happens on the server, not through this client.
@@ -129,6 +182,126 @@ class FakeConvexClient implements ConvexClient {
 
   @override
   Stream<List<ImportJob>> watchImports() => _imports.stream();
+
+  @override
+  Stream<List<Thread>> watchThreads() => _threads.stream();
+
+  @override
+  Stream<List<Message>> watchMessages(String threadId) =>
+      _messages.putIfAbsent(threadId, () => Live<List<Message>>(<Message>[])).stream();
+
+  @override
+  Future<void> createThread({required String threadId, required String title}) async {
+    _command('createThread:$threadId');
+    serverThreads.putIfAbsent(
+        threadId,
+        () => Thread(id: threadId, title: title, createdAt: ++_clock, updatedAt: _clock));
+    _publish();
+  }
+
+  @override
+  Future<void> removeThread(String threadId) async {
+    _command('removeThread:$threadId');
+    serverThreads.remove(threadId);
+    serverMessages.remove(threadId);
+    _publish();
+  }
+
+  @override
+  Future<void> sendMessage({
+    required String threadId,
+    required String messageId,
+    required String text,
+    List<String> fileIds = const <String>[],
+  }) async {
+    _command('sendMessage:$messageId');
+    final Completer<void>? gate = sendGate;
+    if (gate != null) {
+      await gate.future;
+    }
+    final List<Message> list = serverMessages.putIfAbsent(threadId, () => <Message>[]);
+    if (list.any((Message m) => m.id == messageId)) {
+      return; // the server ignores a resend
+    }
+    list.add(Message(
+        id: messageId,
+        threadId: threadId,
+        role: 'user',
+        text: text,
+        createdAt: ++_clock,
+        fileIds: fileIds));
+    _setThread(threadId, status: 'thinking');
+    _publish();
+  }
+
+  @override
+  Future<FileMeta> uploadFile({
+    required String fileId,
+    required String name,
+    required String mime,
+    required List<int> bytes,
+  }) async {
+    final ConvexCallException? f = failUpload;
+    if (f != null) {
+      failUpload = null;
+      throw f;
+    }
+    _command('uploadFile:$fileId');
+    return serverFiles.putIfAbsent(
+        fileId,
+        () => FileMeta(
+            id: fileId,
+            name: name,
+            mime: mime,
+            size: bytes.length,
+            kind: 'text',
+            createdAt: ++_clock));
+  }
+
+  @override
+  Future<FileLink?> fileLink(String fileId) async {
+    final FileMeta? m = serverFiles[fileId];
+    return m == null ? null : FileLink(m, 'https://files.test/$fileId');
+  }
+
+  @override
+  Future<void> removeFile(String fileId) async {
+    _command('removeFile:$fileId');
+    serverFiles.remove(fileId);
+  }
+
+  @override
+  Future<void> startImport({required String importId, required List<String> fileIds}) async {
+    _command('startImport:$importId');
+    serverImports.putIfAbsent(
+        importId,
+        () => ImportJob(
+            id: importId,
+            status: 'running',
+            total: fileIds.length,
+            processed: 0,
+            counts: const ImportCounts(),
+            notes: const <String>[],
+            createdAt: ++_clock));
+    _publish();
+  }
+
+  /// The server moves an import forward (a job running in the background).
+  void importProgress(String importId,
+      {int? processed, ImportCounts? counts, List<String>? notes, String? status}) {
+    serverChanged(() {
+      final ImportJob j = serverImports[importId]!;
+      serverImports[importId] = ImportJob(
+        id: j.id,
+        status: status ?? j.status,
+        total: j.total,
+        processed: processed ?? j.processed,
+        counts: counts ?? j.counts,
+        notes: notes ?? j.notes,
+        createdAt: j.createdAt,
+      );
+    });
+  }
 
   @override
   Future<void> saveSession(Session session) async {

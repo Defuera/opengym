@@ -2,6 +2,8 @@
 /// Pure Dart: no Flutter and no `dartvex` here.
 library;
 
+import '../models.dart';
+
 /// Coarse link state to the hosted backend.
 enum ConvexLink { notConfigured, connecting, connected, reconnecting, offline }
 
@@ -90,4 +92,12 @@ bool isConvexUrl(String url) {
 bool isUsableServerUrl(String url) {
   final Uri? u = Uri.tryParse(url.trim());
   return u != null && (u.scheme == 'https' || u.scheme == 'http') && u.host.isNotEmpty;
+}
+
+/// File details and a URL that serves the bytes (null when storage lost them).
+class FileLink {
+  const FileLink(this.meta, this.url);
+
+  final FileMeta meta;
+  final String? url;
 }

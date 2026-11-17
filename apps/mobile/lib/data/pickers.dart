@@ -1,7 +1,9 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:image_picker/image_picker.dart';
 
-import 'api/open_gym_api.dart';
+import 'upload_item.dart';
+
+export 'upload_item.dart';
 
 /// Device pickers behind an interface, so stores and tests never touch plugins.
 abstract class Pickers {

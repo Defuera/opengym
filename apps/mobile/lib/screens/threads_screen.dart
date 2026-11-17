@@ -22,19 +22,6 @@ class ThreadsScreen extends StatefulWidget {
 }
 
 class _ThreadsScreenState extends State<ThreadsScreen> {
-  // Seam for the next step: chat moves to `queries/threads:list`,
-  // `commands/threads:*` and `commands/messages:send`. Until then the coach
-  // runs on the old REST server and is switched off for a Convex address.
-  bool get _ready => widget.deps.connection.legacyRestReady;
-
-  @override
-  void initState() {
-    super.initState();
-    if (_ready) {
-      widget.deps.coach.loadThreads();
-    }
-  }
-
   void _open(String id) {
     widget.deps.coach.openThread(id);
     Navigator.of(context).push(
@@ -56,26 +43,27 @@ class _ThreadsScreenState extends State<ThreadsScreen> {
       return;
     }
     final String t = title.length > 40 ? title.substring(0, 40) : title;
-    final Thread? created = await widget.deps.coach.createThread(t);
-    if (created != null && mounted) {
-      _open(created.id);
+    final String? id = await widget.deps.coach.createThread(t);
+    if (id != null && mounted) {
+      _open(id);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final CoachStore coach = widget.deps.coach;
-    if (!_ready) {
-      return _comingSoon(context);
-    }
     return ListenableBuilder(
-      listenable: coach,
+      listenable: Listenable.merge(<Listenable>[coach, widget.deps.connection]),
       builder: (BuildContext context, Widget? child) {
         final List<Widget> rows = <Widget>[];
         for (final Thread t in coach.threads) {
           rows.add(ThreadCard(
             title: t.title,
-            lastMessage: t.lastMessage,
+            lastMessage: t.thinking
+                ? 'Coach is thinking…'
+                : t.failed
+                    ? 'The coach could not answer.'
+                    : t.lastMessage,
             onTap: () => _open(t.id),
             onDelete: () => coach.deleteThread(t.id),
           ));
@@ -101,13 +89,15 @@ class _ThreadsScreenState extends State<ThreadsScreen> {
                         ],
                       ),
                       const SizedBox(height: 18),
+                      if (!widget.deps.connection.connected) ...<Widget>[
+                        const NoteBox(
+                          title: 'Offline.',
+                          message: 'Chat needs a connection. Threads show when you are back online.',
+                        ),
+                        const SizedBox(height: 12),
+                      ],
                       if (err != null) ...<Widget>[
                         NoteBox(title: 'Chat is not available.', message: err),
-                        const SizedBox(height: 12),
-                        OgButton(
-                          onPressed: coach.loadThreads,
-                          child: const Text('Try again'),
-                        ),
                         const SizedBox(height: 18),
                       ],
                       if (coach.loadingThreads && coach.threads.isEmpty)
@@ -127,7 +117,7 @@ class _ThreadsScreenState extends State<ThreadsScreen> {
                     label: 'New thread',
                     icon: Icons.add,
                     variant: OgVariant.accent,
-                    onPressed: _new,
+                    onPressed: widget.deps.connection.connected ? _new : null,
                   ),
                 ),
               ],
@@ -135,34 +125,6 @@ class _ThreadsScreenState extends State<ThreadsScreen> {
           ),
         );
       },
-    );
-  }
-
-  Widget _comingSoon(BuildContext context) {
-    return Scaffold(
-      body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
-          children: <Widget>[
-            Row(
-              children: <Widget>[
-                OgIconButton(
-                  icon: Icons.chevron_left,
-                  onPressed: () => Navigator.of(context).pop(),
-                ),
-                const SizedBox(width: 12),
-                Expanded(child: Text('Coach', style: OG.display(32))),
-              ],
-            ),
-            const SizedBox(height: 18),
-            const NoteBox(
-              title: 'Chat is coming with the next update.',
-              message: 'The coach chat moves to the new backend. Your goals, '
-                  'sessions and plans already work.',
-            ),
-          ],
-        ),
-      ),
     );
   }
 }

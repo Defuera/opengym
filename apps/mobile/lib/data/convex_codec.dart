@@ -43,6 +43,23 @@ List<ContextItem> decodeContext(Object? v) => _list(v, decodeContextItem);
 ImportJob decodeImport(Object? v) => ImportJob.fromJson(_doc(v, 'importId'));
 List<ImportJob> decodeImports(Object? v) => _list(v, decodeImport);
 
+Thread decodeThread(Object? v) => Thread.fromJson(_doc(v, 'threadId'));
+List<Thread> decodeThreads(Object? v) => _list(v, decodeThread);
+
+Message decodeMessage(Object? v) => Message.fromJson(_doc(v, 'messageId'));
+List<Message> decodeMessages(Object? v) => _list(v, decodeMessage);
+
+FileMeta decodeFileMeta(Object? v) => FileMeta.fromJson(_doc(v, 'fileId'));
+
+/// The answer of `queries/files:get`: meta plus a URL, or null when unknown.
+FileLink? decodeFileLink(Object? v) {
+  if (v is! Map) {
+    return null;
+  }
+  final Map<String, dynamic> m = asMap(normalize(v));
+  return FileLink(decodeFileMeta(m), strOrNull(m['url']));
+}
+
 Stored<Plan> decodePlan(Object? v) {
   final Map<String, dynamic> m = asMap(normalize(v));
   final Plan p = Plan.fromJson(asMap(m['plan']));

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../app/deps.dart';
 import '../models.dart';
-import '../data/api/open_gym_api.dart';
+import '../data/upload_item.dart';
 import '../stores/coach_store.dart';
 import '../theme.dart';
 import '../widgets/chat_bubble.dart';
@@ -10,6 +10,7 @@ import '../widgets/chip_strip.dart';
 import '../widgets/choice_sheet.dart';
 import '../widgets/composer_bar.dart';
 import '../widgets/note_box.dart';
+import '../widgets/og_button.dart';
 import '../widgets/og_icon_button.dart';
 import '../widgets/saved_chips.dart';
 import '../widgets/text_sheet.dart';
@@ -36,9 +37,11 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Future<void> _send() async {
-    final bool ok = await _coach.send(_text.text);
-    if (ok) {
-      _text.clear();
+    final String text = _text.text;
+    _text.clear();
+    final bool accepted = await _coach.send(text);
+    if (!accepted) {
+      _text.text = text; // nothing was sent: keep what the user typed
     }
   }
 
@@ -100,10 +103,10 @@ class _ChatScreenState extends State<ChatScreen> {
     if (title == null) {
       return;
     }
-    final Thread? t =
+    final String? id =
         await _coach.createThread(title.length > 40 ? title.substring(0, 40) : title);
-    if (t != null) {
-      _coach.openThread(t.id);
+    if (id != null) {
+      _coach.openThread(id);
     }
   }
 
@@ -119,12 +122,27 @@ class _ChatScreenState extends State<ChatScreen> {
       ));
       items.add(const SizedBox(height: 12));
     }
-    if (c.saved.isNotEmpty && !c.sending) {
+    if (c.saved.isNotEmpty) {
       items.add(SavedChips(labels: c.saved));
       items.add(const SizedBox(height: 12));
     }
-    if (c.sending) {
+    if (c.thinking) {
       items.add(const ChatBubble(text: 'Thinking…', mine: false));
+      items.add(const SizedBox(height: 12));
+    }
+    final String? why = c.retryReason;
+    if (why != null) {
+      items.add(Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          NoteBox(title: 'That did not work.', message: why),
+          const SizedBox(height: 8),
+          OgButton(
+            onPressed: c.sending ? null : c.retry,
+            child: const Text('Try again'),
+          ),
+        ],
+      ));
       items.add(const SizedBox(height: 12));
     }
     if (c.messages.isEmpty && !c.loadingMessages && !c.sending) {
@@ -139,11 +157,12 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: _coach,
+      listenable: Listenable.merge(<Listenable>[_coach, widget.deps.connection]),
       builder: (BuildContext context, Widget? child) {
         final CoachStore c = _coach;
         final int sel = c.threads.indexWhere((Thread t) => t.id == c.currentId);
-        final String err = c.error ?? _pickError ?? '';
+        // A send problem is shown with its retry action, not twice.
+        final String err = c.retryReason != null ? (_pickError ?? '') : (c.error ?? _pickError ?? '');
         return Scaffold(
           body: SafeArea(
             child: Column(
@@ -189,6 +208,9 @@ class _ChatScreenState extends State<ChatScreen> {
                 ComposerBar(
                   controller: _text,
                   sending: c.sending,
+                  offlineNote: widget.deps.connection.connected
+                      ? null
+                      : 'Offline. Chat needs a connection to send.',
                   attachmentNames: c.attachments.map((UploadItem u) => u.name).toList(),
                   onRemoveAttachment: c.removeAttachment,
                   onAttachFile: _attachFile,

@@ -43,8 +43,13 @@ through the idempotent Convex commands when connected, survives a restart and
 retries on reconnect. Server data never overwrites a change that is still in
 the outbox.
 
-Chat, file upload and file import still use the old REST client and show
-"coming with the next update" while the address is a Convex deployment.
+Coach chat, file upload and file import also run on Convex. Threads, messages
+and import progress are live subscriptions. A chat message shows at once, then
+the server copy replaces it (matched by message id); the coach answer arrives
+through the subscription while the thread status says `thinking`, `idle` or
+`failed`. Chat and import need a connection: they are not queued in the outbox,
+and the composer says "Offline" without one. A file upload asks the server for
+an upload URL, POSTs the bytes to it and registers the file.
 
 End-to-end check against a deployment: see `tool/convex_trial.dart`.
 
@@ -56,7 +61,8 @@ End-to-end check against a deployment: see `tool/convex_trial.dart`.
   planning rules (pure Dart).
 - Data: `lib/data/` has the `SessionRepository`, `SettingsRepository` and
   `OutboxRepository` interfaces with shared_preferences and in-memory
-  implementations; `pickers.dart` wraps file_picker and image_picker.
+  implementations; `pickers.dart` wraps file_picker and image_picker;
+  `upload_item.dart` is a picked local file.
 - Gateway: `lib/data/convex_client.dart` is the `ConvexClient` interface (typed
   live streams and idempotent commands) and `DartvexConvexClient`, the only
   code that imports `dartvex`. `switchable_convex_client.dart` lets Settings
@@ -66,12 +72,10 @@ End-to-end check against a deployment: see `tool/convex_trial.dart`.
 - Outbox: `outbox.dart` and `outbox_ops.dart` (persistent write queue and the
   overlay that keeps pending changes on top of server data);
   `session_sync.dart` feeds the live session subscription into the local log.
-- Old API (chat, files, import only): `lib/data/api/` has the `OpenGymApi`
-  interface, `HttpOpenGymApi` and `FakeOpenGymApi`. To be replaced by Convex
-  functions in the next step.
 - Stores: `lib/store.dart` (`AppStore`, the live session and local log) and
   `lib/stores/` (`ConnectionStore`, `PlanStore`, `DashboardStore`, `GoalsStore`,
-  `ContextStore`, `CoachStore`, `ImportStore`, `ReviewStore`). One
+  `ContextStore`, `CoachStore` (chat), `ImportStore` (file import),
+  `ReviewStore`). One
   responsibility each, dependencies passed in the constructor.
 - Composition: `lib/app/compose.dart` is the only place that picks real
   implementations; `lib/app/deps.dart` bundles them for the screens.

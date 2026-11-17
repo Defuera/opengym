@@ -1,6 +1,6 @@
 import 'json_util.dart';
 
-/// A start suggestion from GET /v1/start (or from the local planner).
+/// A start suggestion (from the server or the local planner).
 class Prediction {
   const Prediction({required this.kind, required this.type, this.reason = ''});
 
@@ -126,30 +126,6 @@ class Review {
       source: str(j['source'], 'rules'),
       summary: str(j['summary']),
       changes: strList(j['changes']),
-    );
-  }
-}
-
-/// Reply to GET /v1/health.
-class HealthInfo {
-  const HealthInfo({
-    required this.ok,
-    required this.provider,
-    required this.aiConfigured,
-    required this.version,
-  });
-
-  final bool ok;
-  final String provider;
-  final bool aiConfigured;
-  final String version;
-
-  factory HealthInfo.fromJson(Map<String, dynamic> j) {
-    return HealthInfo(
-      ok: j['ok'] == true,
-      provider: str(j['provider']),
-      aiConfigured: j['aiConfigured'] == true,
-      version: str(j['version']),
     );
   }
 }

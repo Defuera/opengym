@@ -1,4 +1,3 @@
-import 'goal.dart';
 import 'json_util.dart';
 
 class Thread {
@@ -9,6 +8,9 @@ class Thread {
     required this.updatedAt,
     this.summary = '',
     this.lastMessage,
+    this.status = 'idle',
+    this.error,
+    this.pending = 0,
   });
 
   final String id;
@@ -18,6 +20,18 @@ class Thread {
   final String summary;
   final String? lastMessage;
 
+  /// idle | thinking | failed. `thinking` while a coach reply is running.
+  final String status;
+
+  /// Short reason when [status] is `failed`.
+  final String? error;
+
+  /// Coach replies still running.
+  final int pending;
+
+  bool get thinking => status == 'thinking';
+  bool get failed => status == 'failed';
+
   Map<String, dynamic> toJson() {
     final Map<String, dynamic> m = <String, dynamic>{
       'id': id,
@@ -25,9 +39,14 @@ class Thread {
       'createdAt': createdAt,
       'updatedAt': updatedAt,
       'summary': summary,
+      'status': status,
+      'pending': pending,
     };
     if (lastMessage != null) {
       m['lastMessage'] = lastMessage;
+    }
+    if (error != null) {
+      m['error'] = error;
     }
     return m;
   }
@@ -40,6 +59,9 @@ class Thread {
       updatedAt: intOf(j['updatedAt']),
       summary: str(j['summary']),
       lastMessage: strOrNull(j['lastMessage']),
+      status: str(j['status'], 'idle'),
+      error: strOrNull(j['error']),
+      pending: intOf(j['pending']),
     );
   }
 }
@@ -132,35 +154,6 @@ class FileMeta {
       size: intOf(j['size']),
       kind: str(j['kind'], 'other'),
       createdAt: intOf(j['createdAt']),
-    );
-  }
-}
-
-/// Reply to POST /v1/threads/:id/messages.
-class SendResult {
-  const SendResult({
-    required this.userMessage,
-    required this.assistantMessage,
-    this.goals = const <Goal>[],
-    this.context = const <ContextItem>[],
-  });
-
-  final Message userMessage;
-  final Message assistantMessage;
-  final List<Goal> goals;
-  final List<ContextItem> context;
-
-  factory SendResult.fromJson(Map<String, dynamic> j) {
-    final Map<String, dynamic> x = asMap(j['extracted']);
-    return SendResult(
-      userMessage: Message.fromJson(asMap(j['userMessage'])),
-      assistantMessage: Message.fromJson(asMap(j['assistantMessage'])),
-      goals: asList(x['goals'])
-          .map((Object? e) => Goal.fromJson(asMap(e)))
-          .toList(),
-      context: asList(x['context'])
-          .map((Object? e) => ContextItem.fromJson(asMap(e)))
-          .toList(),
     );
   }
 }

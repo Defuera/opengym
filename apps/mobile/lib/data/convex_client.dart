@@ -1,6 +1,9 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
 
 import 'package:dartvex/dartvex.dart' as cx;
+import 'package:http/http.dart' as http;
 
 import '../models.dart';
 import 'convex_codec.dart';
@@ -38,6 +41,12 @@ abstract class ConvexClient {
   Stream<Stored<Review?>> watchReview(String sessionId);
   Stream<List<ImportJob>> watchImports();
 
+  /// Newest activity first. Each thread carries its reply status.
+  Stream<List<Thread>> watchThreads();
+
+  /// One thread's messages, oldest first. The coach answer arrives here.
+  Stream<List<Message>> watchMessages(String threadId);
+
   // ---------- commands ----------
 
   Future<void> saveSession(Session session);
@@ -60,6 +69,38 @@ abstract class ConvexClient {
   Future<void> updateContext(String itemId, ContextPatch patch);
   Future<void> removeContext(String itemId);
   Future<void> removeImport(String importId);
+
+  Future<void> createThread({required String threadId, required String title});
+
+  /// Deletes the thread and its messages. Goals and notes it produced stay.
+  Future<void> removeThread(String threadId);
+
+  /// Stores the user message at once and starts the coach. The answer is NOT
+  /// returned: it arrives through [watchMessages] and [watchThreads]. Sending
+  /// the same [messageId] again changes nothing on the server.
+  Future<void> sendMessage({
+    required String threadId,
+    required String messageId,
+    required String text,
+    List<String> fileIds = const <String>[],
+  });
+
+  /// Uploads [bytes] (get an upload URL, POST the bytes, register) and
+  /// returns the stored file. A retry with the same [fileId] is safe.
+  Future<FileMeta> uploadFile({
+    required String fileId,
+    required String name,
+    required String mime,
+    required List<int> bytes,
+  });
+
+  /// Meta and download URL of a file, or null when the server has no such file.
+  Future<FileLink?> fileLink(String fileId);
+  Future<void> removeFile(String fileId);
+
+  /// Starts an AI import of uploaded files. Progress arrives through
+  /// [watchImports]. Sending the same [importId] again changes nothing.
+  Future<void> startImport({required String importId, required List<String> fileIds});
 
   /// One authenticated call. Tells a wrong token from an unreachable server.
   Future<AccessStatus> checkAccess();
@@ -92,7 +133,10 @@ class DartvexConvexClient implements ConvexClient {
     required Stream<ConvexLink> connectionStates,
     Future<void> Function()? onDispose,
     this.accessTimeout = const Duration(seconds: 8),
-  })  : _caller = caller,
+    http.Client? httpClient,
+    this.uploadTimeout = const Duration(seconds: 90),
+  })  : _http = httpClient ?? http.Client(),
+        _caller = caller,
         _token = token,
         _states = connectionStates,
         _onDispose = onDispose;
@@ -102,6 +146,8 @@ class DartvexConvexClient implements ConvexClient {
   final Stream<ConvexLink> _states;
   final Future<void> Function()? _onDispose;
   final Duration accessTimeout;
+  final http.Client _http;
+  final Duration uploadTimeout;
 
   static ConvexLink _link(cx.ConnectionStatus s) {
     if (s.isConnected) {
@@ -153,6 +199,14 @@ class DartvexConvexClient implements ConvexClient {
   @override
   Stream<List<ImportJob>> watchImports() =>
       _watch('queries/imports:list', const <String, dynamic>{}, decodeImports);
+
+  @override
+  Stream<List<Thread>> watchThreads() =>
+      _watch('queries/threads:list', const <String, dynamic>{}, decodeThreads);
+
+  @override
+  Stream<List<Message>> watchMessages(String threadId) =>
+      _watch('queries/messages:list', <String, dynamic>{'threadId': threadId}, decodeMessages);
 
   Stream<T> _watch<T>(
     String name,
@@ -248,9 +302,103 @@ class DartvexConvexClient implements ConvexClient {
   Future<void> removeImport(String importId) =>
       _mutate('commands/imports:remove', <String, dynamic>{'importId': importId});
 
-  Future<void> _mutate(String name, Map<String, dynamic> args) async {
+  @override
+  Future<void> createThread({required String threadId, required String title}) =>
+      _mutate('commands/threads:create', <String, dynamic>{'threadId': threadId, 'title': title});
+
+  @override
+  Future<void> removeThread(String threadId) =>
+      _mutate('commands/threads:remove', <String, dynamic>{'threadId': threadId});
+
+  @override
+  Future<void> sendMessage({
+    required String threadId,
+    required String messageId,
+    required String text,
+    List<String> fileIds = const <String>[],
+  }) {
+    return _mutate('commands/messages:send', <String, dynamic>{
+      'threadId': threadId,
+      'messageId': messageId,
+      'text': text,
+      if (fileIds.isNotEmpty) 'fileIds': fileIds,
+    });
+  }
+
+  @override
+  Future<FileMeta> uploadFile({
+    required String fileId,
+    required String name,
+    required String mime,
+    required List<int> bytes,
+  }) async {
+    final Object? url = await _mutateValue('commands/files:generateUploadUrl', <String, dynamic>{});
+    if (url is! String || url.isEmpty) {
+      throw const ConvexCallException('The server gave no upload address.');
+    }
+    final String storageId;
     try {
-      await _caller.mutate(name, <String, dynamic>{'token': _token, ...args});
+      final http.Response r = await _http
+          .post(Uri.parse(url), headers: <String, String>{'Content-Type': mime}, body: bytes)
+          .timeout(uploadTimeout);
+      if (r.statusCode < 200 || r.statusCode >= 300) {
+        throw const ConvexCallException('The upload was refused. Try again.');
+      }
+      final Object? body = jsonDecode(r.body);
+      final Object? id = body is Map ? body['storageId'] : null;
+      if (id is! String || id.isEmpty) {
+        throw const ConvexCallException('The upload answer was not understood.');
+      }
+      storageId = id;
+    } on TimeoutException {
+      throw const ConvexCallException.unreachable();
+    } on SocketException {
+      throw const ConvexCallException.unreachable();
+    } on http.ClientException {
+      throw const ConvexCallException.unreachable();
+    } on FormatException {
+      throw const ConvexCallException('The upload answer was not understood.');
+    }
+    final Object? meta = await _mutateValue('commands/files:register', <String, dynamic>{
+      'fileId': fileId,
+      'storageId': storageId,
+      'name': name,
+      'mime': mime,
+      'size': bytes.length,
+    });
+    try {
+      return decodeFileMeta(meta);
+    } catch (_) {
+      throw const ConvexCallException('The server sent an answer the app does not understand.');
+    }
+  }
+
+  @override
+  Future<FileLink?> fileLink(String fileId) async {
+    try {
+      final Object? v = await _caller
+          .query('queries/files:get', <String, dynamic>{'token': _token, 'fileId': fileId});
+      return decodeFileLink(v);
+    } on cx.ConvexException catch (e) {
+      throw ConvexCallException.fromData(e.data);
+    }
+  }
+
+  @override
+  Future<void> removeFile(String fileId) =>
+      _mutate('commands/files:remove', <String, dynamic>{'fileId': fileId});
+
+  @override
+  Future<void> startImport({required String importId, required List<String> fileIds}) =>
+      _mutate('commands/imports:start', <String, dynamic>{'importId': importId, 'fileIds': fileIds});
+
+  Future<void> _mutate(String name, Map<String, dynamic> args) async {
+    await _mutateValue(name, args);
+  }
+
+  Future<Object?> _mutateValue(String name, Map<String, dynamic> args) async {
+    try {
+      return await _caller.mutate(name, <String, dynamic>{'token': _token, ...args}) as Object?;
     } on cx.ConvexException catch (e) {
       // Never use e.message: it carries a server stack trace.
       throw ConvexCallException.fromData(e.data);

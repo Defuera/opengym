@@ -15,6 +15,7 @@ class ComposerBar extends StatelessWidget {
     this.attachmentNames = const <String>[],
     this.onRemoveAttachment,
     this.sending = false,
+    this.offlineNote,
     this.hint = 'Tell the coach something, or ask',
   });
 
@@ -25,6 +26,9 @@ class ComposerBar extends StatelessWidget {
   final List<String> attachmentNames;
   final ValueChanged<int>? onRemoveAttachment;
   final bool sending;
+
+  /// When set, the composer is off and shows this note (no connection).
+  final String? offlineNote;
   final String hint;
 
   @override
@@ -45,6 +49,8 @@ class ComposerBar extends StatelessWidget {
         },
       ));
     }
+    final String? offline = offlineNote;
+    final bool off = offline != null;
     return Container(
       padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
       decoration: const BoxDecoration(
@@ -55,6 +61,10 @@ class ComposerBar extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
+          if (offline != null) ...<Widget>[
+            Text(offline, style: OG.body(size: 14, weight: FontWeight.w600)),
+            const SizedBox(height: 8),
+          ],
           if (chips.isNotEmpty) ...<Widget>[
             Wrap(spacing: 6, runSpacing: 6, children: chips),
             const SizedBox(height: 8),
@@ -69,12 +79,13 @@ class ComposerBar extends StatelessWidget {
               Expanded(
                 child: TextField(
                   controller: controller,
+                  enabled: !off,
                   minLines: 1,
                   maxLines: 4,
                   textCapitalization: TextCapitalization.sentences,
                   style: OG.body(),
                   decoration: InputDecoration(
-                    hintText: hint,
+                    hintText: off ? 'Offline' : hint,
                     hintStyle: OG.muted(),
                     filled: true,
                     fillColor: OG.ground,
@@ -94,7 +105,7 @@ class ComposerBar extends StatelessWidget {
                   variant: OgVariant.accent,
                   minHeight: 52,
                   padding: EdgeInsets.zero,
-                  onPressed: sending ? null : onSend,
+                  onPressed: (sending || off) ? null : onSend,
                   child: sending
                       ? const SizedBox(
                           width: 22,

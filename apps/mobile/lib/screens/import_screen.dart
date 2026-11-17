@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../app/deps.dart';
-import '../data/api/open_gym_api.dart';
+import '../data/upload_item.dart';
 import '../models.dart';
 import '../planner.dart';
 import '../stores/import_store.dart';
@@ -10,7 +10,6 @@ import '../widgets/attachment_chip.dart';
 import '../widgets/choice_sheet.dart';
 import '../widgets/cta_button.dart';
 import '../widgets/import_job_card.dart';
-import '../widgets/note_box.dart';
 import '../widgets/og_button.dart';
 import '../widgets/og_icon_button.dart';
 
@@ -98,23 +97,7 @@ class _ImportScreenState extends State<ImportScreen> {
       listenable: Listenable.merge(<Listenable>[_imports, widget.deps.connection]),
       builder: (BuildContext context, Widget? child) {
         final ImportStore s = _imports;
-        // Seam for the next step: when file import runs on Convex, this flag
-        // goes away and the upload section is always shown.
-        final bool upload = widget.deps.connection.legacyRestReady;
-        final List<Widget> body = upload
-            ? _uploadSection(s)
-            : <Widget>[
-                const NoteBox(
-                  title: 'Importing files is coming with the next update.',
-                  message: 'Files and photos cannot be imported yet. Imports you '
-                      'made before are listed below, and you can undo them.',
-                ),
-                const SizedBox(height: 14),
-                if (s.error != null) ...<Widget>[
-                  Text(s.error!, style: OG.body(size: 15, weight: FontWeight.w600)),
-                  const SizedBox(height: 12),
-                ],
-              ];
+        final List<Widget> body = _uploadSection(s);
         final List<ImportJob> older = s.past.where((ImportJob j) => j.id != s.job?.id).toList();
         if (older.isNotEmpty) {
           body.add(Text('Past imports', style: OG.display(24)));
@@ -124,7 +107,7 @@ class _ImportScreenState extends State<ImportScreen> {
             body.add(const SizedBox(height: 12));
           }
         }
-        return _page(s, body, upload);
+        return _page(s, body);
       },
     );
   }
@@ -184,7 +167,7 @@ class _ImportScreenState extends State<ImportScreen> {
     return body;
   }
 
-  Widget _page(ImportStore s, List<Widget> body, bool upload) {
+  Widget _page(ImportStore s, List<Widget> body) {
     return Scaffold(
       body: SafeArea(
         child: Column(
@@ -216,7 +199,7 @@ class _ImportScreenState extends State<ImportScreen> {
                     : 'Import ${s.picked.length} item${s.picked.length == 1 ? '' : 's'}',
                 icon: Icons.file_upload_outlined,
                 variant: OgVariant.accent,
-                onPressed: (!upload || s.picked.isEmpty || s.busy) ? null : s.start,
+                onPressed: (s.picked.isEmpty || s.busy) ? null : s.start,
               ),
             ),
           ],

@@ -1,7 +1,5 @@
 import 'dart:async';
 
-import '../data/api/http_open_gym_api.dart';
-import '../data/api/open_gym_api.dart';
 import '../data/convex_client.dart';
 import '../data/legacy_outbox_migration.dart';
 import '../data/outbox.dart';
@@ -24,9 +22,6 @@ import 'deps.dart';
 /// The one place that picks real implementations. To swap one (say, a fake
 /// gateway for a demo), change it here and nowhere else.
 Future<AppDeps> compose() async {
-  // Chat and import still use the old REST client (see ImportStore). It is
-  // only pointed at a server when the address is not a Convex deployment.
-  final OpenGymApi api = HttpOpenGymApi();
   final SwitchableConvexClient client = SwitchableConvexClient(
     (String url, String token) => DartvexConvexClient.connect(url: url, token: token),
   );
@@ -44,19 +39,16 @@ Future<AppDeps> compose() async {
     settings: SharedPrefsSettingsRepository(),
     client: client,
   );
-  connection.addListener(() {
-    final bool rest = connection.legacyRestReady;
-    api.configure(rest ? connection.settings.serverUrl : '', rest ? connection.settings.token : '');
-  });
   connection.onConnected = () => unawaited(outbox.flush());
 
   final SessionSync sessions = SessionSync(client: client, store: store, outbox: outbox);
   final DashboardStore dashboard = DashboardStore(client: client);
+  final CoachStore coach = CoachStore(client: client, isConnected: () => connection.connected);
   final ReviewStore reviews = ReviewStore(client: client);
   final PlanStore plans = PlanStore(client: client);
   final GoalsStore goals = GoalsStore(client: client, outbox: outbox);
   final ContextStore context = ContextStore(client: client, outbox: outbox);
-  final ImportStore imports = ImportStore(api: api, client: client);
+  final ImportStore imports = ImportStore(client: client);
 
   // A finished session goes to the outbox on disk first, then to the server.
   store.onSessionSaved = (String id) {
@@ -74,6 +66,7 @@ Future<AppDeps> compose() async {
   plans.start();
   goals.start();
   context.start();
+  coach.start();
   imports.watchPast();
   dashboard.select(7);
 
@@ -85,7 +78,7 @@ Future<AppDeps> compose() async {
     dashboard: dashboard,
     goals: goals,
     context: context,
-    coach: CoachStore(api: api),
+    coach: coach,
     imports: imports,
     reviews: reviews,
     pickers: DevicePickers(),

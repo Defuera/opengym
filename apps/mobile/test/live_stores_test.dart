@@ -1,5 +1,4 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:opengym/data/api/fake_open_gym_api.dart';
 import 'package:opengym/data/convex_client.dart';
 import 'package:opengym/models.dart';
 import 'package:opengym/stores/dashboard_store.dart';
@@ -95,7 +94,7 @@ void main() {
 
   test('past imports are live and undo goes through the gateway', () async {
     final FakeConvexClient fake = FakeConvexClient();
-    final ImportStore s = ImportStore(api: FakeOpenGymApi(), client: fake)..watchPast();
+    final ImportStore s = ImportStore(client: fake)..watchPast();
     String? undone;
     s.onUndone = (String id) => undone = id;
     fake.serverChanged(() => fake.serverImports['i1'] = const ImportJob(

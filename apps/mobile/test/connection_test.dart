@@ -43,7 +43,6 @@ void main() {
     await c.save('https://x.convex.cloud', 'tok');
     expect(c.state, ConnState.connected);
     expect(told, 1);
-    expect(c.legacyRestReady, isFalse);
   });
 
   test('a wrong token ends in "unauthorized" with a plain message', () async {

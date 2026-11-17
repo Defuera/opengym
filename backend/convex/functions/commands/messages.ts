@@ -9,7 +9,7 @@ import { MessageInputSchema } from "../model/schema";
 /**
  * Store the user's message at once and start the coach reply in the background.
  * The answer is NOT returned: the app subscribes to queries/messages:list and queries/threads:list
- * (the thread status is `thinking` until the reply is stored). Resending the same messageId changes nothing.
+ * (the thread status is `thinking` until the reply is stored). Resending the same messageId changes nothing, except after a failed reply, where it runs the coach again.
  */
 export const send = mutation({
   args: { token: v.string(), threadId: v.string(), messageId: v.string(), text: v.string(), fileIds: v.optional(v.array(v.string())) },
@@ -19,8 +19,15 @@ export const send = mutation({
     const valid = parseOrThrow(MessageInputSchema, { text, fileIds }, "message");
     const thread = await threadByThreadId(ctx, threadId);
     if (!thread) throw new ConvexError(`thread not found: ${threadId}`);
-    if (await messageByMessageId(ctx, messageId)) return messageId;
     const now = Date.now();
+    if (await messageByMessageId(ctx, messageId)) {
+      // A resend after a failed coach reply is a retry: run the coach again for the stored message.
+      if (thread.status === "failed") {
+        await ctx.db.patch(thread._id, { status: "thinking", error: undefined, pending: thread.pending + 1, updatedAt: now });
+        await ctx.scheduler.runAfter(0, internal.jobs.chat.reply, { threadId, messageId });
+      }
+      return messageId;
+    }
     await ctx.db.insert("messages", { messageId, threadId, role: "user", text: valid.text, fileIds: valid.fileIds ?? [], sources: [], createdAt: now });
     await ctx.db.patch(thread._id, { status: "thinking", error: undefined, pending: thread.pending + 1, updatedAt: now });
     await ctx.scheduler.runAfter(0, internal.jobs.chat.reply, { threadId, messageId });

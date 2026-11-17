@@ -57,11 +57,6 @@ class ConnectionStore extends ChangeNotifier {
   bool get connected => state == ConnState.connected;
   bool get checking => state == ConnState.connecting;
 
-  /// True when the old REST server can be used (chat, files, import). It
-  /// cannot while the address is a Convex deployment.
-  bool get legacyRestReady =>
-      settings.serverUrl.trim().isNotEmpty && !isConvexUrl(settings.serverUrl);
-
   /// Load saved settings and open the link. Never throws.
   Future<void> load() async {
     try {

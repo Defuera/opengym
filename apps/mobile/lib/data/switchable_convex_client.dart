@@ -123,6 +123,13 @@ class SwitchableConvexClient implements ConvexClient {
   Stream<List<ImportJob>> watchImports() => _proxy((ConvexClient c) => c.watchImports());
 
   @override
+  Stream<List<Thread>> watchThreads() => _proxy((ConvexClient c) => c.watchThreads());
+
+  @override
+  Stream<List<Message>> watchMessages(String threadId) =>
+      _proxy((ConvexClient c) => c.watchMessages(threadId));
+
+  @override
   Future<void> saveSession(Session session) => _call((ConvexClient c) => c.saveSession(session));
 
   @override
@@ -173,6 +180,54 @@ class SwitchableConvexClient implements ConvexClient {
 
   @override
   Future<void> removeImport(String importId) => _call((ConvexClient c) => c.removeImport(importId));
+
+  @override
+  Future<void> createThread({required String threadId, required String title}) =>
+      _call((ConvexClient c) => c.createThread(threadId: threadId, title: title));
+
+  @override
+  Future<void> removeThread(String threadId) => _call((ConvexClient c) => c.removeThread(threadId));
+
+  @override
+  Future<void> sendMessage({
+    required String threadId,
+    required String messageId,
+    required String text,
+    List<String> fileIds = const <String>[],
+  }) {
+    return _call((ConvexClient c) =>
+        c.sendMessage(threadId: threadId, messageId: messageId, text: text, fileIds: fileIds));
+  }
+
+  @override
+  Future<FileMeta> uploadFile({
+    required String fileId,
+    required String name,
+    required String mime,
+    required List<int> bytes,
+  }) {
+    final ConvexClient? c = _inner;
+    if (c == null) {
+      return Future<FileMeta>.error(const ConvexCallException.notConfigured());
+    }
+    return c.uploadFile(fileId: fileId, name: name, mime: mime, bytes: bytes);
+  }
+
+  @override
+  Future<FileLink?> fileLink(String fileId) {
+    final ConvexClient? c = _inner;
+    if (c == null) {
+      return Future<FileLink?>.error(const ConvexCallException.notConfigured());
+    }
+    return c.fileLink(fileId);
+  }
+
+  @override
+  Future<void> removeFile(String fileId) => _call((ConvexClient c) => c.removeFile(fileId));
+
+  @override
+  Future<void> startImport({required String importId, required List<String> fileIds}) =>
+      _call((ConvexClient c) => c.startImport(importId: importId, fileIds: fileIds));
 
   @override
   Future<AccessStatus> checkAccess() async {

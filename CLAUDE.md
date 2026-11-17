@@ -36,7 +36,7 @@ Each part has its own dependencies. There is no root `package.json`.
   - `docs/guides/guide-writing-guide.md` — how to write guides.
   - `docs/guides/js-modularity-guide.md` — file size and module splitting.
 - Commits use conventional commits: `<type>[scope]: <description>`. Lowercase, imperative, under 50 characters, no period. No attribution or Co-Authored-By lines. See `docs/guides/commit-guide.md`.
-- Never commit to `main` directly. `main` auto-deploys the web app to Vercel. Work on a branch and open a pull request.
+- Work on `main` directly; no pull request is needed for now (ADR-014). `main` auto-deploys the old web app to Vercel, so run the checks for the part you touched before you push.
 - Never commit secrets or `.env` files. Use `.env.example` for names only. Never print a key or token in a log, comment or file.
 - Record each non-trivial decision as a new ADR in `docs/strategy/` and add it to the index there. Mark a decision the owner has not confirmed as `Proposed`. Do not state facts or metrics that no source supports.
 - The AI never writes facts. Sessions and sets are written only by the app or by an import the user starts. AI output is a proposal tagged `source: "ai"` or `"rules"` (ADR-002).

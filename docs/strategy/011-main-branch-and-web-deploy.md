@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted
+Partly replaced by [ADR-014](014-work-on-main.md): the rule "nobody commits to `main` directly" no longer applies. The rest stands.
 
 ## Date
 

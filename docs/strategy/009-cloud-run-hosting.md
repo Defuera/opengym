@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed
+Replaced by [ADR-012](012-convex-backend.md) on 2026-11-17.
 
 The owner has not confirmed this decision. No source document records it. It comes from the monorepo restructure. A first deployment exists since 2026-11-16: service `opengym-api` in Google Cloud project `gym-days-app`, region `europe-west1`, bucket `gym-days-app-data`, AI provider `none`. Verified on that date: the health endpoint answers, a call without the token returns 401, and the SQLite file appears in the bucket. Not verified: that data survives an instance restart or a crash during a write.
 

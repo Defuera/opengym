@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed
+Hosting and store replaced by [ADR-012](012-convex-backend.md) on 2026-11-17. The choice of a new backend separate from the old web app stands.
 
 The owner has not confirmed this decision. DECISIONS.md labels it ASSUMED.
 

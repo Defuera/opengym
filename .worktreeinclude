@@ -15,3 +15,4 @@ apps/mobile/ios/Runner/GoogleService-Info.plist
 apps/mobile/ios/*.mobileprovision
 apps/mobile/ios/*.p12
 apps/mobile/ios/fastlane/.env*
+backend/convex/.env.local

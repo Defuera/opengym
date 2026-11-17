@@ -12,7 +12,12 @@ export interface PredictInput {
   rules: Prediction[];
 }
 
-const OutputSchema = z.object({ predictions: z.array(PredictionSchema).min(1).max(8) });
+/** A reason a little over the limit is cut, not rejected: one long sentence must not cost the whole answer. */
+const clipReason = (p: unknown): unknown =>
+  p && typeof p === "object" && typeof (p as { reason?: unknown }).reason === "string"
+    ? { ...p, reason: (p as { reason: string }).reason.slice(0, 80).trim() }
+    : p;
+const OutputSchema = z.object({ predictions: z.array(z.preprocess(clipReason, PredictionSchema)).min(1).max(8) });
 type Out = { predictions: Prediction[] };
 
 export const predictActivityJob: JobDef<PredictInput, Out> = {

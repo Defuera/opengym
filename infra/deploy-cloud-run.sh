@@ -53,12 +53,14 @@ if [ -n "$KEY" ]; then
 fi
 
 echo "== Deploy $SERVICE"
+# CPU stays allocated after a response, because plans and reviews are generated in a background queue.
 # The runtime service account needs roles/secretmanager.secretAccessor on the secrets and
 # roles/storage.objectUser on the bucket.
 "${G[@]}" run deploy "$SERVICE" \
   --image "$IMAGE" --region "$GCP_REGION" \
   --execution-environment gen2 \
   --max-instances 1 --min-instances 0 \
+  --no-cpu-throttling \
   --allow-unauthenticated \
   --add-volume "name=data,type=cloud-storage,bucket=${BUCKET}" \
   --add-volume-mount "volume=data,mount-path=/data" \

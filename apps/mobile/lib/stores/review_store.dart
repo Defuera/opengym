@@ -26,6 +26,10 @@ class ReviewStore extends ChangeNotifier {
         if (v != null) {
           current = v;
           notifyListeners();
+        } else if (current != null) {
+          // the session was deleted on the server: its review goes too
+          current = null;
+          notifyListeners();
         }
       },
       onError: (Object _) {

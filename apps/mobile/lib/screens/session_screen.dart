@@ -64,7 +64,7 @@ class SessionScreen extends StatelessWidget {
     }
   }
 
-  Future<void> _pick(BuildContext context, {required bool swap}) async {
+  Future<void> _addExercise(BuildContext context) async {
     final Session? a = store.active;
     if (a == null) {
       return;
@@ -72,17 +72,13 @@ class SessionScreen extends StatelessWidget {
     final List<String> used = a.exercises.map((Exercise e) => e.name).toList();
     final String? name = await showExercisePicker(
       context,
-      title: swap ? 'Swap ${store.currentExercise?.name ?? ''}' : 'Add exercise',
+      title: 'Add exercise',
       options: exerciseLibrary.where((String n) => !used.contains(n)).toList(),
     );
     if (name == null || name.isEmpty) {
       return;
     }
-    if (swap) {
-      store.swapExercise(name);
-    } else {
-      store.addExercise(name);
-    }
+    store.addExercise(name);
   }
 
   @override
@@ -139,15 +135,12 @@ class SessionScreen extends StatelessWidget {
                 const SizedBox(height: 14),
                 ExerciseStrip(
                   store: store,
-                  onAdd: () => _pick(context, swap: false),
+                  onAdd: () => _addExercise(context),
                 ),
                 Expanded(
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: SessionPanel(
-                      store: store,
-                      onSwap: () => _pick(context, swap: true),
-                    ),
+                    child: SessionPanel(store: store),
                   ),
                 ),
                 Padding(

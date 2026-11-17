@@ -157,7 +157,6 @@ Widget panelStory(BuildContext context) {
     child: ExercisePanel(
       name: 'Bench press',
       hint: 'First time here. Set your numbers once; next time they are pre-filled.',
-      onSwap: _noop,
       children: <Widget>[SetListDemo()],
     ),
   );

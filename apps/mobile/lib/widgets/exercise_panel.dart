@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../theme.dart';
-import 'og_button.dart';
 
-/// The big card: title with a Swap button, optional hint, [pinned] widgets,
+/// The big card: title, optional hint, [pinned] widgets,
 /// then the children. Only the children scroll; the title and pinned part stay
 /// in place, so nothing is cut at the top edge. Give it a bounded height
 /// (e.g. inside Expanded).
@@ -14,28 +13,18 @@ class ExercisePanel extends StatelessWidget {
     required this.children,
     this.hint,
     this.pinned = const <Widget>[],
-    this.onSwap,
-    this.swapLabel = 'Swap',
   });
 
   final String name;
   final List<Widget> children;
   final String? hint;
   final List<Widget> pinned;
-  final VoidCallback? onSwap;
-  final String swapLabel;
 
   @override
   Widget build(BuildContext context) {
     final String? h = hint;
     final List<Widget> body = <Widget>[
-      Row(
-        children: <Widget>[
-          Expanded(child: Text(name, style: OG.display(28))),
-          const SizedBox(width: 12),
-          OgButton(minHeight: 48, onPressed: onSwap, child: Text(swapLabel)),
-        ],
-      ),
+      Text(name, style: OG.display(28)),
     ];
     if (h != null) {
       body.add(const SizedBox(height: 6));

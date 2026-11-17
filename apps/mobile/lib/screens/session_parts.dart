@@ -45,10 +45,9 @@ class ExerciseStrip extends StatelessWidget {
 
 /// Maps the current exercise onto the big card (title plus list of sets).
 class SessionPanel extends StatelessWidget {
-  const SessionPanel({super.key, required this.store, required this.onSwap});
+  const SessionPanel({super.key, required this.store});
 
   final AppStore store;
-  final VoidCallback onSwap;
 
   @override
   Widget build(BuildContext context) {
@@ -63,7 +62,6 @@ class SessionPanel extends StatelessWidget {
     return ExercisePanel(
       name: ex.name,
       hint: _hint(ex),
-      onSwap: onSwap,
       children: <Widget>[
         SetList(
           sets: <SetRowData>[

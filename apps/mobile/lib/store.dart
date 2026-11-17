@@ -313,16 +313,6 @@ class AppStore extends ChangeNotifier {
     _commit();
   }
 
-  void swapExercise(String name) {
-    final Session? a = active;
-    if (a == null || currentExercise == null) {
-      return;
-    }
-    a.exercises[curEx] = makeExercise(sessions, name);
-    _select(curEx);
-    _commit();
-  }
-
   // ---------- sets ----------
 
   void pickSet(int i) {

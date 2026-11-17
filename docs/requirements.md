@@ -39,6 +39,13 @@ conversation (A01–A16). Wording is kept close to his.
 - R21 Exercises can be swapped
 - R22 Session is prepared, edited only as needed — never a blank slate
 
+## Start session and Log (ADR-016)
+- Decided 2026-11-17: Home has two actions, **Start session** and **Log**. Each opens a bottom sheet. Nothing in the app is a fixed list: activities, foci and starter plans come from the log.
+- A session with sets (`kind: "gym"`) may have any activity name in `type` (1..40, default "Gym"): "Gym", "Home", ... `kind: "activity"` is time and distance. Old rows stay valid. Names match by `activityKey` (lower case, trimmed, spaces collapsed); display uses the most recent spelling.
+- Start session shows stored proposals (several activities with sets are allowed; at most 2 per activity and 6 in all), then a free-text field ("Something new"). Typed text becomes a start request: the coach proposes a name (a known one is reused), a focus and a plan of the right size for the time asked. After 20 seconds, offline or on failure the app opens an empty session named from the text. The AI never writes a fact.
+- With an empty log there are no proposals and no starter plan: the fallback is an empty session. Plans are stored per activity and focus, only for the first 3 set-based proposals; any other is built from the user's own last session of it, or empty. Safety limits and the avoid rules still apply.
+- Log lists time and distance activities from the log and opens the small log form. No AI call.
+
 ## Inside an exercise
 - R23 Follow the exercise set by set
 - R24 Sets pre-filled from your own pattern (bench: 6×20, 6×40, 6×60, then max attempts)

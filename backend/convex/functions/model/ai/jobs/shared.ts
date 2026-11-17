@@ -20,3 +20,10 @@ export const goalsForPrompt = (goals: Goal[]) =>
 export const contextForPrompt = (items: ContextItem[]) => items.filter((c) => c.active).map((c) => ({ topic: c.topic, text: c.text }));
 
 export { limitsForPrompt } from "../../rules/limits";
+
+/** An activity of the log with its kind and foci, as a prompt carries it. */
+export interface KnownActivity {
+  type: string;
+  kind: "gym" | "activity";
+  foci: string[];
+}

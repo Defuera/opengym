@@ -11,3 +11,10 @@ export const IMPORT_DELETE_BATCH = 1_000;
 
 /** AI import of files: pause between starting two units, so a long PDF does not fire all its calls at once. */
 export const IMPORT_UNIT_STAGGER_MS = 1_000;
+
+/** A start request (a typed "Start session" text) is removed after this long. */
+export const START_REQUEST_TTL_MS = 86_400_000;
+/** Longest text of a start request. */
+export const START_REQUEST_MAX_TEXT = 200;
+/** Old start requests removed per command call. */
+export const START_REQUEST_PURGE_BATCH = 50;

@@ -1,7 +1,8 @@
-import { applyPlanLimits } from "./rules/planner";
+import { applyPlanLimits, fitPlanToMinutes } from "./rules/planner";
+import { loggedName } from "./rules/foci";
 import { truncate } from "./rules/util";
 import { dropAvoided } from "./rules/limits";
-import type { Limit, PlanDraft, ReviewDraft, Session } from "./schema";
+import type { Limit, PlanDraft, ReviewDraft, Session, StartProposal } from "./schema";
 
 /**
  * Safety limits and truncations for a plan draft (ADR-004). `allSessions` must be the FULL history:
@@ -17,4 +18,20 @@ export function finalizePlan(draft: PlanDraft, allSessions: Session[], limits: L
 
 export function finalizeReview(draft: ReviewDraft): ReviewDraft {
   return { summary: truncate(draft.summary, 400), changes: draft.changes.slice(0, 5) };
+}
+
+/**
+ * Checks in code for a start proposal (ADR-004, ADR-016). The name reuses the log's spelling when the log has the name
+ * (matched by activityKey). A session with sets gets the plan safety limits, the avoid rules and a size that fits the minutes asked for;
+ * a time or distance activity has no plan. `allSessions` must be the FULL history.
+ */
+export function finalizeStartProposal(p: StartProposal, allSessions: Session[], limits: Limit[] = []): StartProposal {
+  const asked = p.type.trim().slice(0, 40) || "Gym";
+  const type = loggedName(allSessions, asked, p.kind) ?? loggedName(allSessions, asked) ?? asked;
+  const focus = p.focus?.trim().slice(0, 40);
+  const reason = p.reason?.trim() ? truncate(p.reason.trim(), 80) : undefined;
+  const base = { kind: p.kind, type, ...(focus ? { focus } : {}), ...(p.minutes !== undefined ? { minutes: p.minutes } : {}), ...(reason ? { reason } : {}) };
+  if (p.kind === "activity") return base;
+  const plan = finalizePlan(p.plan ?? { rationale: "Empty session. Add what you do.", exercises: [] }, allSessions, limits);
+  return { ...base, plan: p.minutes !== undefined ? fitPlanToMinutes(plan, p.minutes) : plan };
 }

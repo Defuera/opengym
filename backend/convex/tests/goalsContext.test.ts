@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "../functions/_generated/api";
-import { TOKEN, setup, settle, type T } from "./helpers";
+import { TOKEN, pushSession, setup, settle, type T } from "./helpers";
 
 let t: T;
 beforeEach(() => {
@@ -41,9 +41,10 @@ describe("goals", () => {
   });
 
   it("a goal change asks for a rebuild and keeps the stored read models", async () => {
+    await t.mutation(api.commands.sessions.save, { token: TOKEN, session: pushSession("p1", 5_000_000) });
     await t.mutation(api.commands.goals.create, { token: TOKEN, goalId: "g1", title: "Train 3x", kind: "consistency", sessionsPerWeek: 3 });
     await settle(t);
-    expect(await t.run((ctx) => ctx.db.query("plans").collect())).toHaveLength(3);
+    expect(await t.run((ctx) => ctx.db.query("plans").collect())).toHaveLength(1); // the one proposal of the log (Gym, Push)
     expect(await t.run((ctx) => ctx.db.query("dashboards").collect())).toHaveLength(2);
     // The goal shows in the stored dashboard layout after the rebuild; before it, the rules layout has it too.
     const d = await t.query(api.queries.dashboard.get, { token: TOKEN, days: 7 });
@@ -51,7 +52,7 @@ describe("goals", () => {
     expect(d.dashboard.modules.some((m) => m.type === "goal_progress")).toBe(true);
     // A change keeps the stored rows until the next rebuild replaces them.
     await t.mutation(api.commands.goals.update, { token: TOKEN, goalId: "g1", status: "done" });
-    expect(await t.run((ctx) => ctx.db.query("plans").collect())).toHaveLength(3);
+    expect(await t.run((ctx) => ctx.db.query("plans").collect())).toHaveLength(1);
     expect((await t.query(api.queries.plans.next, { token: TOKEN, focus: "Push" })).stored).toBe(true);
     await settle(t);
   });

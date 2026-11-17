@@ -10,8 +10,10 @@ import { contextForPrompt, goalsForPrompt, limitsForPrompt, logForPrompt } from 
  * `rules` is the plain-code plan, computed by the caller from the FULL history.
  */
 export interface PlanInput {
-  /** The gym focus to plan ("Upper", "Legs", ...). The activity is always Gym. */
-  focus: string;
+  /** The activity to plan a session with sets for ("Gym", "Home", ...), as the log spells it. */
+  activity: string;
+  /** The focus of that session ("Upper", "Quick", ...), when it has one. */
+  focus?: string;
   sessions: Session[];
   goals: Goal[];
   context: ContextItem[];
@@ -24,8 +26,8 @@ const SHAPE = `{"rationale": string (max 200 chars), "exercises": [{"name": stri
 
 export const planSessionJob: JobDef<PlanInput, PlanDraft> = {
   name: "plan_session",
-  description: "Proposes the next gym session of a given focus from the log, active goals and active context notes.",
-  fallbackDescription: "Repeats the last session of that focus with its last sets; starter template (bench press 6x20, 6x40, 6x60, 1x60 max) if there is none.",
+  description: "Proposes the next session with sets for one activity (and focus) from the log, active goals and active context notes (equipment and preferences).",
+  fallbackDescription: "Repeats the user's last session of that activity and focus with its last sets; an empty plan if there is none (no starter template).",
   json: true,
   // Reasoning tokens count against this limit on OpenAI; 1500 gave empty answers with real history.
   maxTokens: 4000,
@@ -38,13 +40,14 @@ export const planSessionJob: JobDef<PlanInput, PlanDraft> = {
   build: (i) => ({
     system: systemPrompt(
       "plan_session",
-      "You plan the next gym session for one person. Prefer progression the log supports (small weight or rep steps), keep to exercises they already do unless a goal calls for more, and respect active context notes as training preferences (for example lighter or skipped exercises). Do not exceed 1.25 times the heaviest weight ever logged for an exercise. " + LIMITS_RULE,
+      "You plan the next session for one person: a session with sets for one activity. The activity is whatever the user calls it (it may be done at a gym, at home or elsewhere); do not assume a gym or its equipment. Prefer progression the log supports (small weight or rep steps), keep to exercises they already do unless a goal calls for more, and respect the context notes as equipment and training preferences (for example only dumbbells at home, lighter or skipped exercises). If the log has no session of this activity, propose a short simple plan from the goals and notes. Do not exceed 1.25 times the heaviest weight ever logged for an exercise. " + LIMITS_RULE,
       SHAPE,
     ),
     messages: [
       {
         role: "user",
-        content: dataPrompt(`Plan the next gym session with focus ${i.focus}.`, {
+        content: dataPrompt(`Plan the next session with sets for ${i.activity}${i.focus ? `, focus ${i.focus}` : ""}.`, {
+          activity: i.activity,
           focus: i.focus,
           recentLog: logForPrompt(i.sessions),
           goals: goalsForPrompt(i.goals.filter((g) => g.status === "active")),

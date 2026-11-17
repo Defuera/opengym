@@ -1,28 +1,73 @@
 import type { Session } from "../schema";
-import { starterFoci } from "./planner";
+import { activityKey } from "../sessionShape";
 
-/** Gym foci in the log (any case is kept as written), oldest first by last use. */
-export function loggedGymFoci(sessions: Session[]): string[] {
-  const last = new Map<string, number>();
-  for (const s of sessions) if (s.kind === "gym" && s.focus) last.set(s.focus, Math.max(last.get(s.focus) ?? 0, s.endedAt));
-  return [...last.entries()].sort((a, b) => a[1] - b[1]).map(([f]) => f);
+type Kind = Session["kind"];
+
+/** One activity of the log: sessions of one kind with the same name key. */
+export interface LoggedActivity {
+  kind: Kind;
+  key: string;
+  /** The most recent spelling in the log. */
+  name: string;
+  count: number;
+  /** Sessions in the last 60 days (for ranking). */
+  recent: number;
+  /** endedAt of the last session. */
+  last: number;
 }
 
-/** Every gym focus we keep a plan for: the ones in the log. The starter foci are used only while the log has none. */
-export function knownGymFoci(sessions: Session[]): string[] {
-  const logged = loggedGymFoci(sessions);
-  return logged.length > 0 ? logged : [...starterFoci];
+export const RECENT_DAYS = 60;
+const DAY = 86_400_000;
+
+/** The activities the log holds. The vocabulary comes from here and nowhere else (ADR-016). Order: most used recently first. */
+export function loggedActivities(sessions: Session[], now: number = Date.now()): LoggedActivity[] {
+  const by = new Map<string, LoggedActivity>();
+  for (const s of sessions) {
+    const key = activityKey(s.type);
+    if (key === "") continue;
+    const id = `${s.kind}:${key}`;
+    const a = by.get(id) ?? { kind: s.kind, key, name: s.type.trim(), count: 0, recent: 0, last: 0 };
+    a.count++;
+    if (s.endedAt >= now - RECENT_DAYS * DAY) a.recent++;
+    if (s.endedAt >= a.last) {
+      a.last = s.endedAt;
+      a.name = s.type.trim();
+    }
+    by.set(id, a);
+  }
+  return [...by.values()].sort((a, b) => b.recent - a.recent || b.count - a.count || b.last - a.last || a.name.localeCompare(b.name));
 }
 
-/**
- * Gym foci ordered by what is due: done longest ago first; never done first of all (starter order breaks ties).
- * The first one is the advised focus.
- */
-export function gymFociByDue(sessions: Session[]): string[] {
-  const last = new Map<string, number>();
-  for (const s of sessions) if (s.kind === "gym" && s.focus) last.set(s.focus, Math.max(last.get(s.focus) ?? 0, s.endedAt));
-  return knownGymFoci(sessions)
-    .map((focus, index) => ({ focus, index, at: last.get(focus) ?? 0 }))
-    .sort((a, b) => a.at - b.at || a.index - b.index)
-    .map((x) => x.focus);
+/** The log's spelling of an activity (most recent), or null when the log has no such name. */
+export function loggedName(sessions: Session[], name: string, kind?: Kind): string | null {
+  const key = activityKey(name);
+  let best: Session | null = null;
+  for (const s of sessions) if (activityKey(s.type) === key && (kind === undefined || s.kind === kind) && (!best || s.endedAt >= best.endedAt)) best = s;
+  return best ? best.type.trim() : null;
+}
+
+const isSetBasedOf = (s: Session, key: string) => s.kind === "gym" && activityKey(s.type) === key;
+
+/** Foci in the log for one set-based activity (the log's most recent spelling), done longest ago first. This is the order of what is due. */
+export function fociByDue(sessions: Session[], activity: string): string[] {
+  const key = activityKey(activity);
+  const last = new Map<string, { at: number; name: string }>();
+  for (const s of sessions) {
+    if (!isSetBasedOf(s, key) || !s.focus) continue;
+    const k = activityKey(s.focus);
+    const cur = last.get(k);
+    if (!cur || s.endedAt >= cur.at) last.set(k, { at: s.endedAt, name: s.focus.trim() });
+  }
+  return [...last.values()].sort((a, b) => a.at - b.at || a.name.localeCompare(b.name)).map((x) => x.name);
+}
+
+/** The last session with sets of an activity (and of a focus, when one is given), or null. */
+export function lastOfActivity(sessions: Session[], activity: string, focus?: string): Session | null {
+  const key = activityKey(activity);
+  const fk = focus === undefined ? null : activityKey(focus);
+  for (let i = sessions.length - 1; i >= 0; i--) {
+    const s = sessions[i]!;
+    if (isSetBasedOf(s, key) && (fk === null || activityKey(s.focus ?? "") === fk)) return s;
+  }
+  return null;
 }

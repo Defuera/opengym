@@ -28,7 +28,7 @@ describe("debounce", () => {
     expect((await state())!.runs).toBe(1);
     const n = (job: string) => calls.filter((c) => c.job === job && c.input !== undefined).length;
     // Fallback happens after one retry, so each job calls the provider twice.
-    expect(n("plan_session") / 2).toBe(1); // only the focus in the log (Push), once
+    expect(n("plan_session") / 2).toBe(1); // only the focus in the log (Gym Push), once
     expect(n("predict_activity") / 2).toBe(1);
     expect(n("build_dashboard") / 2).toBe(2); // 7 and 30 days
     expect(n("review_session") / 2).toBe(10); // one review per saved session
@@ -60,9 +60,9 @@ describe("debounce", () => {
 
   it("a rebuild result older than the stored one is dropped", async () => {
     await t.run(async (c) => {
-      await c.db.insert("plans", { focus: "Push", version: 200, createdAt: 1, source: "ai", rationale: "newer", exercises: [] });
+      await c.db.insert("plans", { activity: "Gym", activityKey: "gym", focusKey: "push", focus: "Push", version: 200, createdAt: 1, source: "ai", rationale: "newer", exercises: [] });
     });
-    await t.mutation(internal.jobs.plans.save, { focus: "Push", version: 100, source: "rules", draft: { rationale: "older", exercises: [] } });
+    await t.mutation(internal.jobs.plans.save, { activity: "Gym", focus: "Push", version: 100, source: "rules", draft: { rationale: "older", exercises: [] } });
     expect(await t.run((c) => c.db.query("plans").collect())).toMatchObject([{ rationale: "newer", version: 200 }]);
   });
 });
@@ -78,7 +78,7 @@ const forty = (): Session[] =>
 describe("bounded model input (pure)", () => {
   it("plan: last 6 gym sessions of the focus plus last 6 of any kind, deduplicated, oldest first", () => {
     const all = forty();
-    const got = boundedPlanSessions(all, "Pull");
+    const got = boundedPlanSessions(all, "Gym", "Pull");
     const expected = new Set([...all.filter((s) => s.kind === "gym" && s.focus === "Pull").slice(-PLAN_RECENT_OF_TYPE), ...all.slice(-PLAN_RECENT_ANY)].map((s) => s.id));
     expect(got.map((s) => s.id)).toEqual(all.filter((s) => expected.has(s.id)).map((s) => s.id));
     expect(got.length).toBeLessThanOrEqual(PLAN_RECENT_OF_TYPE + PLAN_RECENT_ANY);
@@ -108,13 +108,14 @@ describe("bounded model input (in the database)", () => {
     for (const s of forty()) await save(pushSession(s.id, s.endedAt, s.id === "s0" ? 100 : 40, s.focus));
     await settle(t);
 
-    const input = await t.query(internal.jobs.plans.input, { focus: "Push" });
+    const input = await t.query(internal.jobs.plans.input, { activity: "Gym", focus: "Push" });
     expect(input.sessions.length).toBeLessThanOrEqual(PLAN_RECENT_OF_TYPE + PLAN_RECENT_ANY);
     expect(input.sessions.some((s) => s.id === "s0")).toBe(false); // the 100 kg session is outside the model input
     expect(input.rules.exercises.length).toBeGreaterThan(0);
 
     // The model asks for 500 kg bench. The cap comes from the heaviest ever (100 kg in s0 -> 125), not from the model input (40 kg -> 50).
     await t.mutation(internal.jobs.plans.save, {
+      activity: "Gym",
       focus: "Push",
       version: Date.now(),
       source: "ai",

@@ -10,6 +10,27 @@ export const planSet = v.object({ reps: v.number(), kg: v.number(), max: v.boole
 export const planExercise = v.object({ name: v.string(), sets: v.array(planSet), note: v.optional(v.string()) });
 export const prediction = v.object({ kind: v.union(v.literal("gym"), v.literal("activity")), type: v.string(), focus: v.optional(v.string()), reason: v.string() });
 
+export const startStatus = v.union(v.literal("pending"), v.literal("ready"), v.literal("failed"));
+/** The stored proposal of a start request. The plan is the safe-checked draft; the app gets it in the plan shape of queries/plans:next. */
+export const startProposal = v.object({
+  kind: v.union(v.literal("gym"), v.literal("activity")),
+  type: v.string(),
+  focus: v.optional(v.string()),
+  minutes: v.optional(v.number()),
+  reason: v.optional(v.string()),
+  plan: v.optional(v.object({ source: proposalSource, rationale: v.string(), exercises: v.array(planExercise) })),
+});
+
+/** What the interpret_request job hands to the save step: the same, with the plan as a bare draft (the source is a separate argument). */
+export const startDraft = v.object({
+  kind: v.union(v.literal("gym"), v.literal("activity")),
+  type: v.string(),
+  focus: v.optional(v.string()),
+  minutes: v.optional(v.number()),
+  reason: v.optional(v.string()),
+  plan: v.optional(v.object({ rationale: v.string(), exercises: v.array(planExercise) })),
+});
+
 /** Dashboard layout spec: which modules, in what order. Numbers are never stored (computed by code). */
 export const moduleSpec = v.union(
   v.object({ type: v.literal("stat"), which: v.union(v.literal("sessions"), v.literal("active_days"), v.literal("sets"), v.literal("top_set")) }),

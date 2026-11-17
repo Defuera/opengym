@@ -33,6 +33,20 @@ export function pushSession(sessionId: string, endedAt: number, benchKg = 60, fo
   };
 }
 
+/** A session with sets for another activity ("Home", ...): kind gym, `type` is the activity name, `focus` the flavour. */
+export function setsSession(sessionId: string, endedAt: number, type = "Home", focus?: string, exercises = [{ name: "Push-up", sets: [{ reps: 12, kg: 0, max: false }, { reps: 10, kg: 0, max: false }] }]) {
+  return {
+    sessionId,
+    kind: "gym" as const,
+    type,
+    ...(focus ? { focus } : {}),
+    startedAt: Math.max(0, endedAt - 1_800_000),
+    endedAt,
+    exercises,
+    source: "app" as const,
+  };
+}
+
 /** Stub the OpenAI chat endpoint. `reply` makes the text of each answer; calls are recorded. */
 export function stubOpenAi(reply: (job: string, input: any) => string) { // eslint-disable-line @typescript-eslint/no-explicit-any
   vi.stubEnv("AI_PROVIDER", "openai");

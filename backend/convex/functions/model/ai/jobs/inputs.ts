@@ -1,12 +1,16 @@
 import { dropAvoided } from "../../rules/limits";
 import type { ContextItem, Goal, Limit, PlanDraft, Session } from "../../schema";
+import { activityKey } from "../../sessionShape";
+import { fociByDue, loggedActivities } from "../../rules/foci";
 import { rulesPlan } from "../../rules/planner";
 import { rulesPredictions } from "../../rules/predictions";
 import { rulesReview } from "../../rules/review";
 import type { DashboardInput } from "./buildDashboard";
 import type { PlanInput } from "./planSession";
 import type { PredictInput } from "./predictActivity";
+import type { InterpretInput } from "./interpretRequest";
 import type { ReviewInput } from "./reviewSession";
+import type { KnownActivity } from "./shared";
 
 /**
  * Bounded model input (ADR-012): a job sends the model only recent history.
@@ -22,22 +26,68 @@ export const DASHBOARD_RECENT = 30;
 
 const lastN = <T>(xs: T[], n: number): T[] => (n <= 0 ? [] : xs.slice(-n));
 
-/** Plan for a focus: the last 6 gym sessions with that focus plus the last 6 of any kind, deduplicated, oldest first. */
-export function boundedPlanSessions(all: Session[], focus: string): Session[] {
-  const ofType = lastN(all.filter((s) => s.kind === "gym" && s.focus === focus), PLAN_RECENT_OF_TYPE);
+/**
+ * Plan for an activity and focus: the last 6 sessions with sets of that activity (and focus, when one is given)
+ * plus the last 6 of any kind, deduplicated, oldest first.
+ */
+export function boundedPlanSessions(all: Session[], activity: string, focus?: string): Session[] {
+  const key = activityKey(activity);
+  const fk = focus === undefined ? null : activityKey(focus);
+  const ofType = lastN(all.filter((s) => s.kind === "gym" && activityKey(s.type) === key && (fk === null || activityKey(s.focus ?? "") === fk)), PLAN_RECENT_OF_TYPE);
   const any = lastN(all, PLAN_RECENT_ANY);
   const ids = new Set([...ofType, ...any].map((s) => s.id));
   return all.filter((s) => ids.has(s.id));
 }
 
 /** `limits` must be the non-cleared limits. The rules plan already drops exercises an avoid rule names. */
-export function buildPlanInput(all: Session[], goals: Goal[], context: ContextItem[], focus: string, limits: Limit[] = []): PlanInput {
-  const rules: PlanDraft = dropAvoided(rulesPlan(all, focus), limits);
-  return { focus, sessions: boundedPlanSessions(all, focus), goals, context, limits, rules };
+export function buildPlanInput(all: Session[], goals: Goal[], context: ContextItem[], activity: string, focus: string | undefined, limits: Limit[] = []): PlanInput {
+  const rules: PlanDraft = dropAvoided(rulesPlan(all, activity, focus), limits);
+  return { activity, ...(focus !== undefined ? { focus } : {}), sessions: boundedPlanSessions(all, activity, focus), goals, context, limits, rules };
+}
+
+export const KNOWN_ACTIVITIES_MAX = 30;
+export const KNOWN_FOCI_MAX = 8;
+
+/** The vocabulary of the log, for prompts: every activity with its kind and foci. Most used first, bounded. */
+export function knownActivities(all: Session[], now: number): KnownActivity[] {
+  return loggedActivities(all, now)
+    .slice(0, KNOWN_ACTIVITIES_MAX)
+    .map((a) => ({ type: a.name, kind: a.kind, foci: (a.kind === "gym" ? fociByDue(all, a.name) : activityFoci(all, a.key)).slice(0, KNOWN_FOCI_MAX) }));
+}
+
+function activityFoci(all: Session[], key: string): string[] {
+  const seen = new Map<string, string>();
+  for (const s of all) if (s.kind === "activity" && activityKey(s.type) === key && s.focus) seen.set(activityKey(s.focus), s.focus.trim());
+  return [...seen.values()];
 }
 
 export function buildPredictInput(all: Session[], goals: Goal[], now: number, limits: Limit[] = []): PredictInput {
-  return { sessions: lastN(all, PREDICTIONS_RECENT), goals, limits, now, rules: rulesPredictions(all, now) };
+  return { sessions: lastN(all, PREDICTIONS_RECENT), known: knownActivities(all, now), goals, limits, now, rules: rulesPredictions(all, now) };
+}
+
+export const INTERPRET_RECENT = 6;
+
+/** The log activity a typed text most likely means: its name is inside the text (longest first), else most words in common. null when none. */
+export function bestMatchingActivity(text: string, known: KnownActivity[]): KnownActivity | null {
+  const t = activityKey(text);
+  const words = new Set(t.split(/[^a-z0-9]+/).filter((w) => w.length > 1));
+  let best: { a: KnownActivity; score: number } | null = null;
+  for (const a of known) {
+    const k = activityKey(a.type);
+    const overlap = k.split(/[^a-z0-9]+/).filter((w) => words.has(w)).length;
+    const score = (k !== "" && t.includes(k) ? 100 + k.length : 0) + overlap;
+    if (score > 0 && (!best || score > best.score)) best = { a, score };
+  }
+  return best?.a ?? null;
+}
+
+/** Interpret a typed start request. `limits` must be the non-cleared limits. The log is the full history, oldest first. */
+export function buildInterpretInput(text: string, all: Session[], goals: Goal[], context: ContextItem[], limits: Limit[], now: number): InterpretInput {
+  const known = knownActivities(all, now);
+  const match = bestMatchingActivity(text, known);
+  const recent = match ? lastN(all.filter((s) => activityKey(s.type) === activityKey(match.type)), INTERPRET_RECENT) : [];
+  const rules: PlanDraft = match && match.kind === "gym" ? dropAvoided(rulesPlan(all, match.type), limits) : { rationale: "No matching session logged yet. Start empty and add what you do.", exercises: [] };
+  return { text, known, ...(match ? { bestMatch: match.type } : {}), sessions: recent, goals, context, limits, rules };
 }
 
 export function buildDashboardInput(all: Session[], goals: Goal[], context: ContextItem[], days: 7 | 30): DashboardInput {

@@ -4,6 +4,8 @@ import { buildDashboardJob } from "../functions/model/ai/jobs/buildDashboard";
 import { chatJob } from "../functions/model/ai/jobs/chat";
 import { extractFromChatJob } from "../functions/model/ai/jobs/extractFromChat";
 import { buildPlanInput, buildPredictInput, buildReviewInput } from "../functions/model/ai/jobs/inputs";
+import { buildInterpretInput } from "../functions/model/ai/jobs/inputs";
+import { interpretRequestJob } from "../functions/model/ai/jobs/interpretRequest";
 import { planSessionJob } from "../functions/model/ai/jobs/planSession";
 import { predictActivityJob } from "../functions/model/ai/jobs/predictActivity";
 import { reviewSessionJob } from "../functions/model/ai/jobs/reviewSession";
@@ -28,7 +30,7 @@ const cleared: Limit = { limitId: "k2", part: "wrists", title: "Wrists", status:
 describe("prompts carry limits and never records", () => {
   const log = [session("a", ["Squat", "Leg Press"])];
   const prompts = (limits: Limit[]) => {
-    const plan = buildPlanInput(log, [], [], "Legs", limits);
+    const plan = buildPlanInput(log, [], [], "Gym", "Legs", limits);
     const predict = buildPredictInput(log, [], 6_000_000, limits);
     const review = buildReviewInput(log, log[0]!, limits);
     const coach = assembleCoachContext({ otherThreads: [], sessions: log, goals: [], context: [], limits }, [], false);
@@ -36,6 +38,7 @@ describe("prompts carry limits and never records", () => {
       plan: planSessionJob.build(plan),
       predict: predictActivityJob.build(predict),
       review: reviewSessionJob.build(review),
+      interpret: interpretRequestJob.build(buildInterpretInput("legs at home, 20 min", log, [], [], limits, 6_000_000)),
       chat: chatJob.build({ contextBlock: coach.contextBlock, history: [{ role: "user", content: "hi" }] }),
       dashboard: buildDashboardJob.build({ days: 7, sessions: log, goals: [], context: [] }),
       extract: extractFromChatJob.build({ text: "hi", existingContext: [], existingGoals: [] }),
@@ -51,14 +54,14 @@ describe("prompts carry limits and never records", () => {
   it("plan, predict, review and chat get non-cleared limits as {part,title,status,rules:[{kind,text}]} and the one-sentence rule", () => {
     const p = prompts([limit, cleared]);
     const expected = [{ part: "left_knee", title: "Left knee", status: "active", rules: [{ kind: "avoid", text: "No deep squats" }, { kind: "do", text: "Leg press, short range" }] }];
-    for (const name of ["plan", "predict", "review"] as const) {
+    for (const name of ["plan", "predict", "review", "interpret"] as const) {
       const data = JSON.parse(p[name].messages[0]!.content.split("INPUT_JSON:\n")[1]!);
       expect(data.limits, name).toEqual(expected);
       expect(p[name].system, name).toContain(LIMITS_RULE);
     }
     expect(p.chat.system).toContain(LIMITS_RULE);
     expect(p.chat.system).toContain('"part":"left_knee"');
-    for (const name of ["plan", "predict", "review", "chat"] as const) expect(whole(p[name]), name).not.toContain("CLEARED-RULE");
+    for (const name of ["plan", "predict", "review", "interpret", "chat"] as const) expect(whole(p[name]), name).not.toContain("CLEARED-RULE");
   });
 });
 

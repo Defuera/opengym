@@ -1,6 +1,6 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
-import { dashboardDays, feeling, limitRule, limitStatus, fileKind, threadStatus, goalKind, goalStatus, importCounts, importStatus, itemSource, moduleSpec, planExercise, prediction, proposalSource } from "./lib/validators";
+import { startProposal, startStatus, dashboardDays, feeling, limitRule, limitStatus, fileKind, threadStatus, goalKind, goalStatus, importCounts, importStatus, itemSource, moduleSpec, planExercise, prediction, proposalSource } from "./lib/validators";
 
 /** One logged set. `reps` = completed reps; `failed` = one more rep was tried and not completed. */
 export const setEntry = v.object({
@@ -159,7 +159,13 @@ export default defineSchema({
   // Read models. Written only by jobs. `version` is the dirtyAt of the rebuild that made the row;
   // a job result older than the stored row is dropped.
   plans: defineTable({
-    /** The focus the plan is for. Optional only until jobs/migrations:activityFirst has run; code always writes it. */
+    /** The activity the plan is for, as the log spells it ("Gym", "Home"). Absent on a row from before ADR-016: that is a Gym plan. */
+    activity: v.optional(v.string()),
+    /** activityKey(activity). The plan key is (activityKey, focusKey). Absent on a pre-ADR-016 row; the first rebuild replaces it. */
+    activityKey: v.optional(v.string()),
+    /** activityKey(focus), "" when the plan has no focus. */
+    focusKey: v.optional(v.string()),
+    /** The focus the plan is for. Absent when the plan has none. Optional on old rows until jobs/migrations:activityFirst has run. */
     focus: v.optional(v.string()),
     /** Legacy key (the old gym type). Never written now; the migration moves it to `focus`. */
     type: v.optional(v.string()),
@@ -168,7 +174,9 @@ export default defineSchema({
     source: proposalSource,
     rationale: v.string(),
     exercises: v.array(planExercise),
-  }).index("by_focus", ["focus"]),
+  })
+    .index("by_focus", ["focus"])
+    .index("by_activity", ["activityKey", "focusKey"]),
   predictions: defineTable({
     version: v.number(),
     createdAt: v.number(),
@@ -190,6 +198,18 @@ export default defineSchema({
     summary: v.string(),
     changes: v.array(v.string()),
   }).index("by_sessionId", ["sessionId"]),
+
+  // A typed "Start session" request (ADR-016). Not a fact: it holds what the user typed and the proposal the AI job made.
+  // Written by commands/start:request and jobs/startRequest. Removed after one day.
+  startRequests: defineTable({
+    requestId: v.string(),
+    text: v.string(),
+    status: startStatus,
+    createdAt: v.number(),
+    proposal: v.optional(startProposal),
+  })
+    .index("by_requestId", ["requestId"])
+    .index("by_createdAt", ["createdAt"]),
 
   // Debounce state for read-model rebuilds (one row). See lib/facts-changed.ts.
   rebuilds: defineTable({

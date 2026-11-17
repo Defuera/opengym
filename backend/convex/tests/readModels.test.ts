@@ -19,17 +19,13 @@ afterEach(() => {
 });
 
 describe("rules answers (AI off, nothing stored)", () => {
-  it("Push with no history is the starter with bench defaults", async () => {
+  it("with no history the plan is empty: no starter template, no invented exercises", async () => {
     const { plan, stored } = await next();
     expect(stored).toBe(false);
     expect(plan.source).toBe("rules");
-    expect(names(plan)).toEqual(["Bench press", "Overhead press", "Dips", "Triceps pushdown"]);
-    expect(plan.exercises[0]!.sets).toEqual([
-      { reps: 6, kg: 20, max: false },
-      { reps: 6, kg: 40, max: false },
-      { reps: 6, kg: 60, max: false },
-      { reps: 1, kg: 60, max: true },
-    ]);
+    expect(plan.exercises).toEqual([]);
+    expect(plan.rationale).toContain("Start empty");
+    expect((await next("Pull")).plan.exercises).toEqual([]);
   });
 
   it("after logging a Push session the plan repeats it", async () => {

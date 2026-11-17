@@ -1,8 +1,7 @@
 import type { DatabaseReader } from "../_generated/server";
 import type { Doc } from "../_generated/dataModel";
 import type { ContextItem, Goal, Prediction, Session } from "../model/schema";
-import { normalizePredictions } from "../model/sessionShape";
-import { normalizeSession } from "../model/sessionShape";
+import { activityKey, normalizePredictions, normalizeSession } from "../model/sessionShape";
 
 /** Fact docs use client-made `sessionId`/`goalId`/`itemId`; the model uses the contract's `id`. */
 
@@ -110,12 +109,26 @@ export const threadByThreadId = (ctx: Reader, threadId: string) =>
 export const messageByMessageId = (ctx: Reader, messageId: string) =>
   ctx.db.query("messages").withIndex("by_messageId", (q) => q.eq("messageId", messageId)).unique();
 
-/** The plan stored for a gym focus, or null. */
-export const planByFocus = (ctx: Reader, focus: string) =>
-  ctx.db.query("plans").withIndex("by_focus", (q) => q.eq("focus", focus)).unique();
+/** The key of a stored plan: the activity and the focus, each by `activityKey`. */
+export const planKey = (activity: string, focus?: string) => ({ activityKey: activityKey(activity), focusKey: activityKey(focus ?? "") });
 
-/** The stored predictions row with legacy items normalised (type "Upper" -> Gym + focus), or null. */
+/**
+ * The plan stored for an activity and focus, or null. A plan row from before ADR-016 has no activity key:
+ * it is read as a Gym plan until the next rebuild replaces it (jobs/rebuild prunes it).
+ */
+export async function planFor(ctx: Reader, activity: string, focus?: string): Promise<Doc<"plans"> | null> {
+  const k = planKey(activity, focus);
+  const doc = await ctx.db.query("plans").withIndex("by_activity", (q) => q.eq("activityKey", k.activityKey).eq("focusKey", k.focusKey)).unique();
+  if (doc || k.activityKey !== "gym" || !focus) return doc;
+  const legacy = await ctx.db.query("plans").withIndex("by_focus", (q) => q.eq("focus", focus)).collect();
+  return legacy.find((p) => p.activityKey === undefined) ?? null;
+}
+
+/** The stored predictions row with legacy items normalised (type "Upper" -> Gym + focus, at most 2 per activity), or null. */
 export async function storedPredictions(ctx: Reader): Promise<{ items: Prediction[]; source: "ai" | "rules" } | null> {
   const doc = await ctx.db.query("predictions").first();
   return doc ? { items: normalizePredictions(doc.items), source: doc.source } : null;
 }
+
+export const startRequestById = (ctx: Reader, requestId: string) =>
+  ctx.db.query("startRequests").withIndex("by_requestId", (q) => q.eq("requestId", requestId)).unique();

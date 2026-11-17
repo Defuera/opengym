@@ -1,6 +1,6 @@
 import { ConfigError, createProviderFromEnv } from "../model/ai/factory";
 import type { AiProvider } from "../model/ai/provider";
-import { type JobDef, type JobResult, consoleLogger, runJob } from "../model/ai/runJob";
+import { type JobDef, type JobResult, type RunOptions, consoleLogger, runJob } from "../model/ai/runJob";
 
 /** Provider from the deployment env (AI_PROVIDER, OPENAI_API_KEY, ...). null = AI off, fallbacks only. */
 export function providerFromEnv(): AiProvider | null {
@@ -16,6 +16,6 @@ export function providerFromEnv(): AiProvider | null {
 }
 
 /** Runs one AI job: prompt, provider, JSON, zod validation, one retry, code fallback. Logs `[ai] job=... path=... ms=...`. */
-export function runAiJob<I, O>(job: JobDef<I, O>, input: I): Promise<JobResult<O>> {
-  return runJob(job, input, providerFromEnv(), consoleLogger);
+export function runAiJob<I, O>(job: JobDef<I, O>, input: I, opts?: RunOptions): Promise<JobResult<O>> {
+  return runJob(job, input, providerFromEnv(), consoleLogger, opts);
 }

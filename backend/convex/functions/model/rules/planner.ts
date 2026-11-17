@@ -1,20 +1,10 @@
 import type { PlanDraft, PlanExercise, PlanSet, Session } from "../schema";
-import { fmtKg } from "./util";
-
-export const starterTemplates: Record<string, string[]> = {
-  Push: ["Bench press", "Overhead press", "Dips", "Triceps pushdown"],
-  Pull: ["Pull-up", "Barbell row", "Lat pulldown", "Biceps curl"],
-  Legs: ["Squat", "Romanian deadlift", "Leg press", "Calf raise"],
-};
-
-/** Gym foci every user can pick before the log has any (the starter rotation). */
-export const starterFoci = ["Push", "Pull", "Legs"];
+import { lastOfActivity } from "./foci";
+import { fmtKg, truncate } from "./util";
 
 export const MAX_PLAN_EXERCISES = 12;
 export const MAX_PLAN_SETS = 10;
 export const WEIGHT_CAP_FACTOR = 1.25;
-
-const gym = (sessions: Session[]) => sessions.filter((s) => s.kind === "gym");
 
 /** Sets of the most recent session containing this exercise (case-insensitive). */
 export function lastSetsFor(sessions: Session[], name: string): PlanSet[] | null {
@@ -28,38 +18,21 @@ export function lastSetsFor(sessions: Session[], name: string): PlanSet[] | null
   return null;
 }
 
-export function defaultSets(name: string): PlanSet[] {
-  if (name === "Bench press") {
-    return [
-      { reps: 6, kg: 20, max: false },
-      { reps: 6, kg: 40, max: false },
-      { reps: 6, kg: 60, max: false },
-      { reps: 1, kg: 60, max: true },
-    ];
-  }
+/** Sets for an exercise with no sets in the log: three open sets of 8 reps, no weight. No exercise has special numbers. */
+export function defaultSets(): PlanSet[] {
   return [0, 1, 2].map(() => ({ reps: 8, kg: 0, max: false }));
 }
 
-/** Rules plan: repeat the last gym session with that focus, else the starter template. */
-export function rulesPlan(sessions: Session[], focus: string): PlanDraft {
-  const g = gym(sessions);
-  let names: string[] | null = null;
-  for (let i = g.length - 1; i >= 0; i--) {
-    if (g[i]!.focus === focus) {
-      names = g[i]!.exercises.map((e) => e.name);
-      break;
-    }
-  }
-  const repeated = names !== null && names.length > 0;
-  const use = repeated ? names! : (starterTemplates[focus] ?? []);
-  const exercises: PlanExercise[] = use.map((name) => ({
-    name,
-    sets: lastSetsFor(sessions, name) ?? defaultSets(name),
-  }));
-  const rationale = repeated
-    ? `Repeats your last ${focus} session with the same sets.`
-    : `Starter ${focus} template, no ${focus} history yet.`;
-  return { rationale, exercises };
+/**
+ * Rules plan for a session with sets: repeat the user's own last session of that activity (and focus, when one is given),
+ * with the last sets logged for each exercise. With no such session the plan is EMPTY: no starter template (ADR-016).
+ */
+export function rulesPlan(sessions: Session[], activity: string, focus?: string): PlanDraft {
+  const last = lastOfActivity(sessions, activity, focus);
+  const label = focus ? `${activity} ${focus}` : activity;
+  if (!last || last.exercises.length === 0) return { rationale: truncate(`No ${label} session logged yet. Start empty and add what you do.`, 200), exercises: [] };
+  const exercises: PlanExercise[] = last.exercises.map((e) => ({ name: e.name, sets: lastSetsFor(sessions, e.name) ?? defaultSets() }));
+  return { rationale: truncate(`Repeats your last ${label} session with the same sets.`, 200), exercises };
 }
 
 /** Heaviest logged kg per exercise name (lowercase). */
@@ -74,6 +47,23 @@ export function heaviestByExercise(sessions: Session[]): Map<string, number> {
     }
   }
   return m;
+}
+
+/** About this many minutes per set, rest included. Used to keep a plan within the time the user asked for. */
+export const MINUTES_PER_SET = 2;
+export const MIN_FIT_SETS = 4;
+
+/** Keeps a plan to the time asked for: at most max(4, minutes / 2) sets in total, cut from the end; an exercise left with no sets is dropped. */
+export function fitPlanToMinutes(draft: PlanDraft, minutes: number): PlanDraft {
+  let left = Math.max(MIN_FIT_SETS, Math.ceil(minutes / MINUTES_PER_SET));
+  const exercises: PlanExercise[] = [];
+  for (const e of draft.exercises) {
+    if (left <= 0) break;
+    const sets = e.sets.slice(0, left);
+    left -= sets.length;
+    if (sets.length > 0) exercises.push({ ...e, sets });
+  }
+  return { ...draft, exercises };
 }
 
 /** Safety limits applied in code after validation. */

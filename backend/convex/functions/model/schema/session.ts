@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { GYM_TYPE, IdSchema, MsSchema, SessionSourceSchema } from "./common";
+import { IdSchema, MsSchema, SessionSourceSchema } from "./common";
 
 export const SetEntrySchema = z.object({
   reps: z.number().int().min(0).max(100),
@@ -19,7 +19,7 @@ export const SessionSchema = z
   .object({
     id: IdSchema,
     kind: z.enum(["gym", "activity"]),
-    /** The activity: "Gym" for kind gym, else "Run", "Bouldering", ... */
+    /** The activity name: any text 1..40. For kind gym (a session with sets) "Gym", "Home", ...; for kind activity "Run", "Bouldering", ... */
     type: z.string().min(1).max(40),
     /** The flavour of this session ("Upper", "Legs", "Easy", ...). A label; the AI advises it, the app writes it. */
     focus: z.string().min(1).max(40).optional(),
@@ -32,10 +32,7 @@ export const SessionSchema = z
     source: SessionSourceSchema,
     importId: z.string().optional(),
   })
-  .refine((s) => s.kind !== "gym" || s.type === GYM_TYPE, {
-    message: `gym sessions have type "${GYM_TYPE}"; the flavour goes in focus`,
-    path: ["type"],
-  })
+  .refine((s) => s.type.trim().length > 0, { message: "type must not be blank", path: ["type"] })
   .refine((s) => s.kind === "gym" || s.exercises.length === 0, {
     message: "activity sessions must have no exercises",
     path: ["exercises"],

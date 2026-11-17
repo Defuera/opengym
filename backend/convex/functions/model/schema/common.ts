@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-/** The activity name of every gym session. The flavour (Upper, Legs, ...) is `focus`. */
+/** The default activity name of a session with sets (ADR-016: any name is allowed; the flavour is `focus`). */
 export const GYM_TYPE = "Gym";
 
 export const IdSchema = z.string().min(1).max(100);

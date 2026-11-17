@@ -45,7 +45,12 @@ export class MockProvider implements AiProvider {
       case "plan_session":
         return JSON.stringify({ rationale: "Mock plan: keeps your usual exercises.", exercises: d.suggestedStart?.exercises ?? [] });
       case "predict_activity":
-        return JSON.stringify({ predictions: d.rotationHint ?? [{ kind: "gym", type: "Gym", focus: "Push", reason: "Mock rotation" }] });
+        return JSON.stringify({ predictions: d.rotationHint ?? [] });
+      case "interpret_request": {
+        const first = String(d.request ?? "").split(",")[0]!.trim();
+        const type = String(d.bestMatch ?? (first ? first.charAt(0).toUpperCase() + first.slice(1) : "Gym")).slice(0, 40);
+        return JSON.stringify({ kind: "gym", type, reason: "Mock proposal", plan: { rationale: "Mock plan: keeps your usual exercises.", exercises: d.suggestedStart?.exercises ?? [] } });
+      }
       case "build_dashboard": {
         const goals: Data[] = (d.goals ?? []).filter((g: Data) => g.status === "active");
         return JSON.stringify({

@@ -84,7 +84,7 @@ const session = (id: string, kg: number): Session => ({
 });
 
 describe("runJob pipeline", () => {
-  const input = buildPlanInput([session("a", 60)], [], [], "Push");
+  const input = buildPlanInput([session("a", 60)], [], [], "Gym", "Push");
   const scripted = (...replies: (string | Error)[]): AiProvider & { n: number } => {
     const p = {
       name: "scripted",

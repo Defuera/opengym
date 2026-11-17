@@ -5,21 +5,23 @@ import { sessionBySessionId, stableJson, withoutSystemFields } from "../lib/db";
 import { markFactsChanged, scheduleReview } from "../lib/factsChanged";
 import { parseOrThrow } from "../lib/validate";
 import { SessionSchema } from "../model/schema";
+import { GYM_TYPE } from "../model/schema/common";
 import { normalizeSession } from "../model/sessionShape";
 import { sessionFields } from "../schema";
 
 /**
  * Idempotent write of one session, keyed by the client-made sessionId.
- * Validated like SessionSchema (ranges, activity has no exercises, endedAt >= startedAt, gym has type "Gym").
- * Legacy input is normalised first (an older app build or an old outbox entry): kind gym, type "Upper",
- * no focus -> type "Gym", focus "Upper". The stored row always has the new shape.
+ * Validated like SessionSchema (ranges, activity has no exercises, endedAt >= startedAt, type 1..40).
+ * kind gym is a session with sets and may have any activity name in `type` (ADR-016); `type` may be left out
+ * for it and is then "Gym". Legacy input is normalised first (an older app build or an old outbox entry): kind gym,
+ * an old flavour name ("Upper") in type and no focus -> type "Gym", focus "Upper". The stored row always has the new shape.
  * A changed session schedules a rebuild of the read models and, unless it came from an import, a review.
  */
 export const save = mutation({
-  args: { token: v.string(), session: v.object(sessionFields) },
+  args: { token: v.string(), session: v.object({ ...sessionFields, type: v.optional(v.string()) }) },
   handler: async (ctx, { token, session: given }) => {
     requireToken(token);
-    const session = normalizeSession(given);
+    const session = normalizeSession({ ...given, type: given.type ?? (given.kind === "gym" ? GYM_TYPE : "") });
     const { sessionId, ...rest } = session;
     parseOrThrow(SessionSchema, { id: sessionId, ...rest }, "session");
     const old = await sessionBySessionId(ctx, sessionId);

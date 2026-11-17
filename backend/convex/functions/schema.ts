@@ -1,6 +1,6 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
-import { dashboardDays, fileKind, threadStatus, goalKind, goalStatus, importCounts, importStatus, itemSource, moduleSpec, planExercise, prediction, proposalSource } from "./lib/validators";
+import { dashboardDays, feeling, limitRule, limitStatus, fileKind, threadStatus, goalKind, goalStatus, importCounts, importStatus, itemSource, moduleSpec, planExercise, prediction, proposalSource } from "./lib/validators";
 
 /** One logged set. `reps` = completed reps; `failed` = one more rep was tried and not completed. */
 export const setEntry = v.object({
@@ -59,6 +59,34 @@ export const contextFields = {
   createdAt: v.number(),
 };
 
+/** A fact: a body part the user trains around. Client-made `limitId`. */
+export const limitFields = {
+  limitId: v.string(),
+  part: v.string(),
+  title: v.string(),
+  status: limitStatus,
+  since: v.optional(v.string()),
+  rules: v.array(limitRule),
+};
+
+/** A fact: the user's own record text for a limit. Never read by an AI job (ADR-015). */
+export const recordFields = {
+  recordId: v.string(),
+  limitId: v.string(),
+  title: v.string(),
+  date: v.optional(v.string()),
+  text: v.string(),
+};
+
+/** A fact: how a limited body part felt, as the user said it. */
+export const checkinFields = {
+  checkinId: v.string(),
+  limitId: v.string(),
+  sessionId: v.optional(v.string()),
+  at: v.number(),
+  feeling,
+};
+
 export default defineSchema({
   // Facts. Written only by commands (ADR-002).
   sessions: defineTable(sessionFields)
@@ -73,6 +101,12 @@ export default defineSchema({
     .index("by_itemId", ["itemId"])
     .index("by_createdAt", ["createdAt"])
     .index("by_importId", ["importId"]),
+  limits: defineTable(limitFields).index("by_limitId", ["limitId"]),
+  records: defineTable(recordFields).index("by_recordId", ["recordId"]).index("by_limitId", ["limitId"]),
+  checkins: defineTable(checkinFields)
+    .index("by_checkinId", ["checkinId"])
+    .index("by_limitId", ["limitId"])
+    .index("by_sessionId", ["sessionId"]),
   imports: defineTable({
     importId: v.string(),
     status: importStatus,

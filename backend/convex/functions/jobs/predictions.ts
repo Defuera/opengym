@@ -3,6 +3,7 @@ import { internal } from "../_generated/api";
 import { internalAction, internalMutation, internalQuery } from "../_generated/server";
 import { runAiJob } from "../lib/ai";
 import { allGoals, allSessions } from "../lib/db";
+import { activeLimits } from "../lib/limitsDb";
 import { prediction, proposalSource } from "../lib/validators";
 import { buildPredictInput } from "../model/ai/jobs/inputs";
 import { predictActivityJob } from "../model/ai/jobs/predictActivity";
@@ -11,7 +12,7 @@ import { gymFociByDue, knownGymFoci } from "../model/rules/foci";
 
 export const input = internalQuery({
   args: {},
-  handler: async (ctx) => buildPredictInput(await allSessions(ctx), await allGoals(ctx), Date.now()),
+  handler: async (ctx) => buildPredictInput(await allSessions(ctx), await allGoals(ctx), Date.now(), await activeLimits(ctx)),
 });
 
 /**

@@ -3,6 +3,7 @@ import { internal } from "../_generated/api";
 import { internalAction, internalMutation, internalQuery } from "../_generated/server";
 import { providerFromEnv, runAiJob } from "../lib/ai";
 import { toContextItem, toGoal, toSession, messageByMessageId, threadByThreadId } from "../lib/db";
+import { activeLimits } from "../lib/limitsDb";
 import { markFactsChanged } from "../lib/factsChanged";
 import { fileByFileId, loadAttachment } from "../lib/files";
 import { chatJob } from "../model/ai/jobs/chat";
@@ -54,7 +55,7 @@ export const input = internalQuery({
       title: thread.title,
       text: trigger.text,
       history,
-      data: { otherThreads, sessions, goals, context },
+      data: { otherThreads, sessions, goals, context, limits: await activeLimits(ctx) },
       files,
       knownContext: contextDocs.filter((c) => c.active).slice(0, CHAT_KNOWN_ITEMS).map((c) => c.text),
       knownGoals: goalDocs.slice(0, CHAT_KNOWN_ITEMS).map((g) => g.title),

@@ -4,6 +4,9 @@ export const COMMON_RULES = `Rules you must follow:
 - No diagnosis, no rehab, no clinical or medical language, no treatment advice. If the user mentions a body part feeling tight or sore, treat it as a training preference (for example "go lighter on squats") and nothing more.
 - Never invent logged data. Use only the data provided to you. If something is not in the data, say it is not known.`;
 
+/** One sentence for every job that plans or advises training. The data may hold `limits`. */
+export const LIMITS_RULE = "The data may list limits (body parts the user trains around): never use a movement a rule marks avoid, keep load light where a rule says light, and prefer what a do rule names.";
+
 export const JSON_ONLY = "Reply with JSON only (no prose, no code fences) matching exactly this shape:";
 
 /** The mock provider reads the JOB line to pick its canned answer. */

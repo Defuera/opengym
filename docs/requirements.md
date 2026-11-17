@@ -107,6 +107,16 @@ conversation (A01–A16). Wording is kept close to his.
 - A13 Be mindful of token cost: sub-agents write code, the lead plans and checks.
 - A14 He installs on his iPhone himself; he only needs the code.
 
+## About me: limits, records, check-ins
+- The owner can list body parts he trains around. Each is a limit with a status: active, improving or cleared.
+- A limit has rules in training words: avoid, light or do. An avoid rule may name exercises.
+- A plan that holds an exercise from an avoid rule is rejected. The code fallback drops it too.
+- The AI gets the rules of non-cleared limits. It never gets a record.
+- The owner can store his own records for a limit, word for word. The app does not read or judge them.
+- After a session that loaded a limited part, the app asks how it felt: fine, noticed or bad.
+- The screen shows a load level per muscle for 14 and 90 days, and the muscles his goals name.
+- See ADR-015. Backend contract: `backend/convex/functions/commands/limits.ts` and `queries/aboutMe.ts`.
+
 ## Open questions (the owner's list, still undecided unless noted)
 - Which activities are in v1 besides gym
 - What context inputs exist beyond injuries

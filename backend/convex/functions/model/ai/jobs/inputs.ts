@@ -1,4 +1,5 @@
-import type { ContextItem, Goal, PlanDraft, Session } from "../../schema";
+import { dropAvoided } from "../../rules/limits";
+import type { ContextItem, Goal, Limit, PlanDraft, Session } from "../../schema";
 import { rulesPlan } from "../../rules/planner";
 import { rulesPredictions } from "../../rules/predictions";
 import { rulesReview } from "../../rules/review";
@@ -29,13 +30,14 @@ export function boundedPlanSessions(all: Session[], focus: string): Session[] {
   return all.filter((s) => ids.has(s.id));
 }
 
-export function buildPlanInput(all: Session[], goals: Goal[], context: ContextItem[], focus: string): PlanInput {
-  const rules: PlanDraft = rulesPlan(all, focus);
-  return { focus, sessions: boundedPlanSessions(all, focus), goals, context, rules };
+/** `limits` must be the non-cleared limits. The rules plan already drops exercises an avoid rule names. */
+export function buildPlanInput(all: Session[], goals: Goal[], context: ContextItem[], focus: string, limits: Limit[] = []): PlanInput {
+  const rules: PlanDraft = dropAvoided(rulesPlan(all, focus), limits);
+  return { focus, sessions: boundedPlanSessions(all, focus), goals, context, limits, rules };
 }
 
-export function buildPredictInput(all: Session[], goals: Goal[], now: number): PredictInput {
-  return { sessions: lastN(all, PREDICTIONS_RECENT), goals, now, rules: rulesPredictions(all, now) };
+export function buildPredictInput(all: Session[], goals: Goal[], now: number, limits: Limit[] = []): PredictInput {
+  return { sessions: lastN(all, PREDICTIONS_RECENT), goals, limits, now, rules: rulesPredictions(all, now) };
 }
 
 export function buildDashboardInput(all: Session[], goals: Goal[], context: ContextItem[], days: 7 | 30): DashboardInput {
@@ -43,7 +45,7 @@ export function buildDashboardInput(all: Session[], goals: Goal[], context: Cont
 }
 
 /** Review: the session plus the last 6 of the same activity and focus before it, oldest first. */
-export function buildReviewInput(all: Session[], session: Session): ReviewInput {
+export function buildReviewInput(all: Session[], session: Session, limits: Limit[] = []): ReviewInput {
   const before = all.filter((s) => s.id !== session.id && s.kind === session.kind && s.type === session.type && s.focus === session.focus && s.endedAt <= session.endedAt);
-  return { session, sessions: [...lastN(before, REVIEW_RECENT_OF_TYPE), session], rules: rulesReview(all, session) };
+  return { session, sessions: [...lastN(before, REVIEW_RECENT_OF_TYPE), session], limits, rules: rulesReview(all, session) };
 }

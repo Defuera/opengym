@@ -3,6 +3,7 @@ import { internal } from "../_generated/api";
 import { internalAction, internalMutation, internalQuery } from "../_generated/server";
 import { runAiJob } from "../lib/ai";
 import { allSessions, sessionBySessionId, toSession } from "../lib/db";
+import { activeLimits } from "../lib/limitsDb";
 import { proposalSource } from "../lib/validators";
 import { buildReviewInput } from "../model/ai/jobs/inputs";
 import { reviewSessionJob } from "../model/ai/jobs/reviewSession";
@@ -13,7 +14,7 @@ export const input = internalQuery({
   args: { sessionId: v.string() },
   handler: async (ctx, { sessionId }) => {
     const doc = await sessionBySessionId(ctx, sessionId);
-    return doc ? buildReviewInput(await allSessions(ctx), toSession(doc)) : null;
+    return doc ? buildReviewInput(await allSessions(ctx), toSession(doc), await activeLimits(ctx)) : null;
   },
 });
 

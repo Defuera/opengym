@@ -1,8 +1,9 @@
 import { z } from "zod";
 import type { JobDef } from "../runJob";
-import { dataPrompt, systemPrompt } from "../promptRules";
-import { type ContextItem, type Goal, type PlanDraft, PlanDraftSchema, type Session } from "../../schema";
-import { contextForPrompt, goalsForPrompt, logForPrompt } from "./shared";
+import { LIMITS_RULE, dataPrompt, systemPrompt } from "../promptRules";
+import { avoidedInPlan, dropAvoided } from "../../rules/limits";
+import { type ContextItem, type Goal, type Limit, type PlanDraft, PlanDraftSchema, type Session } from "../../schema";
+import { contextForPrompt, goalsForPrompt, limitsForPrompt, logForPrompt } from "./shared";
 
 /**
  * `sessions` is the bounded recent history that goes to the model (see inputs.ts).
@@ -14,6 +15,8 @@ export interface PlanInput {
   sessions: Session[];
   goals: Goal[];
   context: ContextItem[];
+  /** Non-cleared limits. Never holds records. */
+  limits: Limit[];
   rules: PlanDraft;
 }
 
@@ -27,10 +30,15 @@ export const planSessionJob: JobDef<PlanInput, PlanDraft> = {
   // Reasoning tokens count against this limit on OpenAI; 1500 gave empty answers with real history.
   maxTokens: 4000,
   output: PlanDraftSchema as z.ZodType<PlanDraft>,
+  // Hard check (ADR-015): an exercise named by an avoid rule makes the plan invalid, like a shape error.
+  check: (plan, i) => {
+    const hit = avoidedInPlan(plan, i.limits);
+    return hit ? `exercises: "${hit}" is marked avoid` : null;
+  },
   build: (i) => ({
     system: systemPrompt(
       "plan_session",
-      "You plan the next gym session for one person. Prefer progression the log supports (small weight or rep steps), keep to exercises they already do unless a goal calls for more, and respect active context notes as training preferences (for example lighter or skipped exercises). Do not exceed 1.25 times the heaviest weight ever logged for an exercise.",
+      "You plan the next gym session for one person. Prefer progression the log supports (small weight or rep steps), keep to exercises they already do unless a goal calls for more, and respect active context notes as training preferences (for example lighter or skipped exercises). Do not exceed 1.25 times the heaviest weight ever logged for an exercise. " + LIMITS_RULE,
       SHAPE,
     ),
     messages: [
@@ -41,10 +49,11 @@ export const planSessionJob: JobDef<PlanInput, PlanDraft> = {
           recentLog: logForPrompt(i.sessions),
           goals: goalsForPrompt(i.goals.filter((g) => g.status === "active")),
           context: contextForPrompt(i.context),
+          limits: limitsForPrompt(i.limits),
           suggestedStart: i.rules,
         }),
       },
     ],
   }),
-  fallback: (i) => i.rules,
+  fallback: (i) => dropAvoided(i.rules, i.limits),
 };

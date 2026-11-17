@@ -1,7 +1,7 @@
 import type { ImageInput } from "./ai/provider";
-import { contextForPrompt, goalsForPrompt, logForPrompt } from "./ai/jobs/shared";
+import { contextForPrompt, goalsForPrompt, limitsForPrompt, logForPrompt } from "./ai/jobs/shared";
 import { CHUNK_CHARS } from "./fileText";
-import type { ContextItem, FileMeta, Goal, Session } from "./schema";
+import type { ContextItem, FileMeta, Goal, Limit, Session } from "./schema";
 
 export interface CoachContext {
   contextBlock: string;
@@ -23,6 +23,8 @@ export interface CoachData {
   sessions: Session[];
   goals: Goal[];
   context: ContextItem[];
+  /** Non-cleared limits; no records. Optional so old callers keep working. */
+  limits?: Limit[];
 }
 
 /** Port of services/coach-context.ts. Pure. Records what the coach actually read in `sources`. */
@@ -49,6 +51,11 @@ export function assembleCoachContext(data: CoachData, files: AttachedFile[], sup
   if (ctx.length) {
     parts.push(`Active context notes from the user:\n${JSON.stringify(ctx)}`);
     sources.push("context notes");
+  }
+  const limits = limitsForPrompt(data.limits ?? []);
+  if (limits.length) {
+    parts.push(`Limits the user trains around:\n${JSON.stringify(limits)}`);
+    sources.push("limits");
   }
 
   for (const f of files) {

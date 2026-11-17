@@ -35,3 +35,8 @@ export const goalInput = v.object({
   sessionsPerWeek: v.optional(v.number()),
 });
 export const contextInput = v.object({ text: v.string(), topic: v.string() });
+
+export const limitStatus = v.union(v.literal("active"), v.literal("improving"), v.literal("cleared"));
+export const ruleKind = v.union(v.literal("avoid"), v.literal("light"), v.literal("do"));
+export const feeling = v.union(v.literal("fine"), v.literal("noticed"), v.literal("bad"));
+export const limitRule = v.object({ kind: ruleKind, text: v.string(), exercises: v.optional(v.array(v.string())) });

@@ -18,3 +18,5 @@ export const goalsForPrompt = (goals: Goal[]) =>
   goals.map((g) => ({ id: g.id, title: g.title, kind: g.kind, exercise: g.exercise, targetKg: g.targetKg, sessionsPerWeek: g.sessionsPerWeek, status: g.status }));
 
 export const contextForPrompt = (items: ContextItem[]) => items.filter((c) => c.active).map((c) => ({ topic: c.topic, text: c.text }));
+
+export { limitsForPrompt } from "../../rules/limits";

@@ -30,6 +30,8 @@ export interface JobDef<I, O> {
   json: boolean;
   maxTokens: number;
   output: z.ZodType<O>;
+  /** A rule the zod shape cannot hold (it needs the input). A string is the reason the output is invalid: same path as a shape error. */
+  check?(output: O, input: I): string | null;
   build(input: I): Prompt;
   fallback(input: I): O;
 }
@@ -94,11 +96,12 @@ export async function runJob<I, O>(
       });
       const parsed = job.json ? extractJson(raw) : raw.trim();
       const result = job.output.safeParse(parsed);
-      if (result.success) {
+      const broken = result.success ? (job.check?.(result.data, input) ?? null) : null;
+      if (result.success && !broken) {
         logger.info(`[ai] job=${job.name} path=ai provider=${provider.name} attempt=${attempt + 1} ms=${Date.now() - started}`);
         return { value: result.data, path: "ai" };
       }
-      lastError = `invalid output: ${result.error.issues.slice(0, 3).map((i) => `${i.path.join(".")} ${i.message}`).join("; ")}`;
+      lastError = `invalid output: ${result.success ? broken : result.error.issues.slice(0, 3).map((i) => `${i.path.join(".")} ${i.message}`).join("; ")}`;
       messages = [
         ...prompt.messages,
         { role: "assistant", content: raw.slice(0, 2000) },

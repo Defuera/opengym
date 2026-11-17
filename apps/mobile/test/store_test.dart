@@ -13,6 +13,7 @@ Future<AppStore> _newStore(InMemorySessionRepository repo) async {
 }
 
 void main() {
+  _storeSetAndOrderTests();
   test('begin Push, complete the 4 bench sets, ready for next exercise', () async {
     final InMemorySessionRepository repo = InMemorySessionRepository();
     final AppStore store = await _newStore(repo);
@@ -160,5 +161,38 @@ void main() {
     store.begin('Pull');
     store.finish(); // nothing done, nothing saved
     expect(seen.length, 1);
+  });
+}
+
+void _storeSetAndOrderTests() {
+  test('removeSetAt removes one set, keeps selection, keeps the last set', () async {
+    final AppStore store = await _newStore(InMemorySessionRepository());
+    store.begin('Push');
+    expect(store.currentExercise!.sets.length, 4);
+    store.pickSet(2);
+    store.removeSetAt(0);
+    expect(store.currentExercise!.sets.length, 3);
+    expect(store.curSet, 1);
+    store.removeSetAt(1);
+    expect(store.currentExercise!.sets.length, 2);
+    store.removeSetAt(0);
+    expect(store.currentExercise!.sets.length, 1);
+    store.removeSetAt(0);
+    expect(store.currentExercise!.sets.length, 1);
+  });
+
+  test('moveExercise reorders and keeps the selected exercise', () async {
+    final AppStore store = await _newStore(InMemorySessionRepository());
+    store.begin('Push');
+    final List<String> before =
+        store.active!.exercises.map((Exercise e) => e.name).toList();
+    store.moveExercise(0, 2);
+    final List<String> after = store.active!.exercises.map((Exercise e) => e.name).toList();
+    expect(after, <String>[before[1], before[2], before[0], before[3]]);
+    expect(store.currentExercise!.name, before[0]);
+    expect(store.curEx, 2);
+    store.moveExercise(2, 2);
+    store.moveExercise(9, 0);
+    expect(store.active!.exercises.map((Exercise e) => e.name).toList(), after);
   });
 }

@@ -4,7 +4,6 @@ import '../theme.dart';
 import '../widgets/choice_sheet.dart';
 import '../widgets/cta_button.dart';
 import '../widgets/exercise_card.dart';
-import '../widgets/flag_toggle.dart';
 import '../widgets/exercise_panel.dart';
 import '../widgets/exercise_picker.dart';
 import '../widgets/item_state.dart';
@@ -14,13 +13,11 @@ import '../widgets/og_icon_button.dart';
 import '../widgets/plus_bar.dart';
 import '../widgets/prediction_card.dart';
 import '../widgets/session_list_item.dart';
-import '../widgets/set_tile.dart';
+import '../widgets/set_row.dart';
 import '../widgets/stat_tile.dart';
-import '../widgets/stepper_row.dart';
+import 'story_stateful.dart';
 
 void _noop() {}
-
-void _noopBool(bool _) {}
 
 const SizedBox _gap = SizedBox(height: 12);
 
@@ -111,7 +108,7 @@ Widget listItemsStory(BuildContext context) {
   );
 }
 
-Widget _fixed(Widget w) => SizedBox(height: 122, child: w);
+Widget _fixed(Widget w) => SizedBox(height: 50, child: w);
 
 Widget exerciseCardsStory(BuildContext context) {
   return Wrap(
@@ -120,10 +117,9 @@ Widget exerciseCardsStory(BuildContext context) {
     children: <Widget>[
       _fixed(const ExerciseCard(
         name: 'Bench press',
-        progressLabel: '2 / 4 sets',
+        progressLabel: '2 / 4',
         state: ItemState.current,
         onTap: _noop,
-        onMoveEarlier: _noop,
         onDiscard: _noop,
       )),
       _fixed(const ExerciseCard(
@@ -131,13 +127,11 @@ Widget exerciseCardsStory(BuildContext context) {
         progressLabel: 'Done',
         state: ItemState.finished,
         onTap: _noop,
-        onMoveEarlier: _noop,
         onDiscard: _noop,
       )),
       _fixed(const ExerciseCard(
         name: 'Dips',
-        progressLabel: '0 / 3 sets',
-        canMoveEarlier: false,
+        progressLabel: '0 / 3',
         onTap: _noop,
         onDiscard: _noop,
       )),
@@ -146,15 +140,13 @@ Widget exerciseCardsStory(BuildContext context) {
   );
 }
 
-Widget setTilesStory(BuildContext context) {
-  return const SetGrid(
+Widget setRowsStory(BuildContext context) {
+  return const Column(
     children: <Widget>[
-      SetTile(label: 'Set 1', value: '6×20', state: ItemState.finished, checked: true),
-      SetTile(label: 'Set 2', value: '6×40', state: ItemState.current),
-      SetTile(label: 'Set 3', value: '6½×60', state: ItemState.finished, checked: true),
-      SetTile(label: 'Max', value: '1×60'),
-      ToolTile(label: '+ Set', onTap: _noop),
-      ToolTile(label: '− Set', onTap: _noop),
+      SetRow(number: 1, reps: 8, kg: '20', done: true),
+      SetRow(number: 3, reps: 6, kg: '70', failed: true),
+      SetRow(number: 4, reps: 1, kg: '60', isMax: true),
+      AddSetRow(onTap: _noop),
     ],
   );
 }
@@ -166,16 +158,7 @@ Widget panelStory(BuildContext context) {
       name: 'Bench press',
       hint: 'First time here. Set your numbers once; next time they are pre-filled.',
       onSwap: _noop,
-      children: <Widget>[
-        SetGrid(children: <Widget>[
-          SetTile(label: 'Set 1', value: '6×20', state: ItemState.current),
-          SetTile(label: 'Set 2', value: '6×40'),
-          ToolTile(label: '+ Set', onTap: _noop),
-        ]),
-        StepperRow(label: 'Set 1 · Reps', value: '6', onMinus: _noop, onPlus: _noop),
-        StepperRow(label: 'Weight (kg)', value: '20', onMinus: _noop, onPlus: _noop),
-        FlagToggle(label: 'Last rep failed', value: false, onChanged: _noopBool),
-      ],
+      children: <Widget>[SetListDemo()],
     ),
   );
 }

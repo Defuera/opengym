@@ -245,16 +245,19 @@ class AppStore extends ChangeNotifier {
     notifyListeners();
   }
 
-  void moveExerciseEarlier(int v) {
+  /// Moves exercise [from] to position [to] (final index in the new order).
+  /// The selected exercise stays selected.
+  void moveExercise(int from, int to) {
     final Session? a = active;
-    if (a == null || v <= 0 || v >= a.exercises.length) {
+    if (a == null) {
+      return;
+    }
+    final List<Exercise> list = a.exercises;
+    if (from < 0 || from >= list.length || to < 0 || to >= list.length || from == to) {
       return;
     }
     final String? id = currentExercise?.id;
-    final List<Exercise> list = a.exercises;
-    final Exercise t = list[v - 1];
-    list[v - 1] = list[v];
-    list[v] = t;
+    list.insert(to, list.removeAt(from));
     final int k = list.indexWhere((Exercise e) => e.id == id);
     curEx = k < 0 ? 0 : k;
     _commit();
@@ -346,13 +349,18 @@ class AppStore extends ChangeNotifier {
     _commit();
   }
 
-  void removeSet() {
+  /// Removes set [i]. The last remaining set cannot be removed.
+  void removeSetAt(int i) {
     final Exercise? e = currentExercise;
-    if (e == null || e.sets.length <= 1 || curSet < 0 || curSet >= e.sets.length) {
+    if (e == null || e.sets.length <= 1 || i < 0 || i >= e.sets.length) {
       return;
     }
-    e.sets.removeAt(curSet);
-    curSet = firstOpen(e);
+    e.sets.removeAt(i);
+    if (i == curSet) {
+      curSet = firstOpen(e);
+    } else if (i < curSet) {
+      curSet -= 1;
+    }
     _commit();
   }
 

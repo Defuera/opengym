@@ -6,11 +6,9 @@ import '../store.dart';
 import '../widgets/exercise_card.dart';
 import '../widgets/exercise_carousel.dart';
 import '../widgets/exercise_panel.dart';
-import '../widgets/flag_toggle.dart';
 import '../widgets/item_state.dart';
 import '../widgets/note_box.dart';
-import '../widgets/set_tile.dart';
-import '../widgets/stepper_row.dart';
+import '../widgets/set_list.dart';
 
 /// Maps the active session's exercises onto the carousel.
 class ExerciseStrip extends StatelessWidget {
@@ -28,21 +26,24 @@ class ExerciseStrip extends StatelessWidget {
       final bool fin = allDone(e);
       final int done = e.sets.where((SetEntry s) => s.done).length;
       cards.add(ExerciseCard(
+        key: ValueKey<String>(e.id),
         name: e.name,
-        progressLabel: fin ? 'Done' : '$done / ${e.sets.length} sets',
+        progressLabel: '$done / ${e.sets.length}',
         state: i == store.curEx ? ItemState.current : (fin ? ItemState.finished : ItemState.idle),
-        canMoveEarlier: i > 0,
         onTap: () => store.pickExercise(i),
-        onMoveEarlier: () => store.moveExerciseEarlier(i),
         onDiscard: () => store.discardExercise(i),
       ));
     }
-    cards.add(AddCard(onTap: onAdd));
-    return ExerciseCarousel(selectedIndex: store.curEx, children: cards);
+    return ExerciseCarousel(
+      selectedIndex: store.curEx,
+      onReorder: store.moveExercise,
+      footer: AddCard(onTap: onAdd),
+      children: cards,
+    );
   }
 }
 
-/// Maps the current exercise onto the big card (sets grid plus steppers).
+/// Maps the current exercise onto the big card (title plus list of sets).
 class SessionPanel extends StatelessWidget {
   const SessionPanel({super.key, required this.store, required this.onSwap});
 
@@ -59,52 +60,32 @@ class SessionPanel extends StatelessWidget {
         centered: true,
       );
     }
-    final SetEntry? s = store.currentSet;
-    final bool fin = allDone(ex);
-    final List<Widget> tiles = <Widget>[];
-    for (int i = 0; i < ex.sets.length; i++) {
-      final SetEntry x = ex.sets[i];
-      tiles.add(SetTile(
-        label: x.isMax ? 'Max' : 'Set ${i + 1}',
-        value: '${x.reps}${x.failed ? '½' : ''}×${fmtKg(x.kg)}',
-        state: (i == store.curSet && !fin)
-            ? ItemState.current
-            : (x.done ? ItemState.finished : ItemState.idle),
-        checked: x.done,
-        onTap: () => store.pickSet(i),
-      ));
-    }
-    tiles.add(ToolTile(label: '+ Set', onTap: store.addSet));
-    if (ex.sets.length > 1) {
-      tiles.add(ToolTile(label: '− Set', onTap: store.removeSet));
-    }
-    final List<Widget> body = <Widget>[];
-    if (s != null) {
-      body.add(StepperRow(
-        label: '${s.isMax ? 'Max attempt' : 'Set ${store.curSet + 1}'} · Reps',
-        value: '${s.reps}',
-        onMinus: () => store.changeReps(-1),
-        onPlus: () => store.changeReps(1),
-      ));
-      body.add(StepperRow(
-        label: 'Weight (kg)',
-        value: fmtKg(s.kg),
-        onMinus: () => store.changeKg(-2.5),
-        onPlus: () => store.changeKg(2.5),
-      ));
-      // "6½" on the tile: one more rep was tried and not completed.
-      body.add(FlagToggle(
-        label: 'Last rep failed',
-        value: s.failed,
-        onChanged: (bool _) => store.toggleFailed(),
-      ));
-    }
     return ExercisePanel(
       name: ex.name,
       hint: _hint(ex),
       onSwap: onSwap,
-      pinned: <Widget>[SetGrid(children: tiles)],
-      children: body,
+      children: <Widget>[
+        SetList(
+          sets: <SetRowData>[
+            for (final SetEntry x in ex.sets)
+              SetRowData(
+                id: x,
+                reps: x.reps,
+                kg: fmtKg(x.kg),
+                done: x.done,
+                failed: x.failed,
+                isMax: x.isMax,
+              ),
+          ],
+          selected: store.curSet,
+          onSelect: store.pickSet,
+          onAdd: store.addSet,
+          onRemove: store.removeSetAt,
+          onRepsChanged: store.changeReps,
+          onKgChanged: store.changeKg,
+          onFailedChanged: (bool _) => store.toggleFailed(),
+        ),
+      ],
     );
   }
 }

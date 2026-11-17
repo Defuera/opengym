@@ -1,16 +1,23 @@
 import 'package:flutter/material.dart';
 
-/// Horizontal strip of fixed-width cards. Owns its scroll controller and keeps
-/// the selected card in view. The last child may be narrower (e.g. an Add card).
+/// Horizontal strip of fixed-width cards. Long-press a card and drag to reorder
+/// ([onReorder] gets the old index and the final new index). Owns its scroll
+/// controller and keeps the selected card in view. [footer] (e.g. an Add card)
+/// is not reorderable. Every child needs a unique, stable key.
 class ExerciseCarousel extends StatefulWidget {
   const ExerciseCarousel({
     super.key,
     required this.children,
     required this.selectedIndex,
-    this.itemWidth = 150,
+    this.onReorder,
+    this.footer,
+    this.itemWidth = 220,
     this.gap = 10,
-    this.height = 136,
+    this.height = 64,
   });
+
+  final void Function(int from, int to)? onReorder;
+  final Widget? footer;
 
   final List<Widget> children;
   final int selectedIndex;
@@ -80,15 +87,30 @@ class _ExerciseCarouselState extends State<ExerciseCarousel> {
 
   @override
   Widget build(BuildContext context) {
+    final Widget? footer = widget.footer;
     return SizedBox(
       height: widget.height,
-      child: ListView.separated(
-        controller: _controller,
+      child: ReorderableListView(
+        scrollController: _controller,
         scrollDirection: Axis.horizontal,
+        buildDefaultDragHandles: false,
         padding: const EdgeInsets.fromLTRB(_pad, 2, _pad, 10),
-        itemCount: widget.children.length,
-        separatorBuilder: (BuildContext c, int i) => SizedBox(width: widget.gap),
-        itemBuilder: (BuildContext c, int i) => widget.children[i],
+        footer: footer,
+        proxyDecorator: (Widget child, int index, Animation<double> a) =>
+            Material(type: MaterialType.transparency, child: child),
+        onReorderItem: (int from, int to) => widget.onReorder?.call(from, to),
+        children: <Widget>[
+          for (int i = 0; i < widget.children.length; i++)
+            ReorderableDelayedDragStartListener(
+              key: widget.children[i].key,
+              index: i,
+              enabled: widget.onReorder != null,
+              child: Padding(
+                padding: EdgeInsets.only(right: widget.gap),
+                child: widget.children[i],
+              ),
+            ),
+        ],
       ),
     );
   }

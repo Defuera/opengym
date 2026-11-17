@@ -8,9 +8,63 @@
  * @module
  */
 
+import type * as commands_context from "../commands/context.js";
+import type * as commands_goals from "../commands/goals.js";
+import type * as commands_imports from "../commands/imports.js";
 import type * as commands_sessions from "../commands/sessions.js";
+import type * as jobs_dashboards from "../jobs/dashboards.js";
+import type * as jobs_imports from "../jobs/imports.js";
+import type * as jobs_plans from "../jobs/plans.js";
+import type * as jobs_predictions from "../jobs/predictions.js";
+import type * as jobs_rebuild from "../jobs/rebuild.js";
+import type * as jobs_reviews from "../jobs/reviews.js";
+import type * as lib_ai from "../lib/ai.js";
 import type * as lib_auth from "../lib/auth.js";
+import type * as lib_constants from "../lib/constants.js";
+import type * as lib_db from "../lib/db.js";
+import type * as lib_factsChanged from "../lib/factsChanged.js";
+import type * as lib_importWrite from "../lib/importWrite.js";
+import type * as lib_validate from "../lib/validate.js";
+import type * as lib_validators from "../lib/validators.js";
+import type * as model_ai_factory from "../model/ai/factory.js";
+import type * as model_ai_jobs_buildDashboard from "../model/ai/jobs/buildDashboard.js";
+import type * as model_ai_jobs_inputs from "../model/ai/jobs/inputs.js";
+import type * as model_ai_jobs_planSession from "../model/ai/jobs/planSession.js";
+import type * as model_ai_jobs_predictActivity from "../model/ai/jobs/predictActivity.js";
+import type * as model_ai_jobs_reviewSession from "../model/ai/jobs/reviewSession.js";
+import type * as model_ai_jobs_shared from "../model/ai/jobs/shared.js";
+import type * as model_ai_promptRules from "../model/ai/promptRules.js";
+import type * as model_ai_provider from "../model/ai/provider.js";
+import type * as model_ai_providers_anthropic from "../model/ai/providers/anthropic.js";
+import type * as model_ai_providers_deepseek from "../model/ai/providers/deepseek.js";
+import type * as model_ai_providers_mock from "../model/ai/providers/mock.js";
+import type * as model_ai_providers_openai from "../model/ai/providers/openai.js";
+import type * as model_ai_providers_openaiCompatible from "../model/ai/providers/openaiCompatible.js";
+import type * as model_ai_runJob from "../model/ai/runJob.js";
+import type * as model_proposals from "../model/proposals.js";
+import type * as model_rules_dashboard from "../model/rules/dashboard.js";
+import type * as model_rules_planner from "../model/rules/planner.js";
+import type * as model_rules_predictions from "../model/rules/predictions.js";
+import type * as model_rules_review from "../model/rules/review.js";
+import type * as model_rules_stats from "../model/rules/stats.js";
+import type * as model_rules_util from "../model/rules/util.js";
+import type * as model_schema_common from "../model/schema/common.js";
+import type * as model_schema_dashboard from "../model/schema/dashboard.js";
+import type * as model_schema_goalContext from "../model/schema/goalContext.js";
+import type * as model_schema_importReview from "../model/schema/importReview.js";
+import type * as model_schema_index from "../model/schema/index.js";
+import type * as model_schema_plan from "../model/schema/plan.js";
+import type * as model_schema_session from "../model/schema/session.js";
+import type * as model_schema_structuredImport from "../model/schema/structuredImport.js";
+import type * as model_structuredImport from "../model/structuredImport.js";
+import type * as queries_context from "../queries/context.js";
+import type * as queries_dashboard from "../queries/dashboard.js";
+import type * as queries_goals from "../queries/goals.js";
+import type * as queries_imports from "../queries/imports.js";
+import type * as queries_plans from "../queries/plans.js";
+import type * as queries_reviews from "../queries/reviews.js";
 import type * as queries_sessions from "../queries/sessions.js";
+import type * as queries_start from "../queries/start.js";
 
 import type {
   ApiFromModules,
@@ -19,9 +73,63 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  "commands/context": typeof commands_context;
+  "commands/goals": typeof commands_goals;
+  "commands/imports": typeof commands_imports;
   "commands/sessions": typeof commands_sessions;
+  "jobs/dashboards": typeof jobs_dashboards;
+  "jobs/imports": typeof jobs_imports;
+  "jobs/plans": typeof jobs_plans;
+  "jobs/predictions": typeof jobs_predictions;
+  "jobs/rebuild": typeof jobs_rebuild;
+  "jobs/reviews": typeof jobs_reviews;
+  "lib/ai": typeof lib_ai;
   "lib/auth": typeof lib_auth;
+  "lib/constants": typeof lib_constants;
+  "lib/db": typeof lib_db;
+  "lib/factsChanged": typeof lib_factsChanged;
+  "lib/importWrite": typeof lib_importWrite;
+  "lib/validate": typeof lib_validate;
+  "lib/validators": typeof lib_validators;
+  "model/ai/factory": typeof model_ai_factory;
+  "model/ai/jobs/buildDashboard": typeof model_ai_jobs_buildDashboard;
+  "model/ai/jobs/inputs": typeof model_ai_jobs_inputs;
+  "model/ai/jobs/planSession": typeof model_ai_jobs_planSession;
+  "model/ai/jobs/predictActivity": typeof model_ai_jobs_predictActivity;
+  "model/ai/jobs/reviewSession": typeof model_ai_jobs_reviewSession;
+  "model/ai/jobs/shared": typeof model_ai_jobs_shared;
+  "model/ai/promptRules": typeof model_ai_promptRules;
+  "model/ai/provider": typeof model_ai_provider;
+  "model/ai/providers/anthropic": typeof model_ai_providers_anthropic;
+  "model/ai/providers/deepseek": typeof model_ai_providers_deepseek;
+  "model/ai/providers/mock": typeof model_ai_providers_mock;
+  "model/ai/providers/openai": typeof model_ai_providers_openai;
+  "model/ai/providers/openaiCompatible": typeof model_ai_providers_openaiCompatible;
+  "model/ai/runJob": typeof model_ai_runJob;
+  "model/proposals": typeof model_proposals;
+  "model/rules/dashboard": typeof model_rules_dashboard;
+  "model/rules/planner": typeof model_rules_planner;
+  "model/rules/predictions": typeof model_rules_predictions;
+  "model/rules/review": typeof model_rules_review;
+  "model/rules/stats": typeof model_rules_stats;
+  "model/rules/util": typeof model_rules_util;
+  "model/schema/common": typeof model_schema_common;
+  "model/schema/dashboard": typeof model_schema_dashboard;
+  "model/schema/goalContext": typeof model_schema_goalContext;
+  "model/schema/importReview": typeof model_schema_importReview;
+  "model/schema/index": typeof model_schema_index;
+  "model/schema/plan": typeof model_schema_plan;
+  "model/schema/session": typeof model_schema_session;
+  "model/schema/structuredImport": typeof model_schema_structuredImport;
+  "model/structuredImport": typeof model_structuredImport;
+  "queries/context": typeof queries_context;
+  "queries/dashboard": typeof queries_dashboard;
+  "queries/goals": typeof queries_goals;
+  "queries/imports": typeof queries_imports;
+  "queries/plans": typeof queries_plans;
+  "queries/reviews": typeof queries_reviews;
   "queries/sessions": typeof queries_sessions;
+  "queries/start": typeof queries_start;
 }>;
 
 /**

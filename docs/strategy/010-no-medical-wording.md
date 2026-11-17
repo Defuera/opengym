@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted
+Partly replaced by ADR-015 (the user may store his own records)
 
 ## Date
 

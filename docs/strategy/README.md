@@ -24,8 +24,9 @@ This directory holds the Architecture Decision Records (ADRs) for Gym Days (Open
 | [007](007-server-driven-home.md) | Server-Driven Dynamic Home | Accepted |
 | [008](008-flutter-app-structure.md) | Flutter App Structure and In-App Widget Gallery | Accepted |
 | [009](009-cloud-run-hosting.md) | Backend Hosting on Cloud Run With SQLite on a Cloud Storage Volume | Replaced by 012 |
-| [010](010-no-medical-wording.md) | No Medical Wording | Accepted |
+| [010](010-no-medical-wording.md) | No Medical Wording | Partly replaced by 015 |
 | [011](011-main-branch-and-web-deploy.md) | Never Commit to Main; Main Deploys the Web App | Partly replaced by 014 |
 | [012](012-convex-backend.md) | Hosted Convex Backend With Separate Commands and Read Models | Accepted |
 | [013](013-activity-first-focus-is-advice.md) | Activity First, Focus Is Advice | Accepted |
 | [014](014-work-on-main.md) | Work on Main Directly, No Pull Requests for Now | Accepted |
+| [015](015-own-records-and-limits.md) | The User May Store Own Records; Limits Become Rules | Accepted |

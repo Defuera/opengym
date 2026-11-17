@@ -50,6 +50,7 @@ import type * as model_ai_jobs_predictActivity from "../model/ai/jobs/predictAct
 import type * as model_ai_jobs_reviewSession from "../model/ai/jobs/reviewSession.js";
 import type * as model_ai_jobs_shared from "../model/ai/jobs/shared.js";
 import type * as model_ai_jobs_summariseThread from "../model/ai/jobs/summariseThread.js";
+import type * as model_ai_jobs_titleThread from "../model/ai/jobs/titleThread.js";
 import type * as model_ai_promptRules from "../model/ai/promptRules.js";
 import type * as model_ai_provider from "../model/ai/provider.js";
 import type * as model_ai_providers_anthropic from "../model/ai/providers/anthropic.js";
@@ -85,6 +86,7 @@ import type * as model_schema_structuredImport from "../model/schema/structuredI
 import type * as model_schema_thread from "../model/schema/thread.js";
 import type * as model_sessionShape from "../model/sessionShape.js";
 import type * as model_structuredImport from "../model/structuredImport.js";
+import type * as model_threadTitle from "../model/threadTitle.js";
 import type * as queries_aboutMe from "../queries/aboutMe.js";
 import type * as queries_context from "../queries/context.js";
 import type * as queries_dashboard from "../queries/dashboard.js";
@@ -147,6 +149,7 @@ declare const fullApi: ApiFromModules<{
   "model/ai/jobs/reviewSession": typeof model_ai_jobs_reviewSession;
   "model/ai/jobs/shared": typeof model_ai_jobs_shared;
   "model/ai/jobs/summariseThread": typeof model_ai_jobs_summariseThread;
+  "model/ai/jobs/titleThread": typeof model_ai_jobs_titleThread;
   "model/ai/promptRules": typeof model_ai_promptRules;
   "model/ai/provider": typeof model_ai_provider;
   "model/ai/providers/anthropic": typeof model_ai_providers_anthropic;
@@ -182,6 +185,7 @@ declare const fullApi: ApiFromModules<{
   "model/schema/thread": typeof model_schema_thread;
   "model/sessionShape": typeof model_sessionShape;
   "model/structuredImport": typeof model_structuredImport;
+  "model/threadTitle": typeof model_threadTitle;
   "queries/aboutMe": typeof queries_aboutMe;
   "queries/context": typeof queries_context;
   "queries/dashboard": typeof queries_dashboard;

@@ -72,6 +72,8 @@ export class MockProvider implements AiProvider {
         const last = [...(d.messages ?? [])].reverse().find((m: Data) => m.role === "user");
         return JSON.stringify({ summary: `Mock summary: ${String(last?.text ?? d.title ?? "").slice(0, 300)}` });
       }
+      case "title_thread":
+        return JSON.stringify({ title: `"Mock title: ${String(d.text ?? "").slice(0, 20)}".` });
       case "import_data":
         if (d.hasImage) return JSON.stringify({ sessions: [{ kind: "activity", type: "Cycle", minutes: 30, distanceKm: 12.5 }], goals: [], context: [], notes: ["Mock read the machine screen."] });
         return JSON.stringify({

@@ -3,14 +3,18 @@ import { IdSchema, MsSchema } from "./common";
 
 export const ThreadSchema = z.object({
   id: IdSchema,
-  title: z.string().min(1).max(40),
+  title: z.string().min(1).max(60),
+  titleSource: z.enum(["auto", "user"]),
   createdAt: MsSchema,
   updatedAt: MsSchema,
   summary: z.string(),
   lastMessage: z.string().optional(),
 });
 
-export const ThreadInputSchema = z.object({ title: z.string().min(1).max(40) });
+/** A title the user typed (create with a title, or rename). */
+export const ThreadTitleSchema = z.string().trim().min(1).max(60);
+export const ThreadInputSchema = z.object({ title: ThreadTitleSchema.optional() });
+export const ThreadRenameSchema = z.object({ title: ThreadTitleSchema });
 
 export const MessageSchema = z.object({
   id: IdSchema,

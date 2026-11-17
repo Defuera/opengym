@@ -5,6 +5,7 @@ import { requireToken } from "../lib/auth";
 import { messageByMessageId, threadByThreadId } from "../lib/db";
 import { parseOrThrow } from "../lib/validate";
 import { MessageInputSchema } from "../model/schema";
+import { titleFromMessage } from "../model/threadTitle";
 
 /**
  * Store the user's message at once and start the coach reply in the background.
@@ -31,8 +32,11 @@ export const send = mutation({
       }
       return messageId;
     }
+    // First user message of a thread the user has not named: name it now by plain code. The coach job may improve it later.
+    const first = !(await ctx.db.query("messages").withIndex("by_threadId", (q) => q.eq("threadId", threadId)).filter((q) => q.eq(q.field("role"), "user")).first());
+    const title = thread.titleSource === "auto" && first ? { title: titleFromMessage(valid.text) } : {};
     await ctx.db.insert("messages", { messageId, threadId, role: "user", text: valid.text, fileIds: valid.fileIds ?? [], sources: [], createdAt: now });
-    await ctx.db.patch(thread._id, { status: "thinking", error: undefined, pending: thread.pending + 1, updatedAt: now });
+    await ctx.db.patch(thread._id, { ...title, status: "thinking", error: undefined, pending: thread.pending + 1, updatedAt: now });
     await ctx.scheduler.runAfter(0, internal.jobs.chat.reply, { threadId, messageId });
     return messageId;
   },

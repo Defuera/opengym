@@ -17,7 +17,7 @@ afterEach(() => {
 });
 
 const TEXT = "I want to bench press 80 kg by spring, and my left wrist dislikes straight bars";
-const create = (threadId = "th1", title = "Bench") => t.mutation(api.commands.threads.create, { token: TOKEN, threadId, title });
+const create = (threadId = "th1", title: string | null = "Bench") => t.mutation(api.commands.threads.create, { token: TOKEN, threadId, title: title ?? undefined });
 const send = (messageId: string, text = TEXT, threadId = "th1", fileIds?: string[]) => t.mutation(api.commands.messages.send, { token: TOKEN, threadId, messageId, text, fileIds });
 const threads = () => t.query(api.queries.threads.list, { token: TOKEN });
 const messages = (threadId = "th1") => t.query(api.queries.messages.list, { token: TOKEN, threadId });
@@ -176,6 +176,77 @@ describe("chat round trip (mock provider)", () => {
   });
 });
 
+describe("thread titles", () => {
+  const rename = (title: string, threadId = "th1") => t.mutation(api.commands.threads.rename, { token: TOKEN, threadId, title });
+  const row = async (threadId = "th1") => (await threads()).find((x) => x.threadId === threadId)!;
+
+  it("create needs no title: New chat, set by auto; a given title counts as the user's", async () => {
+    await create("a", null);
+    await create("b", "Mine");
+    expect(await row("a")).toMatchObject({ title: "New chat", titleSource: "auto" });
+    expect(await row("b")).toMatchObject({ title: "Mine", titleSource: "user" });
+  });
+
+  it("the first message sets a plain-code title at once (word boundary, max 40, capital)", async () => {
+    await create("th1", null);
+    await send("m1", "i want to bench press 80 kg by spring, and my left wrist dislikes straight bars");
+    const title = (await row()).title;
+    expect(title).toBe("I want to bench press 80 kg by spring");
+    expect(title.length).toBeLessThanOrEqual(40);
+    await settle(t); // provider none: the code title stays
+    expect(await row()).toMatchObject({ title, titleSource: "auto" });
+    await send("m2", "something else entirely");
+    expect((await row()).title).toBe(title); // only the first message names the thread
+    await settle(t);
+  });
+
+  it("the AI title replaces the code title: no quotes, no period, max 40", async () => {
+    vi.stubEnv("AI_PROVIDER", "mock");
+    await create("th1", null);
+    await send("m1", TEXT);
+    const code = (await row()).title;
+    await settle(t);
+    const th = await row();
+    expect(th.title).toBe("Mock title: I want to bench pres");
+    expect(th.title).not.toBe(code);
+    expect(th.titleSource).toBe("auto");
+  });
+
+  it("a rename wins and stays, also against a late AI title", async () => {
+    vi.stubEnv("AI_PROVIDER", "mock");
+    await create("th1", null);
+    await send("m1", TEXT);
+    const code = (await row()).title;
+    expect(await rename("  My bench plan ")).toBe(true);
+    expect(await row()).toMatchObject({ title: "My bench plan", titleSource: "user" });
+    await settle(t); // the job finishes after the rename
+    expect(await row()).toMatchObject({ title: "My bench plan", titleSource: "user" });
+    // a late result for the old code title is refused too
+    expect(await t.mutation(internal.jobs.chat.saveTitle, { threadId: "th1", expectedTitle: code, title: "Late" })).toBe(false);
+    await send("m2", "more");
+    await settle(t);
+    expect((await row()).title).toBe("My bench plan");
+  });
+
+  it("rename checks the title and the thread", async () => {
+    await create();
+    await expect(rename("   ")).rejects.toThrow(/thread/);
+    await expect(rename("x".repeat(61))).rejects.toThrow(/thread/);
+    expect(await rename("ok", "nope")).toBe(false);
+  });
+
+  it("an old row without titleSource counts as user: never changed", async () => {
+    vi.stubEnv("AI_PROVIDER", "mock");
+    await t.run((c) => c.db.insert("threads", { threadId: "old", title: "Old name", createdAt: 1, updatedAt: 1, summary: "", status: "idle", pending: 0 }));
+    await send("m1", TEXT, "old");
+    expect((await row("old")).title).toBe("Old name");
+    await settle(t);
+    expect((await row("old")).title).toBe("Old name");
+    expect(await rename("New", "old")).toBe(true);
+    expect(await row("old")).toMatchObject({ title: "New", titleSource: "user" });
+  });
+});
+
 describe("chat without AI (AI_PROVIDER=none)", () => {
   it("stores the message, answers with the fixed reply, extracts nothing, summary is the last user message", async () => {
     await create();
@@ -256,6 +327,7 @@ describe("access", () => {
   it("every chat function rejects a wrong token", async () => {
     const bad = "nope";
     await expect(t.mutation(api.commands.threads.create, { token: bad, threadId: "a", title: "A" })).rejects.toThrow(/unauthorized/);
+    await expect(t.mutation(api.commands.threads.rename, { token: bad, threadId: "a", title: "A" })).rejects.toThrow(/unauthorized/);
     await expect(t.mutation(api.commands.threads.remove, { token: bad, threadId: "a" })).rejects.toThrow(/unauthorized/);
     await expect(t.mutation(api.commands.messages.send, { token: bad, threadId: "a", messageId: "m", text: "x" })).rejects.toThrow(/unauthorized/);
     await expect(t.query(api.queries.threads.list, { token: bad })).rejects.toThrow(/unauthorized/);

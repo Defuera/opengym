@@ -123,6 +123,8 @@ export default defineSchema({
   threads: defineTable({
     threadId: v.string(),
     title: v.string(),
+    /** How the title was set. "auto": by code or by the title job; the user has not named it. "user": the user named or renamed it; never overwritten. A row without it counts as "user". */
+    titleSource: v.optional(v.union(v.literal("auto"), v.literal("user"))),
     createdAt: v.number(),
     updatedAt: v.number(),
     summary: v.string(),

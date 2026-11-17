@@ -9,6 +9,7 @@ import { fileByFileId, loadAttachment } from "../lib/files";
 import { chatJob } from "../model/ai/jobs/chat";
 import { extractFromChatJob } from "../model/ai/jobs/extractFromChat";
 import { summariseThreadJob } from "../model/ai/jobs/summariseThread";
+import { titleThreadJob } from "../model/ai/jobs/titleThread";
 import { type AttachedFile, assembleCoachContext } from "../model/coachContext";
 import { truncate } from "../model/rules/util";
 import { contextInput, goalInput } from "../lib/validators";
@@ -46,6 +47,10 @@ export const input = internalQuery({
     const contextDocs = await ctx.db.query("context").withIndex("by_createdAt").order("desc").take(200);
     const context = contextDocs.filter((c) => c.active).slice(0, CHAT_CONTEXT_ITEMS).reverse().map(toContextItem);
 
+    // The title job runs only for the first user message of a thread the user has not named.
+    const userMessages = await ctx.db.query("messages").withIndex("by_threadId", (q) => q.eq("threadId", threadId)).filter((q) => q.eq(q.field("role"), "user")).take(2);
+    const titleJob = thread.titleSource === "auto" && userMessages.length === 1 && userMessages[0]!.messageId === messageId ? { currentTitle: thread.title } : null;
+
     const files = [];
     for (const id of trigger.fileIds) {
       const f = await fileByFileId(ctx, id);
@@ -53,6 +58,7 @@ export const input = internalQuery({
     }
     return {
       title: thread.title,
+      titleJob,
       text: trigger.text,
       history,
       data: { otherThreads, sessions, goals, context, limits: await activeLimits(ctx) },
@@ -73,6 +79,20 @@ export const saveReply = internalMutation({
     await ctx.db.insert("messages", { messageId: crypto.randomUUID(), threadId, role: "assistant", text, fileIds: [], sources, createdAt: now });
     const pending = Math.max(0, thread.pending - 1);
     await ctx.db.patch(thread._id, { pending, status: pending > 0 ? "thinking" : "idle", error: undefined, updatedAt: now, lastMessage: truncate(text, 200) });
+    return true;
+  },
+});
+
+/**
+ * Stores the AI title. Only if the title is still the one the job read and the user has not named the thread,
+ * so a rename (or a second automatic title) made meanwhile always wins.
+ */
+export const saveTitle = internalMutation({
+  args: { threadId: v.string(), expectedTitle: v.string(), title: v.string() },
+  handler: async (ctx, { threadId, expectedTitle, title }): Promise<boolean> => {
+    const thread = await threadByThreadId(ctx, threadId);
+    if (!thread || thread.titleSource !== "auto" || thread.title !== expectedTitle) return false;
+    await ctx.db.patch(thread._id, { title });
     return true;
   },
 });
@@ -120,7 +140,7 @@ export const saveExtracted = internalMutation({
 
 /**
  * The coach job. Scheduled by commands/messages:send. Order: build bounded context, chat, store the assistant
- * message (the app sees it now), extract_from_chat, store proposals, schedule summarise_thread.
+ * message (the app sees it now), title_thread (first message only), extract_from_chat, store proposals, schedule summarise_thread.
  */
 export const reply = internalAction({
   args: { threadId: v.string(), messageId: v.string() },
@@ -128,6 +148,7 @@ export const reply = internalAction({
     const data = await ctx.runQuery(internal.jobs.chat.input, { threadId, messageId });
     if (!data) return;
     let kept: boolean;
+    let replyText = "";
     try {
       const supportsImages = !!providerFromEnv()?.supportsImages;
       const files: AttachedFile[] = [];
@@ -138,12 +159,21 @@ export const reply = internalAction({
       const coach = assembleCoachContext(data.data, files, supportsImages);
       const r = await runAiJob(chatJob, { contextBlock: coach.contextBlock, history: data.history, images: coach.images });
       kept = await ctx.runMutation(internal.jobs.chat.saveReply, { threadId, text: r.value, sources: r.path === "ai" ? coach.sources : [] });
+      replyText = r.value;
     } catch (e) {
       console.error(`[chat] reply failed: ${(e as Error).message}`);
       await ctx.runMutation(internal.jobs.chat.fail, { threadId, error: `The coach could not answer: ${truncate((e as Error).message, 120)}` });
       return;
     }
     if (!kept) return;
+    if (data.titleJob) {
+      try {
+        const t = await runAiJob(titleThreadJob, { text: data.text, reply: replyText });
+        if (t.path === "ai") await ctx.runMutation(internal.jobs.chat.saveTitle, { threadId, expectedTitle: data.titleJob.currentTitle, title: t.value.title });
+      } catch (e) {
+        console.error(`[chat] title failed: ${(e as Error).message}`); // the code title stays
+      }
+    }
     try {
       const x = await runAiJob(extractFromChatJob, { text: data.text, existingContext: data.knownContext, existingGoals: data.knownGoals });
       await ctx.runMutation(internal.jobs.chat.saveExtracted, { threadId, goals: x.value.goals, context: x.value.context });

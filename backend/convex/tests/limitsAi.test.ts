@@ -10,6 +10,7 @@ import { planSessionJob } from "../functions/model/ai/jobs/planSession";
 import { predictActivityJob } from "../functions/model/ai/jobs/predictActivity";
 import { reviewSessionJob } from "../functions/model/ai/jobs/reviewSession";
 import { summariseThreadJob } from "../functions/model/ai/jobs/summariseThread";
+import { titleThreadJob } from "../functions/model/ai/jobs/titleThread";
 import { LIMITS_RULE } from "../functions/model/ai/promptRules";
 import { assembleCoachContext } from "../functions/model/coachContext";
 import type { Limit, Session } from "../functions/model/schema";
@@ -43,6 +44,7 @@ describe("prompts carry limits and never records", () => {
       dashboard: buildDashboardJob.build({ days: 7, sessions: log, goals: [], context: [] }),
       extract: extractFromChatJob.build({ text: "hi", existingContext: [], existingGoals: [] }),
       summarise: summariseThreadJob.build({ title: "t", messages: [{ role: "user", text: "hi" }] }),
+      title: titleThreadJob.build({ text: "hi", reply: "hello" }),
     };
   };
   const whole = (p: { system: string; messages: { content: string }[] }) => `${p.system}\n${p.messages.map((m) => m.content).join("\n")}`;

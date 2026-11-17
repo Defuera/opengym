@@ -52,7 +52,7 @@ Goal       { id, title 1..80, kind: "strength" | "consistency" | "work_around" |
 ContextItem{ id, text 1..300, topic: string 1..30, active: boolean,
              source: "user" | "ai" | "import", threadId?, importId?, createdAt }
 
-Thread     { id, title 1..40, createdAt, updatedAt, summary: string, lastMessage?: string }
+Thread     { id, title 1..60, titleSource "auto"|"user", createdAt, updatedAt, summary: string, lastMessage?: string }
 Message    { id, threadId, role: "user" | "assistant", text, fileIds: string[],
              sources: string[] /* what the coach also read, e.g. "Knee thread", "gym log", "goals" */,
              createdAt }
@@ -133,6 +133,7 @@ plans and the dashboard layout; they are regenerated in the background.
 | `build_dashboard` | ordered module specs | sessions, active days, top set of most-trained exercise, one goal_progress per active goal, recent_sessions |
 | `chat` | reply text + sources | fixed "AI is not configured" reply; message still stored |
 | `extract_from_chat` | new Goal[] / ContextItem[] from a user message | none extracted |
+| `title_thread` | Thread.title (<=40 chars, no quotes, no trailing period), first message only, never over a user title | first words of the first message |
 | `summarise_thread` | Thread.summary (<=400 chars) | last user message truncated |
 | `review_session` | Review | set counts and top sets vs previous session of the same activity and focus |
 | `import_data` | Session[] / Goal[] / ContextItem[] from a text chunk or an image | nothing imported; job note says AI is required |

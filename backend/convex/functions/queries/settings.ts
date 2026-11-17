@@ -3,6 +3,7 @@ import { internalQuery, query } from "../_generated/server";
 import { requireToken } from "../lib/auth";
 import { settingsRow } from "../lib/settingsDb";
 import { envInfo } from "../model/ai/factory";
+import { shortModelList } from "../model/ai/modelList";
 
 /** The model the owner chose in Settings, or null. Read by every AI job (lib/ai:providerFor). */
 export const override = internalQuery({
@@ -23,7 +24,7 @@ export const ai = query({
       defaultModel,
       model: override ?? defaultModel,
       override,
-      models: row?.modelList?.models ?? [],
+      models: shortModelList(row?.modelList?.models ?? []),
       fetchedAt: row?.modelList?.fetchedAt ?? null,
       error: row?.modelListError ?? null,
     };

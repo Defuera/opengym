@@ -183,3 +183,15 @@ describe("coach model setting", () => {
     });
   });
 });
+
+describe("shortModelList", () => {
+  it("keeps the newest generation and the newest version before it, strongest first", async () => {
+    const { shortModelList } = await import("../functions/model/ai/modelList");
+    const ids = ["chat-latest", "gpt-4o", "gpt-5", "gpt-5.5", "gpt-5.5-pro", "gpt-5.6-luna", "gpt-5.6-sol", "gpt-5.6-terra", "gpt-6-astra", "gpt-6-luna", "gpt-6-sol", "gpt-6.1-sol", "gpt-6.1-terra", "gpt-6.2-astra", "gpt-6.2-sol", "o3"];
+    expect(shortModelList(ids)).toEqual(["gpt-6.2-astra", "gpt-6.2-sol", "gpt-6.1-sol", "gpt-6.1-terra", "gpt-6-astra", "gpt-6-sol", "gpt-6-luna", "gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna"]);
+  });
+  it("leaves a list of another provider as it is", async () => {
+    const { shortModelList } = await import("../functions/model/ai/modelList");
+    expect(shortModelList(["claude-a", "claude-b"])).toEqual(["claude-a", "claude-b"]);
+  });
+});

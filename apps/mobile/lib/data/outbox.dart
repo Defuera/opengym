@@ -211,6 +211,33 @@ class Outbox extends ChangeNotifier {
   Future<void> removeContext(String itemId) =>
       _enqueue(OutboxOp.contextRemove, <String, dynamic>{'id': itemId});
 
+  /// Create or change a limit. A newer save of the same limit replaces the old.
+  Future<void> saveLimit(Limit l) {
+    return _enqueue(
+      OutboxOp.limitSave,
+      <String, dynamic>{'id': l.id, 'limit': l.toWire()},
+      replaces: (OutboxOp o) => o.type == OutboxOp.limitSave && o.targetId == l.id,
+    );
+  }
+
+  Future<void> removeLimit(String limitId) => _enqueue(
+        OutboxOp.limitRemove,
+        <String, dynamic>{'id': limitId},
+        replaces: (OutboxOp o) => o.type == OutboxOp.limitSave && o.targetId == limitId,
+      );
+
+  Future<void> addRecord(LimitRecord r) =>
+      _enqueue(OutboxOp.recordAdd, <String, dynamic>{'id': r.id, 'record': r.toJson()});
+
+  Future<void> removeRecord(String recordId) => _enqueue(
+        OutboxOp.recordRemove,
+        <String, dynamic>{'id': recordId},
+        replaces: (OutboxOp o) => o.type == OutboxOp.recordAdd && o.targetId == recordId,
+      );
+
+  Future<void> saveCheckin(Checkin c) =>
+      _enqueue(OutboxOp.checkinSave, <String, dynamic>{'id': c.id, 'checkin': c.toJson()});
+
   Future<void> _enqueue(
     String type,
     Map<String, dynamic> args, {

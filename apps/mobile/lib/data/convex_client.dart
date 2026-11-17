@@ -42,6 +42,12 @@ abstract class ConvexClient {
   Stream<Stored<Review?>> watchReview(String sessionId);
   Stream<List<ImportJob>> watchImports();
 
+  /// Limits (with rules, records, check-ins), body load and focus parts.
+  Stream<AboutMe> watchAboutMe();
+
+  /// The limits a session loaded that have no check-in for it yet. One call.
+  Future<List<AskItem>> askAfter(String sessionId);
+
   /// Newest activity first. Each thread carries its reply status.
   Stream<List<Thread>> watchThreads();
 
@@ -70,6 +76,15 @@ abstract class ConvexClient {
   Future<void> updateContext(String itemId, ContextPatch patch);
   Future<void> removeContext(String itemId);
   Future<void> removeImport(String importId);
+
+  /// Upsert by [Limit.id]. Records and check-ins are not part of this write.
+  Future<void> saveLimit(Limit limit);
+
+  /// Also deletes the limit's records and check-ins.
+  Future<void> removeLimit(String limitId);
+  Future<void> addRecord(LimitRecord record);
+  Future<void> removeRecord(String recordId);
+  Future<void> saveCheckin(Checkin checkin);
 
   Future<void> createThread({required String threadId, required String title});
 
@@ -205,6 +220,21 @@ class DartvexConvexClient implements ConvexClient {
       _watch('queries/imports:list', const <String, dynamic>{}, decodeImports);
 
   @override
+  Stream<AboutMe> watchAboutMe() =>
+      _watch('queries/aboutMe:get', const <String, dynamic>{}, decodeAboutMe);
+
+  @override
+  Future<List<AskItem>> askAfter(String sessionId) async {
+    try {
+      final Object? v = await _caller.query(
+          'queries/aboutMe:askAfter', <String, dynamic>{'token': _token, 'sessionId': sessionId});
+      return decodeAskAfter(v);
+    } on cx.ConvexException catch (e) {
+      throw ConvexCallException.fromData(e.data);
+    }
+  }
+
+  @override
   Stream<List<Thread>> watchThreads() =>
       _watch('queries/threads:list', const <String, dynamic>{}, decodeThreads);
 
@@ -305,6 +335,26 @@ class DartvexConvexClient implements ConvexClient {
   @override
   Future<void> removeImport(String importId) =>
       _mutate('commands/imports:remove', <String, dynamic>{'importId': importId});
+
+  @override
+  Future<void> saveLimit(Limit limit) =>
+      _mutate('commands/limits:save', <String, dynamic>{'limit': limit.toWire()});
+
+  @override
+  Future<void> removeLimit(String limitId) =>
+      _mutate('commands/limits:remove', <String, dynamic>{'limitId': limitId});
+
+  @override
+  Future<void> addRecord(LimitRecord record) =>
+      _mutate('commands/limits:addRecord', <String, dynamic>{'record': record.toJson()});
+
+  @override
+  Future<void> removeRecord(String recordId) =>
+      _mutate('commands/limits:removeRecord', <String, dynamic>{'recordId': recordId});
+
+  @override
+  Future<void> saveCheckin(Checkin checkin) =>
+      _mutate('commands/limits:checkin', <String, dynamic>{'checkin': checkin.toJson()});
 
   @override
   Future<void> createThread({required String threadId, required String title}) =>

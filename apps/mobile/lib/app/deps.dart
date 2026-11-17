@@ -1,6 +1,7 @@
 import '../data/pickers.dart';
 import '../data/outbox.dart';
 import '../store.dart';
+import '../stores/about_store.dart';
 import '../stores/coach_store.dart';
 import '../stores/connection_store.dart';
 import '../stores/context_store.dart';
@@ -24,6 +25,7 @@ class AppDeps {
     required this.imports,
     required this.reviews,
     required this.pickers,
+    required this.about,
   });
 
   final AppStore store;
@@ -37,4 +39,5 @@ class AppDeps {
   final ImportStore imports;
   final ReviewStore reviews;
   final Pickers pickers;
+  final AboutStore about;
 }

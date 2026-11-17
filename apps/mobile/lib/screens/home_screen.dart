@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../app/deps.dart';
 import '../models.dart';
+import '../stores/about_store.dart';
 import '../stores/connection_store.dart';
 import '../theme.dart';
 import '../widgets/nav_bar.dart';
@@ -10,7 +11,9 @@ import '../widgets/og_icon_button.dart';
 import '../widgets/review_card.dart';
 import '../widgets/segmented_toggle.dart';
 import '../widgets/status_line.dart';
+import 'about_me_screen.dart';
 import 'dashboard_view.dart';
+import 'limit_ask_bar.dart';
 import 'goals_screen.dart';
 import 'home_summary.dart';
 import 'import_screen.dart';
@@ -104,6 +107,18 @@ class _HomeScreenState extends State<HomeScreen> {
                         mainAxisAlignment: MainAxisAlignment.end,
                         children: <Widget>[
                           OgIconButton(
+                            icon: Icons.person_outline,
+                            onPressed: () => _push(AboutMeScreen(
+                              about: d.about,
+                              notes: d.context,
+                              exercises: AboutStore.knownExercises(<String>[
+                                for (final Session s in d.store.sessions)
+                                  for (final Exercise e in s.exercises) e.name,
+                              ]),
+                            )),
+                          ),
+                          const SizedBox(width: 8),
+                          OgIconButton(
                             icon: Icons.flag_outlined,
                             onPressed: () => _push(GoalsScreen(deps: d)),
                           ),
@@ -128,6 +143,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       const SizedBox(height: 18),
                       Text('How am I doing?', style: OG.display(40)),
                       const SizedBox(height: 18),
+                      LimitAskBar(about: d.about),
                       if (review != null) ...<Widget>[
                         ReviewCard(
                           summary: review.summary,

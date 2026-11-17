@@ -75,8 +75,16 @@ End-to-end check against a deployment: see `tool/convex_trial.dart`.
 - Stores: `lib/store.dart` (`AppStore`, the live session and local log) and
   `lib/stores/` (`ConnectionStore`, `PlanStore`, `DashboardStore`, `GoalsStore`,
   `ContextStore`, `CoachStore` (chat), `ImportStore` (file import),
-  `ReviewStore`). One
+  `ReviewStore`, `AboutStore` (limits, body load, after-session questions)). One
   responsibility each, dependencies passed in the constructor.
+- About me: the person icon on Home opens `screens/about_me_screen.dart` (body
+  figure, limits, preferences = the coach notes). A limit opens
+  `limit_detail_screen.dart` (rules, how it felt, own records). After a
+  session `AboutStore.askAfter` may show "How was the <limit> today?" on Home
+  (`limit_ask_bar.dart`); it never blocks saving and stays silent offline.
+  Reads and writes go through `data/about_repository.dart`
+  (`ConvexAboutRepository` on the outbox; `InMemoryAboutRepository` for tests).
+  The figure is `widgets/body_figure.dart`.
 - Composition: `lib/app/compose.dart` is the only place that picks real
   implementations; `lib/app/deps.dart` bundles them for the screens.
 - Widgets: `lib/widgets/` are standalone. They import only Flutter, `theme.dart`

@@ -35,6 +35,11 @@ class OutboxOp {
   static const String contextCreate = 'context.create';
   static const String contextUpdate = 'context.update';
   static const String contextRemove = 'context.remove';
+  static const String limitSave = 'limit.save';
+  static const String limitRemove = 'limit.remove';
+  static const String recordAdd = 'record.add';
+  static const String recordRemove = 'record.remove';
+  static const String checkinSave = 'checkin.save';
 
   OutboxOp copyWith({int? attempts, int? failures, bool? parked}) => OutboxOp(
         seq: seq,
@@ -109,6 +114,16 @@ class OutboxOp {
         return c.updateContext(targetId, ContextPatch.fromJson(asMap(args['patch'])));
       case contextRemove:
         return c.removeContext(targetId);
+      case limitSave:
+        return c.saveLimit(Limit.fromJson(args['limit']));
+      case limitRemove:
+        return c.removeLimit(targetId);
+      case recordAdd:
+        return c.addRecord(LimitRecord.fromJson(args['record']));
+      case recordRemove:
+        return c.removeRecord(targetId);
+      case checkinSave:
+        return c.saveCheckin(Checkin.fromJson(args['checkin']));
     }
     // An op from a newer app version: drop it rather than block the queue.
     return Future<void>.error(

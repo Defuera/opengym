@@ -49,6 +49,9 @@ List<Thread> decodeThreads(Object? v) => _list(v, decodeThread);
 Message decodeMessage(Object? v) => Message.fromJson(_doc(v, 'messageId'));
 List<Message> decodeMessages(Object? v) => _list(v, decodeMessage);
 
+AboutMe decodeAboutMe(Object? v) => AboutMe.fromJson(normalize(v));
+List<AskItem> decodeAskAfter(Object? v) => _list(v, (Object? e) => AskItem.fromJson(normalize(e)));
+
 FileMeta decodeFileMeta(Object? v) => FileMeta.fromJson(_doc(v, 'fileId'));
 
 /// The answer of `queries/files:get`: meta plus a URL, or null when unknown.

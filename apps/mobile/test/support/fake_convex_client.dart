@@ -63,6 +63,10 @@ class FakeConvexClient implements ConvexClient {
   final Live<List<Session>> _sessions = Live<List<Session>>(<Session>[]);
   final Live<List<Goal>> _goals = Live<List<Goal>>(<Goal>[]);
   final Live<List<ContextItem>> _context = Live<List<ContextItem>>(<ContextItem>[]);
+  final Live<AboutMe> about = Live<AboutMe>(const AboutMe());
+
+  /// What [askAfter] answers per session id.
+  final Map<String, List<AskItem>> asks = <String, List<AskItem>>{};
   final Live<List<ImportJob>> _imports = Live<List<ImportJob>>(<ImportJob>[]);
   final Live<Stored<List<Prediction>>> predictions = Live<Stored<List<Prediction>>>();
   final Map<String, Live<Stored<Plan>>> plans = <String, Live<Stored<Plan>>>{};
@@ -188,6 +192,81 @@ class FakeConvexClient implements ConvexClient {
 
   @override
   Stream<List<ImportJob>> watchImports() => _imports.stream();
+
+  @override
+  Stream<AboutMe> watchAboutMe() => about.stream();
+
+  @override
+  Future<List<AskItem>> askAfter(String sessionId) async {
+    _command('askAfter:$sessionId');
+    return asks[sessionId] ?? <AskItem>[];
+  }
+
+  @override
+  Future<void> saveLimit(Limit limit) async {
+    _command('saveLimit:${limit.id}');
+    final AboutMe a = about.value ?? const AboutMe();
+    final Limit? old = a.limitById(limit.id);
+    about.set(a.copyWith(limits: <Limit>[
+      for (final Limit l in a.limits)
+        if (l.id != limit.id) l,
+      limit.copyWith(records: old?.records, checkins: old?.checkins),
+    ]));
+  }
+
+  @override
+  Future<void> removeLimit(String limitId) async {
+    _command('removeLimit:$limitId');
+    final AboutMe a = about.value ?? const AboutMe();
+    about.set(a.copyWith(limits: <Limit>[for (final Limit l in a.limits) if (l.id != limitId) l]));
+  }
+
+  @override
+  Future<void> addRecord(LimitRecord record) async {
+    _command('addRecord:${record.id}');
+    final AboutMe a = about.value ?? const AboutMe();
+    about.set(a.copyWith(limits: <Limit>[
+      for (final Limit l in a.limits)
+        if (l.id == record.limitId)
+          l.copyWith(records: <LimitRecord>[
+            for (final LimitRecord r in l.records)
+              if (r.id != record.id) r,
+            record,
+          ])
+        else
+          l,
+    ]));
+  }
+
+  @override
+  Future<void> removeRecord(String recordId) async {
+    _command('removeRecord:$recordId');
+    final AboutMe a = about.value ?? const AboutMe();
+    about.set(a.copyWith(limits: <Limit>[
+      for (final Limit l in a.limits)
+        l.copyWith(records: <LimitRecord>[
+          for (final LimitRecord r in l.records)
+            if (r.id != recordId) r,
+        ]),
+    ]));
+  }
+
+  @override
+  Future<void> saveCheckin(Checkin checkin) async {
+    _command('saveCheckin:${checkin.id}');
+    final AboutMe a = about.value ?? const AboutMe();
+    about.set(a.copyWith(limits: <Limit>[
+      for (final Limit l in a.limits)
+        if (l.id == checkin.limitId)
+          l.copyWith(checkins: <Checkin>[
+            checkin,
+            for (final Checkin c in l.checkins)
+              if (c.id != checkin.id) c,
+          ])
+        else
+          l,
+    ]));
+  }
 
   @override
   Stream<List<Thread>> watchThreads() => _threads.stream();

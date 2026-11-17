@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import '../data/about_repository.dart';
 import '../data/convex_client.dart';
 import '../data/legacy_outbox_migration.dart';
 import '../data/outbox.dart';
@@ -9,6 +10,7 @@ import '../data/settings_repository.dart';
 import '../data/shared_prefs_session_repository.dart';
 import '../data/switchable_convex_client.dart';
 import '../store.dart';
+import '../stores/about_store.dart';
 import '../stores/coach_store.dart';
 import '../stores/connection_store.dart';
 import '../stores/context_store.dart';
@@ -49,12 +51,15 @@ Future<AppDeps> compose() async {
   final GoalsStore goals = GoalsStore(client: client, outbox: outbox);
   final ContextStore context = ContextStore(client: client, outbox: outbox);
   final ImportStore imports = ImportStore(client: client);
+  final AboutStore about = AboutStore(repo: ConvexAboutRepository(client: client, outbox: outbox));
 
   // A finished session goes to the outbox on disk first, then to the server.
   store.onSessionSaved = (String id) {
     final session = store.sessionById(id);
     if (session != null) {
-      unawaited(outbox.saveSession(session));
+      // After the session is on the server, ask how the loaded limits felt.
+      // A failure or no link means no question; saving is never held up.
+      unawaited(outbox.saveSession(session).then((_) => about.askAfter(id)));
       reviews.watch(id);
     }
   };
@@ -66,6 +71,7 @@ Future<AppDeps> compose() async {
   plans.start();
   goals.start();
   context.start();
+  about.start();
   coach.start();
   imports.watchPast();
   dashboard.select(7);
@@ -82,6 +88,7 @@ Future<AppDeps> compose() async {
     imports: imports,
     reviews: reviews,
     pickers: DevicePickers(),
+    about: about,
   );
 
   // Do not wait for the network: the app opens straight away.

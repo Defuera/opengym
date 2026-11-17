@@ -123,6 +123,33 @@ class SwitchableConvexClient implements ConvexClient {
   Stream<List<ImportJob>> watchImports() => _proxy((ConvexClient c) => c.watchImports());
 
   @override
+  Stream<AboutMe> watchAboutMe() => _proxy((ConvexClient c) => c.watchAboutMe());
+
+  @override
+  Future<List<AskItem>> askAfter(String sessionId) {
+    final ConvexClient? c = _inner;
+    if (c == null) {
+      return Future<List<AskItem>>.error(const ConvexCallException.notConfigured());
+    }
+    return c.askAfter(sessionId);
+  }
+
+  @override
+  Future<void> saveLimit(Limit limit) => _call((ConvexClient c) => c.saveLimit(limit));
+
+  @override
+  Future<void> removeLimit(String limitId) => _call((ConvexClient c) => c.removeLimit(limitId));
+
+  @override
+  Future<void> addRecord(LimitRecord record) => _call((ConvexClient c) => c.addRecord(record));
+
+  @override
+  Future<void> removeRecord(String recordId) => _call((ConvexClient c) => c.removeRecord(recordId));
+
+  @override
+  Future<void> saveCheckin(Checkin checkin) => _call((ConvexClient c) => c.saveCheckin(checkin));
+
+  @override
   Stream<List<Thread>> watchThreads() => _proxy((ConvexClient c) => c.watchThreads());
 
   @override

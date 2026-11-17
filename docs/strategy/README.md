@@ -27,3 +27,4 @@ This directory holds the Architecture Decision Records (ADRs) for Gym Days (Open
 | [010](010-no-medical-wording.md) | No Medical Wording | Accepted |
 | [011](011-main-branch-and-web-deploy.md) | Never Commit to Main; Main Deploys the Web App | Accepted |
 | [012](012-convex-backend.md) | Hosted Convex Backend With Separate Commands and Read Models | Accepted |
+| [013](013-activity-first-focus-is-advice.md) | Activity First, Focus Is Advice | Accepted |

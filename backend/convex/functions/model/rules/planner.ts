@@ -7,7 +7,8 @@ export const starterTemplates: Record<string, string[]> = {
   Legs: ["Squat", "Romanian deadlift", "Leg press", "Calf raise"],
 };
 
-export const starterTypes = ["Push", "Pull", "Legs"];
+/** Gym foci every user can pick before the log has any (the starter rotation). */
+export const starterFoci = ["Push", "Pull", "Legs"];
 
 export const MAX_PLAN_EXERCISES = 12;
 export const MAX_PLAN_SETS = 10;
@@ -39,25 +40,25 @@ export function defaultSets(name: string): PlanSet[] {
   return [0, 1, 2].map(() => ({ reps: 8, kg: 0, max: false }));
 }
 
-/** Rules plan: repeat the last session of that type, else the starter template. */
-export function rulesPlan(sessions: Session[], type: string): PlanDraft {
+/** Rules plan: repeat the last gym session with that focus, else the starter template. */
+export function rulesPlan(sessions: Session[], focus: string): PlanDraft {
   const g = gym(sessions);
   let names: string[] | null = null;
   for (let i = g.length - 1; i >= 0; i--) {
-    if (g[i]!.type === type) {
+    if (g[i]!.focus === focus) {
       names = g[i]!.exercises.map((e) => e.name);
       break;
     }
   }
   const repeated = names !== null && names.length > 0;
-  const use = repeated ? names! : (starterTemplates[type] ?? []);
+  const use = repeated ? names! : (starterTemplates[focus] ?? []);
   const exercises: PlanExercise[] = use.map((name) => ({
     name,
     sets: lastSetsFor(sessions, name) ?? defaultSets(name),
   }));
   const rationale = repeated
-    ? `Repeats your last ${type} session with the same sets.`
-    : `Starter ${type} template, no ${type} history yet.`;
+    ? `Repeats your last ${focus} session with the same sets.`
+    : `Starter ${focus} template, no ${focus} history yet.`;
   return { rationale, exercises };
 }
 

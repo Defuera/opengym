@@ -2,18 +2,24 @@ import 'package:flutter/material.dart';
 
 import '../app/deps.dart';
 import '../models.dart';
+import '../planner.dart';
 import '../theme.dart';
+import '../widgets/focus_chips.dart';
 import '../widgets/og_icon_button.dart';
 import '../widgets/preparing_card.dart';
 import 'session_screen.dart';
 
-/// Asks the server for the next plan (at most 12 s), then opens the session.
+/// Asks the server for the stored plan of the gym focus (at most a few
+/// seconds), then opens the session. The chips change the focus meanwhile: a
+/// pick asks for the stored plan of that focus (no AI call).
 /// "Use my last session" skips the wait and uses the local planner.
 class PrepareSessionScreen extends StatefulWidget {
-  const PrepareSessionScreen({super.key, required this.deps, required this.type});
+  const PrepareSessionScreen({super.key, required this.deps, this.focus});
 
   final AppDeps deps;
-  final String type;
+
+  /// The advised focus from the start screen. Null: the server picks it.
+  final String? focus;
 
   @override
   State<PrepareSessionScreen> createState() => _PrepareSessionScreenState();
@@ -21,16 +27,31 @@ class PrepareSessionScreen extends StatefulWidget {
 
 class _PrepareSessionScreenState extends State<PrepareSessionScreen> {
   bool _done = false;
+  int _request = 0;
+  String? _focus;
 
   @override
   void initState() {
     super.initState();
+    _focus = widget.focus;
     _load();
   }
 
   Future<void> _load() async {
-    final Plan? p = await widget.deps.plans.fetchNext(widget.type);
+    final int mine = ++_request;
+    final Plan? p = await widget.deps.plans.fetchNext(focus: _focus);
+    if (mine != _request) {
+      return; // another chip was picked meanwhile
+    }
     _go(p);
+  }
+
+  void _pick(String focus) {
+    if (_done || focus == _focus) {
+      return;
+    }
+    setState(() => _focus = focus);
+    _load();
   }
 
   void _go(Plan? plan) {
@@ -39,24 +60,31 @@ class _PrepareSessionScreenState extends State<PrepareSessionScreen> {
     }
     _done = true;
     final AppDeps d = widget.deps;
+    final String? focus = _focus ?? plan?.focus;
     if (plan != null) {
       d.store.begin(
-        widget.type,
+        focus: focus,
         prepared: d.plans.exercisesFor(plan),
         rationale: plan.rationale,
       );
     } else {
-      d.store.begin(widget.type);
+      d.store.begin(focus: focus);
     }
     Navigator.of(context).pushReplacement(
       MaterialPageRoute<void>(
-        builder: (BuildContext c) => SessionScreen(store: d.store),
+        builder: (BuildContext c) => SessionScreen(
+          store: d.store,
+          plans: d.plans,
+          online: d.connection.connected,
+          advisedFocus: widget.focus,
+        ),
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    final String? focus = _focus;
     return Scaffold(
       body: SafeArea(
         child: Padding(
@@ -72,10 +100,30 @@ class _PrepareSessionScreenState extends State<PrepareSessionScreen> {
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: Text('Gym · ${widget.type}', style: OG.display(32)),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        if (focus != null)
+                          Text(
+                            focus,
+                            style: OG.muted(size: 14, weight: FontWeight.w600),
+                          ),
+                        Text(gymType, style: OG.display(32)),
+                      ],
+                    ),
                   ),
                 ],
               ),
+              if (widget.focus != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 14),
+                  child: FocusChips(
+                    foci: gymFoci(widget.deps.store.sessions, advised: widget.focus),
+                    selected: focus,
+                    advised: widget.focus,
+                    onSelect: _pick,
+                  ),
+                ),
               const SizedBox(height: 24),
               PreparingCard(
                 title: 'Preparing your session…',

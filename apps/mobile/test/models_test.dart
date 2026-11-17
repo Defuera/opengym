@@ -11,7 +11,8 @@ void main() {
   test('Plan round-trips', () {
     final Map<String, dynamic> json = <String, dynamic>{
       'id': 'p1',
-      'type': 'Push',
+      'type': 'Gym',
+      'focus': 'Push',
       'createdAt': 1000,
       'source': 'ai',
       'rationale': 'Sample rationale.',
@@ -131,7 +132,8 @@ void main() {
     final Session s = Session(
       id: 's1',
       kind: 'gym',
-      type: 'Push',
+      type: 'Gym',
+      focus: 'Push',
       startedAt: 1000,
       endedAt: 5000,
       exercises: <Exercise>[
@@ -158,6 +160,39 @@ void main() {
     expect(back.exercises.first.sets.first.done, isTrue);
     expect(back.exercises.first.sets.first.kg, 40);
     expect(back.source, 'app');
+    expect(j['focus'], 'Push');
+    expect(back.focus, 'Push');
+    expect(j['type'], 'Gym');
+  });
+
+  test('a legacy gym session (type Upper, no focus) reads as Gym with a focus', () {
+    final Map<String, dynamic> legacy = <String, dynamic>{
+      'id': 'old',
+      'kind': 'gym',
+      'type': 'Upper',
+      'startedAt': 1,
+      'endedAt': 2,
+      'exercises': <Object>[],
+    };
+    final Session s = Session.fromJson(legacy);
+    expect(s.type, 'Gym');
+    expect(s.focus, 'Upper');
+    expect(Session.fromJson(_roundTrip(s.toJson())).focus, 'Upper');
+    final Session run = Session.fromJson(<String, dynamic>{
+      'id': 'r', 'kind': 'activity', 'type': 'Run', 'focus': 'Easy', 'startedAt': 1, 'endedAt': 2,
+    });
+    expect(run.type, 'Run');
+    expect(run.focus, 'Easy');
+    expect(run.toContractJson()['focus'], 'Easy');
+    expect(Session.fromJson(<String, dynamic>{'id': 'x', 'kind': 'activity', 'type': 'Run', 'startedAt': 1, 'endedAt': 2}).toContractJson().containsKey('focus'), isFalse);
+  });
+
+  test('Prediction and Plan read the legacy shape', () {
+    final Prediction p = Prediction.fromJson(<String, dynamic>{'kind': 'gym', 'type': 'Legs', 'reason': 'r'});
+    expect(p.type, 'Gym');
+    expect(p.focus, 'Legs');
+    expect(Prediction.fromJson(p.toJson()).focus, 'Legs');
+    expect(Plan.fromJson(<String, dynamic>{'id': 'p', 'type': 'Upper', 'createdAt': 1}).focus, 'Upper');
   });
 
   test('activity Session carries minutes, distance, note and no exercises', () {

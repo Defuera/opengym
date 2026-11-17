@@ -16,12 +16,13 @@ export type T = ReturnType<typeof setup>;
 /** Run every scheduled function, including ones they schedule, advancing the fake clock. */
 export const settle = (t: T) => t.finishAllScheduledFunctions(vi.runAllTimers);
 
-/** A gym session in the shape the Convex command takes (`sessionId`, not `id`). */
-export function pushSession(sessionId: string, endedAt: number, benchKg = 60, type = "Push") {
+/** A gym session (type "Gym", `focus` is the flavour) in the shape the Convex command takes (`sessionId`, not `id`). */
+export function pushSession(sessionId: string, endedAt: number, benchKg = 60, focus = "Push") {
   return {
     sessionId,
     kind: "gym" as const,
-    type,
+    type: "Gym",
+    focus,
     startedAt: Math.max(0, endedAt - 3_600_000),
     endedAt,
     exercises: [

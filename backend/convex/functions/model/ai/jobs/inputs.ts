@@ -21,17 +21,17 @@ export const DASHBOARD_RECENT = 30;
 
 const lastN = <T>(xs: T[], n: number): T[] => (n <= 0 ? [] : xs.slice(-n));
 
-/** Plan for type T: the last 6 of type T plus the last 6 of any kind, deduplicated, oldest first. */
-export function boundedPlanSessions(all: Session[], type: string): Session[] {
-  const ofType = lastN(all.filter((s) => s.type === type), PLAN_RECENT_OF_TYPE);
+/** Plan for a focus: the last 6 gym sessions with that focus plus the last 6 of any kind, deduplicated, oldest first. */
+export function boundedPlanSessions(all: Session[], focus: string): Session[] {
+  const ofType = lastN(all.filter((s) => s.kind === "gym" && s.focus === focus), PLAN_RECENT_OF_TYPE);
   const any = lastN(all, PLAN_RECENT_ANY);
   const ids = new Set([...ofType, ...any].map((s) => s.id));
   return all.filter((s) => ids.has(s.id));
 }
 
-export function buildPlanInput(all: Session[], goals: Goal[], context: ContextItem[], type: string): PlanInput {
-  const rules: PlanDraft = rulesPlan(all, type);
-  return { type, sessions: boundedPlanSessions(all, type), goals, context, rules };
+export function buildPlanInput(all: Session[], goals: Goal[], context: ContextItem[], focus: string): PlanInput {
+  const rules: PlanDraft = rulesPlan(all, focus);
+  return { focus, sessions: boundedPlanSessions(all, focus), goals, context, rules };
 }
 
 export function buildPredictInput(all: Session[], goals: Goal[], now: number): PredictInput {
@@ -42,8 +42,8 @@ export function buildDashboardInput(all: Session[], goals: Goal[], context: Cont
   return { days, sessions: lastN(all, DASHBOARD_RECENT), goals, context };
 }
 
-/** Review: the session plus the last 6 of the same type before it, oldest first. */
+/** Review: the session plus the last 6 of the same activity and focus before it, oldest first. */
 export function buildReviewInput(all: Session[], session: Session): ReviewInput {
-  const before = all.filter((s) => s.id !== session.id && s.kind === session.kind && s.type === session.type && s.endedAt <= session.endedAt);
+  const before = all.filter((s) => s.id !== session.id && s.kind === session.kind && s.type === session.type && s.focus === session.focus && s.endedAt <= session.endedAt);
   return { session, sessions: [...lastN(before, REVIEW_RECENT_OF_TYPE), session], rules: rulesReview(all, session) };
 }

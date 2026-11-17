@@ -52,7 +52,7 @@ describe("goals", () => {
     // A change keeps the stored rows until the next rebuild replaces them.
     await t.mutation(api.commands.goals.update, { token: TOKEN, goalId: "g1", status: "done" });
     expect(await t.run((ctx) => ctx.db.query("plans").collect())).toHaveLength(3);
-    expect((await t.query(api.queries.plans.next, { token: TOKEN, type: "Push" })).stored).toBe(true);
+    expect((await t.query(api.queries.plans.next, { token: TOKEN, focus: "Push" })).stored).toBe(true);
     await settle(t);
   });
 });

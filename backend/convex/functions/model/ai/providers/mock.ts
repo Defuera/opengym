@@ -45,7 +45,7 @@ export class MockProvider implements AiProvider {
       case "plan_session":
         return JSON.stringify({ rationale: "Mock plan: keeps your usual exercises.", exercises: d.suggestedStart?.exercises ?? [] });
       case "predict_activity":
-        return JSON.stringify({ predictions: d.baseline ?? [{ kind: "gym", type: "Push", reason: "Mock rotation" }] });
+        return JSON.stringify({ predictions: d.rotationHint ?? [{ kind: "gym", type: "Gym", focus: "Push", reason: "Mock rotation" }] });
       case "build_dashboard": {
         const goals: Data[] = (d.goals ?? []).filter((g: Data) => g.status === "active");
         return JSON.stringify({
@@ -70,7 +70,7 @@ export class MockProvider implements AiProvider {
       case "import_data":
         if (d.hasImage) return JSON.stringify({ sessions: [{ kind: "activity", type: "Cycle", minutes: 30, distanceKm: 12.5 }], goals: [], context: [], notes: ["Mock read the machine screen."] });
         return JSON.stringify({
-          sessions: [{ kind: "gym", type: "Push", exercises: [{ name: "Bench press", sets: [{ reps: 6, kg: 40 }, { reps: 6, kg: 50 }] }] }],
+          sessions: [{ kind: "gym", type: "Gym", focus: "Push", exercises: [{ name: "Bench press", sets: [{ reps: 6, kg: 40 }, { reps: 6, kg: 50 }] }] }],
           goals: [{ title: "Bench press 80 kg", kind: "strength", exercise: "Bench press", targetKg: 80 }],
           context: [{ text: "Prefers short sessions", topic: "schedule" }],
           notes: [],

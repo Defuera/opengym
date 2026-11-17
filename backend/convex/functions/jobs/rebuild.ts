@@ -2,7 +2,7 @@ import { internal } from "../_generated/api";
 import { internalMutation } from "../_generated/server";
 import { REBUILD_DEBOUNCE_MS, REBUILD_MAX_WAIT_MS } from "../lib/constants";
 import { allSessions } from "../lib/db";
-import { starterTypes } from "../model/rules/planner";
+import { knownGymFoci } from "../model/rules/foci";
 
 /**
  * The single scheduled runner behind lib/facts-changed.ts.
@@ -25,8 +25,8 @@ export const run = internalMutation({
     }
     await ctx.db.patch(state._id, { runnerScheduled: false, runs: state.runs + 1, lastRunAt: now });
     const version = state.dirtyAt;
-    const gymTypes = (await allSessions(ctx)).filter((s) => s.kind === "gym").map((s) => s.type);
-    for (const type of new Set([...starterTypes, ...gymTypes])) await ctx.scheduler.runAfter(0, internal.jobs.plans.build, { type, version });
+    // One plan per known gym focus, so switching focus in the app never needs the AI (ADR-003).
+    for (const focus of knownGymFoci(await allSessions(ctx))) await ctx.scheduler.runAfter(0, internal.jobs.plans.build, { focus, version });
     await ctx.scheduler.runAfter(0, internal.jobs.predictions.build, { version });
     await ctx.scheduler.runAfter(0, internal.jobs.dashboards.build, { days: 7, version });
     await ctx.scheduler.runAfter(0, internal.jobs.dashboards.build, { days: 30, version });

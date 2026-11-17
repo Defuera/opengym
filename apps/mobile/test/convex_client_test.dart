@@ -56,7 +56,8 @@ const Map<String, dynamic> _doc = <String, dynamic>{
   '_id': 'x',
   'sessionId': 'a1',
   'kind': 'gym',
-  'type': 'Push',
+  'type': 'Gym',
+  'focus': 'Push',
   'startedAt': 1000.0,
   'endedAt': 2000.0,
   'exercises': <dynamic>[
@@ -115,7 +116,7 @@ void main() {
     await Future<void>.delayed(Duration.zero);
     fake.results.add(const cx.QuerySuccess(<String, dynamic>{
       'predictions': <dynamic>[
-        <String, dynamic>{'kind': 'gym', 'type': 'Pull', 'reason': 'Due'}
+        <String, dynamic>{'kind': 'gym', 'type': 'Gym', 'focus': 'Pull', 'reason': 'Due'}
       ],
       'source': 'rules',
       'stored': false,
@@ -123,7 +124,8 @@ void main() {
     await Future<void>.delayed(Duration.zero);
     expect(got.single.stored, isFalse);
     expect(got.single.source, 'rules');
-    expect(got.single.value.single.type, 'Pull');
+    expect(got.single.value.single.type, 'Gym');
+    expect(got.single.value.single.focus, 'Pull');
     await sub.cancel();
   });
 
@@ -132,7 +134,8 @@ void main() {
     await _client(fake).saveSession(Session(
         id: 's9',
         kind: 'gym',
-        type: 'Push',
+        type: 'Gym',
+        focus: 'Push',
         startedAt: 1,
         endedAt: 2,
         exercises: <Exercise>[
@@ -144,6 +147,7 @@ void main() {
     expect(m['name'], 'commands/sessions:save');
     final Map<String, dynamic> s = m['session'] as Map<String, dynamic>;
     expect(s['sessionId'], 's9');
+    expect(s['focus'], 'Push');
     expect(s.containsKey('id'), isFalse);
     final List<dynamic> sets =
         ((s['exercises'] as List<dynamic>).single as Map)['sets'] as List<dynamic>;

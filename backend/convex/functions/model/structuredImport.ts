@@ -1,5 +1,6 @@
 import type { z } from "zod";
 import { type ContextInput, ContextInputSchema, type GoalInput, GoalInputSchema, type Session, SessionSchema } from "./schema";
+import { normalizeSession } from "./sessionShape";
 import { StructuredImportBodySchema, StructuredSessionSchema } from "./schema/structuredImport";
 
 export class StructuredImportError extends Error {}
@@ -28,7 +29,7 @@ export function parseStructuredImport(raw: unknown, jobId: string, newId: () => 
   const sessions = b.sessions.map((x, i) => {
     const d = StructuredSessionSchema.safeParse(x);
     if (!d.success) fail(`sessions[${i}]`, d.error);
-    const s = SessionSchema.safeParse({ ...d.data, id: d.data!.id ?? newId(), source: "import", importId: jobId });
+    const s = SessionSchema.safeParse(normalizeSession({ ...d.data!, id: d.data!.id ?? newId(), source: "import", importId: jobId }));
     if (!s.success) fail(`sessions[${i}]`, s.error);
     return s.data!;
   });

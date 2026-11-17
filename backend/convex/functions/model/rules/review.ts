@@ -1,6 +1,8 @@
 import type { Review, Session } from "../schema";
 import { fmtKg, truncate } from "./util";
 
+const label = (s: Session) => (s.focus ? `${s.type} (${s.focus})` : s.type);
+
 type Draft = Pick<Review, "summary" | "changes">;
 
 function topByExercise(s: Session): Map<string, number> {
@@ -9,8 +11,9 @@ function topByExercise(s: Session): Map<string, number> {
   return m;
 }
 
+/** The previous session of the same activity and focus. */
 export function previousOfType(sessions: Session[], s: Session): Session | null {
-  const prev = sessions.filter((x) => x.id !== s.id && x.kind === s.kind && x.type === s.type && x.endedAt <= s.endedAt);
+  const prev = sessions.filter((x) => x.id !== s.id && x.kind === s.kind && x.type === s.type && x.focus === s.focus && x.endedAt <= s.endedAt);
   return prev.length ? prev[prev.length - 1]! : null;
 }
 
@@ -22,10 +25,10 @@ export function rulesReview(sessions: Session[], s: Session): Draft {
     const changes: string[] = [];
     if (prev && s.minutes !== undefined && prev.minutes !== undefined) changes.push(`Duration ${s.minutes} min (was ${prev.minutes})`);
     if (prev && s.distanceKm !== undefined && prev.distanceKm !== undefined) changes.push(`Distance ${fmtKg(s.distanceKm)} km (was ${fmtKg(prev.distanceKm)})`);
-    return { summary: `${s.type} logged${bits.length ? `: ${bits.join(", ")}` : ""}.`, changes: changes.slice(0, 5) };
+    return { summary: `${label(s)} logged${bits.length ? `: ${bits.join(", ")}` : ""}.`, changes: changes.slice(0, 5) };
   }
   const sets = s.exercises.reduce((n, e) => n + e.sets.length, 0);
-  const summary = `${s.type}: ${s.exercises.length} exercises, ${sets} sets.${prev ? "" : " First session of this type."}`;
+  const summary = `${label(s)}: ${s.exercises.length} exercises, ${sets} sets.${prev ? "" : " First session of this kind."}`;
   const changes: string[] = [];
   if (prev) {
     const prevSets = prev.exercises.reduce((n, e) => n + e.sets.length, 0);

@@ -31,7 +31,8 @@ abstract class ConvexClient {
   Stream<List<Session>> watchSessionsSince(int since);
   Stream<List<Goal>> watchGoals();
   Stream<List<ContextItem>> watchContext();
-  Stream<Stored<Plan>> watchNextPlan(String type);
+  /// The stored plan for gym [focus]; null asks for the advised focus.
+  Stream<Stored<Plan>> watchNextPlan({String? focus});
   Stream<Stored<List<Prediction>>> watchPredictions();
 
   /// [days] is 7 or 30.
@@ -181,8 +182,11 @@ class DartvexConvexClient implements ConvexClient {
       _watch('queries/context:list', const <String, dynamic>{}, decodeContext);
 
   @override
-  Stream<Stored<Plan>> watchNextPlan(String type) =>
-      _watch('queries/plans:next', <String, dynamic>{'type': type}, decodePlan);
+  Stream<Stored<Plan>> watchNextPlan({String? focus}) => _watch(
+        'queries/plans:next',
+        <String, dynamic>{if (focus != null) 'focus': focus},
+        decodePlan,
+      );
 
   @override
   Stream<Stored<List<Prediction>>> watchPredictions() =>

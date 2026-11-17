@@ -50,11 +50,12 @@ function goalModule(g: Goal, sessions: Session[], now: number): DashboardModule 
 }
 
 function sessionSubtitle(s: Session): string {
+  const tag = s.focus ? `${s.focus} · ` : "";
   if (s.kind === "gym") {
     const sets = s.exercises.reduce((n, e) => n + e.sets.length, 0);
-    return `${s.exercises.length} exercises, ${sets} sets`;
+    return `${tag}${s.exercises.length} exercises, ${sets} sets`;
   }
-  return [s.minutes !== undefined ? `${s.minutes} min` : null, s.distanceKm !== undefined ? `${fmtKg(s.distanceKm)} km` : null].filter(Boolean).join(", ") || "Activity";
+  return tag + [s.minutes !== undefined ? `${s.minutes} min` : null, s.distanceKm !== undefined ? `${fmtKg(s.distanceKm)} km` : null].filter(Boolean).join(", ") || "Activity";
 }
 
 /** Resolve a module spec to numbers computed from facts. Unknown goals are skipped. */

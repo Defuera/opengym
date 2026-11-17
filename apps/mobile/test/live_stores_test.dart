@@ -8,7 +8,7 @@ import 'package:opengym/stores/review_store.dart';
 
 import 'support/fake_convex_client.dart';
 
-const Prediction _pull = Prediction(kind: 'gym', type: 'Pull', reason: 'Due');
+const Prediction _pull = Prediction(kind: 'gym', type: 'Gym', focus: 'Pull', reason: 'Due');
 
 void main() {
   test('predictions are pushed to the store, rules first, AI later', () async {
@@ -16,23 +16,23 @@ void main() {
     final PlanStore plans = PlanStore(client: fake)..start();
     fake.predictions.set(const Stored<List<Prediction>>(<Prediction>[_pull], stored: false));
     await pump();
-    expect(plans.remote.single.type, 'Pull');
+    expect(plans.remote.single.focus, 'Pull');
     expect(plans.source, 'rules');
     fake.predictions.set(const Stored<List<Prediction>>(
-        <Prediction>[Prediction(kind: 'gym', type: 'Legs')],
+        <Prediction>[Prediction(kind: 'gym', type: 'Gym', focus: 'Legs')],
         stored: true, source: 'ai'));
     await pump();
-    expect(plans.remote.single.type, 'Legs');
+    expect(plans.remote.single.focus, 'Legs');
     expect(plans.source, 'ai');
     plans.dispose();
   });
 
-  test('the plan for a type comes from the live plan query', () async {
+  test('the plan for a focus comes from the live plan query', () async {
     final FakeConvexClient fake = FakeConvexClient();
     final PlanStore plans = PlanStore(client: fake);
     const Plan plan = Plan(
       id: 'rules:Upper',
-      type: 'Upper',
+      focus: 'Upper',
       createdAt: 1,
       source: 'rules',
       rationale: 'r',
@@ -41,10 +41,10 @@ void main() {
       ],
     );
     fake.plans['Upper'] = Live<Stored<Plan>>(const Stored<Plan>(plan, stored: false));
-    expect((await plans.fetchNext('Upper'))!.exercises.single.name, 'Row');
+    expect((await plans.fetchNext(focus: 'Upper'))!.exercises.single.name, 'Row');
     // No answer in time: null, so the caller uses the local planner.
     final PlanStore slow = PlanStore(client: fake, planBudget: const Duration(milliseconds: 20));
-    expect(await slow.fetchNext('Lower'), isNull);
+    expect(await slow.fetchNext(focus: 'Lower'), isNull);
   });
 
   test('the dashboard follows the selected period and updates live', () async {

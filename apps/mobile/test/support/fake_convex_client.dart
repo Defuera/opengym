@@ -172,8 +172,8 @@ class FakeConvexClient implements ConvexClient {
   Stream<List<ContextItem>> watchContext() => _context.stream();
 
   @override
-  Stream<Stored<Plan>> watchNextPlan(String type) =>
-      plans.putIfAbsent(type, () => Live<Stored<Plan>>()).stream();
+  Stream<Stored<Plan>> watchNextPlan({String? focus}) =>
+      plans.putIfAbsent(focus ?? '', () => Live<Stored<Plan>>()).stream();
 
   @override
   Stream<Stored<List<Prediction>>> watchPredictions() => predictions.stream();

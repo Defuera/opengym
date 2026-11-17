@@ -145,7 +145,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             children: <Widget>[
                               Flexible(
                                 child: Text(
-                                  'Resume ${a.type} session',
+                                  a.focus == null ? 'Resume ${a.type} session' : 'Resume ${a.type} · ${a.focus} session',
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ),

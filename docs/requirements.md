@@ -21,7 +21,7 @@ conversation (A01–A16). Wording is kept close to his.
 ## Logging
 - R09 Logging gym activity must be convenient and pleasant
 - R10 No extended typing or form-filling in the gym
-- R11 Everything is logged; no activity type is second-class
+- R11 Everything is logged; no activity type is second-class (Gym is one activity; Upper and Legs are focus labels inside it, not activity types)
 
 ## Home
 - R12 Opens on "how am I doing?"
@@ -30,10 +30,11 @@ conversation (A01–A16). Wording is kept close to his.
 - R15 Shows last week / last month progress
 
 ## Starting a session
+- Decided 2026-11-17, in plain words: gym upper and gym legs are not separate activities. The activity is Gym. The AI advises which exercises (the focus, for example Upper or Legs). The same holds for running: you just go for a run, and the AI may advise the session type. See ADR-013.
 - R16 Plus button starts an activity
-- R17 App predicts what you're about to do
+- R17 App predicts what you're about to do (it ranks activities, and advises the focus of each)
 - R18 Predictions ordered most-likely first
-- R19 Gym → a session is generated to follow
+- R19 Gym → a session is generated to follow, for the advised focus (the user may pick another focus)
 - R20 Exercises can be reordered
 - R21 Exercises can be swapped
 - R22 Session is prepared, edited only as needed — never a blank slate

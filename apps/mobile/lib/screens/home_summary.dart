@@ -74,7 +74,8 @@ class HomeSummary extends StatelessWidget {
     }
     final bool gym = s.kind == 'gym';
     return SessionListItem(
-      title: gym ? 'Gym · ${s.type}' : s.type,
+      title: s.type,
+      tag: s.focus,
       subtitle: whenLabel(s.endedAt ?? s.startedAt),
       trailing: gym ? '$n sets' : _activityTrailing(s),
     );

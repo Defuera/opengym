@@ -36,26 +36,45 @@ class _StartScreenState extends State<StartScreen> {
     );
   }
 
-  void _begin(String type) {
+  /// [focus] is the advised gym focus (null: none, an empty session).
+  void _begin(String? focus) {
     final AppDeps d = widget.deps;
     // An open session is resumed; offline starts straight from the local plan.
-    if (d.store.active != null || !d.connection.connected) {
-      d.store.begin(type);
-      _push(SessionScreen(store: d.store));
+    if (d.store.active != null || !d.connection.connected || focus == null) {
+      d.store.begin(focus: focus);
+      _push(SessionScreen(
+        store: d.store,
+        plans: d.plans,
+        online: d.connection.connected,
+        advisedFocus: focus,
+      ));
       return;
     }
-    _push(PrepareSessionScreen(deps: d, type: type));
+    _push(PrepareSessionScreen(deps: d, focus: focus));
   }
 
-  void _choose(Prediction p) {
+  void _choose(Prediction p, List<Prediction> all) {
     if (p.kind == 'activity') {
-      _push(OtherActivityScreen(store: widget.deps.store, initial: p.type));
+      _push(OtherActivityScreen(
+        store: widget.deps.store,
+        initial: p.type,
+        predictions: all,
+      ));
     } else {
-      _begin(p.type);
+      _begin(p.focus);
     }
   }
 
-  String _title(Prediction p) => p.kind == 'gym' ? 'Gym · ${p.type}' : p.type;
+  /// The title is the activity; the advised focus goes in the line below it.
+  String _title(Prediction p) => p.type;
+
+  String _line(Prediction p, {String fallback = ''}) {
+    final String f = p.focus ?? '';
+    if (f.isEmpty) {
+      return p.reason.isEmpty ? fallback : p.reason;
+    }
+    return p.reason.isEmpty ? f : '$f · ${p.reason}';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -74,14 +93,14 @@ class _StartScreenState extends State<StartScreen> {
           options.add(OptionCard(
             number: '${i + 1}',
             title: _title(x),
-            subtitle: x.reason,
-            onTap: () => _choose(x),
+            subtitle: _line(x),
+            onTap: () => _choose(x, list),
           ));
         }
         options.add(OptionCard(
           title: 'Other activity',
           icon: Icons.directions_run,
-          onTap: () => _push(OtherActivityScreen(store: d.store)),
+          onTap: () => _push(OtherActivityScreen(store: d.store, predictions: list)),
         ));
         options.add(OptionCard(
           icon: Icons.photo_camera_outlined,
@@ -92,7 +111,7 @@ class _StartScreenState extends State<StartScreen> {
           icon: Icons.add,
           title: 'Empty gym session',
           dashed: true,
-          onTap: () => _begin('Custom'),
+          onTap: () => _begin(null),
         ));
         return Scaffold(
           body: SafeArea(
@@ -118,8 +137,8 @@ class _StartScreenState extends State<StartScreen> {
                 PredictionCard(
                   rankLabel: '1 · Most likely',
                   title: _title(first),
-                  subtitle: first.reason.isEmpty ? 'Session ready to follow' : first.reason,
-                  onTap: () => _choose(first),
+                  subtitle: _line(first, fallback: 'Session ready to follow'),
+                  onTap: () => _choose(first, list),
                 ),
                 const SizedBox(height: 18),
                 OptionGrid(children: options),

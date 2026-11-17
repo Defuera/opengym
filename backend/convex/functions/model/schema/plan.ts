@@ -15,14 +15,15 @@ export const PlanExerciseSchema = z.object({
 
 export const PlanSchema = z.object({
   id: IdSchema,
-  type: z.string().min(1).max(40),
+  /** The focus this plan is for ("Upper", "Legs", ...). The activity is always Gym. */
+  focus: z.string().min(1).max(40),
   createdAt: MsSchema,
   source: ProposalSourceSchema,
   rationale: z.string().max(200),
   exercises: z.array(PlanExerciseSchema),
 });
 
-/** What the plan_session job produces; code adds id, type, createdAt, source. */
+/** What the plan_session job produces; code adds id, focus, createdAt, source. */
 export const PlanDraftSchema = z.object({
   rationale: z.string().max(200),
   exercises: z.array(PlanExerciseSchema), // the 12 exercise / 10 set limits are applied in code afterwards
@@ -30,7 +31,10 @@ export const PlanDraftSchema = z.object({
 
 export const PredictionSchema = z.object({
   kind: z.enum(["gym", "activity"]),
+  /** The activity ("Gym", "Run", ...). Gym appears at most once in a list. */
   type: z.string().min(1).max(40),
+  /** The advised flavour of that activity, when the log supports one. */
+  focus: z.string().min(1).max(40).optional(),
   reason: z.string().max(80),
 });
 

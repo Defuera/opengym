@@ -100,7 +100,7 @@ describe("imports:start (AI import of files, mock provider)", () => {
       notes: [`notes.txt: no date found for some sessions, used the file's upload time (${new Date(Date.UTC(2026, 0, 15, 12)).toISOString()}).`],
     });
     const [s] = await t.query(api.queries.sessions.since, { token: TOKEN, since: 0 });
-    expect(s).toMatchObject({ kind: "gym", type: "Push", source: "import", importId: "imp1", endedAt: Date.UTC(2026, 0, 15, 12) });
+    expect(s).toMatchObject({ kind: "gym", type: "Gym", focus: "Push", source: "import", importId: "imp1", endedAt: Date.UTC(2026, 0, 15, 12) });
     expect(s!.exercises[0]).toMatchObject({ name: "Bench press", sets: [{ reps: 6, kg: 40, max: false }, { reps: 6, kg: 50, max: false }] });
     expect((await t.query(api.queries.goals.list, { token: TOKEN }))[0]).toMatchObject({ source: "import", importId: "imp1" });
     expect((await t.query(api.queries.context.list, { token: TOKEN }))[0]).toMatchObject({ source: "import", importId: "imp1" });

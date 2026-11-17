@@ -7,6 +7,7 @@ export function logForPrompt(sessions: Session[], limit = 12) {
     date: new Date(s.endedAt).toISOString().slice(0, 10),
     kind: s.kind,
     type: s.type,
+    focus: s.focus,
     exercises: s.exercises.map((e) => ({ name: e.name, sets: e.sets.map((x) => `${x.reps}x${fmtKg(x.kg)}${x.max ? " max" : ""}`).join(", ") })),
     minutes: s.minutes,
     distanceKm: s.distanceKm,

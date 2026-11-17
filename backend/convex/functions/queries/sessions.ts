@@ -1,13 +1,18 @@
 import { v } from "convex/values";
 import { query } from "../_generated/server";
 import { requireToken } from "../lib/auth";
+import { normalizeSession } from "../model/sessionShape";
 
-/** Newest first. The app subscribes to this, so every change arrives live. */
+/**
+ * Newest first. The app subscribes to this, so every change arrives live.
+ * A legacy gym row (type "Upper", no focus) is returned as type "Gym", focus "Upper".
+ */
 export const recent = query({
   args: { token: v.string(), limit: v.optional(v.number()) },
   handler: async (ctx, { token, limit }) => {
     requireToken(token);
-    return ctx.db.query("sessions").withIndex("by_endedAt").order("desc").take(Math.min(limit ?? 20, 200));
+    const docs = await ctx.db.query("sessions").withIndex("by_endedAt").order("desc").take(Math.min(limit ?? 20, 200));
+    return docs.map(normalizeSession);
   },
 });
 
@@ -16,6 +21,7 @@ export const since = query({
   args: { token: v.string(), since: v.number() },
   handler: async (ctx, { token, since }) => {
     requireToken(token);
-    return ctx.db.query("sessions").withIndex("by_endedAt", (q) => q.gt("endedAt", since)).order("asc").collect();
+    const docs = await ctx.db.query("sessions").withIndex("by_endedAt", (q) => q.gt("endedAt", since)).order("asc").collect();
+    return docs.map(normalizeSession);
   },
 });

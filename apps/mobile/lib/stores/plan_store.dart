@@ -16,7 +16,7 @@ class PlanStore extends ChangeNotifier {
 
   final ConvexClient _client;
 
-  /// How long "start a session" waits for the plan of a type.
+  /// How long "start a session" waits for the plan of a focus.
   final Duration planBudget;
 
   /// Server predictions, or empty when none arrived (use [localPredictions]).
@@ -48,11 +48,12 @@ class PlanStore extends ChangeNotifier {
     return remote.isNotEmpty ? remote : localPredictions(sessions);
   }
 
-  /// The plan for [type]: the first answer of the live plan query within
-  /// [planBudget]. Null on any failure or an empty plan.
-  Future<Plan?> fetchNext(String type) async {
+  /// The plan for gym [focus] (null: the server's advised focus): the first
+  /// answer of the live plan query within [planBudget]. It reads a stored plan;
+  /// the server never calls the AI here. Null on any failure or an empty plan.
+  Future<Plan?> fetchNext({String? focus}) async {
     try {
-      final Stored<Plan> p = await _client.watchNextPlan(type).first.timeout(planBudget);
+      final Stored<Plan> p = await _client.watchNextPlan(focus: focus).first.timeout(planBudget);
       return p.value.exercises.isEmpty ? null : p.value;
     } catch (_) {
       return null;
@@ -78,15 +79,5 @@ class PlanStore extends ChangeNotifier {
   }
 }
 
-/// The local planner's rotation, in the same shape as the server's.
-List<Prediction> localPredictions(List<Session> sessions) {
-  final List<Prediction> out = <Prediction>[];
-  for (final TypeRank r in predictions(sessions)) {
-    out.add(Prediction(
-      kind: 'gym',
-      type: r.type,
-      reason: r.at == 0 ? 'Not logged yet' : 'Last done ${whenLabel(r.at).toLowerCase()}',
-    ));
-  }
-  return out;
-}
+/// The local planner's ranking, in the same shape as the server's.
+List<Prediction> localPredictions(List<Session> sessions) => rankActivities(sessions);

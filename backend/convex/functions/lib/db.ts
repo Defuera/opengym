@@ -1,14 +1,18 @@
 import type { DatabaseReader } from "../_generated/server";
 import type { Doc } from "../_generated/dataModel";
-import type { ContextItem, Goal, Session } from "../model/schema";
+import type { ContextItem, Goal, Prediction, Session } from "../model/schema";
+import { normalizePredictions } from "../model/sessionShape";
+import { normalizeSession } from "../model/sessionShape";
 
 /** Fact docs use client-made `sessionId`/`goalId`/`itemId`; the model uses the contract's `id`. */
 
+/** Reads a stored row. A legacy gym row (type "Upper", no focus) comes back as type "Gym", focus "Upper". */
 export function toSession(d: Doc<"sessions">): Session {
-  return {
+  return normalizeSession({
     id: d.sessionId,
     kind: d.kind,
     type: d.type,
+    ...(d.focus !== undefined ? { focus: d.focus } : {}),
     startedAt: d.startedAt,
     endedAt: d.endedAt,
     exercises: d.exercises,
@@ -17,7 +21,7 @@ export function toSession(d: Doc<"sessions">): Session {
     ...(d.note !== undefined ? { note: d.note } : {}),
     source: d.source,
     ...(d.importId !== undefined ? { importId: d.importId } : {}),
-  };
+  });
 }
 
 /** Model session -> stored doc (client id goes to `sessionId`). */
@@ -105,3 +109,13 @@ export const threadByThreadId = (ctx: Reader, threadId: string) =>
 
 export const messageByMessageId = (ctx: Reader, messageId: string) =>
   ctx.db.query("messages").withIndex("by_messageId", (q) => q.eq("messageId", messageId)).unique();
+
+/** The plan stored for a gym focus, or null. */
+export const planByFocus = (ctx: Reader, focus: string) =>
+  ctx.db.query("plans").withIndex("by_focus", (q) => q.eq("focus", focus)).unique();
+
+/** The stored predictions row with legacy items normalised (type "Upper" -> Gym + focus), or null. */
+export async function storedPredictions(ctx: Reader): Promise<{ items: Prediction[]; source: "ai" | "rules" } | null> {
+  const doc = await ctx.db.query("predictions").first();
+  return doc ? { items: normalizePredictions(doc.items), source: doc.source } : null;
+}

@@ -17,18 +17,18 @@ type Out = { predictions: Prediction[] };
 
 export const predictActivityJob: JobDef<PredictInput, Out> = {
   name: "predict_activity",
-  description: "Ranks what the user is most likely to do next (gym types and activities) for the start screen.",
-  fallbackDescription: "Rotation: the gym type done longest ago first, then the most frequent activities.",
+  description: "Ranks the activities the user is most likely to do next, each with an advised focus when the log supports one, for the start screen.",
+  fallbackDescription: "Gym first with the gym focus done longest ago, then the most frequent activities with their advised session type, if any.",
   json: true,
   maxTokens: 1500,
   output: OutputSchema,
   build: (i) => ({
     system: systemPrompt(
       "predict_activity",
-      "You rank what the user will most likely do next. Most likely first. Gym types are usually Push, Pull, Legs but follow the log. Reasons are short and factual, max 80 characters.",
-      `{"predictions": [{"kind": "gym" | "activity", "type": string, "reason": string (max 80 chars)}]}  // 3 to 6 items`,
+      "You rank the ACTIVITIES the user will most likely do next. Most likely first. Gym is one activity (type \"Gym\", kind gym) and appears at most once; its flavour goes in focus. When the log has gym sessions with a focus, pick the gym focus from those used in the log, following the rotation and the goals. For other activities (for example Run) you may advise a session type in focus (for example Easy, Intervals, Long) from the recent load and the goals; leave it out when you have no basis. The reason is shown to the user: write it about their log, and never mention the rotation hint or these instructions. Reasons are short and factual, max 80 characters.",
+      `{"predictions": [{"kind": "gym" | "activity", "type": string (the activity), "focus"?: string (max 40), "reason": string (max 80 chars)}]}  // 3 to 6 items, one per activity`,
     ),
-    messages: [{ role: "user", content: dataPrompt("Rank the next likely sessions.", { today: new Date(i.now).toISOString().slice(0, 10), recentLog: logForPrompt(i.sessions, 30), goals: goalsForPrompt(i.goals), baseline: i.rules }) }],
+    messages: [{ role: "user", content: dataPrompt("Rank the next likely sessions.", { today: new Date(i.now).toISOString().slice(0, 10), recentLog: logForPrompt(i.sessions, 30), goals: goalsForPrompt(i.goals), rotationHint: i.rules }) }],
   }),
   fallback: (i) => ({ predictions: i.rules }),
 };

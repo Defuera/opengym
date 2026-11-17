@@ -9,7 +9,8 @@ import { contextForPrompt, goalsForPrompt, logForPrompt } from "./shared";
  * `rules` is the plain-code plan, computed by the caller from the FULL history.
  */
 export interface PlanInput {
-  type: string;
+  /** The gym focus to plan ("Upper", "Legs", ...). The activity is always Gym. */
+  focus: string;
   sessions: Session[];
   goals: Goal[];
   context: ContextItem[];
@@ -20,8 +21,8 @@ const SHAPE = `{"rationale": string (max 200 chars), "exercises": [{"name": stri
 
 export const planSessionJob: JobDef<PlanInput, PlanDraft> = {
   name: "plan_session",
-  description: "Proposes the next session of a given type from the log, active goals and active context notes.",
-  fallbackDescription: "Repeats the last session of that type with its last sets; starter template (bench press 6x20, 6x40, 6x60, 1x60 max) if there is none.",
+  description: "Proposes the next gym session of a given focus from the log, active goals and active context notes.",
+  fallbackDescription: "Repeats the last session of that focus with its last sets; starter template (bench press 6x20, 6x40, 6x60, 1x60 max) if there is none.",
   json: true,
   // Reasoning tokens count against this limit on OpenAI; 1500 gave empty answers with real history.
   maxTokens: 4000,
@@ -35,8 +36,8 @@ export const planSessionJob: JobDef<PlanInput, PlanDraft> = {
     messages: [
       {
         role: "user",
-        content: dataPrompt(`Plan the next ${i.type} session.`, {
-          type: i.type,
+        content: dataPrompt(`Plan the next gym session with focus ${i.focus}.`, {
+          focus: i.focus,
           recentLog: logForPrompt(i.sessions),
           goals: goalsForPrompt(i.goals.filter((g) => g.status === "active")),
           context: contextForPrompt(i.context),

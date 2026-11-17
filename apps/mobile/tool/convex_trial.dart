@@ -40,7 +40,7 @@ Future<void> main() async {
 
   print('access check: ${(await c.checkAccess()).name}');
 
-  final Stored<Plan> plan = await _next(c.watchNextPlan('Upper'), (_) => true, 'the Upper plan');
+  final Stored<Plan> plan = await _next(c.watchNextPlan(focus: 'Upper'), (_) => true, 'the Upper plan');
   print('plan Upper: source=${plan.source} stored=${plan.stored} '
       'exercises=${plan.value.exercises.length}');
 

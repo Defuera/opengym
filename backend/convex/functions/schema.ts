@@ -18,7 +18,10 @@ export const sessionFields = {
   /** Client-made id, so an offline write can be retried safely. */
   sessionId: v.string(),
   kind: v.union(v.literal("gym"), v.literal("activity")),
+  /** The activity: "Gym" for kind gym. Old rows may still hold the flavour here (see jobs/migrations:activityFirst). */
   type: v.string(),
+  /** The flavour of the session ("Upper", "Legs", "Easy"). Optional. */
+  focus: v.optional(v.string()),
   startedAt: v.number(),
   endedAt: v.number(),
   exercises: v.array(exercise),
@@ -122,13 +125,16 @@ export default defineSchema({
   // Read models. Written only by jobs. `version` is the dirtyAt of the rebuild that made the row;
   // a job result older than the stored row is dropped.
   plans: defineTable({
-    type: v.string(),
+    /** The focus the plan is for. Optional only until jobs/migrations:activityFirst has run; code always writes it. */
+    focus: v.optional(v.string()),
+    /** Legacy key (the old gym type). Never written now; the migration moves it to `focus`. */
+    type: v.optional(v.string()),
     version: v.number(),
     createdAt: v.number(),
     source: proposalSource,
     rationale: v.string(),
     exercises: v.array(planExercise),
-  }).index("by_type", ["type"]),
+  }).index("by_focus", ["focus"]),
   predictions: defineTable({
     version: v.number(),
     createdAt: v.number(),

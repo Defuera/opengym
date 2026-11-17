@@ -52,7 +52,7 @@ class PlanExercise {
 class Plan {
   const Plan({
     required this.id,
-    required this.type,
+    required this.focus,
     required this.createdAt,
     required this.source,
     required this.rationale,
@@ -60,7 +60,8 @@ class Plan {
   });
 
   final String id;
-  final String type;
+  /// The gym focus this plan is for ('Upper', 'Legs', ...).
+  final String focus;
   final int createdAt;
 
   /// 'ai' or 'rules'.
@@ -71,7 +72,8 @@ class Plan {
   Map<String, dynamic> toJson() {
     return <String, dynamic>{
       'id': id,
-      'type': type,
+      'type': 'Gym',
+      'focus': focus,
       'createdAt': createdAt,
       'source': source,
       'rationale': rationale,
@@ -82,7 +84,8 @@ class Plan {
   factory Plan.fromJson(Map<String, dynamic> j) {
     return Plan(
       id: str(j['id']),
-      type: str(j['type']),
+      // An older server sends the flavour as `type`.
+      focus: str(j['focus'], str(j['type'])),
       createdAt: intOf(j['createdAt']),
       source: str(j['source'], 'rules'),
       rationale: str(j['rationale']),

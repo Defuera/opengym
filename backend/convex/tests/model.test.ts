@@ -75,7 +75,8 @@ describe("provider adapters", () => {
 const session = (id: string, kg: number): Session => ({
   id,
   kind: "gym",
-  type: "Push",
+  type: "Gym",
+  focus: "Push",
   startedAt: 0,
   endedAt: 1_000,
   exercises: [{ name: "Bench press", sets: [{ reps: 5, kg, max: false }] }],

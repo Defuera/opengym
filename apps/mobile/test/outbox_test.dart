@@ -13,7 +13,8 @@ import 'support/fake_convex_client.dart';
 Session _session(String id, {bool failed = false, int ended = 2000}) => Session(
       id: id,
       kind: 'gym',
-      type: 'Push',
+      type: 'Gym',
+      focus: 'Push',
       startedAt: 1000,
       endedAt: ended,
       exercises: <Exercise>[
@@ -269,7 +270,7 @@ void main() {
 
     // store: mark on the current set, then finish
     final AppStore store = await _store();
-    store.begin('Push');
+    store.begin(focus: 'Push');
     store.toggleFailed();
     expect(store.currentSet!.failed, isTrue);
     store.completeSet();

@@ -1,22 +1,47 @@
 import 'json_util.dart';
 
-/// A start suggestion (from the server or the local planner).
+/// A start suggestion (from the server or the local planner): one ACTIVITY
+/// ([type], e.g. Gym or Run) and the advised [focus] of that session, if any.
 class Prediction {
-  const Prediction({required this.kind, required this.type, this.reason = ''});
+  const Prediction({
+    required this.kind,
+    required this.type,
+    this.focus,
+    this.reason = '',
+  });
 
   /// gym | activity
   final String kind;
+
+  /// The activity. Always 'Gym' for kind gym.
   final String type;
+
+  /// The advised flavour ('Upper', or 'Easy' for a run). Advice only.
+  final String? focus;
   final String reason;
 
   Map<String, dynamic> toJson() {
-    return <String, dynamic>{'kind': kind, 'type': type, 'reason': reason};
+    return <String, dynamic>{
+      'kind': kind,
+      'type': type,
+      if (focus != null) 'focus': focus,
+      'reason': reason,
+    };
   }
 
+  /// Reads a prediction. A legacy gym item (type 'Upper') becomes Gym + focus.
   factory Prediction.fromJson(Map<String, dynamic> j) {
+    final String kind = str(j['kind'], 'gym') == 'activity' ? 'activity' : 'gym';
+    String type = str(j['type']);
+    String? focus = strOrNull(j['focus']);
+    if (kind == 'gym' && type.isNotEmpty && type != 'Gym') {
+      focus ??= type;
+      type = 'Gym';
+    }
     return Prediction(
-      kind: str(j['kind'], 'gym') == 'activity' ? 'activity' : 'gym',
-      type: str(j['type']),
+      kind: kind,
+      type: type,
+      focus: (focus == null || focus.isEmpty) ? null : focus,
       reason: str(j['reason']),
     );
   }

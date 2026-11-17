@@ -34,7 +34,9 @@ const ImportExerciseSchema = z.object({
 /** A session as the import job may produce it; the date is optional on purpose (ISO string). */
 export const ImportSessionDraftSchema = z.object({
   kind: z.enum(["gym", "activity"]),
+  /** The activity. Gym sessions may still arrive as type "Upper" (old shape); code normalises them. */
   type: z.string().min(1).max(40),
+  focus: z.string().min(1).max(40).optional(),
   date: z.string().optional(),
   exercises: z.array(ImportExerciseSchema).max(15).default([]),
   minutes: z.number().int().nonnegative().optional(),

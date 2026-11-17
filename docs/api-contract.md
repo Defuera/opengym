@@ -1,5 +1,7 @@
 # OpenGym API contract (v1)
 
+> Note: this file still describes the old REST API. The live contract is the Convex functions in `backend/convex/functions` (ADR-012). Only the session, plan and prediction shapes below were updated for ADR-013 (activity first, focus is advice).
+
 One backend, one core database, one user. The Flutter app (`mobile/`) and the
 server (`backend/`) both build against this file. JSON everywhere, times are
 epoch milliseconds, ids are client- or server-made strings.
@@ -29,14 +31,16 @@ type Source = "app" | "user" | "ai" | "rules" | "import";
 SetEntry   { reps: int 0..100, kg: number 0..500, max: boolean, failed?: boolean, at?: number }
            /* reps = completed reps. failed = one more rep was tried and not completed (the user's "6.5 reps") */
 Exercise   { name: string 1..60, sets: SetEntry[] (<=12) }
-Session    { id, kind: "gym" | "activity", type: string 1..40,
+Session    { id, kind: "gym" | "activity",
+             type: string 1..40 /* the ACTIVITY: "Gym" for kind gym, else "Run", "Cycle", ... */,
+             focus?: string 1..40 /* the flavour: "Upper", "Legs"; for a run "Easy", "Intervals". A label. */,
              startedAt, endedAt, exercises: Exercise[] (<=15, [] for activity),
              minutes?: int, distanceKm?: number, note?: string,
              source: "app" | "import", importId?: string }
 
 PlanSet      { reps, kg, max }
 PlanExercise { name, sets: PlanSet[], note?: string (<=120) }
-Plan       { id, type, createdAt, source: "ai" | "rules", rationale: string (<=200),
+Plan       { id, type: "Gym", focus /* the gym focus this plan is for */, createdAt, source: "ai" | "rules", rationale: string (<=200),
              exercises: PlanExercise[] }
 
 Goal       { id, title 1..80, kind: "strength" | "consistency" | "work_around" | "custom",
@@ -52,7 +56,8 @@ Message    { id, threadId, role: "user" | "assistant", text, fileIds: string[],
              createdAt }
 FileMeta   { id, name, mime, size, kind: "text" | "image" | "pdf" | "audio" | "other", createdAt }
 
-Prediction { kind: "gym" | "activity", type: string, reason: string (<=80) }
+Prediction { kind: "gym" | "activity", type: string /* the activity; "Gym" at most once */,
+             focus?: string 1..40 /* advised flavour, when the log supports one */, reason: string (<=80) }
 
 DashboardModule =
   | { type: "stat", label, value: string, highlighted: boolean }
@@ -82,7 +87,7 @@ goal).
 | DELETE | `/v1/sessions/:id` | – | `{ ok: true }` |
 | GET | `/v1/sessions/:id/review` | – | `{ review: Review | null }` |
 | GET | `/v1/start` | – | `{ predictions: Prediction[] }` most likely first |
-| GET | `/v1/plans/next?type=Push` | – | `{ plan: Plan }` stored proposal, else generated now (AI with 8 s budget, then rules) |
+| GET | `/v1/plans/next?focus=Upper` (Convex: `queries/plans:next`, `focus` optional; none = the advised focus) | – | `{ plan: Plan }` stored proposal, else generated now (AI with 8 s budget, then rules) |
 | GET | `/v1/dashboard?days=7` | – | `{ dashboard: Dashboard }` |
 | GET | `/v1/goals` | – | `{ goals: Goal[] }` |
 | POST | `/v1/goals` | `{ title, kind, exercise?, targetKg?, sessionsPerWeek? }` | `{ goal }` |
@@ -115,13 +120,13 @@ plans and the dashboard layout; they are regenerated in the background.
 
 | Job | Output | Fallback (plain code) |
 |---|---|---|
-| `plan_session` | Plan for a type from log, goals, active context | last session of that type with its last sets; starter template if none |
-| `predict_activity` | Prediction[] | rotation: gym type done longest ago first, then most frequent activities |
+| `plan_session` | Plan for a gym focus from log, goals, active context | last gym session with that focus and its last sets; starter template if none |
+| `predict_activity` | Prediction[] | Gym once with the focus done longest ago, then the most frequent activities, each with an advised session type when the log has one |
 | `build_dashboard` | ordered module specs | sessions, active days, top set of most-trained exercise, one goal_progress per active goal, recent_sessions |
 | `chat` | reply text + sources | fixed "AI is not configured" reply; message still stored |
 | `extract_from_chat` | new Goal[] / ContextItem[] from a user message | none extracted |
 | `summarise_thread` | Thread.summary (<=400 chars) | last user message truncated |
-| `review_session` | Review | set counts and top sets vs previous session of that type |
+| `review_session` | Review | set counts and top sets vs previous session of the same activity and focus |
 | `import_data` | Session[] / Goal[] / ContextItem[] from a text chunk or an image | nothing imported; job note says AI is required |
 
 Plan safety limits applied in code after validation: at most 12 exercises and

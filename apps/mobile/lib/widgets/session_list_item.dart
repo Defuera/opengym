@@ -9,7 +9,11 @@ class SessionListItem extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.trailing,
+    this.tag,
   });
+
+  /// The focus of the session ("Upper", "Easy"), shown as a small tag.
+  final String? tag;
 
   final String title;
   final String subtitle;
@@ -26,7 +30,28 @@ class SessionListItem extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
-                Text(title, style: OG.body(size: 18, weight: FontWeight.w700)),
+                Row(
+                  children: <Widget>[
+                    Flexible(
+                      child: Text(
+                        title,
+                        overflow: TextOverflow.ellipsis,
+                        style: OG.body(size: 18, weight: FontWeight.w700),
+                      ),
+                    ),
+                    if (tag != null && tag!.isNotEmpty) ...<Widget>[
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(999),
+                          border: Border.all(color: OG.ink, width: 1.5),
+                        ),
+                        child: Text(tag!, style: OG.muted(size: 13, weight: FontWeight.w600)),
+                      ),
+                    ],
+                  ],
+                ),
                 Text(subtitle, style: OG.muted()),
               ],
             ),

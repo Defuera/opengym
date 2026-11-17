@@ -4,7 +4,7 @@ import { TOKEN, pushSession, setup, settle, stubOpenAi, type T } from "./helpers
 
 let t: T;
 const save = (s: ReturnType<typeof pushSession>) => t.mutation(api.commands.sessions.save, { token: TOKEN, session: s });
-const next = (type = "Push") => t.query(api.queries.plans.next, { token: TOKEN, type });
+const next = (focus = "Push") => t.query(api.queries.plans.next, { token: TOKEN, focus });
 const names = (p: { exercises: { name: string }[] }) => p.exercises.map((e) => e.name);
 
 beforeEach(() => {
@@ -40,11 +40,12 @@ describe("rules answers (AI off, nothing stored)", () => {
     expect(plan.exercises[0]!.sets).toEqual(s.exercises[0]!.sets);
   });
 
-  it("start predictions rotate: longest-ago gym type first", async () => {
+  it("start predictions rank activities: Gym once, with the focus that is due", async () => {
     await save(pushSession("p1", 5_000_000));
     const r = await t.query(api.queries.start.predictions, { token: TOKEN });
     expect(r).toMatchObject({ stored: false, source: "rules" });
-    expect(r.predictions.map((p) => p.type)).toEqual(["Pull", "Legs", "Push"]);
+    expect(r.predictions.map((p) => p.type)).toEqual(["Gym"]);
+    expect(r.predictions[0]).toMatchObject({ kind: "gym", focus: "Push", reason: expect.stringContaining("Last push session was") });
   });
 
   it("dashboard numbers are computed by code from facts", async () => {
@@ -105,7 +106,7 @@ describe("AI path (mock provider)", () => {
     await settle(t);
     expect((await next()).plan.source).toBe("ai");
     await save(pushSession("p2", 6_000_000, 90));
-    expect(await t.run((c) => c.db.query("plans").collect())).toHaveLength(3);
+    expect(await t.run((c) => c.db.query("plans").collect())).toHaveLength(1);
     expect(await next()).toMatchObject({ stored: true, plan: { source: "ai" } }); // still the old one, while the rebuild is pending
     await settle(t);
     const after = await next();
@@ -137,7 +138,7 @@ describe("plan safety limits and fallback (real provider code, stubbed network)"
     const calls = stubOpenAi((job) => (job === "plan_session" ? "this is not json" : "{}"));
     await save(pushSession("p1", 5_000_000, 70));
     await settle(t);
-    expect(calls.filter((c) => c.job === "plan_session" && c.input.type === "Push")).toHaveLength(2);
+    expect(calls.filter((c) => c.job === "plan_session" && c.input.focus === "Push")).toHaveLength(2);
     const { plan, stored } = await next();
     expect(stored).toBe(true);
     expect(plan.source).toBe("rules");

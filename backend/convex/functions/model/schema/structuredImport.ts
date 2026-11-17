@@ -10,6 +10,7 @@ export const StructuredSessionSchema = z.object({
   id: IdSchema.optional(),
   kind: z.enum(["gym", "activity"]),
   type: z.string(),
+  focus: z.string().optional(),
   startedAt: MsSchema,
   endedAt: MsSchema,
   exercises: z.array(ExerciseSchema).default([]),

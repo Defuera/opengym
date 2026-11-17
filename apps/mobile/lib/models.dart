@@ -7,6 +7,10 @@ export 'models/goal.dart';
 export 'models/misc.dart';
 export 'models/plan.dart';
 
+/// The activity name of every gym session. The flavour (Upper, Legs, ...) is
+/// the session's `focus` (ADR-013).
+const String gymType = 'Gym';
+
 class SetEntry {
   SetEntry({
     required this.reps,
@@ -136,6 +140,7 @@ class Session {
     required this.id,
     required this.kind,
     required this.type,
+    this.focus,
     required this.startedAt,
     this.endedAt,
     List<Exercise>? exercises,
@@ -151,7 +156,13 @@ class Session {
 
   /// 'gym' or 'activity'.
   String kind;
+
+  /// The activity: 'Gym' for kind gym, else 'Run', 'Cycle', ...
   String type;
+
+  /// The flavour of this session ('Upper', 'Legs', 'Easy', ...), or null.
+  /// The AI advises it; the user may change it; the app writes it.
+  String? focus;
   int startedAt;
   int? endedAt;
   List<Exercise> exercises;
@@ -176,6 +187,9 @@ class Session {
       'startedAt': startedAt,
       'exercises': exercises.map((Exercise e) => e.toJson()).toList(),
     };
+    if (focus != null) {
+      m['focus'] = focus;
+    }
     if (endedAt != null) {
       m['endedAt'] = endedAt;
     }
@@ -213,6 +227,10 @@ class Session {
           : <Map<String, dynamic>>[],
       'source': source == 'import' ? 'import' : 'app',
     };
+    final String? f = focus?.trim();
+    if (f != null && f.isNotEmpty) {
+      m['focus'] = f.length > 40 ? f.substring(0, 40) : f;
+    }
     if (minutes != null) {
       m['minutes'] = minutes;
     }
@@ -228,6 +246,8 @@ class Session {
     return m;
   }
 
+  /// Reads a session. A legacy gym session (type 'Upper', no focus), from
+  /// local storage or an old server row, comes back as type 'Gym', focus 'Upper'.
   factory Session.fromJson(Map<String, dynamic> j) {
     final List<Exercise> list = <Exercise>[];
     final Object? raw = j['exercises'];
@@ -239,10 +259,20 @@ class Session {
     final Object? ended = j['endedAt'];
     final Object? mins = j['minutes'];
     final Object? dist = j['distanceKm'];
+    final String kind = j['kind'] as String;
+    String type = j['type'] as String;
+    String? focus = j['focus'] is String && (j['focus'] as String).isNotEmpty
+        ? j['focus'] as String
+        : null;
+    if (kind == 'gym' && type != gymType && type.trim().isNotEmpty) {
+      focus ??= type.trim().toLowerCase() == gymType.toLowerCase() ? null : type.trim();
+      type = gymType;
+    }
     return Session(
       id: (j['id'] as String?) ?? '',
-      kind: j['kind'] as String,
-      type: j['type'] as String,
+      kind: kind,
+      type: type,
+      focus: focus,
       startedAt: (j['startedAt'] as num).toInt(),
       endedAt: ended is num ? ended.toInt() : null,
       exercises: list,

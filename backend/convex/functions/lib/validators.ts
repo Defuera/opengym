@@ -8,7 +8,7 @@ export const dashboardDays = v.union(v.literal(7), v.literal(30));
 
 export const planSet = v.object({ reps: v.number(), kg: v.number(), max: v.boolean() });
 export const planExercise = v.object({ name: v.string(), sets: v.array(planSet), note: v.optional(v.string()) });
-export const prediction = v.object({ kind: v.union(v.literal("gym"), v.literal("activity")), type: v.string(), reason: v.string() });
+export const prediction = v.object({ kind: v.union(v.literal("gym"), v.literal("activity")), type: v.string(), focus: v.optional(v.string()), reason: v.string() });
 
 /** Dashboard layout spec: which modules, in what order. Numbers are never stored (computed by code). */
 export const moduleSpec = v.union(

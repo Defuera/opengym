@@ -79,25 +79,49 @@ class AppStore extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Starts a gym session. [prepared] (e.g. from a server plan) replaces the
-  /// local planner's exercises; [rationale] is shown on the session screen.
-  void begin(String type, {List<Exercise>? prepared, String? rationale}) {
+  /// Starts a gym session with the advised or chosen [focus] (null: none, an
+  /// empty session). [prepared] (e.g. from a server plan) replaces the local
+  /// planner's exercises; [rationale] is shown on the session screen.
+  void begin({String? focus, List<Exercise>? prepared, String? rationale}) {
     if (active == null) {
       active = Session(
         id: newId(),
         kind: 'gym',
-        type: type,
+        type: gymType,
+        focus: focus,
         startedAt: DateTime.now().millisecondsSinceEpoch,
-        exercises: prepared ?? planFor(sessions, type),
+        exercises: prepared ?? planFor(sessions, focus),
         planNote: (rationale == null || rationale.isEmpty) ? null : rationale,
       );
       _select(0);
       _commit();
       return;
     }
-    // One session at a time: an open session of another type is resumed.
+    // One session at a time: an open session is resumed.
     _select(0);
     notifyListeners();
+  }
+
+  /// Whether any set of the open session is done.
+  bool get hasDoneSet {
+    return active?.exercises.any((Exercise e) => e.sets.any((SetEntry s) => s.done)) ?? false;
+  }
+
+  /// Changes the focus of the open gym session. Before the first done set the
+  /// exercises are swapped for [prepared] (a stored plan of that focus) or the
+  /// local plan; later only the label changes, so logged work is never dropped.
+  void changeFocus(String focus, {List<Exercise>? prepared, String? rationale}) {
+    final Session? a = active;
+    if (a == null || a.kind != 'gym' || a.focus == focus) {
+      return;
+    }
+    a.focus = focus;
+    if (!hasDoneSet) {
+      a.exercises = prepared ?? planFor(sessions, focus);
+      a.planNote = (rationale == null || rationale.isEmpty) ? null : rationale;
+      _select(0);
+    }
+    _commit();
   }
 
   void finish() {
@@ -218,13 +242,16 @@ class AppStore extends ChangeNotifier {
     _commit();
   }
 
-  void logActivity(String type, int minutes) {
+  /// Logs an activity. [focus] is its session type ('Easy', 'Intervals'), if any.
+  void logActivity(String type, int minutes, {String? focus}) {
+    final String? f = focus?.trim();
     final int now = DateTime.now().millisecondsSinceEpoch;
     final String id = newId();
     sessions.add(Session(
       id: id,
       kind: 'activity',
       type: type,
+      focus: (f == null || f.isEmpty) ? null : f,
       startedAt: now - minutes * 60000,
       endedAt: now,
       minutes: minutes,

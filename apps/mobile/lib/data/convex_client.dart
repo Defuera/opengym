@@ -31,8 +31,9 @@ abstract class ConvexClient {
   Stream<List<Session>> watchSessionsSince(int since);
   Stream<List<Goal>> watchGoals();
   Stream<List<ContextItem>> watchContext();
-  /// The stored plan for gym [focus]; null asks for the advised focus.
-  Stream<Stored<Plan>> watchNextPlan({String? focus});
+  /// The stored plan for [activity] (null: Gym) and [focus]; a null focus asks
+  /// for the advised focus.
+  Stream<Stored<Plan>> watchNextPlan({String? activity, String? focus});
   Stream<Stored<List<Prediction>>> watchPredictions();
 
   /// [days] is 7 or 30.
@@ -113,6 +114,14 @@ abstract class ConvexClient {
   /// Meta and download URL of a file, or null when the server has no such file.
   Future<FileLink?> fileLink(String fileId);
   Future<void> removeFile(String fileId);
+
+  /// Asks the coach to interpret a typed "something new" start. NOT a fact:
+  /// the app never queues it in the outbox. The answer arrives through
+  /// [watchStartRequest]. Sending the same [requestId] again changes nothing.
+  Future<void> requestStart({required String requestId, required String text});
+
+  /// The state of one start request; null while the server has none.
+  Stream<StartRequest?> watchStartRequest(String requestId);
 
   /// Starts an AI import of uploaded files. Progress arrives through
   /// [watchImports]. Sending the same [importId] again changes nothing.
@@ -197,11 +206,25 @@ class DartvexConvexClient implements ConvexClient {
       _watch('queries/context:list', const <String, dynamic>{}, decodeContext);
 
   @override
-  Stream<Stored<Plan>> watchNextPlan({String? focus}) => _watch(
+  Stream<Stored<Plan>> watchNextPlan({String? activity, String? focus}) => _watch(
         'queries/plans:next',
-        <String, dynamic>{if (focus != null) 'focus': focus},
+        <String, dynamic>{
+          if (activity != null) 'activity': activity,
+          if (focus != null) 'focus': focus,
+        },
         decodePlan,
       );
+
+  @override
+  Stream<StartRequest?> watchStartRequest(String requestId) => _watch(
+        'queries/start:request',
+        <String, dynamic>{'requestId': requestId},
+        decodeStartRequest,
+      );
+
+  @override
+  Future<void> requestStart({required String requestId, required String text}) =>
+      _mutate('commands/start:request', <String, dynamic>{'requestId': requestId, 'text': text});
 
   @override
   Stream<Stored<List<Prediction>>> watchPredictions() =>

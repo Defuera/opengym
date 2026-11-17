@@ -1,17 +1,17 @@
 /// Strict data schema. JSON keys match the web prototype (`max` for isMax).
 /// `toJson` is the local persistence shape; `toContractJson` is the API shape.
 library;
+
+import 'models/activity.dart';
+
 export 'models/about.dart';
+export 'models/activity.dart';
 export 'models/about_parts.dart';
 export 'models/chat.dart';
 export 'models/dashboard.dart';
 export 'models/goal.dart';
 export 'models/misc.dart';
 export 'models/plan.dart';
-
-/// The activity name of every gym session. The flavour (Upper, Legs, ...) is
-/// the session's `focus` (ADR-013).
-const String gymType = 'Gym';
 
 class SetEntry {
   SetEntry({
@@ -159,7 +159,8 @@ class Session {
   /// 'gym' or 'activity'.
   String kind;
 
-  /// The activity: 'Gym' for kind gym, else 'Run', 'Cycle', ...
+  /// The activity name, any text 1..40 ('Gym' by default for a session with
+  /// sets; 'Run', 'Cycling', ... for time and distance).
   String type;
 
   /// The flavour of this session ('Upper', 'Legs', 'Easy', ...), or null.
@@ -248,8 +249,8 @@ class Session {
     return m;
   }
 
-  /// Reads a session. A legacy gym session (type 'Upper', no focus), from
-  /// local storage or an old server row, comes back as type 'Gym', focus 'Upper'.
+  /// Reads a session. Old rows stay valid: a session with sets and type
+  /// 'Gym' is just a session of the activity Gym.
   factory Session.fromJson(Map<String, dynamic> j) {
     final List<Exercise> list = <Exercise>[];
     final Object? raw = j['exercises'];
@@ -263,11 +264,10 @@ class Session {
     final Object? dist = j['distanceKm'];
     final String kind = j['kind'] as String;
     String type = j['type'] as String;
-    String? focus = j['focus'] is String && (j['focus'] as String).isNotEmpty
+    final String? focus = j['focus'] is String && (j['focus'] as String).isNotEmpty
         ? j['focus'] as String
         : null;
-    if (kind == 'gym' && type != gymType && type.trim().isNotEmpty) {
-      focus ??= type.trim().toLowerCase() == gymType.toLowerCase() ? null : type.trim();
+    if (kind == 'gym' && type.trim().isEmpty) {
       type = gymType;
     }
     return Session(

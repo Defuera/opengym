@@ -165,19 +165,22 @@ void main() {
     expect(j['type'], 'Gym');
   });
 
-  test('a legacy gym session (type Upper, no focus) reads as Gym with a focus', () {
-    final Map<String, dynamic> legacy = <String, dynamic>{
+  test('a session with sets keeps any activity name; old Gym rows stay valid', () {
+    final Map<String, dynamic> row = <String, dynamic>{
       'id': 'old',
       'kind': 'gym',
-      'type': 'Upper',
+      'type': 'Home',
+      'focus': 'Quick',
       'startedAt': 1,
       'endedAt': 2,
       'exercises': <Object>[],
     };
-    final Session s = Session.fromJson(legacy);
-    expect(s.type, 'Gym');
-    expect(s.focus, 'Upper');
-    expect(Session.fromJson(_roundTrip(s.toJson())).focus, 'Upper');
+    final Session s = Session.fromJson(row);
+    expect(s.type, 'Home');
+    expect(s.focus, 'Quick');
+    expect(Session.fromJson(_roundTrip(s.toJson())).type, 'Home');
+    expect(s.toContractJson()['type'], 'Home');
+    expect(Session.fromJson(<String, dynamic>{...row, 'type': 'Gym'}).type, 'Gym');
     final Session run = Session.fromJson(<String, dynamic>{
       'id': 'r', 'kind': 'activity', 'type': 'Run', 'focus': 'Easy', 'startedAt': 1, 'endedAt': 2,
     });
@@ -187,12 +190,44 @@ void main() {
     expect(Session.fromJson(<String, dynamic>{'id': 'x', 'kind': 'activity', 'type': 'Run', 'startedAt': 1, 'endedAt': 2}).toContractJson().containsKey('focus'), isFalse);
   });
 
-  test('Prediction and Plan read the legacy shape', () {
-    final Prediction p = Prediction.fromJson(<String, dynamic>{'kind': 'gym', 'type': 'Legs', 'reason': 'r'});
-    expect(p.type, 'Gym');
-    expect(p.focus, 'Legs');
-    expect(Prediction.fromJson(p.toJson()).focus, 'Legs');
-    expect(Plan.fromJson(<String, dynamic>{'id': 'p', 'type': 'Upper', 'createdAt': 1}).focus, 'Upper');
+  test('Prediction keeps any activity name; Plan reads its focus', () {
+    final Prediction p = Prediction.fromJson(
+        <String, dynamic>{'kind': 'gym', 'type': 'Home', 'focus': 'Quick', 'reason': 'r'});
+    expect(p.type, 'Home');
+    expect(p.focus, 'Quick');
+    expect(Prediction.fromJson(p.toJson()).type, 'Home');
+    expect(Prediction.fromJson(<String, dynamic>{'kind': 'gym'}).type, 'Gym');
+    expect(Plan.fromJson(<String, dynamic>{'id': 'p', 'focus': 'Upper', 'createdAt': 1}).focus, 'Upper');
+  });
+
+  test('a start request reads pending, ready (gym and activity) and failed', () {
+    expect(StartRequest.fromJson(<String, dynamic>{'requestId': 'r', 'status': 'pending'}).pending, isTrue);
+    final StartRequest ready = StartRequest.fromJson(<String, dynamic>{
+      'requestId': 'r',
+      'status': 'ready',
+      'proposal': <String, dynamic>{
+        'kind': 'gym',
+        'type': 'Hotel gym',
+        'focus': 'Full body',
+        'reason': 'r',
+        'plan': <String, dynamic>{
+          'id': 'p',
+          'focus': 'Full body',
+          'createdAt': 1,
+          'exercises': <Object>[
+            <String, dynamic>{'name': 'Squat', 'sets': <Object>[<String, dynamic>{'reps': 8, 'kg': 0}]},
+          ],
+        },
+      },
+    });
+    expect(ready.proposal!.type, 'Hotel gym');
+    expect(ready.proposal!.plan!.exercises.single.name, 'Squat');
+    final StartProposal act = StartProposal.fromJson(
+        <String, dynamic>{'kind': 'activity', 'type': 'Padel', 'minutes': 60});
+    expect(act.kind, 'activity');
+    expect(act.minutes, 60);
+    expect(act.plan, isNull);
+    expect(StartRequest.fromJson(<String, dynamic>{'requestId': 'r', 'status': 'failed'}).proposal, isNull);
   });
 
   test('activity Session carries minutes, distance, note and no exercises', () {

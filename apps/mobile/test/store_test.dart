@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'support/plans.dart';
 import 'package:opengym/data/in_memory_session_repository.dart';
 import 'package:opengym/models.dart';
 import 'package:opengym/planner.dart';
@@ -17,7 +18,7 @@ void main() {
   test('begin Push, complete the 4 bench sets, ready for next exercise', () async {
     final InMemorySessionRepository repo = InMemorySessionRepository();
     final AppStore store = await _newStore(repo);
-    store.begin(focus: 'Push');
+    store.begin(focus: 'Push', prepared: pushPlan());
 
     expect(store.active, isNotNull);
     expect(store.active!.exercises.length, 4);
@@ -47,7 +48,7 @@ void main() {
 
   test('a first-time exercise carries the completed set to open sets', () async {
     final AppStore store = await _newStore(InMemorySessionRepository());
-    store.begin(focus: 'Push');
+    store.begin(focus: 'Push', prepared: pushPlan());
     store.nextExercise();
     final Exercise ex = store.currentExercise!;
     expect(ex.fresh, isTrue);
@@ -70,7 +71,7 @@ void main() {
   test('finish drops undone sets and empty exercises', () async {
     final InMemorySessionRepository repo = InMemorySessionRepository();
     final AppStore store = await _newStore(repo);
-    store.begin(focus: 'Push');
+    store.begin(focus: 'Push', prepared: pushPlan());
     store.completeSet();
     store.completeSet();
     store.finish();
@@ -99,7 +100,7 @@ void main() {
   test('discard saves nothing', () async {
     final InMemorySessionRepository repo = InMemorySessionRepository();
     final AppStore store = await _newStore(repo);
-    store.begin(focus: 'Push');
+    store.begin(focus: 'Push', prepared: pushPlan());
     store.completeSet();
     store.discard();
 
@@ -112,7 +113,7 @@ void main() {
   test('a saved session survives a reload', () async {
     final InMemorySessionRepository repo = InMemorySessionRepository();
     final AppStore first = await _newStore(repo);
-    first.begin(focus: 'Push');
+    first.begin(focus: 'Push', prepared: pushPlan());
     first.completeSet();
 
     final AppStore second = await _newStore(repo);
@@ -153,7 +154,7 @@ void main() {
     final AppStore store = await _newStore(InMemorySessionRepository());
     final List<String> seen = <String>[];
     store.onSessionSaved = seen.add;
-    store.begin(focus: 'Push');
+    store.begin(focus: 'Push', prepared: pushPlan());
     store.completeSet();
     store.finish();
     expect(seen, <String>[store.sessions.first.id]);
@@ -167,7 +168,7 @@ void main() {
 void _storeSetAndOrderTests() {
   test('removeSetAt removes one set, keeps selection, keeps the last set', () async {
     final AppStore store = await _newStore(InMemorySessionRepository());
-    store.begin(focus: 'Push');
+    store.begin(focus: 'Push', prepared: pushPlan());
     expect(store.currentExercise!.sets.length, 4);
     store.pickSet(2);
     store.removeSetAt(0);
@@ -183,7 +184,7 @@ void _storeSetAndOrderTests() {
 
   test('moveExercise reorders and keeps the selected exercise', () async {
     final AppStore store = await _newStore(InMemorySessionRepository());
-    store.begin(focus: 'Push');
+    store.begin(focus: 'Push', prepared: pushPlan());
     final List<String> before =
         store.active!.exercises.map((Exercise e) => e.name).toList();
     store.moveExercise(0, 2);
@@ -196,21 +197,54 @@ void _storeSetAndOrderTests() {
     expect(store.active!.exercises.map((Exercise e) => e.name).toList(), after);
   });
 
-  test('begin makes a Gym session with the focus; changeFocus swaps the plan before the first set', () async {
+  test('begin makes a session of any activity; changeFocus swaps the plan before the first set', () async {
     final AppStore store = await _newStore(InMemorySessionRepository());
-    store.begin(focus: 'Push');
+    store.sessions.add(Session(
+      id: 'h1',
+      kind: 'gym',
+      type: 'Home',
+      focus: 'Quick',
+      startedAt: 1,
+      endedAt: 2,
+      exercises: <Exercise>[
+        Exercise(id: 'e', name: 'Press-up', sets: <SetEntry>[SetEntry(reps: 12, kg: 0, done: true)]),
+      ],
+    ));
+    store.begin(focus: 'Push', prepared: pushPlan());
     expect(store.active!.type, 'Gym');
     expect(store.active!.focus, 'Push');
     expect(store.hasDoneSet, isFalse);
-    store.changeFocus('Legs');
+    store.changeFocus('Legs'); // no Gym + Legs in the log: an empty plan
     expect(store.active!.focus, 'Legs');
-    expect(store.active!.type, 'Gym');
-    expect(store.active!.exercises.first.name, 'Squat');
+    expect(store.active!.exercises, isEmpty);
+    store.discard();
+
+    store.begin(activity: ' Home ', focus: 'Quick');
+    expect(store.active!.type, 'Home');
+    expect(store.active!.exercises.single.name, 'Press-up'); // the user's own last session
+    store.begin(activity: 'Other'); // one session at a time: resumed
+    expect(store.active!.type, 'Home');
     store.completeSet();
-    final String firstName = store.active!.exercises.first.name;
     store.changeFocus('Pull'); // a set is done: only the label changes
     expect(store.active!.focus, 'Pull');
-    expect(store.active!.exercises.first.name, firstName);
+    expect(store.active!.exercises.single.name, 'Press-up');
+  });
+
+  test('a "Home" session round trips through finish, JSON and reload', () async {
+    final InMemorySessionRepository repo = InMemorySessionRepository();
+    final AppStore store = await _newStore(repo);
+    store.begin(activity: 'Home', focus: 'Quick', prepared: <Exercise>[makeExercise(<Session>[], 'Press-up')]);
+    store.completeSet();
+    store.finish();
+    final Session s = store.sessions.single;
+    expect(s.type, 'Home');
+    expect(s.kind, 'gym');
+    expect(s.toContractJson()['type'], 'Home');
+    expect(s.toContractJson()['exercises'], isNotEmpty);
+    expect(Session.fromJson(s.toJson()).type, 'Home');
+    final AppStore again = await _newStore(repo);
+    expect(again.sessions.single.type, 'Home');
+    expect(again.sessions.single.focus, 'Quick');
   });
 
   test('logActivity keeps the session type as focus; blank means none', () async {
@@ -220,5 +254,8 @@ void _storeSetAndOrderTests() {
     expect(store.sessions[0].focus, 'Intervals');
     expect(store.sessions[1].focus, isNull);
     expect(store.sessions[0].type, 'Run');
+    store.logActivity('Padel', 45, distanceKm: 0, note: ' fun ');
+    expect(store.sessions[2].distanceKm, isNull);
+    expect(store.sessions[2].note, 'fun');
   });
 }

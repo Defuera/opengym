@@ -36,7 +36,7 @@ class _SessionFocusBarState extends State<SessionFocusBar> {
   Future<void> _pick(String focus) async {
     Plan? plan;
     if (widget.online) {
-      plan = await widget.plans.fetchNext(focus: focus);
+      plan = await widget.plans.fetchNext(activity: widget.store.active?.type, focus: focus);
     }
     if (!mounted) {
       return;
@@ -58,7 +58,7 @@ class _SessionFocusBarState extends State<SessionFocusBar> {
     return Padding(
       padding: const EdgeInsets.only(top: 14),
       child: FocusChips(
-        foci: gymFoci(widget.store.sessions, advised: advised),
+        foci: gymFoci(widget.store.sessions, activity: a.type, advised: advised),
         selected: a.focus,
         advised: advised,
         onSelect: _pick,

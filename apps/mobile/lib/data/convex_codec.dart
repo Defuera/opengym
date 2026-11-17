@@ -69,6 +69,11 @@ Stored<Plan> decodePlan(Object? v) {
   return Stored<Plan>(p, stored: m['stored'] == true, source: p.source);
 }
 
+/// The answer of `queries/start:request`: null, or the request state.
+StartRequest? decodeStartRequest(Object? v) {
+  return v is Map ? StartRequest.fromJson(asMap(normalize(v))) : null;
+}
+
 Stored<List<Prediction>> decodePredictions(Object? v) {
   final Map<String, dynamic> m = asMap(normalize(v));
   return Stored<List<Prediction>>(

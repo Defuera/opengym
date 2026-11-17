@@ -26,7 +26,10 @@ class Live<T> {
             c.addSync(n);
           }
         });
-        c.onCancel = s.cancel;
+        // Do not hand the cancel future back: it never completes under a widget test's fake clock.
+        c.onCancel = () {
+          s.cancel();
+        };
       });
 
   void error(Object e) => _changes.addError(e);
@@ -175,9 +178,37 @@ class FakeConvexClient implements ConvexClient {
   @override
   Stream<List<ContextItem>> watchContext() => _context.stream();
 
+  /// Key of [plans]: the focus alone for the default activity, else
+  /// `activity/focus`.
+  static String planKey({String? activity, String? focus}) =>
+      activity == null ? (focus ?? '') : '$activity/${focus ?? ''}';
+
   @override
-  Stream<Stored<Plan>> watchNextPlan({String? focus}) =>
-      plans.putIfAbsent(focus ?? '', () => Live<Stored<Plan>>()).stream();
+  Stream<Stored<Plan>> watchNextPlan({String? activity, String? focus}) {
+    final String key = planKey(activity: activity, focus: focus);
+    return plans.putIfAbsent(key, () => Live<Stored<Plan>>()).stream();
+  }
+
+  /// Start requests the app sent, in order: id and text.
+  final List<(String, String)> startSent = <(String, String)>[];
+  final Map<String, Live<StartRequest?>> startRequests = <String, Live<StartRequest?>>{};
+
+  String get lastStartId => startSent.last.$1;
+
+  /// The server answers the last start request.
+  void answerStart(StartRequest r) =>
+      startRequests.putIfAbsent(lastStartId, () => Live<StartRequest?>()).set(r);
+
+  @override
+  Future<void> requestStart({required String requestId, required String text}) async {
+    _command('requestStart:$requestId');
+    startSent.add((requestId, text));
+    startRequests.putIfAbsent(requestId, () => Live<StartRequest?>());
+  }
+
+  @override
+  Stream<StartRequest?> watchStartRequest(String requestId) =>
+      startRequests.putIfAbsent(requestId, () => Live<StartRequest?>()).stream();
 
   @override
   Stream<Stored<List<Prediction>>> watchPredictions() => predictions.stream();

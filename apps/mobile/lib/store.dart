@@ -79,18 +79,26 @@ class AppStore extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Starts a gym session with the advised or chosen [focus] (null: none, an
-  /// empty session). [prepared] (e.g. from a server plan) replaces the local
-  /// planner's exercises; [rationale] is shown on the session screen.
-  void begin({String? focus, List<Exercise>? prepared, String? rationale}) {
+  /// Starts a session with sets for [activity] (any name, default Gym) and
+  /// the advised or chosen [focus] (null: none). [prepared] (e.g. from a
+  /// server plan) replaces the local fallback plan (the user's last session
+  /// of that activity and focus, else empty); [rationale] is shown on the
+  /// session screen.
+  void begin({
+    String activity = gymType,
+    String? focus,
+    List<Exercise>? prepared,
+    String? rationale,
+  }) {
     if (active == null) {
+      final String name = activity.trim().isEmpty ? gymType : activity.trim();
       active = Session(
         id: newId(),
         kind: 'gym',
-        type: gymType,
+        type: name.length > 40 ? name.substring(0, 40).trim() : name,
         focus: focus,
         startedAt: DateTime.now().millisecondsSinceEpoch,
-        exercises: prepared ?? planFor(sessions, focus),
+        exercises: prepared ?? planFor(sessions, name, focus),
         planNote: (rationale == null || rationale.isEmpty) ? null : rationale,
       );
       _select(0);
@@ -117,7 +125,7 @@ class AppStore extends ChangeNotifier {
     }
     a.focus = focus;
     if (!hasDoneSet) {
-      a.exercises = prepared ?? planFor(sessions, focus);
+      a.exercises = prepared ?? planFor(sessions, a.type, focus);
       a.planNote = (rationale == null || rationale.isEmpty) ? null : rationale;
       _select(0);
     }
@@ -242,19 +250,30 @@ class AppStore extends ChangeNotifier {
     _commit();
   }
 
-  /// Logs an activity. [focus] is its session type ('Easy', 'Intervals'), if any.
-  void logActivity(String type, int minutes, {String? focus}) {
+  /// Logs a time/distance activity. [focus] is its session type ('Easy',
+  /// 'Intervals'), if any; [distanceKm] and [note] are optional.
+  void logActivity(
+    String type,
+    int minutes, {
+    String? focus,
+    double? distanceKm,
+    String? note,
+  }) {
     final String? f = focus?.trim();
+    final String? n = note?.trim();
     final int now = DateTime.now().millisecondsSinceEpoch;
     final String id = newId();
+    final String name = type.trim().isEmpty ? 'Activity' : type.trim();
     sessions.add(Session(
       id: id,
       kind: 'activity',
-      type: type,
+      type: name.length > 40 ? name.substring(0, 40).trim() : name,
       focus: (f == null || f.isEmpty) ? null : f,
       startedAt: now - minutes * 60000,
       endedAt: now,
       minutes: minutes,
+      distanceKm: (distanceKm == null || distanceKm <= 0) ? null : distanceKm,
+      note: (n == null || n.isEmpty) ? null : n,
     ));
     _commit();
     _announce(id);

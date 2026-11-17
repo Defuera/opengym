@@ -19,7 +19,7 @@ class HomeSummary extends StatelessWidget {
     if (sessions.isEmpty) {
       return const NoteBox(
         title: 'Nothing logged yet.',
-        message: 'Press the plus button to start your first session. '
+        message: 'Press Start session or Log. '
             'Your stats build from what you log.',
       );
     }

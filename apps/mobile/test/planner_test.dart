@@ -24,6 +24,18 @@ Session _gym(String focus, int endedAt, List<Exercise> exercises) {
   );
 }
 
+Session _home(String focus, int endedAt, List<Exercise> exercises) {
+  return Session(
+    id: 'home$focus$endedAt',
+    kind: 'gym',
+    type: 'Home',
+    focus: focus,
+    startedAt: endedAt - 1800000,
+    endedAt: endedAt,
+    exercises: exercises,
+  );
+}
+
 void main() {
   test('bench press defaults are 6x20, 6x40, 6x60, then 1x60 max', () {
     final List<SetEntry> sets = defaultSets('Bench press');
@@ -40,9 +52,8 @@ void main() {
     expect(sets.every((SetEntry s) => s.reps == 8 && s.kg == 0), isTrue);
   });
 
-  test('focus rotation follows starter order with no history', () {
-    final List<FocusRank> p = focusRotation(<Session>[]);
-    expect(p.map((FocusRank x) => x.focus).toList(), <String>['Push', 'Pull', 'Legs']);
+  test('focus rotation is empty with no history (no starter foci)', () {
+    expect(focusRotation(<Session>[]), isEmpty);
   });
 
   test('focus rotation uses only the foci in the log, least recent first', () {
@@ -68,16 +79,18 @@ void main() {
     expect(lastSetsFor(sessions, 'Squat'), isNull);
   });
 
-  test('planFor reuses the last gym session with that focus', () {
+  test('planFor repeats the last session of the same activity and focus, else empty', () {
     final List<Session> sessions = <Session>[
       _gym('Push', 1000, <Exercise>[_ex('Dips', <double>[0])]),
+      _home('Quick', 2000, <Exercise>[_ex('Press-up', <double>[0])]),
     ];
-    final List<Exercise> plan = planFor(sessions, 'Push');
+    final List<Exercise> plan = planFor(sessions, 'Gym', 'Push');
     expect(plan.map((Exercise e) => e.name).toList(), <String>['Dips']);
     expect(plan.first.fresh, isFalse);
-    expect(planFor(<Session>[], 'Pull').length, 4);
-    expect(planFor(<Session>[], 'Custom'), isEmpty);
-    expect(planFor(<Session>[], null), isEmpty);
+    expect(planFor(sessions, ' home ', 'quick').map((Exercise e) => e.name), <String>['Press-up']);
+    expect(planFor(sessions, 'Home', 'Push'), isEmpty);
+    expect(planFor(<Session>[], 'Gym', 'Pull'), isEmpty);
+    expect(planFor(<Session>[], 'Gym', null), isEmpty);
   });
 
   test('stats counts sessions, delta, active days, sets and top exercise', () {
@@ -99,31 +112,39 @@ void main() {
     expect(r.top, 60);
   });
 
-  test('rankActivities ranks activities: Gym once with the focus that is due', () {
+  test('rankActivities gives one item per set-based activity, most often first', () {
     const int now = 1700000000000;
     final List<Session> sessions = <Session>[
       _gym('Upper', now - 6 * dayMs, <Exercise>[_ex('Row', <double>[40])]),
       _gym('Legs', now - 2 * dayMs, <Exercise>[_ex('Squat', <double>[80])]),
-      Session(id: 'r1', kind: 'activity', type: 'Run', focus: 'Long', startedAt: now - 9 * dayMs, endedAt: now - 9 * dayMs),
-      Session(id: 'r2', kind: 'activity', type: 'Run', focus: 'Easy', startedAt: now - 3 * dayMs, endedAt: now - 3 * dayMs),
+      _home('Quick', now - 3 * dayMs, <Exercise>[_ex('Press-up', <double>[0])]),
+      Session(id: 'r1', kind: 'activity', type: 'Run', startedAt: now, endedAt: now),
     ];
     final List<Prediction> p = rankActivities(sessions, nowMs: now);
-    expect(p.where((Prediction x) => x.type == 'Gym').length, 1);
+    expect(p.map((Prediction x) => x.type).toList(), <String>['Gym', 'Home']);
     expect(p.first.focus, 'Upper');
-    expect(p.first.reason, 'Last legs session was 2 days ago');
-    expect(p[1].type, 'Run');
-    expect(p[1].focus, 'Long');
-    expect(rankActivities(<Session>[], nowMs: now).single.focus, 'Push');
+    expect(p.first.reason, 'Last upper session was 6 days ago');
+    expect(p[1].focus, 'Quick');
+    expect(rankActivities(<Session>[], nowMs: now), isEmpty);
   });
 
-  test('gymFoci puts the advised focus first', () {
+  test('gymFoci lists only the foci of that activity, the advised one first', () {
     final List<Session> sessions = <Session>[
       _gym('Upper', 1000, <Exercise>[_ex('Row', <double>[40])]),
+      _home('Quick', 2000, <Exercise>[_ex('Press-up', <double>[0])]),
     ];
     expect(gymFoci(sessions, advised: 'Legs').first, 'Legs');
-    // The log has a focus, so only logged foci (plus the advised one) show.
     expect(gymFoci(sessions).toList(), <String>['Upper']);
+    expect(gymFoci(sessions, activity: 'home').toList(), <String>['Quick']);
     expect(gymFoci(sessions, advised: 'Upper').toList(), <String>['Upper']);
-    expect(gymFoci(<Session>[]).toList(), <String>['Push', 'Pull', 'Legs']);
+    expect(gymFoci(<Session>[]).toList(), isEmpty);
+  });
+
+  test('activityKey lower-cases, trims and collapses spaces', () {
+    expect(activityKey('  Hotel   GYM '), 'hotel gym');
+    expect(activityKey('Run'), activityKey('run '));
+    expect(activityNameFromText('hotel gym, 30 min'), 'Hotel gym');
+    expect(activityNameFromText('  '), 'Gym');
+    expect(activityNameFromText('x' * 60).length, 40);
   });
 }

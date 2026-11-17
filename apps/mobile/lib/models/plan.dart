@@ -60,7 +60,7 @@ class Plan {
   });
 
   final String id;
-  /// The gym focus this plan is for ('Upper', 'Legs', ...).
+  /// The focus this plan is for ('Upper', 'Legs', ...). May be empty.
   final String focus;
   final int createdAt;
 
@@ -84,8 +84,7 @@ class Plan {
   factory Plan.fromJson(Map<String, dynamic> j) {
     return Plan(
       id: str(j['id']),
-      // An older server sends the flavour as `type`.
-      focus: str(j['focus'], str(j['type'])),
+      focus: str(j['focus']),
       createdAt: intOf(j['createdAt']),
       source: str(j['source'], 'rules'),
       rationale: str(j['rationale']),

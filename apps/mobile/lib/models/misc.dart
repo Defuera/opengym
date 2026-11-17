@@ -13,7 +13,7 @@ class Prediction {
   /// gym | activity
   final String kind;
 
-  /// The activity. Always 'Gym' for kind gym.
+  /// The activity name (from the log). 'Gym' when the server sent none.
   final String type;
 
   /// The advised flavour ('Upper', or 'Easy' for a run). Advice only.
@@ -29,18 +29,14 @@ class Prediction {
     };
   }
 
-  /// Reads a prediction. A legacy gym item (type 'Upper') becomes Gym + focus.
+  /// Reads a prediction. A gym item without a name is the activity Gym.
   factory Prediction.fromJson(Map<String, dynamic> j) {
     final String kind = str(j['kind'], 'gym') == 'activity' ? 'activity' : 'gym';
-    String type = str(j['type']);
-    String? focus = strOrNull(j['focus']);
-    if (kind == 'gym' && type.isNotEmpty && type != 'Gym') {
-      focus ??= type;
-      type = 'Gym';
-    }
+    final String type = str(j['type']);
+    final String? focus = strOrNull(j['focus']);
     return Prediction(
       kind: kind,
-      type: type,
+      type: (kind == 'gym' && type.isEmpty) ? 'Gym' : type,
       focus: (focus == null || focus.isEmpty) ? null : focus,
       reason: str(j['reason']),
     );

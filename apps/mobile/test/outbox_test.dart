@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'support/plans.dart';
 import 'package:opengym/data/convex_client.dart';
 import 'package:opengym/data/convex_codec.dart';
 import 'package:opengym/data/outbox.dart';
@@ -270,7 +271,7 @@ void main() {
 
     // store: mark on the current set, then finish
     final AppStore store = await _store();
-    store.begin(focus: 'Push');
+    store.begin(focus: 'Push', prepared: pushPlan());
     store.toggleFailed();
     expect(store.currentSet!.failed, isTrue);
     store.completeSet();

@@ -131,7 +131,7 @@ class _ChatScreenState extends State<ChatScreen> {
       items.add(const SizedBox(height: 12));
     }
     if (c.thinking) {
-      items.add(const ChatBubble(text: 'Thinking…', mine: false));
+      items.add(const ChatBubble(text: 'Thinking…', mine: false, copyable: false));
       items.add(const SizedBox(height: 12));
     }
     final String? why = c.retryReason;

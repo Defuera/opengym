@@ -260,7 +260,7 @@ describe("start request", () => {
   });
 
   it("is idempotent by requestId: a resend stores nothing new and runs the job once", async () => {
-    const calls = stubOpenAi(() => JSON.stringify({ kind: "gym", type: "Home", plan: { rationale: "r", exercises: [] } }));
+    const calls = stubOpenAi(() => JSON.stringify({ kind: "gym", type: "Home", plan: { rationale: "r", exercises: [{ name: "Glute Bridge", sets: [{ reps: 12, kg: 0, max: false }] }] } }));
     await request("r1", "home");
     await request("r1", "home");
     await request("r1", "something else entirely"); // same id: the first text stays
@@ -272,6 +272,14 @@ describe("start request", () => {
     await request("r1", "home"); // a resend after it is ready does not reset it
     expect(await getRequest("r1")).toEqual(done);
     await settle(t);
+  });
+
+  it("an empty plan from the AI is invalid: one retry, then the plain-code fallback", async () => {
+    const calls = stubOpenAi(() => JSON.stringify({ kind: "gym", type: "Home", plan: { rationale: "r", exercises: [] } }));
+    await request("r1", "home workout");
+    await settle(t);
+    expect(calls.filter((c) => c.job === "interpret_request")).toHaveLength(2);
+    expect((await getRequest("r1"))!.status).toBe("ready");
   });
 
   it("AI off: ready at once with the fallback, a session with sets named from the text and an empty plan", async () => {

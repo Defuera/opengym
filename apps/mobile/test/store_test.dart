@@ -222,9 +222,13 @@ void _storeSetAndOrderTests() {
     store.begin(activity: ' Home ', focus: 'Quick');
     expect(store.active!.type, 'Home');
     expect(store.active!.exercises.single.name, 'Press-up'); // the user's own last session
-    store.begin(activity: 'Other'); // one session at a time: resumed
+    store.begin(activity: 'Other'); // no set done yet: the new start replaces it
+    expect(store.active!.type, 'Other');
+    store.begin(activity: 'Home', focus: 'Quick');
     expect(store.active!.type, 'Home');
     store.completeSet();
+    store.begin(activity: 'Other'); // a set is done: the open session is resumed
+    expect(store.active!.type, 'Home');
     store.changeFocus('Pull'); // a set is done: only the label changes
     expect(store.active!.focus, 'Pull');
     expect(store.active!.exercises.single.name, 'Press-up');

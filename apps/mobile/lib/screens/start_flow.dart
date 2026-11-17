@@ -22,7 +22,7 @@ SessionScreen _session(AppDeps d, {String? advised}) => SessionScreen(
 /// fallback plan at once; online the stored plan is read (a few seconds at
 /// most) by the prepare screen.
 void openPrepared(NavigatorState nav, AppDeps d, {required String activity, String? focus}) {
-  if (d.store.active != null || !d.connection.connected || focus == null) {
+  if (d.store.hasDoneSet || !d.connection.connected || focus == null) {
     d.store.begin(activity: activity, focus: focus);
     nav.push(_route(_session(d, advised: focus)));
     return;

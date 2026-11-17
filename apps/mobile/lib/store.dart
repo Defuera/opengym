@@ -90,7 +90,9 @@ class AppStore extends ChangeNotifier {
     List<Exercise>? prepared,
     String? rationale,
   }) {
-    if (active == null) {
+    // An open session with no done set holds nothing the user logged: a new
+    // start replaces it. With a done set it is resumed, so work is never lost.
+    if (active == null || !hasDoneSet) {
       final String name = activity.trim().isEmpty ? gymType : activity.trim();
       active = Session(
         id: newId(),
@@ -105,7 +107,7 @@ class AppStore extends ChangeNotifier {
       _commit();
       return;
     }
-    // One session at a time: an open session is resumed.
+    // One session at a time: an open session with logged sets is resumed.
     _select(0);
     notifyListeners();
   }

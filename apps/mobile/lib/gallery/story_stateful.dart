@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../theme.dart';
 import '../widgets/exercise_card.dart';
 import '../widgets/exercise_carousel.dart';
+import '../widgets/flag_toggle.dart';
 import '../widgets/item_state.dart';
 import '../widgets/og_chip.dart';
 import '../widgets/segmented_toggle.dart';
@@ -30,6 +31,34 @@ class _StepperDemoState extends State<StepperDemo> {
         onMinus: () => setState(() => _kg = _kg - 2.5 < 0 ? 0 : _kg - 2.5),
         onPlus: () => setState(() => _kg = _kg + 2.5),
       ),
+    );
+  }
+}
+
+/// FlagToggle that really flips.
+class FlagToggleDemo extends StatefulWidget {
+  const FlagToggleDemo({super.key});
+
+  @override
+  State<FlagToggleDemo> createState() => _FlagToggleDemoState();
+}
+
+class _FlagToggleDemoState extends State<FlagToggleDemo> {
+  bool _on = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        FlagToggle(
+          label: 'Last rep failed',
+          value: _on,
+          onChanged: (bool v) => setState(() => _on = v),
+        ),
+        const SizedBox(height: 10),
+        Text(_on ? 'Tile shows 6½×70' : 'Tile shows 6×70', style: OG.muted()),
+      ],
     );
   }
 }
@@ -102,9 +131,7 @@ class _CarouselDemoState extends State<CarouselDemo> {
       cards.add(ExerciseCard(
         name: _names[i],
         progressLabel: i == 0 ? 'Done' : '0 / 3 sets',
-        state: i == _sel
-            ? ItemState.current
-            : (i == 0 ? ItemState.finished : ItemState.idle),
+        state: i == _sel ? ItemState.current : (i == 0 ? ItemState.finished : ItemState.idle),
         canMoveEarlier: i > 0,
         onTap: () => setState(() => _sel = i),
         onMoveEarlier: () {},

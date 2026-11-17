@@ -4,6 +4,7 @@ import '../theme.dart';
 import '../widgets/choice_sheet.dart';
 import '../widgets/cta_button.dart';
 import '../widgets/exercise_card.dart';
+import '../widgets/flag_toggle.dart';
 import '../widgets/exercise_panel.dart';
 import '../widgets/exercise_picker.dart';
 import '../widgets/item_state.dart';
@@ -18,6 +19,8 @@ import '../widgets/stat_tile.dart';
 import '../widgets/stepper_row.dart';
 
 void _noop() {}
+
+void _noopBool(bool _) {}
 
 const SizedBox _gap = SizedBox(height: 12);
 
@@ -148,7 +151,7 @@ Widget setTilesStory(BuildContext context) {
     children: <Widget>[
       SetTile(label: 'Set 1', value: '6×20', state: ItemState.finished, checked: true),
       SetTile(label: 'Set 2', value: '6×40', state: ItemState.current),
-      SetTile(label: 'Set 3', value: '6×60'),
+      SetTile(label: 'Set 3', value: '6½×60', state: ItemState.finished, checked: true),
       SetTile(label: 'Max', value: '1×60'),
       ToolTile(label: '+ Set', onTap: _noop),
       ToolTile(label: '− Set', onTap: _noop),
@@ -158,7 +161,7 @@ Widget setTilesStory(BuildContext context) {
 
 Widget panelStory(BuildContext context) {
   return const SizedBox(
-    height: 470,
+    height: 540,
     child: ExercisePanel(
       name: 'Bench press',
       hint: 'First time here. Set your numbers once; next time they are pre-filled.',
@@ -171,6 +174,7 @@ Widget panelStory(BuildContext context) {
         ]),
         StepperRow(label: 'Set 1 · Reps', value: '6', onMinus: _noop, onPlus: _noop),
         StepperRow(label: 'Weight (kg)', value: '20', onMinus: _noop, onPlus: _noop),
+        FlagToggle(label: 'Last rep failed', value: false, onChanged: _noopBool),
       ],
     ),
   );

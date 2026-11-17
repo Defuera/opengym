@@ -6,6 +6,7 @@ import '../store.dart';
 import '../widgets/exercise_card.dart';
 import '../widgets/exercise_carousel.dart';
 import '../widgets/exercise_panel.dart';
+import '../widgets/flag_toggle.dart';
 import '../widgets/item_state.dart';
 import '../widgets/note_box.dart';
 import '../widgets/set_tile.dart';
@@ -29,9 +30,7 @@ class ExerciseStrip extends StatelessWidget {
       cards.add(ExerciseCard(
         name: e.name,
         progressLabel: fin ? 'Done' : '$done / ${e.sets.length} sets',
-        state: i == store.curEx
-            ? ItemState.current
-            : (fin ? ItemState.finished : ItemState.idle),
+        state: i == store.curEx ? ItemState.current : (fin ? ItemState.finished : ItemState.idle),
         canMoveEarlier: i > 0,
         onTap: () => store.pickExercise(i),
         onMoveEarlier: () => store.moveExerciseEarlier(i),
@@ -93,6 +92,12 @@ class SessionPanel extends StatelessWidget {
         onMinus: () => store.changeKg(-2.5),
         onPlus: () => store.changeKg(2.5),
       ));
+      // "6½" on the tile: one more rep was tried and not completed.
+      body.add(FlagToggle(
+        label: 'Last rep failed',
+        value: s.failed,
+        onChanged: (bool _) => store.toggleFailed(),
+      ));
     }
     return ExercisePanel(
       name: ex.name,
@@ -105,9 +110,8 @@ class SessionPanel extends StatelessWidget {
 
 String? _hint(Exercise ex) {
   final String? note = ex.note;
-  final String? fresh = ex.fresh
-      ? 'First time here. Set your numbers once; next time they are pre-filled.'
-      : null;
+  final String? fresh =
+      ex.fresh ? 'First time here. Set your numbers once; next time they are pre-filled.' : null;
   if (note != null && note.isNotEmpty) {
     return fresh == null ? note : '$note\n$fresh';
   }

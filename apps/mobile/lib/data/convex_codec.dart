@@ -1,0 +1,84 @@
+/// Maps Convex documents to app models and back. Pure Dart.
+///
+/// Convex documents carry client-made ids under other names (`sessionId`,
+/// `goalId`, `itemId`, `importId`). The models call them `id`.
+library;
+
+import '../models.dart';
+import '../models/json_util.dart';
+import 'convex_types.dart';
+
+/// Deep copy with every map typed `Map<String, dynamic>`.
+Object? normalize(Object? v) {
+  if (v is Map) {
+    return <String, dynamic>{
+      for (final MapEntry<Object?, Object?> e in v.entries) e.key.toString(): normalize(e.value),
+    };
+  }
+  if (v is List) {
+    return <dynamic>[for (final Object? e in v) normalize(e)];
+  }
+  return v;
+}
+
+Map<String, dynamic> _doc(Object? v, String idKey) {
+  final Map<String, dynamic> m = asMap(normalize(v));
+  m['id'] = m[idKey];
+  return m;
+}
+
+List<T> _list<T>(Object? v, T Function(Object?) one) {
+  return <T>[for (final Object? e in asList(v)) one(e)];
+}
+
+Session decodeSession(Object? v) => Session.fromJson(_doc(v, 'sessionId'));
+List<Session> decodeSessions(Object? v) => _list(v, decodeSession);
+
+Goal decodeGoal(Object? v) => Goal.fromJson(_doc(v, 'goalId'));
+List<Goal> decodeGoals(Object? v) => _list(v, decodeGoal);
+
+ContextItem decodeContextItem(Object? v) => ContextItem.fromJson(_doc(v, 'itemId'));
+List<ContextItem> decodeContext(Object? v) => _list(v, decodeContextItem);
+
+ImportJob decodeImport(Object? v) => ImportJob.fromJson(_doc(v, 'importId'));
+List<ImportJob> decodeImports(Object? v) => _list(v, decodeImport);
+
+Stored<Plan> decodePlan(Object? v) {
+  final Map<String, dynamic> m = asMap(normalize(v));
+  final Plan p = Plan.fromJson(asMap(m['plan']));
+  return Stored<Plan>(p, stored: m['stored'] == true, source: p.source);
+}
+
+Stored<List<Prediction>> decodePredictions(Object? v) {
+  final Map<String, dynamic> m = asMap(normalize(v));
+  return Stored<List<Prediction>>(
+    _list(m['predictions'], (Object? e) => Prediction.fromJson(asMap(e))),
+    stored: m['stored'] == true,
+    source: str(m['source'], 'rules'),
+  );
+}
+
+Stored<Dashboard> decodeDashboard(Object? v) {
+  final Map<String, dynamic> m = asMap(normalize(v));
+  final Dashboard d = Dashboard.fromJson(asMap(m['dashboard']));
+  return Stored<Dashboard>(d, stored: m['stored'] == true, source: d.source);
+}
+
+/// The value is null when the session does not exist on the server yet.
+Stored<Review?> decodeReview(Object? v) {
+  final Map<String, dynamic> m = asMap(normalize(v));
+  final Object? r = m['review'];
+  final Review? review = r is Map ? Review.fromJson(asMap(r)) : null;
+  return Stored<Review?>(
+    review,
+    stored: m['stored'] == true,
+    source: review?.source ?? 'rules',
+  );
+}
+
+/// Contract shape of a session, with the client-made id as `sessionId`.
+Map<String, dynamic> encodeSession(Session s) {
+  final Map<String, dynamic> m = s.toContractJson();
+  m['sessionId'] = m.remove('id');
+  return m;
+}

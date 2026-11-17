@@ -30,40 +30,20 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _period = 7;
-  bool _wasConnected = false;
   late final Listenable _all;
 
   @override
   void initState() {
     super.initState();
     final AppDeps d = widget.deps;
-    _all = Listenable.merge(<Listenable>[d.store, d.connection, d.dashboard, d.reviews]);
-    _wasConnected = d.connection.connected;
-    d.connection.addListener(_onConnection);
-    if (_wasConnected) {
-      d.dashboard.load(_period);
-    }
-  }
-
-  @override
-  void dispose() {
-    widget.deps.connection.removeListener(_onConnection);
-    super.dispose();
-  }
-
-  void _onConnection() {
-    final bool now = widget.deps.connection.connected;
-    if (now && !_wasConnected) {
-      widget.deps.dashboard.load(_period);
-    }
-    _wasConnected = now;
+    _all = Listenable.merge(<Listenable>[d.store, d.connection, d.dashboard, d.reviews, d.outbox]);
+    // The dashboard is a live subscription: no refresh, no load on connect.
+    d.dashboard.select(_period);
   }
 
   void _setPeriod(int days) {
     setState(() => _period = days);
-    if (widget.deps.connection.connected) {
-      widget.deps.dashboard.load(days);
-    }
+    widget.deps.dashboard.select(days);
   }
 
   void _push(Widget screen) {
@@ -78,14 +58,21 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   String get _statusText {
-    final ConnState s = widget.deps.connection.state;
-    if (s == ConnState.connected) {
-      return 'Connected';
+    switch (widget.deps.connection.state) {
+      case ConnState.connected:
+        return 'Connected';
+      case ConnState.connecting:
+        return 'Connecting...';
+      case ConnState.unauthorized:
+        return 'Token not accepted: check Settings';
+      case ConnState.badUrl:
+        return 'Server address is not valid: check Settings';
+      case ConnState.notConfigured:
+        return 'No server set: saved on this phone';
+      case ConnState.offline:
+        final int n = widget.deps.outbox.length;
+        return n == 0 ? 'Offline: saved on this phone' : 'Offline: saved on this phone, $n to send';
     }
-    if (s == ConnState.checking) {
-      return 'Connecting...';
-    }
-    return 'Offline: saved on this phone';
   }
 
   Widget _body() {

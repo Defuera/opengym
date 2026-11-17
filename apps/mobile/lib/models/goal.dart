@@ -42,6 +42,29 @@ class Goal {
 
   bool get done => status == 'done';
 
+  Goal copyWith({
+    String? title,
+    String? kind,
+    String? exercise,
+    double? targetKg,
+    int? sessionsPerWeek,
+    String? status,
+  }) {
+    return Goal(
+      id: id,
+      title: title ?? this.title,
+      kind: kind ?? this.kind,
+      status: status ?? this.status,
+      source: source,
+      createdAt: createdAt,
+      exercise: exercise ?? this.exercise,
+      targetKg: targetKg ?? this.targetKg,
+      sessionsPerWeek: sessionsPerWeek ?? this.sessionsPerWeek,
+      threadId: threadId,
+      importId: importId,
+    );
+  }
+
   Map<String, dynamic> toJson() {
     final Map<String, dynamic> m = <String, dynamic>{
       'id': id,
@@ -137,6 +160,93 @@ class ContextItem {
       createdAt: intOf(j['createdAt']),
       threadId: strOrNull(j['threadId']),
       importId: strOrNull(j['importId']),
+    );
+  }
+}
+
+/// A change to a goal. Only the fields that are set are sent and applied.
+class GoalPatch {
+  const GoalPatch({
+    this.title,
+    this.kind,
+    this.exercise,
+    this.targetKg,
+    this.sessionsPerWeek,
+    this.status,
+  });
+
+  final String? title;
+  final String? kind;
+  final String? exercise;
+  final double? targetKg;
+  final int? sessionsPerWeek;
+  final String? status;
+
+  Map<String, dynamic> toJson() {
+    return <String, dynamic>{
+      if (title != null) 'title': title,
+      if (kind != null) 'kind': kind,
+      if (exercise != null) 'exercise': exercise,
+      if (targetKg != null) 'targetKg': targetKg,
+      if (sessionsPerWeek != null) 'sessionsPerWeek': sessionsPerWeek,
+      if (status != null) 'status': status,
+    };
+  }
+
+  factory GoalPatch.fromJson(Map<String, dynamic> j) {
+    return GoalPatch(
+      title: strOrNull(j['title']),
+      kind: strOrNull(j['kind']),
+      exercise: strOrNull(j['exercise']),
+      targetKg: dblOrNull(j['targetKg']),
+      sessionsPerWeek: intOrNull(j['sessionsPerWeek']),
+      status: strOrNull(j['status']),
+    );
+  }
+
+  Goal applyTo(Goal g) {
+    return g.copyWith(
+      title: title,
+      kind: kind,
+      exercise: exercise,
+      targetKg: targetKg,
+      sessionsPerWeek: sessionsPerWeek,
+      status: status,
+    );
+  }
+}
+
+/// A change to a context note: switch it on or off, or change its text.
+class ContextPatch {
+  const ContextPatch({this.text, this.active});
+
+  final String? text;
+  final bool? active;
+
+  Map<String, dynamic> toJson() {
+    return <String, dynamic>{
+      if (text != null) 'text': text,
+      if (active != null) 'active': active,
+    };
+  }
+
+  factory ContextPatch.fromJson(Map<String, dynamic> j) {
+    return ContextPatch(
+      text: strOrNull(j['text']),
+      active: j['active'] is bool ? j['active'] as bool : null,
+    );
+  }
+
+  ContextItem applyTo(ContextItem c) {
+    return ContextItem(
+      id: c.id,
+      text: text ?? c.text,
+      topic: c.topic,
+      active: active ?? c.active,
+      source: c.source,
+      createdAt: c.createdAt,
+      threadId: c.threadId,
+      importId: c.importId,
     );
   }
 }

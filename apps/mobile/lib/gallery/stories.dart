@@ -18,6 +18,7 @@ final List<GalleryStory> galleryStories = <GalleryStory>[
   const GalleryStory(title: 'CtaButton', builder: ctaStory),
   GalleryStory(title: 'StepperRow (counts)', builder: (BuildContext c) => const StepperDemo()),
   const GalleryStory(title: 'StatTile', builder: statTilesStory),
+  GalleryStory(title: 'FlagToggle', builder: (BuildContext c) => const FlagToggleDemo()),
   GalleryStory(title: 'SegmentedToggle', builder: (BuildContext c) => const ToggleDemo()),
   const GalleryStory(title: 'SessionListItem', builder: listItemsStory),
   const GalleryStory(title: 'ExerciseCard and AddCard', builder: exerciseCardsStory),

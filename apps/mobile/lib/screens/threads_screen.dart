@@ -22,10 +22,17 @@ class ThreadsScreen extends StatefulWidget {
 }
 
 class _ThreadsScreenState extends State<ThreadsScreen> {
+  // Seam for the next step: chat moves to `queries/threads:list`,
+  // `commands/threads:*` and `commands/messages:send`. Until then the coach
+  // runs on the old REST server and is switched off for a Convex address.
+  bool get _ready => widget.deps.connection.legacyRestReady;
+
   @override
   void initState() {
     super.initState();
-    widget.deps.coach.loadThreads();
+    if (_ready) {
+      widget.deps.coach.loadThreads();
+    }
   }
 
   void _open(String id) {
@@ -58,6 +65,9 @@ class _ThreadsScreenState extends State<ThreadsScreen> {
   @override
   Widget build(BuildContext context) {
     final CoachStore coach = widget.deps.coach;
+    if (!_ready) {
+      return _comingSoon(context);
+    }
     return ListenableBuilder(
       listenable: coach,
       builder: (BuildContext context, Widget? child) {
@@ -125,6 +135,34 @@ class _ThreadsScreenState extends State<ThreadsScreen> {
           ),
         );
       },
+    );
+  }
+
+  Widget _comingSoon(BuildContext context) {
+    return Scaffold(
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+          children: <Widget>[
+            Row(
+              children: <Widget>[
+                OgIconButton(
+                  icon: Icons.chevron_left,
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+                const SizedBox(width: 12),
+                Expanded(child: Text('Coach', style: OG.display(32))),
+              ],
+            ),
+            const SizedBox(height: 18),
+            const NoteBox(
+              title: 'Chat is coming with the next update.',
+              message: 'The coach chat moves to the new backend. Your goals, '
+                  'sessions and plans already work.',
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

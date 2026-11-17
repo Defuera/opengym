@@ -1,30 +1,58 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 
-import '../data/api/open_gym_api.dart';
+import '../data/convex_client.dart';
+import '../data/outbox.dart';
+import '../data/outbox_ops.dart';
 import '../models.dart';
+import '../planner.dart';
 
-/// Goals live on the server; this store lists and edits them.
+/// Goals: a live subscription with the waiting writes applied on top. Edits go
+/// to the outbox, so they work offline and a server update never undoes them.
 class GoalsStore extends ChangeNotifier {
-  GoalsStore({required OpenGymApi api}) : _api = api;
+  GoalsStore({required ConvexClient client, required Outbox outbox})
+      : _client = client,
+        _outbox = outbox;
 
-  final OpenGymApi _api;
+  final ConvexClient _client;
+  final Outbox _outbox;
 
+  List<Goal> _server = <Goal>[];
   List<Goal> goals = <Goal>[];
-  bool loading = false;
+  bool loading = true;
+
+  /// Readable problem (stream error or a refused write), else null.
   String? error;
 
-  Future<void> load() async {
-    loading = true;
-    notifyListeners();
-    try {
-      goals = await _api.listGoals();
-      error = null;
-    } on ApiException catch (e) {
-      error = e.message;
-    } catch (_) {
-      error = 'Could not load goals.';
-    }
-    loading = false;
+  StreamSubscription<List<Goal>>? _sub;
+  StreamSubscription<Rejection>? _rej;
+
+  void start() {
+    _sub ??= _client.watchGoals().listen(
+      (List<Goal> list) {
+        _server = list;
+        loading = false;
+        error = null;
+        _rebuild();
+      },
+      onError: (Object e) {
+        loading = false;
+        error = e is ConvexCallException ? e.message : 'Could not load goals.';
+        notifyListeners();
+      },
+    );
+    _rej ??= _outbox.rejections.listen((Rejection r) {
+      if (r.op.type.startsWith('goal.')) {
+        error = r.message;
+        notifyListeners();
+      }
+    });
+    _outbox.addListener(_rebuild);
+  }
+
+  void _rebuild() {
+    goals = overlayGoals(_server, _outbox.ops);
     notifyListeners();
   }
 
@@ -34,48 +62,36 @@ class GoalsStore extends ChangeNotifier {
     String? exercise,
     double? targetKg,
     int? sessionsPerWeek,
-  }) {
-    return _run(() async {
-      final Goal g = await _api.createGoal(
-        title: title,
-        kind: kind,
-        exercise: exercise,
-        targetKg: targetKg,
-        sessionsPerWeek: sessionsPerWeek,
-      );
-      goals = <Goal>[...goals, g];
-    });
+  }) async {
+    error = null;
+    await _outbox.createGoal(
+      goalId: newId(),
+      title: title,
+      kind: kind,
+      exercise: exercise,
+      targetKg: targetKg,
+      sessionsPerWeek: sessionsPerWeek,
+    );
+    return true;
   }
 
-  Future<bool> markDone(Goal goal) {
-    return _run(() async {
-      final Goal g = await _api.patchGoal(
-        goal.id,
-        <String, dynamic>{'status': goal.done ? 'active' : 'done'},
-      );
-      goals = goals.map((Goal x) => x.id == g.id ? g : x).toList();
-    });
+  Future<bool> markDone(Goal goal) async {
+    error = null;
+    await _outbox.updateGoal(goal.id, GoalPatch(status: goal.done ? 'active' : 'done'));
+    return true;
   }
 
-  Future<bool> remove(Goal goal) {
-    return _run(() async {
-      await _api.deleteGoal(goal.id);
-      goals = goals.where((Goal x) => x.id != goal.id).toList();
-    });
+  Future<bool> remove(Goal goal) async {
+    error = null;
+    await _outbox.removeGoal(goal.id);
+    return true;
   }
 
-  Future<bool> _run(Future<void> Function() body) async {
-    try {
-      await body();
-      error = null;
-      notifyListeners();
-      return true;
-    } on ApiException catch (e) {
-      error = e.message;
-    } catch (_) {
-      error = 'Something went wrong.';
-    }
-    notifyListeners();
-    return false;
+  @override
+  void dispose() {
+    _sub?.cancel();
+    _rej?.cancel();
+    _outbox.removeListener(_rebuild);
+    super.dispose();
   }
 }

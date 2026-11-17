@@ -3,7 +3,7 @@
 Flutter app for logging gym sessions and other activities. It is offline-first:
 everything you log is saved on the phone (shared_preferences) and works with no
 server. When a backend is reachable (see `docs/api-contract.md`) the app also
-syncs sessions, shows planned sessions and a dashboard, keeps goals, chats with
+shows live sessions, planned sessions and a dashboard, keeps goals, chats with
 the coach and imports files and photos.
 
 **Warning: this code was written without a compiler. Run `flutter analyze`
@@ -25,16 +25,28 @@ first and fix anything it reports before anything else.**
 
 ## First run with the backend
 
-1. Start the backend on your computer. It prints its address and the app token.
-2. Put the phone and the computer on the same wifi.
-3. In the app open Settings (gear icon, top right).
-4. Enter the server URL and the token, then press "Test connection". It shows
-   the AI provider and whether AI is configured.
-5. Home now says "Connected". Finished sessions sync in the background; the
-   dashboard, goals, chat and import work against the server.
+The backend is hosted Convex (ADR-012). Get the deployment address
+(`https://<name>.convex.cloud`) and the app token from the owner.
 
-With no server the app says "Offline: saved on this phone" and keeps working.
-Finished sessions wait in a local outbox and are sent when the server is back.
+1. In the app open Settings (gear icon, top right).
+2. Enter the Convex URL and the token, then press "Test connection". A wrong
+   token or address shows a clear message; it never spins forever.
+3. Home says "Connected". Sessions, goals, plans, predictions, the dashboard
+   and reviews are live subscriptions: the server pushes every change, there
+   is no refresh. For test builds, `--dart-define=OPENGYM_URL=...` and
+   `--dart-define=OPENGYM_TOKEN=...` set the defaults.
+
+With no connection the app says "Offline: saved on this phone" and keeps
+working. Every write (a finished session, goal and note changes) is saved in
+a persistent outbox on the phone first. The outbox sends writes in order
+through the idempotent Convex commands when connected, survives a restart and
+retries on reconnect. Server data never overwrites a change that is still in
+the outbox.
+
+Chat, file upload and file import still use the old REST client and show
+"coming with the next update" while the address is a Convex deployment.
+
+End-to-end check against a deployment: see `tool/convex_trial.dart`.
 
 ## Structure
 
@@ -43,16 +55,24 @@ Finished sessions wait in a local outbox and are sent when the server is back.
   DashboardModule, Dashboard, ImportJob, Review). `lib/planner.dart` has the local
   planning rules (pure Dart).
 - Data: `lib/data/` has the `SessionRepository`, `SettingsRepository` and
-  `SyncStateRepository` interfaces with shared_preferences and in-memory
-  implementations; `pickers.dart` wraps file_picker and image_picker;
-  `sync_service.dart` is the outbox and pull-merge.
-- API: `lib/data/api/` has the `OpenGymApi` interface (one method per endpoint),
-  `HttpOpenGymApi` (via `ApiTransport`: Bearer token, timeouts, one
-  `ApiException`) and `FakeOpenGymApi` for tests.
+  `OutboxRepository` interfaces with shared_preferences and in-memory
+  implementations; `pickers.dart` wraps file_picker and image_picker.
+- Gateway: `lib/data/convex_client.dart` is the `ConvexClient` interface (typed
+  live streams and idempotent commands) and `DartvexConvexClient`, the only
+  code that imports `dartvex`. `switchable_convex_client.dart` lets Settings
+  change the address while streams stay open. `convex_codec.dart` maps Convex
+  documents to models. Errors shown to the user come from the Convex error
+  `.data`, never the raw message.
+- Outbox: `outbox.dart` and `outbox_ops.dart` (persistent write queue and the
+  overlay that keeps pending changes on top of server data);
+  `session_sync.dart` feeds the live session subscription into the local log.
+- Old API (chat, files, import only): `lib/data/api/` has the `OpenGymApi`
+  interface, `HttpOpenGymApi` and `FakeOpenGymApi`. To be replaced by Convex
+  functions in the next step.
 - Stores: `lib/store.dart` (`AppStore`, the live session and local log) and
   `lib/stores/` (`ConnectionStore`, `PlanStore`, `DashboardStore`, `GoalsStore`,
-  `CoachStore`, `ImportStore`, `ReviewStore`). One responsibility each,
-  dependencies passed in the constructor.
+  `ContextStore`, `CoachStore`, `ImportStore`, `ReviewStore`). One
+  responsibility each, dependencies passed in the constructor.
 - Composition: `lib/app/compose.dart` is the only place that picks real
   implementations; `lib/app/deps.dart` bundles them for the screens.
 - Widgets: `lib/widgets/` are standalone. They import only Flutter, `theme.dart`
@@ -62,7 +82,9 @@ Finished sessions wait in a local outbox and are sent when the server is back.
   module type -> widget map.
 - Gallery: `lib/gallery/` is a dependency-free widget gallery. Add a story with
   one entry in `lib/gallery/stories.dart`.
-- Tests: `test/` (plain flutter_test): planner, store, model JSON, sync outbox.
+- Tests: `test/` (plain flutter_test): planner, store, model JSON, gateway,
+  outbox, connection, live stores. `test/support/fake_convex_client.dart` fakes
+  the gateway.
 - `tool/patch_ios_plist.sh`: iOS permission and networking keys.
 
 ## Widget gallery

@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
@@ -14,8 +15,11 @@ class AppStore extends ChangeNotifier {
   final SessionRepository _repo;
 
   /// Called with the session id after a session was saved locally (finished
-  /// gym session or logged activity). Compose wires this to the sync service.
+  /// gym session or logged activity). Compose wires this to the outbox.
   void Function(String id)? onSessionSaved;
+
+  /// Called with the session id after a session was removed locally.
+  void Function(String id)? onSessionRemoved;
 
   List<Session> sessions = <Session>[];
   Session? active;
@@ -147,24 +151,56 @@ class AppStore extends ChangeNotifier {
     return null;
   }
 
-  /// Adds sessions from the server that are not on this phone yet (local copy
-  /// wins). Returns how many were added.
-  int mergeRemote(List<Session> remote) {
-    final Set<String> known = sessions.map((Session s) => s.id).toSet();
-    int added = 0;
+  /// Merges the server's sessions (a live subscription) into the local log.
+  ///
+  /// The server's copy replaces the local one only when its content differs.
+  /// Ids in [pending] have a write waiting in the outbox: the local copy wins
+  /// for those, so a subscription update never undoes a local change. Absence
+  /// from [remote] never deletes anything (the list is only the recent
+  /// window). Returns how many sessions were added or changed.
+  int mergeRemote(List<Session> remote, {Set<String> pending = const <String>{}}) {
+    final Map<String, int> at = <String, int>{
+      for (int i = 0; i < sessions.length; i++) sessions[i].id: i,
+    };
+    int changed = 0;
     for (final Session r in remote) {
-      if (r.id.isEmpty || known.contains(r.id) || r.endedAt == null) {
+      if (r.id.isEmpty || r.endedAt == null || pending.contains(r.id)) {
         continue;
       }
-      known.add(r.id);
-      sessions.add(r);
-      added++;
+      final int? i = at[r.id];
+      if (i == null) {
+        at[r.id] = sessions.length;
+        sessions.add(r);
+        changed++;
+      } else if (_sameFacts(sessions[i], r)) {
+        continue;
+      } else {
+        sessions[i] = r;
+        changed++;
+      }
     }
-    if (added > 0) {
+    if (changed > 0) {
       sessions.sort((Session a, Session b) => a.when.compareTo(b.when));
       _commit();
     }
-    return added;
+    return changed;
+  }
+
+  static bool _sameFacts(Session a, Session b) =>
+      jsonEncode(a.toContractJson()) == jsonEncode(b.toContractJson());
+
+  /// Removes a finished session from the log and tells the outbox.
+  void removeSession(String id) {
+    final int before = sessions.length;
+    sessions.removeWhere((Session s) => s.id == id);
+    if (sessions.length == before) {
+      return;
+    }
+    _commit();
+    final void Function(String id)? cb = onSessionRemoved;
+    if (cb != null) {
+      cb(id);
+    }
   }
 
   /// Drops sessions that came from an import that was undone.
@@ -284,6 +320,17 @@ class AppStore extends ChangeNotifier {
     final double next = ((s.kg + delta) * 10).round() / 10;
     s.kg = next < 0 ? 0.0 : next;
     e.fresh = false;
+    _commit();
+  }
+
+  /// Marks (or clears) "one more rep was tried and not completed" on the
+  /// current set. Shown as `6½×70`; the planner and the server keep the flag.
+  void toggleFailed() {
+    final SetEntry? s = currentSet;
+    if (s == null) {
+      return;
+    }
+    s.failed = !s.failed;
     _commit();
   }
 

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../app/deps.dart';
 import '../models.dart';
 import '../planner.dart';
+import '../stores/connection_store.dart';
 import '../stores/goals_store.dart';
 import '../theme.dart';
 import '../widgets/cta_button.dart';
@@ -22,12 +23,6 @@ class GoalsScreen extends StatefulWidget {
 }
 
 class _GoalsScreenState extends State<GoalsScreen> {
-  @override
-  void initState() {
-    super.initState();
-    widget.deps.goals.load();
-  }
-
   Future<void> _add() async {
     final GoalDraft? d = await showGoalForm(context);
     if (d == null) {
@@ -59,8 +54,9 @@ class _GoalsScreenState extends State<GoalsScreen> {
   @override
   Widget build(BuildContext context) {
     final GoalsStore goals = widget.deps.goals;
+    final ConnectionStore conn = widget.deps.connection;
     return ListenableBuilder(
-      listenable: goals,
+      listenable: Listenable.merge(<Listenable>[goals, conn]),
       builder: (BuildContext context, Widget? child) {
         final List<Widget> rows = <Widget>[];
         for (final Goal g in goals.goals) {
@@ -95,12 +91,15 @@ class _GoalsScreenState extends State<GoalsScreen> {
                       const SizedBox(height: 18),
                       if (err != null) ...<Widget>[
                         NoteBox(title: 'Goals are not available.', message: err),
-                        const SizedBox(height: 12),
-                        OgButton(onPressed: goals.load, child: const Text('Try again')),
                         const SizedBox(height: 18),
                       ],
-                      if (goals.loading && goals.goals.isEmpty)
-                        Text('Loading…', style: OG.muted())
+                      if (goals.loading && goals.goals.isEmpty && err == null)
+                        (conn.connected
+                            ? Text('Loading…', style: OG.muted())
+                            : NoteBox(
+                                title: 'Goals load when you are connected.',
+                                message: conn.error ?? 'Not connected.',
+                              ))
                       else if (goals.goals.isEmpty && err == null)
                         const NoteBox(
                           title: 'No goals yet.',

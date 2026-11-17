@@ -2,7 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:opengym/data/in_memory_session_repository.dart';
 import 'package:opengym/models.dart';
 import 'package:opengym/planner.dart';
-import 'package:opengym/data/api/fake_open_gym_api.dart';
+import 'support/fake_convex_client.dart';
 import 'package:opengym/stores/plan_store.dart';
 import 'package:opengym/store.dart';
 
@@ -122,7 +122,7 @@ void main() {
 
   test('begin with a prepared plan uses it instead of the local planner', () async {
     final AppStore store = await _newStore(InMemorySessionRepository());
-    final PlanStore plans = PlanStore(api: FakeOpenGymApi());
+    final PlanStore plans = PlanStore(client: FakeConvexClient());
     const Plan plan = Plan(
       id: 'p1',
       type: 'Push',

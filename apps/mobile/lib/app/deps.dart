@@ -1,8 +1,9 @@
 import '../data/pickers.dart';
-import '../data/sync_service.dart';
+import '../data/outbox.dart';
 import '../store.dart';
 import '../stores/coach_store.dart';
 import '../stores/connection_store.dart';
+import '../stores/context_store.dart';
 import '../stores/dashboard_store.dart';
 import '../stores/goals_store.dart';
 import '../stores/import_store.dart';
@@ -14,10 +15,11 @@ class AppDeps {
   const AppDeps({
     required this.store,
     required this.connection,
-    required this.sync,
+    required this.outbox,
     required this.plans,
     required this.dashboard,
     required this.goals,
+    required this.context,
     required this.coach,
     required this.imports,
     required this.reviews,
@@ -26,10 +28,11 @@ class AppDeps {
 
   final AppStore store;
   final ConnectionStore connection;
-  final SyncService sync;
+  final Outbox outbox;
   final PlanStore plans;
   final DashboardStore dashboard;
   final GoalsStore goals;
+  final ContextStore context;
   final CoachStore coach;
   final ImportStore imports;
   final ReviewStore reviews;

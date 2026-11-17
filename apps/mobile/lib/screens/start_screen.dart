@@ -28,9 +28,6 @@ class _StartScreenState extends State<StartScreen> {
     super.initState();
     final AppDeps d = widget.deps;
     _all = Listenable.merge(<Listenable>[d.store, d.plans, d.connection]);
-    if (d.connection.connected) {
-      d.plans.loadPredictions();
-    }
   }
 
   void _push(Widget screen) {
@@ -121,8 +118,7 @@ class _StartScreenState extends State<StartScreen> {
                 PredictionCard(
                   rankLabel: '1 · Most likely',
                   title: _title(first),
-                  subtitle:
-                      first.reason.isEmpty ? 'Session ready to follow' : first.reason,
+                  subtitle: first.reason.isEmpty ? 'Session ready to follow' : first.reason,
                   onTap: () => _choose(first),
                 ),
                 const SizedBox(height: 18),

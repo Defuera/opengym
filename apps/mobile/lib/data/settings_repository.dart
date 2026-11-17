@@ -27,9 +27,17 @@ class SharedPrefsSettingsRepository implements SettingsRepository {
   @override
   Future<Settings> load() async {
     final SharedPreferences p = await SharedPreferences.getInstance();
+    String? url = p.getString(_urlKey);
+    String? token = p.getString(_tokenKey);
+    // A saved address from before the move to Convex (the old REST server)
+    // cannot work any more. A test build's defaults replace it.
+    if (url != null && _defaultUrl.isNotEmpty && !url.contains('.convex.')) {
+      url = null;
+      token = null;
+    }
     return Settings(
-      serverUrl: p.getString(_urlKey) ?? _defaultUrl,
-      token: p.getString(_tokenKey) ?? _defaultToken,
+      serverUrl: url ?? _defaultUrl,
+      token: token ?? _defaultToken,
     );
   }
 

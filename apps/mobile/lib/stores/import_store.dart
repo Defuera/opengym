@@ -1,21 +1,32 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 
 import '../data/api/open_gym_api.dart';
-import '../data/sync_service.dart';
+import '../data/convex_client.dart';
 import '../models.dart';
 
-/// Upload files and photos for import, poll the job, undo it.
+/// Past imports (a live Convex subscription) and undo (a Convex command).
+///
+/// Upload and the running job still use the old REST client ([OpenGymApi]).
+/// That is the seam for the next step: `commands/files:*` and
+/// `commands/imports:start` replace [start] and [_poll]; the running job then
+/// also arrives through [ConvexClient.watchImports].
 class ImportStore extends ChangeNotifier {
   ImportStore({
     required OpenGymApi api,
-    required SyncService sync,
+    required ConvexClient client,
     this.pollEvery = const Duration(seconds: 2),
     this.maxPolls = 300,
   })  : _api = api,
-        _sync = sync;
+        _client = client;
 
   final OpenGymApi _api;
-  final SyncService _sync;
+  final ConvexClient _client;
+
+  /// Called after an import was undone, so its sessions leave the local log.
+  void Function(String importId)? onUndone;
+  StreamSubscription<List<ImportJob>>? _sub;
   final Duration pollEvery;
   final int maxPolls;
 
@@ -47,15 +58,18 @@ class ImportStore extends ChangeNotifier {
     }
   }
 
-  Future<void> loadPast() async {
-    try {
-      past = await _api.listImports();
-    } on ApiException catch (e) {
-      error = e.message;
-    } catch (_) {
-      error = 'Could not load past imports.';
-    }
-    notifyListeners();
+  /// Subscribe once. Past imports update live.
+  void watchPast() {
+    _sub ??= _client.watchImports().listen(
+      (List<ImportJob> list) {
+        past = list;
+        notifyListeners();
+      },
+      onError: (Object e) {
+        error = e is ConvexCallException ? e.message : 'Could not load past imports.';
+        notifyListeners();
+      },
+    );
   }
 
   /// Upload the picked files, then poll until the job is done or failed.
@@ -108,26 +122,21 @@ class ImportStore extends ChangeNotifier {
         return;
       }
     }
-    final ImportJob? done = job;
-    if (done != null && done.finished) {
-      await _sync.pull(full: true);
-      await loadPast();
-    }
+    // Sessions and past imports arrive through their live subscriptions.
   }
 
-  /// DELETE /v1/import/:id, then drop its sessions from this phone.
+  /// Removes the import's data on the server, then from this phone.
   Future<bool> undo(String jobId) async {
     try {
-      await _api.deleteImport(jobId);
-      _sync.forgetImport(jobId);
+      await _client.removeImport(jobId);
+      onUndone?.call(jobId);
       if (job?.id == jobId) {
         job = null;
       }
-      past = past.where((ImportJob j) => j.id != jobId).toList();
       error = null;
       notifyListeners();
       return true;
-    } on ApiException catch (e) {
+    } on ConvexCallException catch (e) {
       error = e.message;
     } catch (_) {
       error = 'Could not undo the import.';
@@ -139,6 +148,7 @@ class ImportStore extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    _sub?.cancel();
     super.dispose();
   }
 }

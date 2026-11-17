@@ -2,14 +2,18 @@ import 'dart:async';
 
 import '../data/api/http_open_gym_api.dart';
 import '../data/api/open_gym_api.dart';
+import '../data/convex_client.dart';
+import '../data/legacy_outbox_migration.dart';
+import '../data/outbox.dart';
 import '../data/pickers.dart';
+import '../data/session_sync.dart';
 import '../data/settings_repository.dart';
 import '../data/shared_prefs_session_repository.dart';
-import '../data/sync_service.dart';
-import '../data/sync_state_repository.dart';
+import '../data/switchable_convex_client.dart';
 import '../store.dart';
 import '../stores/coach_store.dart';
 import '../stores/connection_store.dart';
+import '../stores/context_store.dart';
 import '../stores/dashboard_store.dart';
 import '../stores/goals_store.dart';
 import '../stores/import_store.dart';
@@ -18,54 +22,79 @@ import '../stores/review_store.dart';
 import 'deps.dart';
 
 /// The one place that picks real implementations. To swap one (say, a fake
-/// API for a demo), change it here and nowhere else.
+/// gateway for a demo), change it here and nowhere else.
 Future<AppDeps> compose() async {
+  // Chat and import still use the old REST client (see ImportStore). It is
+  // only pointed at a server when the address is not a Convex deployment.
   final OpenGymApi api = HttpOpenGymApi();
+  final SwitchableConvexClient client = SwitchableConvexClient(
+    (String url, String token) => DartvexConvexClient.connect(url: url, token: token),
+  );
   final AppStore store = AppStore(SharedPrefsSessionRepository());
   await store.load();
 
-  final SyncService sync = SyncService(
-    api: api,
-    state: SharedPrefsSyncStateRepository(),
-    store: store,
+  late final ConnectionStore connection;
+  final Outbox outbox = Outbox(
+    repo: SharedPrefsOutboxRepository(),
+    client: client,
+    isConnected: () => connection.connected,
   );
-  final ConnectionStore connection = ConnectionStore(
+  await outbox.load();
+  connection = ConnectionStore(
     settings: SharedPrefsSettingsRepository(),
-    api: api,
+    client: client,
   );
-  final DashboardStore dashboard = DashboardStore(api: api);
-  final ReviewStore reviews = ReviewStore(api: api);
+  connection.addListener(() {
+    final bool rest = connection.legacyRestReady;
+    api.configure(rest ? connection.settings.serverUrl : '', rest ? connection.settings.token : '');
+  });
+  connection.onConnected = () => unawaited(outbox.flush());
 
-  // A finished session: push it, then look for its review and a fresh dashboard.
+  final SessionSync sessions = SessionSync(client: client, store: store, outbox: outbox);
+  final DashboardStore dashboard = DashboardStore(client: client);
+  final ReviewStore reviews = ReviewStore(client: client);
+  final PlanStore plans = PlanStore(client: client);
+  final GoalsStore goals = GoalsStore(client: client, outbox: outbox);
+  final ContextStore context = ContextStore(client: client, outbox: outbox);
+  final ImportStore imports = ImportStore(api: api, client: client);
+
+  // A finished session goes to the outbox on disk first, then to the server.
   store.onSessionSaved = (String id) {
-    sync.enqueue(id).then((bool pushed) {
-      if (pushed) {
-        dashboard.refresh();
-        reviews.watch(id);
-      } else {
-        connection.markOffline();
-      }
-    });
+    final session = store.sessionById(id);
+    if (session != null) {
+      unawaited(outbox.saveSession(session));
+      reviews.watch(id);
+    }
   };
-  reviews.onArrived = dashboard.refresh;
-  connection.onConnected = () async {
-    await sync.sync(full: true);
-  };
+  store.onSessionRemoved = (String id) => unawaited(outbox.removeSession(id));
+  imports.onUndone = store.removeImported;
+
+  // Live subscriptions: opened once, they survive a change of server address.
+  sessions.start();
+  plans.start();
+  goals.start();
+  context.start();
+  imports.watchPast();
+  dashboard.select(7);
 
   final AppDeps deps = AppDeps(
     store: store,
     connection: connection,
-    sync: sync,
-    plans: PlanStore(api: api),
+    outbox: outbox,
+    plans: plans,
     dashboard: dashboard,
-    goals: GoalsStore(api: api),
+    goals: goals,
+    context: context,
     coach: CoachStore(api: api),
-    imports: ImportStore(api: api, sync: sync),
+    imports: imports,
     reviews: reviews,
     pickers: DevicePickers(),
   );
 
   // Do not wait for the network: the app opens straight away.
-  unawaited(connection.load());
+  unawaited(() async {
+    await migrateLegacyOutbox(store, outbox);
+    await connection.load();
+  }());
   return deps;
 }

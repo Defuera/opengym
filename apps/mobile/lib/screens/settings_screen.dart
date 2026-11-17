@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../app/deps.dart';
-import '../models.dart';
 import '../stores/connection_store.dart';
 import '../theme.dart';
 import '../widgets/cta_button.dart';
@@ -46,12 +45,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   String _result(ConnectionStore c) {
-    final HealthInfo? h = c.health;
-    if (c.connected && h != null) {
-      final String ai = h.aiConfigured
-          ? 'AI is configured'
-          : 'AI is not configured (the coach gives fixed replies)';
-      return 'Connected. Provider: ${h.provider.isEmpty ? 'none' : h.provider}. $ai.';
+    if (c.connected) {
+      return 'Connected. Changes you make are sent as soon as you are online.';
     }
     return c.error ?? 'Not connected.';
   }
@@ -82,9 +77,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ),
                       const SizedBox(height: 18),
                       LabeledField(
-                        label: 'Server URL',
+                        label: 'Convex URL',
                         controller: _url,
-                        hint: 'http://<your computer>:<port>',
+                        hint: 'https://<name>.convex.cloud',
                         keyboardType: TextInputType.url,
                       ),
                       const SizedBox(height: 14),
@@ -106,11 +101,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       const SizedBox(height: 22),
                       const NoteBox(
                         title: 'Where do I find these?',
-                        message: 'Start the backend on your computer. It prints '
-                            'its address and the token in the terminal when it '
-                            'starts. Your phone and computer need to be on the '
-                            'same wifi. Without a server the app still works: '
-                            'everything is saved on this phone.',
+                        message: 'The Convex URL is the address of your hosted '
+                            'backend. It ends in .convex.cloud. The token is the '
+                            'app token you set for that backend. Without them the '
+                            'app still works: everything is saved on this phone '
+                            'and is sent when you connect.',
                       ),
                     ],
                   ),

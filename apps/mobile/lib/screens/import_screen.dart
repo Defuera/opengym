@@ -10,6 +10,7 @@ import '../widgets/attachment_chip.dart';
 import '../widgets/choice_sheet.dart';
 import '../widgets/cta_button.dart';
 import '../widgets/import_job_card.dart';
+import '../widgets/note_box.dart';
 import '../widgets/og_button.dart';
 import '../widgets/og_icon_button.dart';
 
@@ -26,12 +27,6 @@ class _ImportScreenState extends State<ImportScreen> {
   String? _pickError;
 
   ImportStore get _imports => widget.deps.imports;
-
-  @override
-  void initState() {
-    super.initState();
-    _imports.loadPast();
-  }
 
   Future<void> _pickFiles() async {
     try {
@@ -55,8 +50,7 @@ class _ImportScreenState extends State<ImportScreen> {
       return;
     }
     try {
-      final UploadItem? p =
-          await widget.deps.pickers.pickPhoto(camera: src == 'camera');
+      final UploadItem? p = await widget.deps.pickers.pickPhoto(camera: src == 'camera');
       if (p != null) {
         _imports.add(p);
       }
@@ -101,62 +95,27 @@ class _ImportScreenState extends State<ImportScreen> {
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: _imports,
+      listenable: Listenable.merge(<Listenable>[_imports, widget.deps.connection]),
       builder: (BuildContext context, Widget? child) {
         final ImportStore s = _imports;
-        final List<Widget> body = <Widget>[
-          Text(
-            'Add a file or a photo, like a screenshot of your history or the '
-            'screen of a cycling machine.',
-            style: OG.muted(),
-          ),
-          const SizedBox(height: 14),
-          Row(
-            children: <Widget>[
-              Expanded(
-                child: OgButton(
-                  onPressed: s.busy ? null : _pickFiles,
-                  child: const Text('Files'),
+        // Seam for the next step: when file import runs on Convex, this flag
+        // goes away and the upload section is always shown.
+        final bool upload = widget.deps.connection.legacyRestReady;
+        final List<Widget> body = upload
+            ? _uploadSection(s)
+            : <Widget>[
+                const NoteBox(
+                  title: 'Importing files is coming with the next update.',
+                  message: 'Files and photos cannot be imported yet. Imports you '
+                      'made before are listed below, and you can undo them.',
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: OgButton(
-                  onPressed: s.busy ? null : _pickPhoto,
-                  child: const Text('Photo'),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-        ];
-        if (s.picked.isNotEmpty) {
-          body.add(Wrap(
-            spacing: 6,
-            runSpacing: 6,
-            children: <Widget>[
-              for (int i = 0; i < s.picked.length; i++)
-                AttachmentChip(name: s.picked[i].name, onRemove: () => s.removeAt(i)),
-            ],
-          ));
-          body.add(const SizedBox(height: 12));
-        }
-        final String err = s.error ?? _pickError ?? '';
-        if (err.isNotEmpty) {
-          body.add(Text(err, style: OG.body(size: 15, weight: FontWeight.w600)));
-          body.add(const SizedBox(height: 12));
-        }
-        final ImportJob? job = s.job;
-        if (s.uploading) {
-          body.add(Text('Uploading…', style: OG.muted()));
-          body.add(const SizedBox(height: 12));
-        }
-        if (job != null) {
-          body.add(_card(job, 'This import'));
-          body.add(const SizedBox(height: 14));
-        }
-        final List<ImportJob> older =
-            s.past.where((ImportJob j) => j.id != job?.id).toList();
+                const SizedBox(height: 14),
+                if (s.error != null) ...<Widget>[
+                  Text(s.error!, style: OG.body(size: 15, weight: FontWeight.w600)),
+                  const SizedBox(height: 12),
+                ],
+              ];
+        final List<ImportJob> older = s.past.where((ImportJob j) => j.id != s.job?.id).toList();
         if (older.isNotEmpty) {
           body.add(Text('Past imports', style: OG.display(24)));
           body.add(const SizedBox(height: 10));
@@ -165,45 +124,104 @@ class _ImportScreenState extends State<ImportScreen> {
             body.add(const SizedBox(height: 12));
           }
         }
-        return Scaffold(
-          body: SafeArea(
-            child: Column(
-              children: <Widget>[
-                Expanded(
-                  child: ListView(
-                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
-                    children: <Widget>[
-                      Row(
-                        children: <Widget>[
-                          OgIconButton(
-                            icon: Icons.chevron_left,
-                            onPressed: () => Navigator.of(context).pop(),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(child: Text('Import', style: OG.display(32))),
-                        ],
-                      ),
-                      const SizedBox(height: 18),
-                      ...body,
-                    ],
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 18),
-                  child: CtaButton(
-                    label: s.picked.isEmpty
-                        ? 'Import'
-                        : 'Import ${s.picked.length} item${s.picked.length == 1 ? '' : 's'}',
-                    icon: Icons.file_upload_outlined,
-                    variant: OgVariant.accent,
-                    onPressed: (s.picked.isEmpty || s.busy) ? null : s.start,
-                  ),
-                ),
-              ],
+        return _page(s, body, upload);
+      },
+    );
+  }
+
+  List<Widget> _uploadSection(ImportStore s) {
+    final List<Widget> body = <Widget>[
+      Text(
+        'Add a file or a photo, like a screenshot of your history or the '
+        'screen of a cycling machine.',
+        style: OG.muted(),
+      ),
+      const SizedBox(height: 14),
+      Row(
+        children: <Widget>[
+          Expanded(
+            child: OgButton(
+              onPressed: s.busy ? null : _pickFiles,
+              child: const Text('Files'),
             ),
           ),
-        );
-      },
+          const SizedBox(width: 12),
+          Expanded(
+            child: OgButton(
+              onPressed: s.busy ? null : _pickPhoto,
+              child: const Text('Photo'),
+            ),
+          ),
+        ],
+      ),
+      const SizedBox(height: 12),
+    ];
+    if (s.picked.isNotEmpty) {
+      body.add(Wrap(
+        spacing: 6,
+        runSpacing: 6,
+        children: <Widget>[
+          for (int i = 0; i < s.picked.length; i++)
+            AttachmentChip(name: s.picked[i].name, onRemove: () => s.removeAt(i)),
+        ],
+      ));
+      body.add(const SizedBox(height: 12));
+    }
+    final String err = s.error ?? _pickError ?? '';
+    if (err.isNotEmpty) {
+      body.add(Text(err, style: OG.body(size: 15, weight: FontWeight.w600)));
+      body.add(const SizedBox(height: 12));
+    }
+    final ImportJob? job = s.job;
+    if (s.uploading) {
+      body.add(Text('Uploading…', style: OG.muted()));
+      body.add(const SizedBox(height: 12));
+    }
+    if (job != null) {
+      body.add(_card(job, 'This import'));
+      body.add(const SizedBox(height: 14));
+    }
+    return body;
+  }
+
+  Widget _page(ImportStore s, List<Widget> body, bool upload) {
+    return Scaffold(
+      body: SafeArea(
+        child: Column(
+          children: <Widget>[
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+                children: <Widget>[
+                  Row(
+                    children: <Widget>[
+                      OgIconButton(
+                        icon: Icons.chevron_left,
+                        onPressed: () => Navigator.of(context).pop(),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(child: Text('Import', style: OG.display(32))),
+                    ],
+                  ),
+                  const SizedBox(height: 18),
+                  ...body,
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 18),
+              child: CtaButton(
+                label: s.picked.isEmpty
+                    ? 'Import'
+                    : 'Import ${s.picked.length} item${s.picked.length == 1 ? '' : 's'}',
+                icon: Icons.file_upload_outlined,
+                variant: OgVariant.accent,
+                onPressed: (!upload || s.picked.isEmpty || s.busy) ? null : s.start,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

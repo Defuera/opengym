@@ -1,46 +1,45 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 
-import '../data/api/open_gym_api.dart';
+import '../data/convex_client.dart';
 import '../models.dart';
 
-/// GET /v1/dashboard for the selected period. Keeps the last good result.
+/// The dashboard for the selected period (7 or 30 days), as a live
+/// subscription. Keeps the last good result while the other period loads.
 class DashboardStore extends ChangeNotifier {
-  DashboardStore({required OpenGymApi api}) : _api = api;
+  DashboardStore({required ConvexClient client}) : _client = client;
 
-  final OpenGymApi _api;
+  final ConvexClient _client;
 
   Dashboard? dashboard;
   int days = 7;
   bool loading = false;
   String? error;
-  int _gen = 0;
+  StreamSubscription<Stored<Dashboard>>? _sub;
 
-  Future<void> load(int period) async {
-    days = period;
-    await refresh();
-  }
-
-  Future<void> refresh() async {
-    final int gen = ++_gen;
-    loading = true;
-    notifyListeners();
-    Dashboard? got;
-    String? err;
-    try {
-      got = await _api.dashboard(days);
-    } on ApiException catch (e) {
-      err = e.message;
-    } catch (_) {
-      err = 'Could not load the dashboard.';
-    }
-    if (gen != _gen) {
+  /// Follow the dashboard of [period]. Every server change is pushed.
+  void select(int period) {
+    if (_sub != null && period == days) {
       return;
     }
-    loading = false;
-    error = err;
-    if (got != null) {
-      dashboard = got;
-    }
+    days = period;
+    loading = true;
+    error = null;
+    _sub?.cancel();
+    _sub = _client.watchDashboard(period).listen(
+      (Stored<Dashboard> r) {
+        dashboard = r.value;
+        loading = false;
+        error = null;
+        notifyListeners();
+      },
+      onError: (Object e) {
+        loading = false;
+        error = e is ConvexCallException ? e.message : 'Could not load the dashboard.';
+        notifyListeners();
+      },
+    );
     notifyListeners();
   }
 
@@ -48,5 +47,11 @@ class DashboardStore extends ChangeNotifier {
   Dashboard? get current {
     final Dashboard? d = dashboard;
     return (d != null && d.days == days) ? d : null;
+  }
+
+  @override
+  void dispose() {
+    _sub?.cancel();
+    super.dispose();
   }
 }

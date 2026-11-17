@@ -2,29 +2,34 @@ import { v } from "convex/values";
 import { internal } from "../_generated/api";
 import { mutation } from "../_generated/server";
 import { requireToken } from "../lib/auth";
-import { START_REQUEST_MAX_TEXT, START_REQUEST_PURGE_BATCH, START_REQUEST_TTL_MS } from "../lib/constants";
+import { START_REQUEST_MAX_NAME, START_REQUEST_MAX_TEXT, START_REQUEST_PURGE_BATCH, START_REQUEST_TTL_MS } from "../lib/constants";
 import { startRequestById } from "../lib/db";
 
 /**
  * A typed "Start session" request (ADR-016). Idempotent by the client-made `requestId`: a resend changes nothing and
- * schedules nothing. Stores `{requestId, text, status: "pending"}` and schedules the interpret_request job
+ * schedules nothing. Stores `{requestId, text?, name?, status: "pending"}` and schedules the interpret_request job
  * (jobs/startRequest:build). This is not a fact: the AI only proposes; the app saves a session after the user starts it.
- * `text` is 1..200 characters (after trimming). Requests older than one day are removed here.
+ * `name` (optional, 1..40) is the fixed session name: the proposal type is always this name. `text` (optional, max 200)
+ * is the wish. At least one of the two is required, so an old client that sends only `text` keeps working. Requests older than one day are removed here.
  * Returns the requestId.
  */
 export const request = mutation({
-  args: { token: v.string(), requestId: v.string(), text: v.string() },
-  handler: async (ctx, { token, requestId, text }): Promise<string> => {
+  args: { token: v.string(), requestId: v.string(), text: v.optional(v.string()), name: v.optional(v.string()) },
+  handler: async (ctx, { token, requestId, text, name }): Promise<string> => {
     requireToken(token);
     const id = requestId.trim();
     if (id.length < 1 || id.length > 100) throw new Error("requestId must be 1..100 characters");
-    const clean = text.trim();
-    if (clean.length < 1 || clean.length > START_REQUEST_MAX_TEXT) throw new Error(`text must be 1..${START_REQUEST_MAX_TEXT} characters`);
+    const cleanName = name?.trim();
+    if (name !== undefined && (!cleanName || cleanName.length > START_REQUEST_MAX_NAME)) throw new Error(`name must be 1..${START_REQUEST_MAX_NAME} characters`);
+    const clean = text?.trim();
+    // Text is optional only when a name is given. An empty text next to a name means "no wish".
+    if (text !== undefined && clean!.length > START_REQUEST_MAX_TEXT) throw new Error(`text must be 1..${START_REQUEST_MAX_TEXT} characters`);
+    if (cleanName === undefined && (clean === undefined || clean.length < 1)) throw new Error(`text must be 1..${START_REQUEST_MAX_TEXT} characters (or give a name)`);
     const now = Date.now();
     const old = await ctx.db.query("startRequests").withIndex("by_createdAt", (q) => q.lt("createdAt", now - START_REQUEST_TTL_MS)).take(START_REQUEST_PURGE_BATCH);
     for (const d of old) await ctx.db.delete(d._id);
     if (await startRequestById(ctx, id)) return id;
-    await ctx.db.insert("startRequests", { requestId: id, text: clean, status: "pending", createdAt: now });
+    await ctx.db.insert("startRequests", { requestId: id, ...(clean ? { text: clean } : {}), ...(cleanName ? { name: cleanName } : {}), status: "pending", createdAt: now });
     await ctx.scheduler.runAfter(0, internal.jobs.startRequest.build, { requestId: id });
     return id;
   },

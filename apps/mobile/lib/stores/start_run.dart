@@ -11,10 +11,10 @@ import '../planner.dart';
 /// null on a failed request, a send error, or [budget] running out. It never
 /// throws. [cancel] stops watching; [result] then stays unfinished.
 class StartRun {
-  StartRun({required ConvexClient client, required String text, required Duration budget})
+  StartRun({required ConvexClient client, String? name, String? text, required Duration budget})
       : requestId = newId() {
     _timer = Timer(budget, () => _finish(null));
-    _start(client, text);
+    _start(client, name, text);
   }
 
   final String requestId;
@@ -25,7 +25,7 @@ class StartRun {
 
   Future<StartProposal?> get result => _done.future;
 
-  Future<void> _start(ConvexClient client, String text) async {
+  Future<void> _start(ConvexClient client, String? name, String? text) async {
     try {
       // Listen first, so an answer cannot be missed.
       _sub = client.watchStartRequest(requestId).listen(
@@ -37,7 +37,7 @@ class StartRun {
         },
         onError: (Object e) => _finish(null),
       );
-      await client.requestStart(requestId: requestId, text: text);
+      await client.requestStart(requestId: requestId, name: name, text: text);
     } catch (_) {
       _finish(null);
     }

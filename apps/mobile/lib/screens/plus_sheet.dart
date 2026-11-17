@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../app/deps.dart';
+import '../stores/start_draft.dart';
 import '../widgets/og_sheet.dart';
 import '../widgets/segmented_toggle.dart';
 import 'log_sheet.dart';
@@ -35,8 +36,8 @@ class PlusSheet extends StatefulWidget {
 }
 
 class _PlusSheetState extends State<PlusSheet> {
-  // Both texts live here, so a switch of tab keeps what was typed.
-  final TextEditingController _start = TextEditingController();
+  // The Start form and the Log text live here, so a switch of tab keeps what was typed.
+  final StartDraft _start = StartDraft();
   final TextEditingController _log = TextEditingController();
   late int _tab = widget.initial;
   bool _preparing = false;
@@ -67,7 +68,7 @@ class _PlusSheetState extends State<PlusSheet> {
               ? StartSheet(
                   deps: widget.deps,
                   nav: widget.nav,
-                  controller: _start,
+                  draft: _start,
                   onPreparing: (bool b) => setState(() => _preparing = b),
                 )
               : LogSheet(deps: widget.deps, nav: widget.nav, controller: _log),

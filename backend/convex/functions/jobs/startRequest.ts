@@ -18,7 +18,7 @@ export const input = internalQuery({
   handler: async (ctx, { requestId }) => {
     const doc = await startRequestById(ctx, requestId);
     if (!doc || doc.status !== "pending") return null;
-    return buildInterpretInput(doc.text, await allSessions(ctx), await allGoals(ctx), await allContext(ctx), await activeLimits(ctx), Date.now());
+    return buildInterpretInput(doc.text ?? "", await allSessions(ctx), await allGoals(ctx), await allContext(ctx), await activeLimits(ctx), Date.now(), doc.name);
   },
 });
 
@@ -37,8 +37,9 @@ export const save = internalMutation({
       return;
     }
     const sessions = await allSessions(ctx);
+    // A given name is fixed: the AI must not rename the session (finalizeStartProposal keeps the log's spelling).
     const checked = finalizeStartProposal(
-      proposal,
+      doc.name ? { ...proposal, type: doc.name } : proposal,
       sessions,
       await activeLimits(ctx),
     );

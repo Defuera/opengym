@@ -86,9 +86,21 @@ Future<void> openLog(WidgetTester t) async {
   await t.pumpAndSettle();
 }
 
-Future<void> typeAndPrepare(WidgetTester t, String text) async {
-  await t.enterText(find.byType(TextField), text);
-  await t.tap(find.text('Prepare'));
+/// Opens the Start form from the dashed row.
+Future<void> openForm(WidgetTester t) async {
+  await t.tap(find.text('New kind of session'));
+  await t.pumpAndSettle();
+}
+
+/// Opens the form, types the name (and the wish), taps "Prepare session".
+Future<void> typeAndPrepare(WidgetTester t, String name, {String? wish}) async {
+  await openForm(t);
+  await t.enterText(find.widgetWithText(TextField, 'Home'), name);
+  await t.pump();
+  if (wish != null) {
+    await t.enterText(find.widgetWithText(TextField, '15 minutes, no equipment, easy on the knee'), wish);
+  }
+  await t.tap(find.text('Prepare session'));
   await t.pump();
 }
 

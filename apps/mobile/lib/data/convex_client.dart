@@ -123,7 +123,7 @@ abstract class ConvexClient {
   /// Asks the coach to interpret a typed "something new" start. NOT a fact:
   /// the app never queues it in the outbox. The answer arrives through
   /// [watchStartRequest]. Sending the same [requestId] again changes nothing.
-  Future<void> requestStart({required String requestId, required String text});
+  Future<void> requestStart({required String requestId, String? name, String? text});
 
   /// The state of one start request; null while the server has none.
   Stream<StartRequest?> watchStartRequest(String requestId);
@@ -228,8 +228,12 @@ class DartvexConvexClient implements ConvexClient {
       );
 
   @override
-  Future<void> requestStart({required String requestId, required String text}) =>
-      _mutate('commands/start:request', <String, dynamic>{'requestId': requestId, 'text': text});
+  Future<void> requestStart({required String requestId, String? name, String? text}) =>
+      _mutate('commands/start:request', <String, dynamic>{
+        'requestId': requestId,
+        if (name != null) 'name': name,
+        if (text != null) 'text': text,
+      });
 
   @override
   Stream<Stored<List<Prediction>>> watchPredictions() =>

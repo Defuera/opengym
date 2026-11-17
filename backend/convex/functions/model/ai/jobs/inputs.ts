@@ -82,12 +82,13 @@ export function bestMatchingActivity(text: string, known: KnownActivity[]): Know
 }
 
 /** Interpret a typed start request. `limits` must be the non-cleared limits. The log is the full history, oldest first. */
-export function buildInterpretInput(text: string, all: Session[], goals: Goal[], context: ContextItem[], limits: Limit[], now: number): InterpretInput {
+export function buildInterpretInput(text: string, all: Session[], goals: Goal[], context: ContextItem[], limits: Limit[], now: number, name?: string): InterpretInput {
   const known = knownActivities(all, now);
-  const match = bestMatchingActivity(text, known);
+  // With a fixed name the match is by that name only (the wish does not pick another activity).
+  const match = name ? (known.find((a) => activityKey(a.type) === activityKey(name)) ?? null) : bestMatchingActivity(text, known);
   const recent = match ? lastN(all.filter((s) => activityKey(s.type) === activityKey(match.type)), INTERPRET_RECENT) : [];
   const rules: PlanDraft = match && match.kind === "gym" ? dropAvoided(rulesPlan(all, match.type), limits) : { rationale: "No matching session logged yet. Start empty and add what you do.", exercises: [] };
-  return { text, known, ...(match ? { bestMatch: match.type } : {}), sessions: recent, goals, context, limits, rules };
+  return { text, ...(name ? { name } : {}), known, ...(match ? { bestMatch: match.type } : {}), sessions: recent, goals, context, limits, rules };
 }
 
 export function buildDashboardInput(all: Session[], goals: Goal[], context: ContextItem[], days: 7 | 30): DashboardInput {

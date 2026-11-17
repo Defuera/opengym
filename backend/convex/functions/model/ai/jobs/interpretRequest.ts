@@ -10,8 +10,10 @@ import { contextForPrompt, goalsForPrompt, limitsForPrompt, logForPrompt, type K
  * history of the best-matching activity (bounded, see inputs.ts). Never holds records (ADR-015).
  */
 export interface InterpretInput {
-  /** What the user typed, 1..200 characters. */
+  /** What the user typed, 0..200 characters. With a name it is the wish and may be empty. */
   text: string;
+  /** The fixed session name (1..40), when the user gave one. The proposal type is always this name. */
+  name?: string;
   known: KnownActivity[];
   /** The known activity the text most likely means, when one does. */
   bestMatch?: string;
@@ -35,8 +37,8 @@ export function nameFromText(text: string): string {
 }
 
 /** Plain-code fallback: a session with sets under the name from the text (a known spelling when the log has one), with an empty plan. */
-export function fallbackProposal(i: Pick<InterpretInput, "text" | "known">): StartProposal {
-  const name = nameFromText(i.text);
+export function fallbackProposal(i: Pick<InterpretInput, "text" | "known" | "name">): StartProposal {
+  const name = i.name?.trim() ? i.name.trim().slice(0, 40) : nameFromText(i.text);
   const known = i.known.find((a) => activityKey(a.type) === activityKey(name));
   return { kind: "gym", type: known?.type ?? name, plan: { rationale: "Empty session. Add what you do.", exercises: [] } };
 }
@@ -58,14 +60,16 @@ export const interpretRequestJob: JobDef<InterpretInput, StartProposal> = {
   build: (i) => ({
     system: systemPrompt(
       "interpret_request",
-      "You turn one typed request into a proposal for a session to start. The user types what they want to do (for example a home session of 15 minutes, a new activity, or a focus). The activity name says where or what: a different place or equipment is a different activity. A session at home is Home and a session in a hotel gym is Hotel gym, never Gym; Gym is only for the user's usual gym. Reuse an activity name from knownActivities, spelled as there, only when the request means that same activity; otherwise give the new activity a short name (one to three words) from the request. Words such as quick, easy or a body area go in focus, not in the name. Use kind gym for a session with sets for that activity (the app then follows a plan of exercises and sets); use kind activity only for time or distance work with no sets. For a session with sets, write the plan: the number of exercises and sets must fit the time the user asked for (about two minutes per set, including rest), use the equipment and preferences in context (do not assume a gym), keep to exercises the log shows when the request matches one of them, and do not exceed 1.25 times the heaviest weight ever logged for an exercise. Always write a full plan for a session with sets, also when the request is short (for example only two words) and when the log has no session of that activity: never return an empty plan. When the request gives no duration, plan about 20 minutes. When it names no equipment and it is not the usual gym, use bodyweight exercises only. Put the duration asked for in minutes, and an advised focus (max 40 characters) when it helps. The reason is one short factual line. " + LIMITS_RULE,
+      (i.name
+        ? `You turn one request into a proposal for a session to start. The user gave a fixed session name and an optional wish. The name is fixed: put it in type exactly as given and never rename it. The wish describes what the user wants in this session (duration, equipment, body area, easy or hard). With an empty wish, plan a normal session of that activity: from the log when it has sessions of that activity, else about 20 minutes with bodyweight exercises only. Use kind gym and write a full plan: the number of exercises and sets must fit the time asked for (about two minutes per set, including rest), use the equipment and preferences in context (do not assume a gym unless the name is the usual gym), keep to exercises the log shows when they fit, and do not exceed 1.25 times the heaviest weight ever logged for an exercise. Never return an empty plan. Put the duration asked for in minutes, and an advised focus (max 40 characters) when it helps. The reason is one short factual line. ${LIMITS_RULE}`
+        : "You turn one typed request into a proposal for a session to start. The user types what they want to do (for example a home session of 15 minutes, a new activity, or a focus). The activity name says where or what: a different place or equipment is a different activity. A session at home is Home and a session in a hotel gym is Hotel gym, never Gym; Gym is only for the user's usual gym. Reuse an activity name from knownActivities, spelled as there, only when the request means that same activity; otherwise give the new activity a short name (one to three words) from the request. Words such as quick, easy or a body area go in focus, not in the name. Use kind gym for a session with sets for that activity (the app then follows a plan of exercises and sets); use kind activity only for time or distance work with no sets. For a session with sets, write the plan: the number of exercises and sets must fit the time the user asked for (about two minutes per set, including rest), use the equipment and preferences in context (do not assume a gym), keep to exercises the log shows when the request matches one of them, and do not exceed 1.25 times the heaviest weight ever logged for an exercise. Always write a full plan for a session with sets, also when the request is short (for example only two words) and when the log has no session of that activity: never return an empty plan. When the request gives no duration, plan about 20 minutes. When it names no equipment and it is not the usual gym, use bodyweight exercises only. Put the duration asked for in minutes, and an advised focus (max 40 characters) when it helps. The reason is one short factual line. " + LIMITS_RULE),
       SHAPE,
     ),
     messages: [
       {
         role: "user",
         content: dataPrompt("Interpret this start request.", {
-          request: i.text,
+          ...(i.name ? { name: i.name, wish: i.text } : { request: i.text }),
           knownActivities: i.known,
           bestMatch: i.bestMatch ?? null,
           recentLogOfBestMatch: logForPrompt(i.sessions, 6),

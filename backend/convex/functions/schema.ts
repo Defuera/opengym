@@ -205,7 +205,10 @@ export default defineSchema({
   // Written by commands/start:request and jobs/startRequest. Removed after one day.
   startRequests: defineTable({
     requestId: v.string(),
-    text: v.string(),
+    // The wish (what the user wants). Optional: a request may carry only a name.
+    text: v.optional(v.string()),
+    // The fixed session name (1..40). When set, the proposal type is always this name.
+    name: v.optional(v.string()),
     status: startStatus,
     createdAt: v.number(),
     proposal: v.optional(startProposal),

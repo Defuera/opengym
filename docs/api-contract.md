@@ -93,7 +93,7 @@ goal).
 | GET | `/v1/sessions/:id/review` | – | `{ review: Review | null }` |
 | GET | `/v1/start` | – | `{ predictions: Prediction[] }` most likely first |
 | GET | `/v1/plans/next?focus=Upper` (Convex: `queries/plans:next { activity?: string (default "Gym"), focus?, type? (legacy name of focus) }`; no focus = the advised focus of that activity) | – | `{ plan: Plan, stored: boolean }` the stored plan, else the rules plan computed now: the user's own last session of that activity and focus, or an EMPTY plan (no starter template). Never calls the AI. |
-| POST | Convex only: `commands/start:request { token, requestId, text 1..200 }` | – | the requestId. Idempotent by requestId. Stores `{requestId, text, status: "pending"}` and schedules `interpret_request`. Requests older than one day are removed. |
+| POST | Convex only: `commands/start:request { token, requestId, name?: 1..40, text?: 0..200 }` (at least one of `name`, `text`; a text-only request from an old client works as before) | – | the requestId. Idempotent by requestId. Stores `{requestId, text?, name?, status: "pending"}` and schedules `interpret_request`. Requests older than one day are removed. |
 | GET | Convex only: `queries/start:request { token, requestId }` | – | `StartRequest` or `null` |
 | GET | `/v1/dashboard?days=7` | – | `{ dashboard: Dashboard }` |
 | GET | `/v1/goals` | – | `{ goals: Goal[] }` |
@@ -129,7 +129,7 @@ plans and the dashboard layout; they are regenerated in the background.
 |---|---|---|
 | `plan_session` | Plan for a session with sets for one activity (and focus) from log, goals, active context (equipment and preferences), limits | the user's last session of that activity and focus with its last sets; an EMPTY plan if there is none |
 | `predict_activity` | Prediction[] (names checked against the log by activityKey; max 2 per activity, 6 in all) | the log's activities ranked by recent use; a session with sets gets the focus done longest ago, plus a second item when the log has a second focus; empty for an empty log |
-| `interpret_request` | StartRequest proposal for a typed text: activity (a known name is reused by activityKey), focus, minutes, reason, plan | status `ready` with `{kind: "gym", type: <text before the first comma>, plan: empty}` |
+| `interpret_request` | StartRequest proposal for a typed text: activity (a known name is reused by activityKey), focus, minutes, reason, plan | status `ready` with `{kind: "gym", type: <name as typed, else the text before the first comma>, plan: empty}`. With a `name`, the proposal `type` is always that name (the log's spelling when the key matches); the job gets `name` and `wish` (the text) as separate inputs |
 | `build_dashboard` | ordered module specs | sessions, active days, top set of most-trained exercise, one goal_progress per active goal, recent_sessions |
 | `chat` | reply text + sources | fixed "AI is not configured" reply; message still stored |
 | `extract_from_chat` | new Goal[] / ContextItem[] from a user message | none extracted |

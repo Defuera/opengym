@@ -12,6 +12,12 @@ class LabeledField extends StatelessWidget {
     this.keyboardType,
     this.obscure = false,
     this.maxLines = 1,
+    this.minLines,
+    this.maxLength,
+    this.helper,
+    this.readOnly = false,
+    this.autocorrect = false,
+    this.textInputAction,
     this.onChanged,
     this.onSubmitted,
   });
@@ -22,6 +28,14 @@ class LabeledField extends StatelessWidget {
   final TextInputType? keyboardType;
   final bool obscure;
   final int maxLines;
+  final int? minLines;
+
+  /// Hard character limit. The counter is not shown; the helper says what the field is for.
+  final int? maxLength;
+  final String? helper;
+  final bool readOnly;
+  final bool autocorrect;
+  final TextInputAction? textInputAction;
   final ValueChanged<String>? onChanged;
   final ValueChanged<String>? onSubmitted;
 
@@ -41,13 +55,18 @@ class LabeledField extends StatelessWidget {
           keyboardType: keyboardType,
           obscureText: obscure,
           maxLines: obscure ? 1 : maxLines,
-          autocorrect: false,
+          minLines: obscure ? null : minLines,
+          maxLength: maxLength,
+          readOnly: readOnly,
+          textInputAction: textInputAction,
+          autocorrect: autocorrect,
           onChanged: onChanged,
           onSubmitted: onSubmitted,
           style: OG.body(),
           decoration: InputDecoration(
             hintText: hint,
             hintStyle: OG.muted(),
+            counterText: maxLength == null ? null : '',
             filled: true,
             fillColor: OG.card,
             contentPadding:
@@ -59,6 +78,10 @@ class LabeledField extends StatelessWidget {
             ),
           ),
         ),
+        if (helper != null) ...<Widget>[
+          const SizedBox(height: 6),
+          Text(helper!, style: OG.muted(size: 14)),
+        ],
       ],
     );
   }

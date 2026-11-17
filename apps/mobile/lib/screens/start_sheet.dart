@@ -3,12 +3,14 @@ import 'package:flutter/material.dart';
 import '../app/deps.dart';
 import '../models.dart';
 import '../stores/plan_store.dart';
+import '../stores/start_draft.dart';
 import '../stores/start_run.dart';
 import '../theme.dart';
 import '../widgets/preparing_card.dart';
 import '../widgets/proposal_row.dart';
 import '../widgets/sheet_link.dart';
-import '../widgets/something_new_box.dart';
+import '../widgets/new_kind_row.dart';
+import '../widgets/start_form.dart';
 import 'start_flow.dart';
 
 class StartSheet extends StatefulWidget {
@@ -16,12 +18,12 @@ class StartSheet extends StatefulWidget {
     super.key,
     required this.deps,
     required this.nav,
-    required this.controller,
+    required this.draft,
     required this.onPreparing,
   });
 
-  /// Kept by the sheet, so typed text survives a switch to the Log tab.
-  final TextEditingController controller;
+  /// Kept by the sheet, so typed text and the open form survive a switch to the Log tab.
+  final StartDraft draft;
 
   /// Tells the sheet a request is running (the tab switch is hidden then).
   final ValueChanged<bool> onPreparing;
@@ -36,7 +38,7 @@ class StartSheet extends StatefulWidget {
 }
 
 class _StartSheetState extends State<StartSheet> {
-  TextEditingController get _text => widget.controller;
+  StartDraft get _draft => widget.draft;
   StartRun? _run;
   String _typed = '';
 
@@ -58,18 +60,15 @@ class _StartSheetState extends State<StartSheet> {
     openPrepared(widget.nav, widget.deps, activity: p.type, focus: p.focus);
   }
 
-  void _empty([String? text]) {
+  /// An empty session. [name] is used as it is (the form limits it to 40).
+  void _empty([String name = gymType]) {
     _run?.cancel();
     widget.nav.pop();
-    openEmpty(
-      widget.nav,
-      widget.deps,
-      activity: text == null ? gymType : activityNameFromText(text),
-    );
+    openEmpty(widget.nav, widget.deps, activity: name);
   }
 
   Future<void> _prepare() async {
-    final String t = _text.text.trim();
+    final String t = _draft.effectiveName;
     if (t.isEmpty || _run != null) {
       return;
     }
@@ -78,7 +77,8 @@ class _StartSheetState extends State<StartSheet> {
       _empty(t);
       return;
     }
-    final StartRun run = widget.deps.plans.requestStart(t);
+    final String wish = _draft.wish.text.trim();
+    final StartRun run = widget.deps.plans.requestStart(name: t, text: wish.isEmpty ? null : wish);
     setState(() {
       _run = run;
       _typed = t;
@@ -114,8 +114,18 @@ class _StartSheetState extends State<StartSheet> {
       );
     }
     return ListenableBuilder(
-      listenable: Listenable.merge(<Listenable>[widget.deps.store, widget.deps.plans]),
+      listenable: Listenable.merge(<Listenable>[widget.deps.store, widget.deps.plans, _draft]),
       builder: (BuildContext context, Widget? child) {
+        if (_draft.open) {
+          return StartForm(
+            name: _draft.name,
+            wish: _draft.wish,
+            lockedName: _draft.locked,
+            onBack: _draft.close,
+            onPrepare: _prepare,
+            onStartEmpty: () => _empty(_draft.effectiveName),
+          );
+        }
         final List<Prediction> list = _proposals();
         return Column(
           mainAxisSize: MainAxisSize.min,
@@ -123,7 +133,7 @@ class _StartSheetState extends State<StartSheet> {
           children: <Widget>[
             Text(
               list.isEmpty
-                  ? 'Say what you want to do. The coach prepares it.'
+                  ? 'Name a session. The coach prepares it.'
                   : 'The coach prepares it. Most likely first, from your log.',
               style: OG.muted(),
             ),
@@ -139,18 +149,14 @@ class _StartSheetState extends State<StartSheet> {
                       subtitle: list[i].reason,
                       primary: i == 0,
                       onTap: () => _choose(list[i]),
+                      onAsk: () => _draft.openFor(list[i].type),
                     ),
                     const SizedBox(height: 10),
                   ],
                 ],
               ),
             ),
-            SomethingNewBox(
-              controller: _text,
-              hint: 'Something new: "hotel gym, 30 min"',
-              buttonLabel: 'Prepare',
-              onSubmit: _prepare,
-            ),
+            NewKindRow(label: 'New kind of session', onTap: _draft.openNew),
             const SizedBox(height: 4),
             Align(
               alignment: Alignment.centerLeft,

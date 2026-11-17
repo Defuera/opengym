@@ -16,5 +16,6 @@ export const IMPORT_UNIT_STAGGER_MS = 1_000;
 export const START_REQUEST_TTL_MS = 86_400_000;
 /** Longest text of a start request. */
 export const START_REQUEST_MAX_TEXT = 200;
+export const START_REQUEST_MAX_NAME = 40;
 /** Old start requests removed per command call. */
 export const START_REQUEST_PURGE_BATCH = 50;

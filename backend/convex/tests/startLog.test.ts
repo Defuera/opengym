@@ -28,6 +28,7 @@ afterEach(() => {
 const save = (s: unknown) => t.mutation(api.commands.sessions.save, { token: TOKEN, session: s as never });
 const stored = () => t.run((c) => c.db.query("sessions").collect());
 const request = (requestId: string, text: string) => t.mutation(api.commands.start.request, { token: TOKEN, requestId, text });
+const requestNamed = (requestId: string, name?: string, text?: string) => t.mutation(api.commands.start.request, { token: TOKEN, requestId, ...(name !== undefined ? { name } : {}), ...(text !== undefined ? { text } : {}) });
 const getRequest = (requestId: string) => t.query(api.queries.start.request, { token: TOKEN, requestId });
 const planNext = (args: { activity?: string; focus?: string; type?: string } = {}) => t.query(api.queries.plans.next, { token: TOKEN, ...args });
 const names = (p: { exercises: { name: string }[] }) => p.exercises.map((e) => e.name);
@@ -409,6 +410,67 @@ describe("start request", () => {
     await settle(t);
     expect(await t.run((c) => c.db.query("rebuilds").first())).toBeNull();
     expect(await stored()).toEqual([]);
+  });
+});
+
+describe("start request with a name", () => {
+  const plan = (n: string) => ({ rationale: "r", exercises: [{ name: n, sets: [{ reps: 10, kg: 0, max: false }] }] });
+
+  it("name only: stored, the job gets name and an empty wish, the type is the name", async () => {
+    const calls = stubOpenAi((job) => (job === "interpret_request" ? JSON.stringify({ kind: "gym", type: "Home", plan: plan("Squat") }) : "{}"));
+    await requestNamed("n1", " Hotel gym ");
+    expect(await t.run((c) => c.db.query("startRequests").first())).toMatchObject({ name: "Hotel gym", status: "pending" });
+    await settle(t);
+    expect(calls.find((c) => c.job === "interpret_request")!.input).toMatchObject({ name: "Hotel gym", wish: "" });
+    expect(await getRequest("n1")).toMatchObject({ status: "ready", proposal: { kind: "gym", type: "Hotel gym" } });
+  });
+
+  it("name + text: both stored and sent as separate inputs; the known spelling is kept", async () => {
+    await save(setsSession("h", NOW - DAY, "Gym", "Upper", [{ name: "Bench press", sets: [{ reps: 8, kg: 60, max: false }] }]));
+    const calls = stubOpenAi((job) => (job === "interpret_request" ? JSON.stringify({ kind: "gym", type: "Gym", minutes: 20, plan: plan("Bench press") }) : "{}"));
+    await requestNamed("n2", "GYM", "only 20 minutes, no bench");
+    expect(await t.run((c) => c.db.query("startRequests").first())).toMatchObject({ name: "GYM", text: "only 20 minutes, no bench" });
+    await settle(t);
+    const input = calls.find((c) => c.job === "interpret_request")!.input;
+    expect(input).toMatchObject({ name: "GYM", wish: "only 20 minutes, no bench", bestMatch: "Gym" });
+    expect(input.request).toBeUndefined();
+    expect(await getRequest("n2")).toMatchObject({ status: "ready", proposal: { type: "Gym", minutes: 20 } });
+  });
+
+  it("the name forces the type even when the AI answers another type", async () => {
+    stubOpenAi((job) => (job === "interpret_request" ? JSON.stringify({ kind: "gym", type: "Upper body day", plan: plan("Push-up") }) : "{}"));
+    await requestNamed("n3", "Home", "quick");
+    await settle(t);
+    expect(await getRequest("n3")).toMatchObject({ status: "ready", proposal: { type: "Home", plan: { type: "Home", source: "ai" } } });
+  });
+
+  it("the plain-code fallback uses the name as typed (not cut at a comma)", async () => {
+    await requestNamed("n4", "Hotel, floor 2", "x");
+    await settle(t);
+    expect(await getRequest("n4")).toMatchObject({ status: "ready", proposal: { kind: "gym", type: "Hotel, floor 2", plan: { source: "rules", exercises: [] } } });
+    expect(fallbackProposal({ text: "", name: "home", known: [{ type: "Home", kind: "gym", foci: [] }] })).toMatchObject({ type: "Home" });
+  });
+
+  it("validates: one of name or text is required; name 1..40; old text-only still works", async () => {
+    await expect(requestNamed("v1")).rejects.toThrow(/text/);
+    await expect(requestNamed("v2", "  ")).rejects.toThrow(/name/);
+    await expect(requestNamed("v3", "x".repeat(41))).rejects.toThrow(/name/);
+    await expect(requestNamed("v4", "Home", "x".repeat(201))).rejects.toThrow(/text/);
+    await requestNamed("v5", "x".repeat(40));
+    await requestNamed("v6", undefined, "home");
+    expect(await t.run((c) => c.db.query("startRequests").collect())).toHaveLength(2);
+    await settle(t);
+  });
+
+  it("old text-only request: unchanged input and no name stored", async () => {
+    const calls = stubOpenAi((job) => (job === "interpret_request" ? JSON.stringify({ kind: "gym", type: "Boxing", plan: plan("Jab") }) : "{}"));
+    await request("o1", "boxing, 30 min");
+    await settle(t);
+    const input = calls.find((c) => c.job === "interpret_request")!.input;
+    expect(input).toMatchObject({ request: "boxing, 30 min" });
+    expect(input.name).toBeUndefined();
+    expect((await t.run((c) => c.db.query("startRequests").first()))!.name).toBeUndefined();
+    expect(await getRequest("o1")).toMatchObject({ proposal: { type: "Boxing" } });
   });
 });
 

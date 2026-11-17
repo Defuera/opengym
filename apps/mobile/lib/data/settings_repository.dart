@@ -19,12 +19,17 @@ class SharedPrefsSettingsRepository implements SettingsRepository {
   static const String _urlKey = 'opengym-server-url';
   static const String _tokenKey = 'opengym-token';
 
+  /// Build-time defaults for test builds (`--dart-define`). Empty in a normal
+  /// build. Saved settings always win.
+  static const String _defaultUrl = String.fromEnvironment('OPENGYM_URL');
+  static const String _defaultToken = String.fromEnvironment('OPENGYM_TOKEN');
+
   @override
   Future<Settings> load() async {
     final SharedPreferences p = await SharedPreferences.getInstance();
     return Settings(
-      serverUrl: p.getString(_urlKey) ?? '',
-      token: p.getString(_tokenKey) ?? '',
+      serverUrl: p.getString(_urlKey) ?? _defaultUrl,
+      token: p.getString(_tokenKey) ?? _defaultToken,
     );
   }
 

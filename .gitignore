@@ -1,48 +1,43 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
-
-# dependencies
-/node_modules
-/.pnp
-.pnp.*
-.yarn/*
-!.yarn/patches
-!.yarn/plugins
-!.yarn/releases
-!.yarn/versions
-
-# testing
-/coverage
-
-# next.js
-/.next/
-/out/
-
-# production
-/build
-
-# misc
+# OS and editors
 .DS_Store
-*.pem
+.idea/
+.vscode/
+*.iml
+*.swp
 
-# debug
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-.pnpm-debug.log*
+# Dependencies and build output
+node_modules/
+dist/
+.next/
+.turbo
+*.tsbuildinfo
 
-# env files (can opt-in for committing if needed)
+# Env files and secrets (never commit)
 .env*
+!.env.example
+*.pem
+*.p12
+*.mobileprovision
+**/GoogleService-Info.plist
+**/google-services.json
+apps/mobile/ios/Flutter/Local.xcconfig
 
-# vercel
+# Local data
+backend/api/data/
+*.sqlite
+*.sqlite-journal
+
+# Vercel
 .vercel
 
-# typescript
-*.tsbuildinfo
-next-env.d.ts
+# Flutter / Dart (apps/mobile/.gitignore has more)
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.pub-cache/
+build/
+**/DerivedData/
+xcuserdata/
 
-/src/generated/prisma
-
-# database
-*.db
-*.db-journal
-core
+# Logs
+*.log

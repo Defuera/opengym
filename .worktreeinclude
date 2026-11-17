@@ -1,0 +1,18 @@
+# Gitignored but build/run-critical files copied into fresh worktrees.
+# .gitignore syntax. Paths only — never secret values.
+
+# Backend API: provider, model and key settings, app token
+backend/api/.env
+
+# Old web app: Convex URL, Prisma/libSQL and other env files
+apps/web/.env
+apps/web/.env.local
+apps/web/.env.*.local
+
+# Flutter iOS: local config and signing files (present only if you created them)
+apps/mobile/ios/Flutter/Local.xcconfig
+apps/mobile/ios/Runner/GoogleService-Info.plist
+apps/mobile/ios/*.mobileprovision
+apps/mobile/ios/*.p12
+apps/mobile/ios/fastlane/.env*
+backend/convex/.env.local

@@ -88,7 +88,7 @@ export function buildInterpretInput(text: string, all: Session[], goals: Goal[],
   const match = name ? (known.find((a) => activityKey(a.type) === activityKey(name)) ?? null) : bestMatchingActivity(text, known);
   const recent = match ? lastN(all.filter((s) => activityKey(s.type) === activityKey(match.type)), INTERPRET_RECENT) : [];
   const rules: PlanDraft = match && match.kind === "gym" ? dropAvoided(rulesPlan(all, match.type), limits) : { rationale: "No matching session logged yet. Start empty and add what you do.", exercises: [] };
-  return { text, ...(name ? { name } : {}), known, ...(match ? { bestMatch: match.type } : {}), sessions: recent, goals, context, limits, rules };
+  return { text, ...(name ? { name } : {}), known, ...(match ? { bestMatch: match.type } : {}), sessions: recent, lately: lastN(all, PLAN_RECENT_ANY), now, goals, context, limits, rules };
 }
 
 export function buildDashboardInput(all: Session[], goals: Goal[], context: ContextItem[], days: 7 | 30): DashboardInput {

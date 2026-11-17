@@ -24,6 +24,8 @@ export interface AiProvider {
   readonly name: string;
   readonly supportsImages: boolean;
   complete(req: CompleteRequest): Promise<string>;
+  /** Ids of the text/chat models the provider offers (see modelList.ts). Throws ProviderError on a failed request. */
+  listModels(): Promise<string[]>;
 }
 
 export interface HttpProviderOptions {
@@ -37,22 +39,25 @@ export interface HttpProviderOptions {
 export class ProviderError extends Error {}
 
 /** POST JSON with a timeout; throws ProviderError on non-2xx or timeout. */
-export async function postJson(
-  f: typeof fetch,
-  url: string,
-  headers: Record<string, string>,
-  body: unknown,
-  timeoutMs: number,
-): Promise<unknown> {
+export function postJson(f: typeof fetch, url: string, headers: Record<string, string>, body: unknown, timeoutMs: number): Promise<unknown> {
+  return requestJson(f, url, "POST", headers, timeoutMs, body);
+}
+
+/** GET JSON with a timeout; throws ProviderError on non-2xx or timeout. */
+export function getJson(f: typeof fetch, url: string, headers: Record<string, string>, timeoutMs: number): Promise<unknown> {
+  return requestJson(f, url, "GET", headers, timeoutMs);
+}
+
+async function requestJson(f: typeof fetch, url: string, method: "GET" | "POST", headers: Record<string, string>, timeoutMs: number, body?: unknown): Promise<unknown> {
   let res: Response;
   // AbortSignal.timeout is not guaranteed in the Convex runtime, so use a plain timer.
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     res = await f(url, {
-      method: "POST",
+      method,
       headers: { "content-type": "application/json", ...headers },
-      body: JSON.stringify(body),
+      ...(method === "POST" ? { body: JSON.stringify(body) } : {}),
       signal: controller.signal,
     });
   } catch (e) {

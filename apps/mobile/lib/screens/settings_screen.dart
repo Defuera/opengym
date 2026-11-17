@@ -9,6 +9,7 @@ import '../widgets/note_box.dart';
 import '../widgets/og_icon_button.dart';
 import '../widgets/og_button.dart';
 import '../widgets/status_line.dart';
+import 'coach_model_panel.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key, required this.deps});
@@ -116,6 +117,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           ],
                         ),
                       ],
+                      CoachModelPanel(store: widget.deps.aiModel, connection: c),
                       const SizedBox(height: 22),
                       const NoteBox(
                         title: 'Where do I find these?',

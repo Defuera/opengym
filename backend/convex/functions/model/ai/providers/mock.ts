@@ -38,6 +38,10 @@ export class MockProvider implements AiProvider {
   readonly name = "mock";
   readonly supportsImages = true;
 
+  async listModels(): Promise<string[]> {
+    return [];
+  }
+
   async complete(req: CompleteRequest): Promise<string> {
     const job = jobOf(req.system);
     const d = inputOf(req);

@@ -11,6 +11,7 @@ import '../data/shared_prefs_session_repository.dart';
 import '../data/switchable_convex_client.dart';
 import '../store.dart';
 import '../stores/about_store.dart';
+import '../stores/ai_model_store.dart';
 import '../stores/coach_store.dart';
 import '../stores/connection_store.dart';
 import '../stores/context_store.dart';
@@ -51,6 +52,7 @@ Future<AppDeps> compose() async {
   final GoalsStore goals = GoalsStore(client: client, outbox: outbox);
   final ContextStore context = ContextStore(client: client, outbox: outbox);
   final ImportStore imports = ImportStore(client: client);
+  final AiModelStore aiModel = AiModelStore(client: client);
   final AboutStore about = AboutStore(repo: ConvexAboutRepository(client: client, outbox: outbox));
 
   // A finished session goes to the outbox on disk first, then to the server.
@@ -72,6 +74,7 @@ Future<AppDeps> compose() async {
   goals.start();
   context.start();
   about.start();
+  aiModel.start();
   coach.start();
   imports.watchPast();
   dashboard.select(7);
@@ -89,6 +92,7 @@ Future<AppDeps> compose() async {
     reviews: reviews,
     pickers: DevicePickers(),
     about: about,
+    aiModel: aiModel,
   );
 
   // Do not wait for the network: the app opens straight away.

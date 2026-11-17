@@ -5,6 +5,7 @@ library;
 import 'models/activity.dart';
 
 export 'models/about.dart';
+export 'models/ai_settings.dart';
 export 'models/activity.dart';
 export 'models/about_parts.dart';
 export 'models/chat.dart';

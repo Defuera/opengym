@@ -216,6 +216,14 @@ export default defineSchema({
     .index("by_requestId", ["requestId"])
     .index("by_createdAt", ["createdAt"]),
 
+  // Owner settings (one row). `aiModel` is the coach model chosen in the app; absent = the model from the environment.
+  // `modelList` is the provider's model list, cached by jobs/models:refresh. `modelListError` is a short text without secrets.
+  settings: defineTable({
+    aiModel: v.optional(v.string()),
+    modelList: v.optional(v.object({ models: v.array(v.string()), fetchedAt: v.number() })),
+    modelListError: v.optional(v.string()),
+  }),
+
   // Debounce state for read-model rebuilds (one row). See lib/facts-changed.ts.
   rebuilds: defineTable({
     /** Last time a fact changed. */

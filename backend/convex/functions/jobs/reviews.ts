@@ -37,7 +37,7 @@ export const build = internalAction({
   handler: async (ctx, { sessionId, version }): Promise<void> => {
     const input = await ctx.runQuery(internal.jobs.reviews.input, { sessionId });
     if (!input) return;
-    const r = await runAiJob(reviewSessionJob, input);
+    const r = await runAiJob(ctx, reviewSessionJob, input);
     await ctx.runMutation(internal.jobs.reviews.save, { sessionId, version, source: r.path === "ai" ? "ai" : "rules", ...r.value });
   },
 });

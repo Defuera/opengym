@@ -64,7 +64,7 @@ export const build = internalAction({
     try {
       const input = await ctx.runQuery(internal.jobs.startRequest.input, { requestId });
       if (!input) return;
-      const r = await runAiJob(interpretRequestJob, input, { timeoutMs: BUDGET_MS });
+      const r = await runAiJob(ctx, interpretRequestJob, input, { timeoutMs: BUDGET_MS });
       const proposal = r.path === "ai" ? r.value : fallbackProposal(input);
       await ctx.runMutation(internal.jobs.startRequest.save, { requestId, source: r.path === "ai" ? "ai" : "rules", proposal });
     } catch (e) {

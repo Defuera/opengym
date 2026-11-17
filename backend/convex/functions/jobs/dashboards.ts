@@ -32,7 +32,7 @@ export const build = internalAction({
   args: { days: dashboardDays, version: v.number() },
   handler: async (ctx, { days, version }): Promise<void> => {
     const input = await ctx.runQuery(internal.jobs.dashboards.input, { days });
-    const r = await runAiJob(buildDashboardJob, input);
+    const r = await runAiJob(ctx, buildDashboardJob, input);
     await ctx.runMutation(internal.jobs.dashboards.save, { days, version, source: r.path === "ai" ? "ai" : "rules", modules: r.value.modules });
   },
 });

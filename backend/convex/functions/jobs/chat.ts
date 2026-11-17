@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { internal } from "../_generated/api";
 import { internalAction, internalMutation, internalQuery } from "../_generated/server";
-import { providerFromEnv, runAiJob } from "../lib/ai";
+import { providerFor, runAiJob } from "../lib/ai";
 import { toContextItem, toGoal, toSession, messageByMessageId, threadByThreadId } from "../lib/db";
 import { activeLimits } from "../lib/limitsDb";
 import { markFactsChanged } from "../lib/factsChanged";
@@ -150,14 +150,14 @@ export const reply = internalAction({
     let kept: boolean;
     let replyText = "";
     try {
-      const supportsImages = !!providerFromEnv()?.supportsImages;
+      const supportsImages = !!(await providerFor(ctx))?.supportsImages;
       const files: AttachedFile[] = [];
       for (const f of data.files) {
         const a = await loadAttachment(ctx, f, supportsImages);
         if (a) files.push(a);
       }
       const coach = assembleCoachContext(data.data, files, supportsImages);
-      const r = await runAiJob(chatJob, { contextBlock: coach.contextBlock, history: data.history, images: coach.images });
+      const r = await runAiJob(ctx, chatJob, { contextBlock: coach.contextBlock, history: data.history, images: coach.images });
       kept = await ctx.runMutation(internal.jobs.chat.saveReply, { threadId, text: r.value, sources: r.path === "ai" ? coach.sources : [] });
       replyText = r.value;
     } catch (e) {
@@ -168,14 +168,14 @@ export const reply = internalAction({
     if (!kept) return;
     if (data.titleJob) {
       try {
-        const t = await runAiJob(titleThreadJob, { text: data.text, reply: replyText });
+        const t = await runAiJob(ctx, titleThreadJob, { text: data.text, reply: replyText });
         if (t.path === "ai") await ctx.runMutation(internal.jobs.chat.saveTitle, { threadId, expectedTitle: data.titleJob.currentTitle, title: t.value.title });
       } catch (e) {
         console.error(`[chat] title failed: ${(e as Error).message}`); // the code title stays
       }
     }
     try {
-      const x = await runAiJob(extractFromChatJob, { text: data.text, existingContext: data.knownContext, existingGoals: data.knownGoals });
+      const x = await runAiJob(ctx, extractFromChatJob, { text: data.text, existingContext: data.knownContext, existingGoals: data.knownGoals });
       await ctx.runMutation(internal.jobs.chat.saveExtracted, { threadId, goals: x.value.goals, context: x.value.context });
     } catch (e) {
       console.error(`[chat] extraction failed: ${(e as Error).message}`); // the answer is already stored; proposals are optional
@@ -209,7 +209,7 @@ export const summarise = internalAction({
   handler: async (ctx, { threadId }): Promise<void> => {
     const input = await ctx.runQuery(internal.jobs.chat.summaryInput, { threadId });
     if (!input) return;
-    const r = await runAiJob(summariseThreadJob, input);
+    const r = await runAiJob(ctx, summariseThreadJob, input);
     await ctx.runMutation(internal.jobs.chat.saveSummary, { threadId, summary: r.value.summary });
   },
 });

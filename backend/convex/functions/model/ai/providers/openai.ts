@@ -7,6 +7,7 @@ export const createOpenAiProvider = (o: HttpProviderOptions) =>
     name: "openai",
     defaultBaseUrl: "https://api.openai.com",
     path: "/v1/chat/completions",
+    modelsPath: "/v1/models",
     supportsImages: true,
     maxTokensField: "max_completion_tokens",
   });

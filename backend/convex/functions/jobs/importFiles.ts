@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { internal } from "../_generated/api";
 import { internalAction, internalMutation, internalQuery } from "../_generated/server";
-import { providerFromEnv, runAiJob } from "../lib/ai";
+import { providerFor, runAiJob } from "../lib/ai";
 import { IMPORT_UNIT_STAGGER_MS } from "../lib/constants";
 import { fromSession } from "../lib/db";
 import { markFactsChanged } from "../lib/factsChanged";
@@ -104,7 +104,7 @@ export const prepare = internalAction({
   args: { importId: v.string(), fileIds: v.array(v.string()) },
   handler: async (ctx, { importId, fileIds }): Promise<void> => {
     try {
-      const provider = providerFromEnv();
+      const provider = await providerFor(ctx);
       const notes = new Set<string>();
       const uploadedAt = new Date().toISOString();
       const units: Record<string, unknown>[] = [];
@@ -150,7 +150,7 @@ export const unit = internalAction({
         if (!blob) throw new Error(`${a.fileName}: the stored file is missing.`);
         input.image = { mime: a.image.mime, base64: toBase64(new Uint8Array(await blob.arrayBuffer())) };
       }
-      const r = await runAiJob(importDataJob, input);
+      const r = await runAiJob(ctx, importDataJob, input);
       await ctx.runMutation(internal.jobs.importFiles.applyUnit, { importId: a.importId, fileName: a.fileName, fileCreatedAt: a.fileCreatedAt, output: r.value });
     } catch (e) {
       await ctx.runMutation(internal.jobs.importFiles.failJob, { importId: a.importId, error: (e as Error).message });

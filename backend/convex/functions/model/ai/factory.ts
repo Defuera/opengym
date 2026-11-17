@@ -16,15 +16,25 @@ const KEYS: Record<string, { key: string; model: string; base: string }> = {
   deepseek: { key: "DEEPSEEK_API_KEY", model: "DEEPSEEK_MODEL", base: "DEEPSEEK_BASE_URL" },
 };
 
-/** Returns null for AI_PROVIDER unset/none (AI off, fallbacks only). Throws ConfigError when key or model is missing. */
-export function createProviderFromEnv(env: Env, fetchImpl?: typeof fetch): AiProvider | null {
+/** Provider name and the model from the environment. Never reads or returns a key. */
+export function envInfo(env: Env): { provider: string; defaultModel: string | null } {
+  const provider = (env.AI_PROVIDER ?? "none").trim().toLowerCase() || "none";
+  const keys = KEYS[provider];
+  return { provider, defaultModel: (keys && env[keys.model]?.trim()) || null };
+}
+
+/**
+ * Returns null for AI_PROVIDER unset/none (AI off, fallbacks only). Throws ConfigError when key or model is missing.
+ * `modelOverride` (the owner's choice from Settings) wins over the model in the environment.
+ */
+export function createProviderFromEnv(env: Env, fetchImpl?: typeof fetch, modelOverride?: string | null): AiProvider | null {
   const name = (env.AI_PROVIDER ?? "none").trim().toLowerCase();
   if (name === "none" || name === "") return null;
   if (name === "mock") return new MockProvider();
   const keys = KEYS[name];
   if (!keys) throw new ConfigError(`AI_PROVIDER="${name}" is not one of: ${PROVIDER_NAMES.join(", ")}`);
   const apiKey = env[keys.key]?.trim();
-  const model = env[keys.model]?.trim();
+  const model = modelOverride?.trim() || env[keys.model]?.trim();
   const missing = [!apiKey && keys.key, !model && keys.model].filter(Boolean);
   if (missing.length) throw new ConfigError(`AI_PROVIDER=${name} needs ${missing.join(" and ")} in .env (set the model to a current model id from the provider's docs).`);
   const opts = { apiKey: apiKey!, model: model!, baseUrl: env[keys.base]?.trim() || undefined, fetch: fetchImpl };

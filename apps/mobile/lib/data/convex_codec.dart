@@ -49,6 +49,8 @@ List<Thread> decodeThreads(Object? v) => _list(v, decodeThread);
 Message decodeMessage(Object? v) => Message.fromJson(_doc(v, 'messageId'));
 List<Message> decodeMessages(Object? v) => _list(v, decodeMessage);
 
+AiSettings decodeAiSettings(Object? v) => AiSettings.fromJson(asMap(normalize(v)));
+
 AboutMe decodeAboutMe(Object? v) => AboutMe.fromJson(normalize(v));
 List<AskItem> decodeAskAfter(Object? v) => _list(v, (Object? e) => AskItem.fromJson(normalize(e)));
 

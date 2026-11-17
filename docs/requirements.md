@@ -124,6 +124,14 @@ conversation (A01–A16). Wording is kept close to his.
 - The screen shows a load level per muscle for 14 and 90 days, and the muscles his goals name.
 - See ADR-015. Backend contract: `backend/convex/functions/commands/limits.ts` and `queries/aboutMe.ts`.
 
+## Coach model
+
+- Settings has a "Coach model" section. The owner picks the model the coach uses, without a deploy.
+- It shows the model in use, the provider, and (when he chose one) the default from the server.
+- He picks from a list the provider offers, reloads the list with "Refresh list" (the list shows when it was updated), or types another model id.
+- The choice applies to plans, advice, reviews and chat from the next request. If the provider refuses the model, the app falls back to plain rules.
+- It needs a connection. Offline, the controls are off.
+
 ## Open questions (the owner's list, still undecided unless noted)
 - Which activities are in v1 besides gym
 - What context inputs exist beyond injuries

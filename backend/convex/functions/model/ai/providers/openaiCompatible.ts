@@ -1,10 +1,13 @@
-import { type AiProvider, type CompleteRequest, type HttpProviderOptions, ProviderError, postJson } from "../provider";
+import { type AiProvider, type CompleteRequest, type HttpProviderOptions, ProviderError, getJson, postJson } from "../provider";
+import { chatModelIds } from "../modelList";
 
 export interface OpenAiCompatibleConfig extends HttpProviderOptions {
   name: string;
   defaultBaseUrl: string;
   /** Path appended to the base URL. */
   path: string;
+  /** Path of the model list (GET). */
+  modelsPath: string;
   supportsImages: boolean;
   /** OpenAI wants max_completion_tokens; DeepSeek still uses max_tokens. */
   maxTokensField: "max_completion_tokens" | "max_tokens";
@@ -55,5 +58,15 @@ export class OpenAiCompatibleProvider implements AiProvider {
     const text = data.choices?.[0]?.message?.content;
     if (!text) throw new ProviderError("empty response");
     return text;
+  }
+
+  async listModels(): Promise<string[]> {
+    const data = (await getJson(
+      this.c.fetch ?? fetch,
+      `${this.c.baseUrl ?? this.c.defaultBaseUrl}${this.c.modelsPath}`,
+      { authorization: `Bearer ${this.c.apiKey}` },
+      this.c.timeoutMs ?? 30_000,
+    )) as { data?: { id?: unknown }[] };
+    return chatModelIds((data.data ?? []).map((m) => m.id));
   }
 }

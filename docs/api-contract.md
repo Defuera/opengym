@@ -151,3 +151,23 @@ Images are sent to Anthropic and OpenAI; DeepSeek has no image input, so image
 imports and image attachments answer with a clear note instead.
 `mock` returns deterministic canned JSON so the whole flow can be tested with
 no key.
+
+## Coach model (Convex backend)
+
+The owner picks the coach model in the app's Settings. The choice lives in one
+`settings` row: `aiModel?` (the override) and a cached model list
+`modelList { models: string[], fetchedAt }` with `modelListError?` (a short
+text without secrets). No key is ever stored or returned. The provider and its
+key still come from the environment (`AI_PROVIDER`, `*_API_KEY`); the model
+from Settings wins over `*_MODEL`. Every AI job reads the override at the start
+of a run.
+
+| Function | Args | Returns |
+|---|---|---|
+| query `queries/settings:ai` | `{ token }` | `{ provider: string, defaultModel: string \| null, model: string \| null, override: string \| null, models: string[], fetchedAt: number \| null, error: string \| null }`. `model` is the override, else the default. `error` is the last list refresh error |
+| mutation `commands/settings:setAiModel` | `{ token, model: string \| null }` | nothing. `null` goes back to the default. A model id is 1..100 characters of `A-Za-z0-9._:-`. An id that is not in the list is allowed (the list can be stale). Writing the same value again changes nothing |
+| mutation `commands/settings:refreshModels` | `{ token }` | nothing. Schedules a background action that asks the current provider for its models (`GET {base}/models` for OpenAI and DeepSeek, `GET {base}/v1/models` for Anthropic), keeps text and chat models (drops embedding, audio, tts, whisper, image, moderation and realtime ids), sorts them and stores them with `fetchedAt`. On an error the old list stays and `error` holds a short text. `mock` and `none` give an empty list |
+
+If the provider refuses the model (HTTP 400 or 404), the job uses its plain
+code fallback, as for any provider error. A wrong model name never breaks the
+app.

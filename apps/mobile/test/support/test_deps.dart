@@ -9,6 +9,7 @@ import 'package:opengym/data/switchable_convex_client.dart';
 import 'package:opengym/models.dart';
 import 'package:opengym/store.dart';
 import 'package:opengym/stores/about_store.dart';
+import 'package:opengym/stores/ai_model_store.dart';
 import 'package:opengym/stores/coach_store.dart';
 import 'package:opengym/stores/connection_store.dart';
 import 'package:opengym/stores/context_store.dart';
@@ -55,5 +56,6 @@ Future<AppDeps> testDeps(
     reviews: ReviewStore(client: fake),
     pickers: NoPickers(),
     about: AboutStore(repo: aboutRepo),
+    aiModel: AiModelStore(client: fake)..start(),
   );
 }

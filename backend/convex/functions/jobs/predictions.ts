@@ -43,7 +43,7 @@ export const build = internalAction({
       await ctx.runMutation(internal.jobs.predictions.save, { version, source: "rules", items: [] });
       return;
     }
-    const r = await runAiJob(predictActivityJob, input);
+    const r = await runAiJob(ctx, predictActivityJob, input);
     await ctx.runMutation(internal.jobs.predictions.save, { version, source: r.path === "ai" ? "ai" : "rules", items: r.value.predictions });
   },
 });

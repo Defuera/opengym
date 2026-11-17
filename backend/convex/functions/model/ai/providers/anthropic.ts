@@ -1,4 +1,5 @@
-import { type AiProvider, type CompleteRequest, type HttpProviderOptions, ProviderError, postJson } from "../provider";
+import { type AiProvider, type CompleteRequest, type HttpProviderOptions, ProviderError, getJson, postJson } from "../provider";
+import { chatModelIds } from "../modelList";
 
 export class AnthropicProvider implements AiProvider {
   readonly name = "anthropic";
@@ -37,5 +38,15 @@ export class AnthropicProvider implements AiProvider {
       .join("");
     if (!text) throw new ProviderError("empty response");
     return text;
+  }
+
+  async listModels(): Promise<string[]> {
+    const data = (await getJson(
+      this.o.fetch ?? fetch,
+      `${this.o.baseUrl ?? "https://api.anthropic.com"}/v1/models?limit=1000`,
+      { "x-api-key": this.o.apiKey, "anthropic-version": "2023-06-01" },
+      this.o.timeoutMs ?? 30_000,
+    )) as { data?: { id?: unknown }[] };
+    return chatModelIds((data.data ?? []).map((m) => m.id));
   }
 }

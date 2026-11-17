@@ -49,7 +49,7 @@ export const build = internalAction({
   args: { activity: v.string(), focus: v.optional(v.string()), version: v.number() },
   handler: async (ctx, { activity, focus, version }): Promise<void> => {
     const input = await ctx.runQuery(internal.jobs.plans.input, { activity, focus });
-    const r = await runAiJob(planSessionJob, input);
+    const r = await runAiJob(ctx, planSessionJob, input);
     await ctx.runMutation(internal.jobs.plans.save, { activity, focus, version, source: r.path === "ai" ? "ai" : "rules", draft: r.value });
   },
 });

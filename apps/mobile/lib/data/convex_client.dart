@@ -46,6 +46,9 @@ abstract class ConvexClient {
   /// Limits (with rules, records, check-ins), body load and focus parts.
   Stream<AboutMe> watchAboutMe();
 
+  /// The coach model setting: provider, default, chosen model, cached model list.
+  Stream<AiSettings> watchAiSettings();
+
   /// The limits a session loaded that have no check-in for it yet. One call.
   Future<List<AskItem>> askAfter(String sessionId);
 
@@ -131,6 +134,14 @@ abstract class ConvexClient {
   /// Starts an AI import of uploaded files. Progress arrives through
   /// [watchImports]. Sending the same [importId] again changes nothing.
   Future<void> startImport({required String importId, required List<String> fileIds});
+
+  /// Sets the coach model; null goes back to the backend default. Idempotent.
+  /// NOT a fact: the app never queues it in the outbox.
+  Future<void> setAiModel(String? model);
+
+  /// Asks the backend to reload the provider's model list. The new list
+  /// arrives through [watchAiSettings].
+  Future<void> refreshModels();
 
   /// One authenticated call. Tells a wrong token from an unreachable server.
   Future<AccessStatus> checkAccess();
@@ -254,6 +265,10 @@ class DartvexConvexClient implements ConvexClient {
   @override
   Stream<AboutMe> watchAboutMe() =>
       _watch('queries/aboutMe:get', const <String, dynamic>{}, decodeAboutMe);
+
+  @override
+  Stream<AiSettings> watchAiSettings() =>
+      _watch('queries/settings:ai', const <String, dynamic>{}, decodeAiSettings);
 
   @override
   Future<List<AskItem>> askAfter(String sessionId) async {
@@ -481,6 +496,14 @@ class DartvexConvexClient implements ConvexClient {
   @override
   Future<void> startImport({required String importId, required List<String> fileIds}) =>
       _mutate('commands/imports:start', <String, dynamic>{'importId': importId, 'fileIds': fileIds});
+
+  @override
+  Future<void> setAiModel(String? model) =>
+      _mutate('commands/settings:setAiModel', <String, dynamic>{'model': model});
+
+  @override
+  Future<void> refreshModels() =>
+      _mutate('commands/settings:refreshModels', const <String, dynamic>{});
 
   Future<void> _mutate(String name, Map<String, dynamic> args) async {
     await _mutateValue(name, args);

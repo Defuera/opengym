@@ -134,6 +134,15 @@ class SwitchableConvexClient implements ConvexClient {
   Stream<AboutMe> watchAboutMe() => _proxy((ConvexClient c) => c.watchAboutMe());
 
   @override
+  Stream<AiSettings> watchAiSettings() => _proxy((ConvexClient c) => c.watchAiSettings());
+
+  @override
+  Future<void> setAiModel(String? model) => _call((ConvexClient c) => c.setAiModel(model));
+
+  @override
+  Future<void> refreshModels() => _call((ConvexClient c) => c.refreshModels());
+
+  @override
   Future<List<AskItem>> askAfter(String sessionId) {
     final ConvexClient? c = _inner;
     if (c == null) {

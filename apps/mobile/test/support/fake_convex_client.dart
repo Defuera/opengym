@@ -68,6 +68,10 @@ class FakeConvexClient implements ConvexClient {
   final Live<List<ContextItem>> _context = Live<List<ContextItem>>(<ContextItem>[]);
   final Live<AboutMe> about = Live<AboutMe>(const AboutMe());
 
+  /// The coach model setting the fake serves. [setAiModel] changes it; [refreshModels] swaps in [modelsOnRefresh].
+  final Live<AiSettings> aiSettings = Live<AiSettings>(const AiSettings());
+  List<String> modelsOnRefresh = <String>[];
+
   /// What [askAfter] answers per session id.
   final Map<String, List<AskItem>> asks = <String, List<AskItem>>{};
   final Live<List<ImportJob>> _imports = Live<List<ImportJob>>(<ImportJob>[]);
@@ -229,6 +233,29 @@ class FakeConvexClient implements ConvexClient {
 
   @override
   Stream<AboutMe> watchAboutMe() => about.stream();
+
+  @override
+  Stream<AiSettings> watchAiSettings() => aiSettings.stream();
+
+  @override
+  Future<void> setAiModel(String? model) async {
+    _command('setAiModel:${model ?? 'default'}');
+    aiSettings.set(aiSettings.value!.withOverride(model));
+  }
+
+  @override
+  Future<void> refreshModels() async {
+    _command('refreshModels');
+    final AiSettings a = aiSettings.value!;
+    aiSettings.set(AiSettings(
+      provider: a.provider,
+      defaultModel: a.defaultModel,
+      model: a.model,
+      override: a.override,
+      models: modelsOnRefresh,
+      fetchedAt: DateTime(2026, 11, 17, 20, 50),
+    ));
+  }
 
   @override
   Future<List<AskItem>> askAfter(String sessionId) async {

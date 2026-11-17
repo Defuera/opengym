@@ -207,4 +207,36 @@ void main() {
     fake.queryError = StateError('socket closed');
     expect(await c.checkAccess(), AccessStatus.unreachable);
   });
+
+  test('coach model: watches queries/settings:ai and writes through the settings commands', () async {
+    final _FakeCaller fake = _FakeCaller();
+    final List<AiSettings> events = <AiSettings>[];
+    final StreamSubscription<AiSettings> sub = _client(fake).watchAiSettings().listen(events.add);
+    await Future<void>.delayed(Duration.zero);
+    expect(fake.subscribeName, 'queries/settings:ai');
+    fake.results.add(const cx.QuerySuccess(<String, dynamic>{
+      'provider': 'openai',
+      'defaultModel': 'm1',
+      'model': 'm2',
+      'override': 'm2',
+      'models': <dynamic>['m1', 'm2'],
+      'fetchedAt': 1763412600000.0,
+      'error': null,
+    }));
+    await Future<void>.delayed(Duration.zero);
+    expect(events.single.override, 'm2');
+    expect(events.single.models, <String>['m1', 'm2']);
+    expect(events.single.fetchedAt, DateTime.fromMillisecondsSinceEpoch(1763412600000));
+    expect(events.single.error, isNull);
+    final DartvexConvexClient c = _client(fake);
+    await c.setAiModel('m3');
+    await c.setAiModel(null);
+    await c.refreshModels();
+    expect(fake.mutations, <Map<String, dynamic>>[
+      <String, dynamic>{'name': 'commands/settings:setAiModel', 'token': 't', 'model': 'm3'},
+      <String, dynamic>{'name': 'commands/settings:setAiModel', 'token': 't', 'model': null},
+      <String, dynamic>{'name': 'commands/settings:refreshModels', 'token': 't'},
+    ]);
+    await sub.cancel();
+  });
 }

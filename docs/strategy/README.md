@@ -27,6 +27,7 @@ This directory holds the Architecture Decision Records (ADRs) for Gym Days (Open
 | [010](010-no-medical-wording.md) | No Medical Wording | Partly replaced by 015 |
 | [011](011-main-branch-and-web-deploy.md) | Never Commit to Main; Main Deploys the Web App | Partly replaced by 014 |
 | [012](012-convex-backend.md) | Hosted Convex Backend With Separate Commands and Read Models | Accepted |
-| [013](013-activity-first-focus-is-advice.md) | Activity First, Focus Is Advice | Accepted |
+| [013](013-activity-first-focus-is-advice.md) | Activity First, Focus Is Advice | Partly replaced by 016 |
 | [014](014-work-on-main.md) | Work on Main Directly, No Pull Requests for Now | Accepted |
 | [015](015-own-records-and-limits.md) | The User May Store Own Records; Limits Become Rules | Accepted |
+| [016](016-start-or-log-vocabulary-from-the-log.md) | Start or Log; the Vocabulary Comes From the Log | Accepted |

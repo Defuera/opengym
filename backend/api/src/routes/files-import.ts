@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { Hono } from "hono";
 import type { AppContext } from "../app-context";
 import { kindOf } from "../services/file-text";
+import { StructuredImportError } from "../services/structured-import";
 import { HttpError, notFound } from "./http";
 
 export const MAX_FILE_BYTES = 20 * 1024 * 1024;
@@ -50,6 +51,21 @@ export function importRoutes({ repos, importRunner }: AppContext) {
   r.post("/", async (c) => {
     const uploads = await readUploads(await multipart(c), "files");
     return c.json({ job: importRunner.start(uploads) });
+  });
+
+  r.post("/structured", async (c) => {
+    let raw: unknown;
+    try {
+      raw = await c.req.json();
+    } catch {
+      throw new HttpError(400, "body must be JSON");
+    }
+    try {
+      return c.json({ job: importRunner.loadStructured(raw) });
+    } catch (e) {
+      if (e instanceof StructuredImportError) throw new HttpError(400, e.message);
+      throw e;
+    }
   });
 
   r.get("/", (c) => c.json({ jobs: repos.imports.list() }));

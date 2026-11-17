@@ -99,6 +99,7 @@ goal).
 | POST | `/v1/files` | multipart, field `file` (<=20 MB) | `{ file: FileMeta }` |
 | GET | `/v1/files/:id` | – | the file bytes |
 | POST | `/v1/import` | multipart, field `files` repeated (text, json, md, csv, pdf, images) | `{ job: ImportJob }` returns at once, runs in background |
+| POST | `/v1/import/structured` | JSON `{ sessions[≤2000], goals?, context?, note? }`, items as in the schema, `id` optional | `{ job: ImportJob }` already `done`; 400 names the bad item and nothing is stored |
 | GET | `/v1/import/:id` | – | `{ job: ImportJob }` |
 | GET | `/v1/import` | – | `{ jobs: ImportJob[] }` newest first |
 | DELETE | `/v1/import/:id` | – | `{ ok: true }` removes every session/goal/context item with that importId |
@@ -106,6 +107,8 @@ goal).
 
 Changing goals, context, sessions or finishing an import invalidates stored
 plans and the dashboard layout; they are regenerated in the background.
+
+`POST /v1/import/structured` makes no AI call and queues no per-session review.
 
 ## AI jobs (each: prompt + zod output schema + fallback)
 

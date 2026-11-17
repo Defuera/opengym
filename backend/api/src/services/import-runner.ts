@@ -8,6 +8,7 @@ import { type FileMeta, type ImportJob, type ImportSessionDraft, type Session, S
 import { CHUNK_CHARS, MAX_CHUNKS, chunkText, extractText, imageMime, kindOf } from "./file-text";
 import type { TaskQueue } from "./queue";
 import type { Refresher } from "./refresh";
+import { parseStructuredImport } from "./structured-import";
 
 export interface UploadedFile {
   name: string;
@@ -119,6 +120,19 @@ export function createImportRunner(deps: { repos: Repositories; ai: AiRunner; qu
       const job: ImportJob = { id: randomUUID(), status: "running", total: metas.length, processed: 0, counts: { sessions: 0, goals: 0, context: 0 }, notes: [], createdAt: now() };
       repos.imports.put(job);
       queue.enqueue(`import:${job.id}`, () => run(job, metas));
+      return job;
+    },
+    /** Loads ready sessions, goals and context as one finished import. No AI call, no per-session review. Throws StructuredImportError. */
+    loadStructured(raw: unknown): ImportJob {
+      const id = randomUUID();
+      const { sessions, goals, context, note } = parseStructuredImport(raw, id);
+      const total = sessions.length + goals.length + context.length;
+      const job: ImportJob = { id, status: "done", total, processed: total, counts: { sessions: sessions.length, goals: goals.length, context: context.length }, notes: note ? [note] : [], createdAt: now() };
+      repos.imports.put(job);
+      for (const s of sessions) repos.sessions.upsert(s);
+      for (const g of goals) repos.goals.put({ ...g, id: randomUUID(), status: "active", source: "import", importId: id, createdAt: now() });
+      for (const c of context) repos.context.put({ id: randomUUID(), text: c.text, topic: c.topic, active: true, source: "import", importId: id, createdAt: now() });
+      refresher.factsChanged();
       return job;
     },
     /** Removes every item created by the import, and the job itself. Null if unknown. */

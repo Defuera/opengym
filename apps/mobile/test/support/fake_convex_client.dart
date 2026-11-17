@@ -40,6 +40,9 @@ class FakeConvexClient implements ConvexClient {
 
   /// When set, the next command fails with this error.
   ConvexCallException? failNext;
+
+  /// Commands (as logged in [calls]) that always fail with a fault that has no data.
+  final Set<String> poison = <String>{};
   AccessStatus access = AccessStatus.ok;
 
   final List<String> calls = <String>[];
@@ -141,6 +144,9 @@ class FakeConvexClient implements ConvexClient {
     }
     if (!online) {
       throw const ConvexCallException.unreachable();
+    }
+    if (poison.contains(name)) {
+      throw const ConvexCallException('The server could not finish that. The app will try again.');
     }
     calls.add(name);
   }

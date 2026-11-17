@@ -55,7 +55,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget build(BuildContext context) {
     final ConnectionStore c = widget.deps.connection;
     return ListenableBuilder(
-      listenable: c,
+      listenable: Listenable.merge(<Listenable>[c, widget.deps.outbox]),
       builder: (BuildContext context, Widget? child) {
         return Scaffold(
           body: SafeArea(
@@ -97,6 +97,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       if (_tested && !c.checking) ...<Widget>[
                         const SizedBox(height: 14),
                         StatusLine(text: _result(c), connected: c.connected),
+                      ],
+                      if (widget.deps.outbox.parkedCount > 0) ...<Widget>[
+                        const SizedBox(height: 14),
+                        Row(
+                          children: <Widget>[
+                            Expanded(
+                              child: Text(
+                                widget.deps.outbox.parkedCount == 1
+                                    ? '1 change could not be sent'
+                                    : '${widget.deps.outbox.parkedCount} changes could not be sent',
+                              ),
+                            ),
+                            TextButton(
+                              onPressed: () => widget.deps.outbox.retryParked(),
+                              child: const Text('Try again'),
+                            ),
+                          ],
+                        ),
                       ],
                       const SizedBox(height: 22),
                       const NoteBox(

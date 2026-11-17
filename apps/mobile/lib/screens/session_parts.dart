@@ -78,7 +78,7 @@ class SessionPanel extends StatelessWidget {
     if (ex.sets.length > 1) {
       tiles.add(ToolTile(label: '− Set', onTap: store.removeSet));
     }
-    final List<Widget> body = <Widget>[SetGrid(children: tiles)];
+    final List<Widget> body = <Widget>[];
     if (s != null) {
       body.add(StepperRow(
         label: '${s.isMax ? 'Max attempt' : 'Set ${store.curSet + 1}'} · Reps',
@@ -103,6 +103,7 @@ class SessionPanel extends StatelessWidget {
       name: ex.name,
       hint: _hint(ex),
       onSwap: onSwap,
+      pinned: <Widget>[SetGrid(children: tiles)],
       children: body,
     );
   }

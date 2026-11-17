@@ -78,6 +78,7 @@ class Outbox extends ChangeNotifier {
     required bool Function() isConnected,
     this.sendTimeout = const Duration(seconds: 20),
     this.retryAfter = const Duration(seconds: 10),
+    this.maxFailures = 5,
   })  : _repo = repo,
         _client = client,
         _isConnected = isConnected;
@@ -88,7 +89,11 @@ class Outbox extends ChangeNotifier {
   final Duration sendTimeout;
   final Duration retryAfter;
 
+  /// Failed sends in a row, with the link up, before a write is parked.
+  final int maxFailures;
+
   List<OutboxOp> _ops = <OutboxOp>[];
+  List<OutboxOp> _parked = <OutboxOp>[];
   int _seq = 0;
   bool _loaded = false;
   bool _flushing = false;
@@ -98,7 +103,13 @@ class Outbox extends ChangeNotifier {
   String? _lastError;
   final StreamController<Rejection> _rejections = StreamController<Rejection>.broadcast();
 
-  List<OutboxOp> get ops => List<OutboxOp>.unmodifiable(_ops);
+  /// Every write that is not yet on the server, parked ones included, so a
+  /// local change is never hidden by a server update.
+  List<OutboxOp> get ops => List<OutboxOp>.unmodifiable(<OutboxOp>[..._ops, ..._parked]);
+
+  /// Writes set aside after repeated failures. They are kept, never dropped.
+  List<OutboxOp> get parked => List<OutboxOp>.unmodifiable(_parked);
+  int get parkedCount => _parked.length;
   int get length => _ops.length;
   bool get isEmpty => _ops.isEmpty;
 
@@ -110,7 +121,7 @@ class Outbox extends ChangeNotifier {
   /// Ids of sessions with a write waiting. Server data for these ids must not
   /// replace the local copy.
   Set<String> get pendingSessionIds => <String>{
-        for (final OutboxOp o in _ops)
+        for (final OutboxOp o in <OutboxOp>[..._ops, ..._parked])
           if (o.type == OutboxOp.sessionSave || o.type == OutboxOp.sessionRemove) o.targetId,
       };
 
@@ -120,11 +131,14 @@ class Outbox extends ChangeNotifier {
       return;
     }
     try {
-      _ops = await _repo.load();
+      final List<OutboxOp> all = await _repo.load();
+      _ops = all.where((OutboxOp o) => !o.parked).toList();
+      _parked = all.where((OutboxOp o) => o.parked).toList();
     } catch (_) {
       _ops = <OutboxOp>[];
+      _parked = <OutboxOp>[];
     }
-    for (final OutboxOp o in _ops) {
+    for (final OutboxOp o in <OutboxOp>[..._ops, ..._parked]) {
       if (o.seq > _seq) {
         _seq = o.seq;
       }
@@ -214,7 +228,7 @@ class Outbox extends ChangeNotifier {
 
   Future<void> _persist() async {
     try {
-      await _repo.save(_ops);
+      await _repo.save(<OutboxOp>[..._ops, ..._parked]);
     } catch (_) {
       // The op stays in memory; the next change saves again.
     }
@@ -254,13 +268,20 @@ class Outbox extends ChangeNotifier {
           notifyListeners();
           continue;
         }
-        await _stop(op, e.message, retry: !e.unauthorized);
+        if (await _stop(op, e.message, retry: !e.unauthorized, count: !e.unauthorized)) {
+          continue;
+        }
         return;
       } on TimeoutException {
-        await _stop(op, 'The server did not answer in time.', retry: true);
+        if (await _stop(op, 'The server did not answer in time.', retry: true, count: true)) {
+          continue;
+        }
         return;
       } catch (_) {
-        await _stop(op, 'Could not send a change. The app will try again.', retry: true);
+        if (await _stop(op, 'Could not send a change. The app will try again.',
+            retry: true, count: true)) {
+          continue;
+        }
         return;
       }
       _ops.removeWhere((OutboxOp o) => o.seq == op.seq);
@@ -270,18 +291,55 @@ class Outbox extends ChangeNotifier {
     }
   }
 
-  Future<void> _stop(OutboxOp op, String message, {required bool retry}) async {
+  /// Keeps the write and stops the pass, unless it has now failed [maxFailures]
+  /// times in a row with the link up: then it is parked and this returns true
+  /// so the pass goes on with the next write. A failure while the link is down
+  /// or the token is not accepted is not counted.
+  Future<bool> _stop(
+    OutboxOp op,
+    String message, {
+    required bool retry,
+    required bool count,
+  }) async {
     _lastError = message;
+    final OutboxOp next = op.withAttempt(counted: count && _isConnected());
+    final bool park = next.failures >= maxFailures;
     final int i = _ops.indexWhere((OutboxOp o) => o.seq == op.seq);
     if (i >= 0) {
-      _ops[i] = op.withAttempt();
+      if (park) {
+        _ops.removeAt(i);
+        _parked.add(next.copyWith(parked: true));
+      } else {
+        _ops[i] = next;
+      }
     }
     await _persist();
     notifyListeners();
+    if (park) {
+      return true;
+    }
     if (retry && !_disposed) {
       _retry?.cancel();
       _retry = Timer(retryAfter, () => unawaited(flush()));
     }
+    return false;
+  }
+
+  /// Move every parked write back to the queue with its counter reset, in the
+  /// order it first arrived, and send.
+  Future<void> retryParked() async {
+    await load();
+    if (_parked.isEmpty) {
+      return;
+    }
+    _ops = <OutboxOp>[
+      ..._ops,
+      for (final OutboxOp o in _parked) o.copyWith(failures: 0, parked: false),
+    ]..sort((OutboxOp a, OutboxOp b) => a.seq.compareTo(b.seq));
+    _parked = <OutboxOp>[];
+    await _persist();
+    notifyListeners();
+    await flush();
   }
 
   @override

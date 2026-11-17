@@ -5,13 +5,27 @@ import 'convex_client.dart';
 /// One write waiting to be sent. Self-contained and JSON-safe, so it can sit
 /// on disk across restarts. Every op maps to one idempotent Convex command.
 class OutboxOp {
-  const OutboxOp({required this.seq, required this.type, required this.args, this.attempts = 0});
+  const OutboxOp({
+    required this.seq,
+    required this.type,
+    required this.args,
+    this.attempts = 0,
+    this.failures = 0,
+    this.parked = false,
+  });
 
   /// Order of arrival. Ops are sent in this order.
   final int seq;
   final String type;
   final Map<String, dynamic> args;
   final int attempts;
+
+  /// Consecutive failed sends while the link was verified up. At the limit
+  /// the write is parked so it cannot block the ones behind it.
+  final int failures;
+
+  /// Set aside after too many failures. Kept on disk; never sent until retried.
+  final bool parked;
 
   static const String sessionSave = 'session.save';
   static const String sessionRemove = 'session.remove';
@@ -22,7 +36,17 @@ class OutboxOp {
   static const String contextUpdate = 'context.update';
   static const String contextRemove = 'context.remove';
 
-  OutboxOp withAttempt() => OutboxOp(seq: seq, type: type, args: args, attempts: attempts + 1);
+  OutboxOp copyWith({int? attempts, int? failures, bool? parked}) => OutboxOp(
+        seq: seq,
+        type: type,
+        args: args,
+        attempts: attempts ?? this.attempts,
+        failures: failures ?? this.failures,
+        parked: parked ?? this.parked,
+      );
+
+  OutboxOp withAttempt({bool counted = false}) =>
+      copyWith(attempts: attempts + 1, failures: counted ? failures + 1 : failures);
 
   /// The record this op changes (session, goal or note id).
   String get targetId => str(args['id']);
@@ -32,6 +56,8 @@ class OutboxOp {
         'type': type,
         'args': args,
         'attempts': attempts,
+        'failures': failures,
+        'parked': parked,
       };
 
   static OutboxOp? tryParse(Object? v) {
@@ -48,6 +74,8 @@ class OutboxOp {
       type: type,
       args: asMap(m['args']),
       attempts: intOf(m['attempts']),
+      failures: intOf(m['failures']),
+      parked: m['parked'] == true,
     );
   }
 

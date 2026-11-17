@@ -102,6 +102,67 @@ void main() {
     expect(o.isEmpty, isTrue);
   });
 
+  test('a poison write is parked after 5 tries and the next write goes through', () async {
+    final FakeConvexClient fake = FakeConvexClient()..poison.add('saveSession:bad');
+    final Outbox o = _outbox(fake, InMemoryOutboxRepository());
+    await o.saveSession(_session('bad')); // try 1
+    await o.createGoal(goalId: 'g1', title: 'x', kind: 'custom'); // try 2, blocked
+    expect(o.length, 2);
+    await o.flush(); // 3
+    await o.flush(); // 4
+    expect(o.parkedCount, 0);
+    await o.flush(); // 5: parked, then g1 goes through
+    expect(o.parkedCount, 1);
+    expect(o.parked.single.targetId, 'bad');
+    expect(o.length, 0);
+    expect(fake.calls, <String>['createGoal:g1']);
+    expect(o.pendingSessionIds, <String>{'bad'});
+  });
+
+  test('failures are not counted while offline or with a wrong token', () async {
+    final FakeConvexClient fake = FakeConvexClient()..poison.add('saveSession:bad');
+    bool up = false;
+    final Outbox o = _outbox(fake, InMemoryOutboxRepository(), connected: () => up);
+    await o.saveSession(_session('bad'));
+    for (int i = 0; i < 8; i++) {
+      await o.flush();
+    }
+    expect(o.ops.single.failures, 0);
+    // Link says up but the send fails because the link dropped: not verified.
+    up = true;
+    for (int i = 0; i < 4; i++) {
+      fake.failNext = const ConvexCallException.unauthorized();
+      await o.flush();
+    }
+    expect(o.ops.single.failures, 0);
+    expect(o.parkedCount, 0);
+  });
+
+  test('parked writes survive a restart and retry moves them back', () async {
+    final FakeConvexClient fake = FakeConvexClient()..poison.add('saveSession:bad');
+    final InMemoryOutboxRepository repo = InMemoryOutboxRepository();
+    final Outbox first = _outbox(fake, repo);
+    await first.saveSession(_session('bad'));
+    for (int i = 0; i < 5; i++) {
+      await first.flush();
+    }
+    expect(first.parkedCount, 1);
+
+    final Outbox second = _outbox(fake, repo);
+    await second.load();
+    expect(second.parkedCount, 1);
+    expect(second.length, 0);
+    await second.flush();
+    expect(fake.calls, isEmpty); // parked writes are not sent on their own
+
+    fake.poison.clear();
+    await second.retryParked();
+    expect(fake.calls, <String>['saveSession:bad']);
+    expect(second.parkedCount, 0);
+    expect(second.isEmpty, isTrue);
+    expect(repo.stored, isEmpty);
+  });
+
   test('a refused write is dropped and reported; a wrong token keeps it', () async {
     final FakeConvexClient fake = FakeConvexClient()..online = false;
     final Outbox o = _outbox(fake, InMemoryOutboxRepository());

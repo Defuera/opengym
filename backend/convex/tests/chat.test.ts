@@ -79,6 +79,58 @@ describe("chat round trip (mock provider)", () => {
     await expect(t.mutation(api.commands.threads.create, { token: TOKEN, threadId: "x", title: "" })).rejects.toThrow(/thread/);
   });
 
+  it("a resend on an idle thread writes nothing and schedules nothing", async () => {
+    vi.stubEnv("AI_PROVIDER", "mock");
+    await create();
+    await send("m1");
+    await settle(t);
+    const before = await t.run(async (c) => ({ messages: await c.db.query("messages").collect(), threads: await c.db.query("threads").collect() }));
+    const jobsBefore = await t.run((c) => c.db.system.query("_scheduled_functions").collect());
+    await send("m1");
+    const after = await t.run(async (c) => ({ messages: await c.db.query("messages").collect(), threads: await c.db.query("threads").collect() }));
+    expect(after).toEqual(before);
+    expect(await t.run((c) => c.db.system.query("_scheduled_functions").collect())).toHaveLength(jobsBefore.length);
+  });
+
+  it("after a failed reply a resend of the same id gives one user and one assistant message, and idle", async () => {
+    vi.stubEnv("AI_PROVIDER", "mock");
+    await create();
+    await send("m1");
+    // The first reply fails: cancel its job and record the failure.
+    await t.run(async (c) => {
+      for (const j of await c.db.system.query("_scheduled_functions").collect()) await c.scheduler.cancel(j._id);
+    });
+    await t.mutation(internal.jobs.chat.fail, { threadId: "th1", error: "boom" });
+    expect((await threads())[0]).toMatchObject({ status: "failed", pending: 0 });
+
+    await send("m1");
+    expect((await threads())[0]).toMatchObject({ status: "thinking", pending: 1 });
+    await send("m1"); // a second resend while thinking changes nothing
+    expect((await threads())[0]).toMatchObject({ pending: 1 });
+    await settle(t);
+    expect((await messages()).map((m) => m.role)).toEqual(["user", "assistant"]);
+    expect((await threads())[0]).toMatchObject({ status: "idle", pending: 0 });
+    expect((await threads())[0]!.error).toBeUndefined();
+  });
+
+  it("a resend of an already answered message does not get a second answer, even if a later reply failed", async () => {
+    vi.stubEnv("AI_PROVIDER", "mock");
+    await create();
+    await send("m1");
+    await settle(t);
+    await send("m2", "again");
+    await t.run(async (c) => {
+      for (const j of await c.db.system.query("_scheduled_functions").collect()) if (j.state.kind === "pending") await c.scheduler.cancel(j._id);
+    });
+    await t.mutation(internal.jobs.chat.fail, { threadId: "th1", error: "boom" });
+    await send("m1"); // answered: no new reply
+    expect((await threads())[0]).toMatchObject({ status: "failed", pending: 0 });
+    await send("m2"); // not answered: retried
+    await settle(t);
+    expect((await messages()).map((m) => m.role)).toEqual(["user", "assistant", "user", "assistant"]);
+    expect((await threads())[0]).toMatchObject({ status: "idle", pending: 0 });
+  });
+
   it("two quick messages: status stays thinking until both answers are stored", async () => {
     vi.stubEnv("AI_PROVIDER", "mock");
     await create();

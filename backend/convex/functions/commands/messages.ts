@@ -20,9 +20,12 @@ export const send = mutation({
     const thread = await threadByThreadId(ctx, threadId);
     if (!thread) throw new ConvexError(`thread not found: ${threadId}`);
     const now = Date.now();
-    if (await messageByMessageId(ctx, messageId)) {
+    const stored = await messageByMessageId(ctx, messageId);
+    if (stored) {
       // A resend after a failed coach reply is a retry: run the coach again for the stored message.
-      if (thread.status === "failed") {
+      // Only if no assistant message came after it, so an answered message never gets a second answer.
+      const answered = stored.role !== "user" || (await ctx.db.query("messages").withIndex("by_threadId", (q) => q.eq("threadId", threadId).gt("_creationTime", stored._creationTime)).filter((q) => q.eq(q.field("role"), "assistant")).first());
+      if (thread.status === "failed" && !answered) {
         await ctx.db.patch(thread._id, { status: "thinking", error: undefined, pending: thread.pending + 1, updatedAt: now });
         await ctx.scheduler.runAfter(0, internal.jobs.chat.reply, { threadId, messageId });
       }

@@ -26,7 +26,8 @@ epoch milliseconds, ids are client- or server-made strings.
 ```ts
 type Source = "app" | "user" | "ai" | "rules" | "import";
 
-SetEntry   { reps: int 0..100, kg: number 0..500, max: boolean, at?: number }
+SetEntry   { reps: int 0..100, kg: number 0..500, max: boolean, failed?: boolean, at?: number }
+           /* reps = completed reps. failed = one more rep was tried and not completed (the user's "6.5 reps") */
 Exercise   { name: string 1..60, sets: SetEntry[] (<=12) }
 Session    { id, kind: "gym" | "activity", type: string 1..40,
              startedAt, endedAt, exercises: Exercise[] (<=15, [] for activity),

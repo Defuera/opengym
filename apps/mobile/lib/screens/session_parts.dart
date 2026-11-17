@@ -67,7 +67,7 @@ class SessionPanel extends StatelessWidget {
       final SetEntry x = ex.sets[i];
       tiles.add(SetTile(
         label: x.isMax ? 'Max' : 'Set ${i + 1}',
-        value: '${x.reps}×${fmtKg(x.kg)}',
+        value: '${x.reps}${x.failed ? '½' : ''}×${fmtKg(x.kg)}',
         state: (i == store.curSet && !fin)
             ? ItemState.current
             : (x.done ? ItemState.finished : ItemState.idle),

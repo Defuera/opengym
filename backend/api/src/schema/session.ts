@@ -5,6 +5,8 @@ export const SetEntrySchema = z.object({
   reps: z.number().int().min(0).max(100),
   kg: z.number().min(0).max(500),
   max: z.boolean(),
+  /** One more rep was tried after `reps` and not completed. */
+  failed: z.boolean().optional(),
   at: z.number().optional(),
 });
 

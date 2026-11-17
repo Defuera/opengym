@@ -109,6 +109,7 @@ class AppStore extends ChangeNotifier {
                 reps: s.reps,
                 kg: s.kg,
                 isMax: s.isMax,
+                failed: s.failed,
                 done: true,
                 at: s.at,
               ))

@@ -12,6 +12,7 @@ class SetEntry {
     required this.reps,
     required this.kg,
     this.isMax = false,
+    this.failed = false,
     this.done = false,
     this.at,
   });
@@ -19,6 +20,9 @@ class SetEntry {
   int reps;
   double kg;
   bool isMax;
+
+  /// One more rep was tried after [reps] and not completed.
+  bool failed;
   bool done;
   int? at;
 
@@ -29,6 +33,9 @@ class SetEntry {
       'max': isMax,
       'done': done,
     };
+    if (failed) {
+      m['failed'] = true;
+    }
     if (at != null) {
       m['at'] = at;
     }
@@ -42,6 +49,9 @@ class SetEntry {
       'kg': kg.clamp(0.0, 500.0).toDouble(),
       'max': isMax,
     };
+    if (failed) {
+      m['failed'] = true;
+    }
     if (at != null) {
       m['at'] = at;
     }
@@ -55,6 +65,7 @@ class SetEntry {
       reps: (j['reps'] as num).toInt(),
       kg: (j['kg'] as num).toDouble(),
       isMax: j['max'] == true,
+      failed: j['failed'] == true,
       // Saved sessions only hold completed sets, so a missing flag means done.
       done: rawDone == null ? true : rawDone == true,
       at: rawAt is num ? rawAt.toInt() : null,

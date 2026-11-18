@@ -6,7 +6,7 @@ import '../theme.dart';
 class LabeledField extends StatelessWidget {
   const LabeledField({
     super.key,
-    required this.label,
+    this.label,
     required this.controller,
     this.hint,
     this.keyboardType,
@@ -22,7 +22,8 @@ class LabeledField extends StatelessWidget {
     this.onSubmitted,
   });
 
-  final String label;
+  /// Shown above the field; none when the hint says enough.
+  final String? label;
   final TextEditingController controller;
   final String? hint;
   final TextInputType? keyboardType;
@@ -48,8 +49,10 @@ class LabeledField extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
-        Text(label, style: OG.muted(size: 14, weight: FontWeight.w600)),
-        const SizedBox(height: 6),
+        if (label != null) ...<Widget>[
+          Text(label!, style: OG.muted(size: 14, weight: FontWeight.w600)),
+          const SizedBox(height: 6),
+        ],
         TextField(
           controller: controller,
           keyboardType: keyboardType,

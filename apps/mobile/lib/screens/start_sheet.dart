@@ -116,7 +116,7 @@ class _StartSheetState extends State<StartSheet> {
       return;
     }
     widget.nav.pop();
-    openProposal(widget.nav, widget.deps, p);
+    openProposal(widget.nav, widget.deps, p, requestId: run.requestId);
   }
 
   @override

@@ -44,6 +44,7 @@ import type * as lib_files from "../lib/files.js";
 import type * as lib_importWrite from "../lib/importWrite.js";
 import type * as lib_limitsDb from "../lib/limitsDb.js";
 import type * as lib_settingsDb from "../lib/settingsDb.js";
+import type * as lib_startFeedback from "../lib/startFeedback.js";
 import type * as lib_validate from "../lib/validate.js";
 import type * as lib_validators from "../lib/validators.js";
 import type * as model_ai_factory from "../model/ai/factory.js";
@@ -160,6 +161,7 @@ declare const fullApi: ApiFromModules<{
   "lib/importWrite": typeof lib_importWrite;
   "lib/limitsDb": typeof lib_limitsDb;
   "lib/settingsDb": typeof lib_settingsDb;
+  "lib/startFeedback": typeof lib_startFeedback;
   "lib/validate": typeof lib_validate;
   "lib/validators": typeof lib_validators;
   "model/ai/factory": typeof model_ai_factory;

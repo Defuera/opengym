@@ -11,6 +11,8 @@ import '../widgets/cta_button.dart';
 import '../widgets/exercise_picker.dart';
 import '../widgets/og_button.dart';
 import '../widgets/og_icon_button.dart';
+import '../widgets/proposal_feedback.dart';
+import '../stores/proposal_rebuild.dart';
 import 'session_parts.dart';
 import 'session_recap_screen.dart';
 
@@ -19,12 +21,16 @@ class SessionScreen extends StatelessWidget {
     super.key,
     required this.store,
     this.deps,
+    this.rebuild,
   });
 
   final AppStore store;
 
   /// With [deps], finishing a session ends on its recap. Without, on Home.
   final AppDeps? deps;
+
+  /// Set on a coach proposal: a feedback field and "Rebuild" show until a set is done.
+  final ProposalRebuild? rebuild;
 
   void _leave(BuildContext context, {String? recapId}) {
     final NavigatorState nav = Navigator.of(context);
@@ -90,7 +96,7 @@ class SessionScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: store,
+      listenable: Listenable.merge(<Listenable?>[store, rebuild, deps?.connection].whereType<Listenable>().toList()),
       builder: (BuildContext context, Widget? child) {
         final Session? a = store.active;
         if (a == null) {
@@ -142,6 +148,17 @@ class SessionScreen extends StatelessWidget {
                     child: SessionPanel(store: store),
                   ),
                 ),
+                if (rebuild != null && !store.hasDoneSet)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+                    child: ProposalFeedback(
+                      busy: rebuild!.busy,
+                      failed: rebuild!.failed,
+                      online: deps?.connection.connected ?? true,
+                      onRebuild: rebuild!.rebuild,
+                      onKeep: rebuild!.cancel,
+                    ),
+                  ),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(20, 12, 20, 18),
                   child: _cta(context, a),

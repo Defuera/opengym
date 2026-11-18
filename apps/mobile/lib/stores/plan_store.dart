@@ -41,6 +41,11 @@ class PlanStore extends ChangeNotifier {
   StartRun requestStart({String? name, String? text}) =>
       StartRun(client: _client, name: name, text: text, budget: startBudget);
 
+  /// Asks the coach to rebuild the proposal of [previousRequestId] with the
+  /// person's [feedback]. Same rules as [requestStart].
+  StartRun requestRebuild({required String feedback, required String previousRequestId}) => StartRun(
+      client: _client, feedback: feedback, previousRequestId: previousRequestId, budget: startBudget);
+
   /// Plan exercises as fresh, not-yet-done session exercises.
   List<Exercise> exercisesFor(Plan plan) {
     return plan.exercises.map((PlanExercise pe) {

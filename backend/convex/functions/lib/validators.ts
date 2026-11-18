@@ -16,6 +16,12 @@ export const planExercise = v.union(
 );
 export const prediction = v.object({ kind: v.union(v.literal("gym"), v.literal("activity")), type: v.string(), focus: v.optional(v.string()), reason: v.string() });
 
+/** The compact copy of a plan kept on a feedback request: exercise names with their sets, no notes. */
+export const previousPlan = v.array(v.union(
+  v.object({ name: v.string(), measure: v.optional(v.literal("sets")), sets: v.array(planSet) }),
+  v.object({ name: v.string(), measure: v.literal("time"), sets: v.array(planTimeSet) }),
+));
+
 export const startStatus = v.union(v.literal("pending"), v.literal("ready"), v.literal("failed"));
 /** The stored proposal of a start request. The plan is the safe-checked draft; the app gets it in the plan shape of queries/plans:next. */
 export const startProposal = v.object({

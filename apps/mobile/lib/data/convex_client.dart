@@ -158,10 +158,16 @@ abstract class ConvexClient {
   ///
   /// The Start tab sends the chosen activity as [name] and the optional note
   /// as [text]: the coach then decides the focus and the plan.
+  ///
+  /// With [feedback] and [previousRequestId] (both or neither) the coach
+  /// rebuilds the proposal of that earlier request so the feedback holds; the
+  /// server takes the name and the text from the earlier request.
   Future<void> requestStart({
     required String requestId,
     String? name,
     String? text,
+    String? feedback,
+    String? previousRequestId,
   });
 
   /// The state of one start request; null while the server has none.
@@ -305,11 +311,15 @@ class DartvexConvexClient implements ConvexClient {
     required String requestId,
     String? name,
     String? text,
+    String? feedback,
+    String? previousRequestId,
   }) =>
       _mutate('commands/start:request', <String, dynamic>{
         'requestId': requestId,
         if (name != null) 'name': name,
         if (text != null) 'text': text,
+        if (feedback != null) 'feedback': feedback,
+        if (previousRequestId != null) 'previousRequestId': previousRequestId,
       });
 
   @override

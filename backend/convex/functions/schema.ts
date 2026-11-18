@@ -1,6 +1,6 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
-import { startProposal, startStatus, dashboardDays, feeling, limitRule, limitStatus, fileKind, threadStatus, goalKind, goalStatus, importCounts, importStatus, itemSource, moduleSpec, parseState, planExercise, prediction, proposalSource } from "./lib/validators";
+import { previousPlan, startProposal, startStatus, dashboardDays, feeling, limitRule, limitStatus, fileKind, threadStatus, goalKind, goalStatus, importCounts, importStatus, itemSource, moduleSpec, parseState, planExercise, prediction, proposalSource } from "./lib/validators";
 
 /** One logged set. `reps` = completed reps; `failed` = one more rep was tried and not completed. */
 export const setEntry = v.object({
@@ -241,6 +241,9 @@ export default defineSchema({
     text: v.optional(v.string()),
     // The fixed session name (1..40). When set, the proposal type is always this name.
     name: v.optional(v.string()),
+    // Feedback on a proposed session (1..300 each, at most 5, oldest first) and the plan it was given on. Set only by a rebuild request.
+    feedback: v.optional(v.array(v.string())),
+    previousPlan: v.optional(previousPlan),
     // Legacy fields of the removed "today" mode. Old rows may hold them, so they stay optional and are never written or read now.
     mode: v.optional(v.literal("today")),
     hintType: v.optional(v.string()),

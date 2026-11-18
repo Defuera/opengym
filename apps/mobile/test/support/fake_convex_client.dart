@@ -255,6 +255,9 @@ class FakeConvexClient implements ConvexClient {
   final List<(String, String?)> startSent = <(String, String?)>[];
   final List<String?> startNames = <String?>[];
 
+  /// Feedback and previous request id of each start request ([null] when none).
+  final List<(String?, String?)> startFeedback = <(String?, String?)>[];
+
   final Map<String, Live<StartRequest?>> startRequests = <String, Live<StartRequest?>>{};
 
   String get lastStartId => startSent.last.$1;
@@ -268,10 +271,13 @@ class FakeConvexClient implements ConvexClient {
     required String requestId,
     String? name,
     String? text,
+    String? feedback,
+    String? previousRequestId,
   }) async {
     _command('requestStart:$requestId');
     startSent.add((requestId, text));
     startNames.add(name);
+    startFeedback.add((feedback, previousRequestId));
     startRequests.putIfAbsent(requestId, () => Live<StartRequest?>());
   }
 

@@ -14,6 +14,9 @@ export interface BuildSessionInput {
   note: string;
   /** The free text of a start request with no fixed name (max 200). */
   request?: string;
+  /** On a rebuild: the plan the person saw (exercise names with sets), and the feedback rounds they gave (oldest first, at most 5). */
+  previousPlan?: unknown;
+  feedbackFromThePerson?: string[];
   picture: ReturnType<typeof coachPicture>;
   limits: Limit[];
   /** Photos of the log entries of the last day. Sent only when the provider takes images. */
@@ -25,6 +28,8 @@ const SHAPE = `{"kind": "gym", "type": string (the activity, exactly as given; m
 const ROLE = `You are the personal coach of the person described in the data. They have chosen today's activity and may have left a note. You decide what the session contains, and you write the session you would hand to this person today.
 
 Coach the way a good coach does who has trained this person for a long time: you know what they lift (exercisesTheUserKnows shows every exercise with the last sets and the best weight), what the last weeks looked like, what they want (the goals are in order of priority; a goal with a date sets the direction of the weeks before it), and what they train around (limits). The note for today comes from the person and you take it seriously, in proportion: it shapes the session, it does not cancel the training. logEntriesFromTheUser are free notes the person wrote in the last days; the photos of the last day are attached.
+
+When previousPlan and feedbackFromThePerson are present, the person saw that plan and asked for a change: rebuild the session so that the feedback holds.
 
 Three things are fixed. Never use an exercise or a movement that a limit marks avoid. Use training words only: no diagnosis and no medical language. The name of the activity is not yours to change; when activity is null, name it from the request (one to three words), and reuse a name from the person's log when the request means the same activity.`;
 
@@ -44,7 +49,7 @@ export const buildSessionJob: JobDef<BuildSessionInput, StartProposal> = {
   },
   build: (i) => ({
     system: `JOB: build_session\n\n${ROLE}\n\n${JSON_ONLY}\n${SHAPE}`,
-    messages: [{ role: "user", content: `Build today's session.\n\nINPUT_JSON:\n${JSON.stringify({ activity: i.name, ...(i.request !== undefined ? { request: i.request } : {}), noteForToday: i.note || null, ...i.picture })}` }],
+    messages: [{ role: "user", content: `Build today's session.\n\nINPUT_JSON:\n${JSON.stringify({ activity: i.name, ...(i.request !== undefined ? { request: i.request } : {}), noteForToday: i.note || null, ...(i.feedbackFromThePerson ? { ...(i.previousPlan ? { previousPlan: i.previousPlan } : {}), feedbackFromThePerson: i.feedbackFromThePerson } : {}), ...i.picture })}` }],
     images: i.images,
   }),
   fallback: (i) => ({ kind: "gym", type: i.name ?? nameFromText(i.request ?? ""), plan: { rationale: "Empty session. Add what you do.", exercises: [] } }),

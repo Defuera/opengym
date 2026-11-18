@@ -35,6 +35,7 @@ export const input = internalQuery({
       name: doc.name ?? null,
       note: doc.name ? (doc.text ?? "") : "",
       ...(doc.name ? {} : { request: doc.text ?? "" }),
+      ...(doc.feedback ? { feedbackFromThePerson: doc.feedback, ...(doc.previousPlan ? { previousPlan: doc.previousPlan } : {}) } : {}),
       picture: coachPicture(sessions, [...goals].sort((x, y) => x.createdAt - y.createdAt), context, limits, await coachEntries(ctx, now), now),
       limits,
     };
@@ -90,6 +91,11 @@ export const build = internalAction({
       const images = input.entryImages.length > 0 ? await loadEntryImages(ctx, input.entryImages, !!(await providerFor(ctx))?.supportsImages) : [];
       const r = await runAiJob(ctx, buildSessionJob, { ...input.job, ...(images.length > 0 ? { images } : {}) }, { timeoutMs: BUDGET_MS });
       // Plain-code fallback: the activity with the rules plan from the log, or an empty plan when the log has none.
+      // A feedback request is never answered with the rules plan: it would not respect the feedback. It fails and the app keeps the old proposal.
+      if (r.path !== "ai" && input.job.feedbackFromThePerson) {
+        await ctx.runMutation(internal.jobs.startRequest.save, { requestId, failed: true });
+        return;
+      }
       const plain = fallbackProposal(input);
       const proposal = r.path === "ai" ? r.value : input.rules && input.rules.exercises.length > 0 ? { ...plain, plan: input.rules } : plain;
       await ctx.runMutation(internal.jobs.startRequest.save, { requestId, source: r.path === "ai" ? "ai" : "rules", proposal });

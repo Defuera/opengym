@@ -17,6 +17,9 @@ export const START_REQUEST_TTL_MS = 86_400_000;
 /** Longest text of a start request. */
 export const START_REQUEST_MAX_TEXT = 200;
 export const START_REQUEST_MAX_NAME = 40;
+/** Feedback on a proposed session: longest text, and how many rounds a request keeps (oldest dropped). */
+export const START_FEEDBACK_MAX = 300;
+export const START_FEEDBACK_KEEP = 5;
 /** Old start requests removed per command call. */
 export const START_REQUEST_PURGE_BATCH = 50;
 

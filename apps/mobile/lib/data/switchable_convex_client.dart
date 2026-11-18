@@ -134,11 +134,15 @@ class SwitchableConvexClient implements ConvexClient {
     required String requestId,
     String? name,
     String? text,
+    String? feedback,
+    String? previousRequestId,
   }) =>
       _call((ConvexClient c) => c.requestStart(
             requestId: requestId,
             name: name,
             text: text,
+            feedback: feedback,
+            previousRequestId: previousRequestId,
           ));
 
   @override

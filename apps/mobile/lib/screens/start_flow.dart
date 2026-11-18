@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../app/deps.dart';
 import '../models.dart';
+import '../stores/proposal_rebuild.dart';
 import 'log_text_screen.dart';
 import 'prepare_session_screen.dart';
 import 'session_screen.dart';
@@ -43,11 +44,22 @@ void openLogForm(NavigatorState nav, AppDeps d, String activity) {
 
 /// The coach's answer to a typed request: a prepared session, or (kind
 /// "activity") the log form of that activity.
-void openProposal(NavigatorState nav, AppDeps d, StartProposal p) {
+///
+/// [requestId] is the request that made [p]. With it the session screen offers
+/// feedback and a rebuild, until the first set is done.
+void openProposal(NavigatorState nav, AppDeps d, StartProposal p, {String? requestId}) {
   if (p.kind == 'activity') {
     openLogForm(nav, d, p.type);
     return;
   }
+  _beginProposal(d, p);
+  final ProposalRebuild? rebuild = requestId == null
+      ? null
+      : ProposalRebuild(plans: d.plans, requestId: requestId, onProposal: (StartProposal n) => _replaceProposal(d, n));
+  nav.push(_route(SessionScreen(store: d.store, deps: d, rebuild: rebuild)));
+}
+
+void _beginProposal(AppDeps d, StartProposal p) {
   final Plan? plan = p.plan;
   final String rationale = (plan?.rationale ?? '').isEmpty ? p.reason : plan!.rationale;
   d.store.begin(
@@ -56,5 +68,14 @@ void openProposal(NavigatorState nav, AppDeps d, StartProposal p) {
     prepared: plan == null ? <Exercise>[] : d.plans.exercisesFor(plan),
     rationale: rationale,
   );
-  nav.push(_route(_session(d)));
+}
+
+/// Swaps the shown proposal for a rebuilt one. Only a session with no done set
+/// is replaced, so logged work is never lost. False when nothing was replaced.
+bool _replaceProposal(AppDeps d, StartProposal p) {
+  if (d.store.active == null || d.store.hasDoneSet) {
+    return false;
+  }
+  _beginProposal(d, p);
+  return true;
 }

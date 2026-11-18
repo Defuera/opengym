@@ -74,6 +74,8 @@ export const StartProposalSchema = z
     minutes: z.number().int().positive().max(600).optional(),
     reason: z.string().max(80).optional(),
     plan: PlanDraftSchema.optional(),
+    /** The place of the session: a name from placesTheCoachKnows, or a new short name (ADR-021). Code maps it. */
+    place: z.string().trim().min(1).max(30).optional(),
   })
   .refine((p) => p.kind !== "gym" || p.plan !== undefined, { message: "a session with sets needs a plan", path: ["plan"] });
 

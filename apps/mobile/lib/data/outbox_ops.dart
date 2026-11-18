@@ -30,6 +30,7 @@ class OutboxOp {
   static const String sessionSave = 'session.save';
   static const String sessionRemove = 'session.remove';
   static const String sessionLogText = 'session.logText';
+  static const String sessionSetPlace = 'session.setPlace';
   static const String goalCreate = 'goal.create';
   static const String goalUpdate = 'goal.update';
   static const String goalRemove = 'goal.remove';
@@ -92,6 +93,8 @@ class OutboxOp {
         return c.saveSession(Session.fromJson(asMap(args['session'])));
       case sessionRemove:
         return c.removeSession(targetId);
+      case sessionSetPlace:
+        return c.setSessionPlace(sessionId: targetId, placeId: strOrNull(args['placeId']));
       case sessionLogText:
         return c.logSessionText(
           sessionId: targetId,

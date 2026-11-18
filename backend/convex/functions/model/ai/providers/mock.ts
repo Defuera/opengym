@@ -99,6 +99,13 @@ export class MockProvider implements AiProvider {
           ...(names.length > 0 ? { exercises: names.map((name) => ({ name })) } : {}),
         });
       }
+      case "learn_place": {
+        // Mock: a sentence that names a piece of equipment is added to the note as it is; anything else changes nothing.
+        const sentence = String(d.sentence ?? "");
+        const now = String(d.place?.equipment ?? "");
+        if (!/\b(dumbbells?|barbells?|kettlebells?|bands?|rack|bench|machines?|bar|mat|rower|treadmill)\b/i.test(sentence)) return JSON.stringify({ changed: false, equipment: now });
+        return JSON.stringify({ changed: true, equipment: (now ? `${now}. ${sentence}` : sentence).slice(0, 1500) });
+      }
       case "review_session":
         return JSON.stringify({ summary: "Mock review: solid session, repeat it next time.", changes: [] });
       default:

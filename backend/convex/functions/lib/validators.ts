@@ -23,6 +23,9 @@ export const previousPlan = v.array(v.union(
 ));
 
 export const startStatus = v.union(v.literal("pending"), v.literal("ready"), v.literal("failed"));
+/** The place of a start proposal (ADR-021): what the app needs to show it. */
+export const proposalPlace = v.object({ placeId: v.string(), name: v.string() });
+
 /** The stored proposal of a start request. The plan is the safe-checked draft; the app gets it in the plan shape of queries/plans:next. */
 export const startProposal = v.object({
   kind: v.union(v.literal("gym"), v.literal("activity")),
@@ -31,6 +34,8 @@ export const startProposal = v.object({
   minutes: v.optional(v.number()),
   reason: v.optional(v.string()),
   plan: v.optional(v.object({ source: proposalSource, rationale: v.string(), exercises: v.array(planExercise) })),
+  /** Where the session is for (ADR-021). Set in code by jobs/startRequest:save. */
+  place: v.optional(proposalPlace),
 });
 
 /** What the interpret_request job hands to the save step: the same, with the plan as a bare draft (the source is a separate argument). */
@@ -41,6 +46,8 @@ export const startDraft = v.object({
   minutes: v.optional(v.number()),
   reason: v.optional(v.string()),
   plan: v.optional(v.object({ rationale: v.string(), exercises: v.array(planExercise) })),
+  /** The place NAME the coach chose (a known one or a new one). jobs/startRequest:save maps it to a place. */
+  place: v.optional(v.string()),
 });
 
 /** Dashboard layout spec: which modules, in what order. Numbers are never stored (computed by code). */

@@ -29,6 +29,10 @@ class AppStore extends ChangeNotifier {
   /// Called with the session id after a session was removed locally.
   void Function(String id)? onSessionRemoved;
 
+  /// Called with the session id and the new place id (null: none) after the
+  /// place of a finished session was changed locally.
+  void Function(String id, String? placeId)? onSessionPlaceChanged;
+
   List<Session> sessions = <Session>[];
   Session? active;
   int activeAt = 0;
@@ -97,6 +101,7 @@ class AppStore extends ChangeNotifier {
     String? focus,
     List<Exercise>? prepared,
     String? rationale,
+    String? placeId,
   }) {
     // An open session with no done set holds nothing the user logged: a new
     // start replaces it. With a done set it is resumed, so work is never lost.
@@ -110,6 +115,7 @@ class AppStore extends ChangeNotifier {
         startedAt: DateTime.now().millisecondsSinceEpoch,
         exercises: prepared ?? planFor(sessions, name, focus),
         planNote: (rationale == null || rationale.isEmpty) ? null : rationale,
+        placeId: placeId,
       );
       _select(0);
       _commit();
@@ -218,6 +224,31 @@ class AppStore extends ChangeNotifier {
 
   static bool _sameFacts(Session a, Session b) =>
       a.parse == b.parse && jsonEncode(a.toContractJson()) == jsonEncode(b.toContractJson());
+
+  /// Sets the place of the open session. It is saved with the session.
+  void setActivePlace(String? placeId) {
+    final Session? a = active;
+    if (a == null || a.placeId == placeId) {
+      return;
+    }
+    a.placeId = placeId;
+    _commit();
+  }
+
+  /// Sets the place of a finished session and tells the outbox. The
+  /// recap changes nothing else. An unknown id changes nothing.
+  void setSessionPlace(String id, String? placeId) {
+    final Session? s = sessionById(id);
+    if (s == null || s.placeId == placeId) {
+      return;
+    }
+    s.placeId = placeId;
+    _commit();
+    final void Function(String id, String? placeId)? cb = onSessionPlaceChanged;
+    if (cb != null) {
+      cb(id, placeId);
+    }
+  }
 
   /// Replaces a finished session by its corrected copy (same id) and tells the
   /// outbox. The open session, timers and rest clocks are not touched. An

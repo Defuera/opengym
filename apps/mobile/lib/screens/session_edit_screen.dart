@@ -104,6 +104,7 @@ class _SessionEditScreenState extends State<SessionEditScreen> {
       source: _orig.source,
       importId: _orig.importId,
       planNote: _orig.planNote,
+      placeId: _orig.placeId,
     );
   }
 

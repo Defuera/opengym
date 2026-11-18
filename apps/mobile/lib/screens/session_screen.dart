@@ -13,6 +13,7 @@ import '../widgets/og_button.dart';
 import '../widgets/og_icon_button.dart';
 import '../widgets/proposal_feedback.dart';
 import '../stores/proposal_rebuild.dart';
+import 'place_mark_view.dart';
 import 'session_parts.dart';
 import 'session_recap_screen.dart';
 
@@ -126,6 +127,12 @@ class SessionScreen extends StatelessWidget {
                               overflow: TextOverflow.ellipsis,
                               style: OG.display(32),
                             ),
+                            if (deps != null)
+                              PlaceMarkView(
+                                deps: deps!,
+                                placeId: a.placeId,
+                                onPick: store.setActivePlace,
+                              ),
                           ],
                         ),
                       ),

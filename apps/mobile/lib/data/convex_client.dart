@@ -34,6 +34,9 @@ abstract class ConvexClient {
 
   /// Notes, newest first by their time (`at`). The server allows 1 to 200.
   Stream<List<LogEntry>> watchEntries({int limit = 50});
+
+  /// The places the coach knows, sorted by name (`queries/places:list`).
+  Stream<List<Place>> watchPlaces();
   /// The stored plan for [activity] (null: Gym) and [focus]; a null focus asks
   /// for the advised focus.
   Stream<Stored<Plan>> watchNextPlan({String? activity, String? focus});
@@ -67,6 +70,9 @@ abstract class ConvexClient {
 
   Future<void> saveSession(Session session);
   Future<void> removeSession(String sessionId);
+
+  /// Sets the place of one session, or clears it with null. Idempotent.
+  Future<void> setSessionPlace({required String sessionId, required String? placeId});
 
   /// Logs an activity as one text (ADR-018). The server stores [session] as
   /// given (type, time, text as the note, parse pending) and then reads the
@@ -120,8 +126,9 @@ abstract class ConvexClient {
   Future<void> saveCheckin(Checkin checkin);
 
   /// Without a title the thread starts as "New chat" and is named after the
-  /// first message. A given title counts as set by the user.
-  Future<void> createThread({required String threadId, String? title});
+  /// first message. A given title counts as set by the user. With [placeId]
+  /// the thread is about that place.
+  Future<void> createThread({required String threadId, String? title, String? placeId});
 
   /// The user names a thread. The backend never replaces that title.
   Future<void> renameThread({required String threadId, required String title});
@@ -262,6 +269,10 @@ class DartvexConvexClient implements ConvexClient {
   @override
   Stream<List<LogEntry>> watchEntries({int limit = 50}) =>
       _watch('queries/entries:recent', <String, dynamic>{'limit': limit}, decodeEntries);
+
+  @override
+  Stream<List<Place>> watchPlaces() =>
+      _watch('queries/places:list', const <String, dynamic>{}, decodePlaces);
 
   @override
   Future<void> saveEntry({
@@ -411,6 +422,10 @@ class DartvexConvexClient implements ConvexClient {
       _mutate('commands/sessions:remove', <String, dynamic>{'sessionId': sessionId});
 
   @override
+  Future<void> setSessionPlace({required String sessionId, required String? placeId}) =>
+      _mutate('commands/sessions:setPlace', <String, dynamic>{'sessionId': sessionId, 'placeId': placeId});
+
+  @override
   Future<void> logSessionText({
     required String sessionId,
     required String type,
@@ -495,8 +510,12 @@ class DartvexConvexClient implements ConvexClient {
       _mutate('commands/limits:checkin', <String, dynamic>{'checkin': checkin.toJson()});
 
   @override
-  Future<void> createThread({required String threadId, String? title}) => _mutate(
-      'commands/threads:create', <String, dynamic>{'threadId': threadId, if (title != null) 'title': title});
+  Future<void> createThread({required String threadId, String? title, String? placeId}) =>
+      _mutate('commands/threads:create', <String, dynamic>{
+        'threadId': threadId,
+        if (title != null) 'title': title,
+        if (placeId != null) 'placeId': placeId,
+      });
 
   @override
   Future<void> renameThread({required String threadId, required String title}) =>

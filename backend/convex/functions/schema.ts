@@ -1,5 +1,6 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
+import { placeChangeFields, placeFields } from "./lib/placeFields";
 import { previousPlan, startProposal, startStatus, dashboardDays, feeling, limitRule, limitStatus, fileKind, threadStatus, goalKind, goalStatus, importCounts, importStatus, itemSource, moduleSpec, parseState, planExercise, prediction, proposalSource } from "./lib/validators";
 
 /** One logged set. `reps` = completed reps; `failed` = one more rep was tried and not completed. */
@@ -49,6 +50,8 @@ export const sessionFields = {
   parse: v.optional(parseState),
   /** Set by commands/sessions:remove (ADR-020). A marked row is invisible to every read; jobs/purge erases it after DELETE_AFTER_MS. */
   deletedAt: v.optional(v.number()),
+  /** Where the session happened (ADR-021). Set by the app, by commands/sessions:setPlace or by jobs/places:seed. Absent = not known. */
+  placeId: v.optional(v.string()),
 };
 
 /** A fact: a user goal. Client-made `goalId` makes writes idempotent. */
@@ -133,6 +136,9 @@ export default defineSchema({
     .index("by_createdAt", ["createdAt"])
     .index("by_importId", ["importId"]),
   entries: defineTable(entryFields).index("by_entryId", ["entryId"]).index("by_at", ["at"]).index("by_deletedAt", ["deletedAt"]),
+  places: defineTable(placeFields).index("by_placeId", ["placeId"]),
+  // Trace of every change of a place text (ADR-021), so a wrong line can be traced and undone. Never read by the app.
+  placeChanges: defineTable(placeChangeFields).index("by_placeId", ["placeId"]),
   limits: defineTable(limitFields).index("by_limitId", ["limitId"]),
   records: defineTable(recordFields).index("by_recordId", ["recordId"]).index("by_limitId", ["limitId"]),
   checkins: defineTable(checkinFields)
@@ -166,6 +172,8 @@ export default defineSchema({
     error: v.optional(v.string()),
     /** Coach replies still running (one per unanswered message). Status is `thinking` while > 0. */
     pending: v.number(),
+    /** The place this conversation is about (ADR-021). The coach reads it and learns from the user's messages here. */
+    placeId: v.optional(v.string()),
   })
     .index("by_threadId", ["threadId"])
     .index("by_updatedAt", ["updatedAt"]),

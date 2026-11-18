@@ -1,4 +1,5 @@
 import 'json_util.dart';
+import 'place.dart';
 import 'plan.dart';
 
 /// The name of a session with sets when the user gave none. It is only a
@@ -32,6 +33,7 @@ class StartProposal {
     this.minutes,
     this.reason = '',
     this.plan,
+    this.place,
   });
 
   /// `gym` (a session with sets) or `activity` (time and distance).
@@ -43,6 +45,9 @@ class StartProposal {
 
   /// Present for kind `gym`.
   final Plan? plan;
+
+  /// Where the coach expects the session to be, if it said.
+  final PlaceRef? place;
 
   factory StartProposal.fromJson(Map<String, dynamic> j) {
     final String kind = str(j['kind'], 'gym') == 'activity' ? 'activity' : 'gym';
@@ -56,6 +61,7 @@ class StartProposal {
       minutes: mins is num ? mins.toInt() : null,
       reason: str(j['reason']),
       plan: plan is Map ? Plan.fromJson(asMap(plan)) : null,
+      place: PlaceRef.tryParse(j['place']),
     );
   }
 }

@@ -67,7 +67,12 @@ void _beginProposal(AppDeps d, StartProposal p) {
     focus: p.focus,
     prepared: plan == null ? <Exercise>[] : d.plans.exercisesFor(plan),
     rationale: rationale,
+    placeId: p.place?.id,
   );
+  final PlaceRef? place = p.place;
+  if (place != null) {
+    d.places.learn(place);
+  }
 }
 
 /// Swaps the shown proposal for a rebuilt one. Only a session with no done set
@@ -76,6 +81,11 @@ bool _replaceProposal(AppDeps d, StartProposal p) {
   if (d.store.active == null || d.store.hasDoneSet) {
     return false;
   }
+  // A rebuilt proposal with no place keeps the place the person has now.
+  final String? keep = d.store.active?.placeId;
   _beginProposal(d, p);
+  if (p.place == null) {
+    d.store.setActivePlace(keep);
+  }
   return true;
 }

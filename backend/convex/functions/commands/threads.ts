@@ -10,16 +10,19 @@ import { NEW_CHAT_TITLE } from "../model/threadTitle";
  * Create a thread with a client-made threadId. Resending the same threadId changes nothing.
  * No title needed: the thread starts as "New chat" (titleSource "auto") and is named after the first message.
  * A given title counts as set by the user.
+ * `placeId` (optional, 1..100, ADR-021): the conversation is about that place. The coach reads the place and learns from the
+ * user's messages here. Stored as given; ignored on a resend (the thread exists).
  */
 export const create = mutation({
-  args: { token: v.string(), threadId: v.string(), title: v.optional(v.string()) },
-  handler: async (ctx, { token, threadId, title }) => {
+  args: { token: v.string(), threadId: v.string(), title: v.optional(v.string()), placeId: v.optional(v.string()) },
+  handler: async (ctx, { token, threadId, title, placeId }) => {
     requireToken(token);
     if (!threadId || threadId.length > 100) throw new ConvexError("threadId: must be 1 to 100 characters");
     const valid = parseOrThrow(ThreadInputSchema, { title }, "thread");
+    if (placeId !== undefined && (placeId.length < 1 || placeId.length > 100)) throw new ConvexError("placeId: must be 1 to 100 characters");
     if (await threadByThreadId(ctx, threadId)) return threadId;
     const now = Date.now();
-    await ctx.db.insert("threads", { threadId, title: valid.title ?? NEW_CHAT_TITLE, titleSource: valid.title ? "user" : "auto", createdAt: now, updatedAt: now, summary: "", status: "idle", pending: 0 });
+    await ctx.db.insert("threads", { threadId, title: valid.title ?? NEW_CHAT_TITLE, titleSource: valid.title ? "user" : "auto", createdAt: now, updatedAt: now, summary: "", status: "idle", pending: 0, ...(placeId !== undefined ? { placeId } : {}) });
     return threadId;
   },
 });

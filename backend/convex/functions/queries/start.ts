@@ -30,6 +30,7 @@ export const request = query({
         ...(p.minutes !== undefined ? { minutes: p.minutes } : {}),
         ...(p.reason ? { reason: p.reason } : {}),
         ...(plan ? { plan } : {}),
+        ...(p.place ? { place: p.place } : {}),
       },
     };
   },

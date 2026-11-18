@@ -12,10 +12,14 @@ class Thread {
     this.error,
     this.pending = 0,
     this.titleSource = 'user',
+    this.placeId,
   });
 
   final String id;
   final String title;
+
+  /// The place this thread is about, or null.
+  final String? placeId;
 
   /// auto | user. `auto`: the title was made by the backend from the first
   /// message. `user`: the user named it. A row without it counts as `user`.
@@ -48,6 +52,9 @@ class Thread {
       'pending': pending,
       'titleSource': titleSource,
     };
+    if (placeId != null) {
+      m['placeId'] = placeId;
+    }
     if (lastMessage != null) {
       m['lastMessage'] = lastMessage;
     }
@@ -69,6 +76,7 @@ class Thread {
       error: strOrNull(j['error']),
       pending: intOf(j['pending']),
       titleSource: str(j['titleSource'], 'user'),
+      placeId: strOrNull(j['placeId']),
     );
   }
 }

@@ -159,6 +159,7 @@ class FakeConvexClient implements ConvexClient {
       status: status,
       error: error,
       pending: status == 'thinking' ? 1 : 0,
+      placeId: t.placeId,
     );
   }
 
@@ -204,6 +205,25 @@ class FakeConvexClient implements ConvexClient {
 
   @override
   Stream<List<Goal>> watchGoals() => _goals.stream();
+
+  /// The places the server holds. Set a value to push it; [places.error] makes the subscription fail.
+  final Live<List<Place>> places = Live<List<Place>>(<Place>[]);
+
+  /// When set, the places subscription fails with it (an old server without the function).
+  Object? placesError;
+
+  @override
+  Stream<List<Place>> watchPlaces() => placesError == null ? places.stream() : Stream<List<Place>>.error(placesError!);
+
+  @override
+  Future<void> setSessionPlace({required String sessionId, required String? placeId}) async {
+    _command('setSessionPlace:$sessionId:${placeId ?? 'none'}');
+    final Session? s = serverSessions[sessionId];
+    if (s != null) {
+      s.placeId = placeId;
+      _publish();
+    }
+  }
 
   @override
   Stream<List<LogEntry>> watchEntries({int limit = 50}) => _entries.stream();
@@ -406,7 +426,7 @@ class FakeConvexClient implements ConvexClient {
       _messages.putIfAbsent(threadId, () => Live<List<Message>>(<Message>[])).stream();
 
   @override
-  Future<void> createThread({required String threadId, String? title}) async {
+  Future<void> createThread({required String threadId, String? title, String? placeId}) async {
     _command('createThread:$threadId');
     serverThreads.putIfAbsent(
         threadId,
@@ -416,6 +436,7 @@ class FakeConvexClient implements ConvexClient {
               titleSource: title == null ? 'auto' : 'user',
               createdAt: ++_clock,
               updatedAt: _clock,
+              placeId: placeId,
             ));
     _publish();
   }
@@ -452,6 +473,7 @@ class FakeConvexClient implements ConvexClient {
       status: t.status,
       error: t.error,
       pending: t.pending,
+      placeId: t.placeId,
     );
   }
 

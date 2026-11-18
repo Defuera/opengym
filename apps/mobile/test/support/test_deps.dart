@@ -20,6 +20,7 @@ import 'package:opengym/stores/dashboard_store.dart';
 import 'package:opengym/stores/entries_store.dart';
 import 'package:opengym/stores/goals_store.dart';
 import 'package:opengym/stores/import_store.dart';
+import 'package:opengym/stores/places_store.dart';
 import 'package:opengym/stores/plan_store.dart';
 import 'package:opengym/stores/review_store.dart';
 
@@ -48,6 +49,7 @@ Future<AppDeps> testDeps(
     retryAfter: const Duration(hours: 1),
   );
   // As compose wires it: an activity logged as one text goes to the outbox.
+  store.onSessionPlaceChanged = (String id, String? placeId) => unawaited(outbox.setSessionPlace(id, placeId));
   store.onTextLogged = (String id) => unawaited(outbox.logText(store.sessionById(id)!));
   final AboutRepository aboutRepo = InMemoryAboutRepository();
   return AppDeps(
@@ -67,5 +69,6 @@ Future<AppDeps> testDeps(
     about: AboutStore(repo: aboutRepo),
     aiModel: AiModelStore(client: fake)..start(),
     tracker: tracker ?? FakeTrackerSource(),
+    places: PlacesStore(client: fake)..start(),
   );
 }

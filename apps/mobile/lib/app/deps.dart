@@ -12,6 +12,7 @@ import '../stores/dashboard_store.dart';
 import '../stores/entries_store.dart';
 import '../stores/goals_store.dart';
 import '../stores/import_store.dart';
+import '../stores/places_store.dart';
 import '../stores/plan_store.dart';
 import '../stores/review_store.dart';
 
@@ -34,6 +35,7 @@ class AppDeps {
     required this.about,
     required this.aiModel,
     required this.tracker,
+    required this.places,
   });
 
   /// The gateway, for screens that follow one record (the session recap).
@@ -55,4 +57,7 @@ class AppDeps {
 
   /// Tracker data from the phone's health store (read only).
   final TrackerSource tracker;
+
+  /// The places the coach knows (read only).
+  final PlacesStore places;
 }

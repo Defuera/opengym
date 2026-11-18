@@ -20,6 +20,7 @@ import '../stores/dashboard_store.dart';
 import '../stores/entries_store.dart';
 import '../stores/goals_store.dart';
 import '../stores/import_store.dart';
+import '../stores/places_store.dart';
 import '../stores/plan_store.dart';
 import '../stores/review_store.dart';
 import 'deps.dart';
@@ -56,6 +57,7 @@ Future<AppDeps> compose() async {
   final ContextStore context = ContextStore(client: client, outbox: outbox);
   final ImportStore imports = ImportStore(client: client);
   final AiModelStore aiModel = AiModelStore(client: client);
+  final PlacesStore places = PlacesStore(client: client);
   final AboutStore about = AboutStore(repo: ConvexAboutRepository(client: client, outbox: outbox));
 
   // A finished session goes to the outbox on disk first, then to the server.
@@ -83,6 +85,7 @@ Future<AppDeps> compose() async {
       unawaited(outbox.saveSession(session));
     }
   };
+  store.onSessionPlaceChanged = (String id, String? placeId) => unawaited(outbox.setSessionPlace(id, placeId));
   store.onSessionRemoved = (String id) => unawaited(outbox.removeSession(id));
   imports.onUndone = store.removeImported;
 
@@ -93,6 +96,7 @@ Future<AppDeps> compose() async {
   context.start();
   about.start();
   aiModel.start();
+  places.start();
   coach.start();
   imports.watchPast();
   dashboard.select(7);
@@ -114,6 +118,7 @@ Future<AppDeps> compose() async {
     about: about,
     aiModel: aiModel,
     tracker: HealthTrackerSource(),
+    places: places,
   );
 
   // Do not wait for the network: the app opens straight away.

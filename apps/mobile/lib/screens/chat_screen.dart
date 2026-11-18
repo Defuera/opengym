@@ -186,7 +186,7 @@ class _ChatScreenState extends State<ChatScreen> {
                           behavior: HitTestBehavior.opaque,
                           onTap: c.currentThread == null ? null : () => _rename(c.currentThread!),
                           child: Text(
-                            c.currentThread?.title ?? (c.isDraft ? 'New chat' : 'Coach'),
+                            c.currentThread?.title ?? (c.isDraft ? (c.draftTitle ?? 'New chat') : 'Coach'),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: OG.display(32),

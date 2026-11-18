@@ -44,6 +44,7 @@ Session    { id, kind: "gym" | "activity",
              startedAt, endedAt, exercises: Exercise[] (<=15, [] for activity),
              minutes?: int, distanceKm?: number, note?: string,
              source: "app" | "import", importId?: string,
+             placeId?: string 1..100 /* where the session happened (ADR-021). Stored as given, an unknown id too. A save without it keeps the stored one; only commands/sessions:setPlace clears it. */,
              parse?: "pending" | "done" | "failed" /* only on a session logged as one text (ADR-018); written by the server: pending until parse_log has read the note. A user save never writes it. */ }
 
 PlanSet      { reps, kg, max }
@@ -60,7 +61,12 @@ Goal       { id, title 1..120, kind: "strength" | "consistency" | "custom",
 ContextItem{ id, text 1..300, topic: string 1..30, active: boolean,
              source: "user" | "ai" | "import", threadId?, importId?, createdAt }
 
-Thread     { id, title 1..60, titleSource "auto"|"user", createdAt, updatedAt, summary: string, lastMessage?: string }
+Thread     { id, title 1..60, titleSource "auto"|"user", createdAt, updatedAt, summary: string, lastMessage?: string,
+             placeId?: string /* the conversation is about this place (ADR-021) */ }
+Place      { placeId: string 1..100 (client- or server-made), name: string 1..30 (unique by key: trim, lower case, inner spaces collapsed),
+             text: string 0..1500 /* the equipment in free text; "" = not known yet */, updatedAt }
+           /* Tables: `places` (+ createdAt, index by_placeId) and `placeChanges`, a trace the app never reads:
+              { placeId, at, source: "feedback" | "note" | "chat" | "user" | "seed", quote (the user's sentence, <=300), before, after }. */
 Message    { id, threadId, role: "user" | "assistant", text, fileIds: string[],
              sources: string[] /* what the coach also read, e.g. "Knee thread", "gym log", "goals" */,
              createdAt }
@@ -69,7 +75,8 @@ FileMeta   { id, name, mime, size, kind: "text" | "image" | "pdf" | "audio" | "o
 Prediction   /* removed from the contract: the AI job `predict_activity` and `queries/start:predictions` no longer exist. The Start tab lists the activities of the log (plain code). The `predictions` table stays in the schema only so old rows validate. */
 StartRequest { requestId, status: "pending" | "ready" | "failed",
              proposal?: { kind: "gym" | "activity", type: string 1..40, focus?: string (<=40), minutes?: int, reason?: string (<=80),
-                          plan?: Plan /* required when kind is "gym", absent for "activity"; id is "start:<requestId>" */ } }
+                          plan?: Plan /* required when kind is "gym", absent for "activity"; id is "start:<requestId>" */,
+                          place?: { placeId, name } /* where the session is for (ADR-021); absent when no place is known */ } }
 
 DashboardModule =
   | { type: "stat", label, value: string, highlighted: boolean }
@@ -134,7 +141,8 @@ plans and the dashboard layout; they are regenerated in the background.
 | Job | Output | Fallback (plain code) |
 |---|---|---|
 | `plan_session` | Plan for a session with sets for one activity (and focus) from log, goals, active context (equipment and preferences), limits | the user's last session of that activity and focus with its last sets; an EMPTY plan if there is none |
-| `build_session` | StartRequest proposal for a start request: a session with exercises (`kind: "gym"`; time or distance work is a time exercise): focus, minutes, reason, plan. The job gets the full picture of the user (`coachPicture`), `activity` and `noteForToday`; for a text-only request `activity` is `null` and `request` holds the text, and the coach names the activity (one to three words, a name from the log when it means the same). On a rebuild (a feedback request) it also gets `previousPlan` and `feedbackFromThePerson` (an array of strings). | status `ready` with `{kind: "gym", type: <the name, else the text before the first comma (first letter upper case, max 40; a known spelling when the log has one)>, plan: the user's last session of that activity, else empty}`. With a `name`, the proposal `type` is always that name (the log's spelling when the key matches). Without a name it is the coach's name, trimmed to 40. |
+| `build_session` | StartRequest proposal for a start request: a session with exercises (`kind: "gym"`; time or distance work is a time exercise): focus, minutes, reason, plan. The job gets the full picture of the user (`coachPicture`), `activity` and `noteForToday`; for a text-only request `activity` is `null` and `request` holds the text, and the coach names the activity (one to three words, a name from the log when it means the same). On a rebuild (a feedback request) it also gets `previousPlan` and `feedbackFromThePerson` (an array of strings). It also gets `placesTheCoachKnows: [{name, equipment, lastUsedForThisActivity}]` (every place; `equipment` is the place text, `""` when unknown; the flag marks the place of the newest session of the chosen activity) and may return `place` (max 30): a name from that list, or a new short name when the request clearly means a place the coach does not know (ADR-021). | status `ready` with `{kind: "gym", type: <the name, else the text before the first comma (first letter upper case, max 40; a known spelling when the log has one)>, plan: the user's last session of that activity, else empty}`. With a `name`, the proposal `type` is always that name (the log's spelling when the key matches). Without a name it is the coach's name, trimmed to 40. |
+| `learn_place` | Keeps the equipment note of ONE place up to date from one sentence the user said (ADR-021, the second exception to ADR-002; only places). Input: `{place: {name, equipment}, otherPlaces: [name], sentence}`. Output: `{changed: boolean, equipment: string (<=1500)}`. Never blocks a reply: scheduled (`jobs/places:learn`) (1) after a start request with feedback is saved (the sentence is the newest feedback; source `feedback`), (2) after a start request with a note or text and no feedback is saved (source `note`), both for the place of the proposal, and (3) after a user message in a thread that has `placeId` (source `chat`). Code writes `places.text` only when `changed` is true, the text differs and the stored text is still the one the job read (a newer edit wins), and logs a `placeChanges` row with the source and the quote (the sentence, cut to 300) | No change. |
 | `build_dashboard` | ordered module specs | sessions, active days, top set of most-trained exercise, one goal_progress per active goal, recent_sessions |
 | `chat` | reply text + sources | fixed "AI is not configured" reply; message still stored |
 | `extract_from_chat` | new Goal[] / ContextItem[] from a user message | none extracted |
@@ -198,6 +206,26 @@ A past session is corrected with the same `commands/sessions:save` (an idempoten
 **Delete marks, then purges (ADR-020).** `commands/sessions:remove { token, sessionId }` and `commands/entries:remove { token, entryId }` only mark the row: they set the optional `deletedAt` (epoch ms, the time of the first call; a second call keeps it) and return `true` when this call marked it, `false` when the row is unknown or already marked. Nothing else goes at that moment, not the review of a session and not the files of a note. A session's mark also asks for a rebuild of the read models. A marked row is invisible to every read: the queries, the jobs, the coach picture, the chat context, dashboards, plans, reviews and load levels. A `commands/sessions:save`, `logText` or `commands/entries:save` for a marked id changes nothing and returns the id, so a late resend from an offline phone does not bring it back. A pending `parse_log` or review result for a marked session is dropped. An hourly cron (`crons.ts`, `jobs/purge:run`) erases every row marked more than 72 hours ago (`DELETE_AFTER_MS`), in batches of 50: a session with its review, a note with its file rows and blobs. The operator can undo a delete within 72 hours with the internal functions `commands/sessions:restoreSession { sessionId }` and `commands/entries:restoreEntry { entryId }` (run with `npx convex run`; there is no app screen for it). The app asks for confirmation before it removes a session or a note, and says that the erasing follows after 72 hours.
 
 Coach: `coachPicture` (the `build_session` input) has a field `logEntriesFromTheUser`: the entries of the last 7 days, oldest first, at most 20, each `{ date, time, text, attachments: number }`. The chat context lists the same entries. The image files of entries of the last 24 hours (at most 4, newest first) go with the `build_session` request and the chat request when the provider takes images; DeepSeek has no image input, so no image is sent there.
+
+## Places (Convex backend, ADR-021)
+
+A place is a fact: where the user trains and what is there, in free text (`Place` in the schema). The user never has to make one. The coach picks today's place for a proposal, and a background job learns the equipment text from the user's own words. All fields are optional and old app builds keep working.
+
+| Function | Args | Returns |
+|---|---|---|
+| query `queries/places:list` | `{ token }` | `[{ placeId, name, text, updatedAt }]`, sorted by name |
+| mutation `commands/places:save` | `{ token, placeId (1..100), name (1..30 after trim), text? (0..1500) }` | the placeId. Idempotent upsert by placeId. `text` left out keeps the stored text. Rejects a name whose key (trim, lower case, inner spaces collapsed) belongs to another placeId. A change of the text logs a `placeChanges` row with source `user`. |
+| mutation `commands/sessions:setPlace` | `{ token, sessionId, placeId: string (1..100) \| null }` | `true`; `false` when the session is unknown or marked as deleted. Sets or clears the place of that one session; nothing else on the row changes and no rebuild or review is scheduled. The id is stored as given. |
+| mutation `commands/sessions:save` | the session may carry `placeId` | as before. A save WITHOUT `placeId` (an old app) never erases the stored one. |
+| mutation `commands/threads:create` | `{ token, threadId, title?, placeId? }` | as before. `placeId` (1..100) says the conversation is about that place. A resend changes nothing. `queries/threads:list` returns `placeId` when set. |
+| query `queries/sessions:recent`, `queries/sessions:since` | as before | each session carries `placeId` when set |
+| query `queries/start:request` | as before | `proposal.place: { placeId, name }` when a place is known |
+
+How the place of a proposal is set (`jobs/startRequest:save`, plain code): the name the coach gave is matched to a place by its key; a new name makes a place with an empty text; when the coach gave none, or on the rules fallback, the place of the newest live session of the same activity is used (none when that session has no place, or its place is not stored). `build_session` input and output are in the AI jobs table.
+
+Chat: when the thread has `placeId` and the place exists, the coach input of `chat` names the place and its equipment text and says the conversation is about it. A place text goes to the AI provider; a record (ADR-015) never does. `commands/messages:send` schedules `learn_place` for a message in such a thread.
+
+Seed (once, by the operator, idempotent): `internal.jobs.places:seed {}`. It makes the place "Gym" with the text of the active context item(s) whose topic is "equipment" and sets those items inactive (so the equipment is not sent twice), logs a `placeChanges` row with source `seed`, makes the place "Home" with an empty text, and gives every live session with no place a place: activity "Gym" (an old flavour name counts as Gym) to Gym, "Home" or a name that starts with the word home to Home, other sessions stay as they are; sessions marked as deleted are not touched. At most 2000 sessions per run; `remaining` in the result tells if another run is needed. Returns `{ gymCreated, homeCreated, equipmentMoved, sessionsGym, sessionsHome, remaining }`. A second run changes nothing.
 
 ## Coach model (Convex backend)
 

@@ -105,6 +105,9 @@ class SwitchableConvexClient implements ConvexClient {
       _proxy((ConvexClient c) => c.watchEntries(limit: limit));
 
   @override
+  Stream<List<Place>> watchPlaces() => _proxy((ConvexClient c) => c.watchPlaces());
+
+  @override
   Future<void> saveEntry({
     required String entryId,
     required String text,
@@ -207,6 +210,10 @@ class SwitchableConvexClient implements ConvexClient {
   Future<void> saveSession(Session session) => _call((ConvexClient c) => c.saveSession(session));
 
   @override
+  Future<void> setSessionPlace({required String sessionId, required String? placeId}) =>
+      _call((ConvexClient c) => c.setSessionPlace(sessionId: sessionId, placeId: placeId));
+
+  @override
   Future<void> logSessionText({
     required String sessionId,
     required String type,
@@ -265,8 +272,8 @@ class SwitchableConvexClient implements ConvexClient {
   Future<void> removeImport(String importId) => _call((ConvexClient c) => c.removeImport(importId));
 
   @override
-  Future<void> createThread({required String threadId, String? title}) =>
-      _call((ConvexClient c) => c.createThread(threadId: threadId, title: title));
+  Future<void> createThread({required String threadId, String? title, String? placeId}) =>
+      _call((ConvexClient c) => c.createThread(threadId: threadId, title: title, placeId: placeId));
 
   @override
   Future<void> renameThread({required String threadId, required String title}) =>

@@ -23,7 +23,7 @@ ADR-002 says the AI never writes facts by itself. ADR-018 made one exception (th
 - The user never has to pick a place or type equipment. The coach picks today's place when it builds a session, from the activity, the note for today and the places it knows. With no hint, code takes the place of the last session of that activity.
 - **Second exception to ADR-002:** a background AI job may change the `text` of a place, and may create a place, from the user's own words (feedback on a plan, the note for today, a chat message about the place). It asks nothing. The exception covers places only. Sessions, goals and limits stay under ADR-002.
 - Each change is logged with the user's sentence it came from, so a wrong line can be traced and undone.
-- The coach gets the equipment text of today's place only.
+- The coach gets the short list of places with their equipment text, because it picks today's place in the same step. It plans with the equipment of the place it picked.
 - The app shows a small place mark (icon and name) on a proposed session, a running session and the recap. A tap opens a small sheet: the other places (to correct a wrong guess) and a way to tell the coach more. Telling more is a chat about that place; the same background job reads the user's messages there.
 
 ## Consequences

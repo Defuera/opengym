@@ -9,6 +9,8 @@ export interface ChatInput {
   /** This thread's messages including the new user message last. */
   history: ChatMessage[];
   images?: ImageInput[];
+  /** The place this thread is about (ADR-021): its name and the equipment note ("" = nothing known yet). */
+  place?: { name: string; equipment: string };
 }
 
 export const NOT_CONFIGURED_REPLY =
@@ -28,7 +30,7 @@ export const chatJob: JobDef<ChatInput, string> = {
       system: `${systemPrompt(
         "chat",
         "You are the user's gym coach inside the OpenGym app. Answer in plain text (no JSON), short and practical, like a coach texting. You may use the context below, including text from files the user attached, but only talk about training choices: what to do, how heavy, how often. If the user mentions a body part feeling tight or sore, respond only with training adjustments. When the user asks what you know about their body, their limits, or anything that hurts or was hurt (whatever word they use), answer from the limits in the context: name each body part, its status and its rules in plain training words. If the context has no limits, say that none are stored. The user may keep their own records in the app; you cannot read them, so say that when they ask about a record. " + LIMITS_RULE,
-      )}\n\nContext you may use (do not claim anything beyond it):\n${i.contextBlock}`,
+      )}\n\nContext you may use (do not claim anything beyond it):\n${i.contextBlock}${i.place ? `\n\nThis conversation is about the place "${i.place.name}". What the coach knows about it: ${i.place.equipment.trim() || "nothing yet"}.` : ""}`,
       messages: history,
       images: i.images,
     };

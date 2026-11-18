@@ -14,6 +14,7 @@ import '../widgets/og_button.dart';
 import '../widgets/og_icon_button.dart';
 import '../widgets/recap_exercise_card.dart';
 import '../widgets/review_card.dart';
+import 'place_mark_view.dart';
 import 'session_edit_screen.dart';
 
 /// A finished session: what was done, set by set, the note, the coach's
@@ -124,7 +125,12 @@ class _SessionRecapScreenState extends State<SessionRecapScreen> {
         key: const ValueKey<String>('recap-when'),
         style: OG.muted(),
       ),
-      const SizedBox(height: 16),
+      PlaceMarkView(
+        deps: widget.deps,
+        placeId: s.placeId,
+        onPick: (String id) => widget.deps.store.setSessionPlace(s.id, id),
+      ),
+      const SizedBox(height: 10),
       if (s.parsePending)
         Padding(
           padding: const EdgeInsets.only(bottom: 12),

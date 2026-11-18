@@ -38,6 +38,8 @@ export const send = mutation({
     await ctx.db.insert("messages", { messageId, threadId, role: "user", text: valid.text, fileIds: valid.fileIds ?? [], sources: [], createdAt: now });
     await ctx.db.patch(thread._id, { ...title, status: "thinking", error: undefined, pending: thread.pending + 1, updatedAt: now });
     await ctx.scheduler.runAfter(0, internal.jobs.chat.reply, { threadId, messageId });
+    // A thread about a place (ADR-021): the background job may learn from what the user says. It never blocks the reply.
+    if (thread.placeId !== undefined) await ctx.scheduler.runAfter(0, internal.jobs.places.learn, { placeId: thread.placeId, source: "chat", sentence: valid.text });
     return messageId;
   },
 });

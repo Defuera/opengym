@@ -4,6 +4,7 @@ import { internalAction, internalMutation, internalQuery } from "../_generated/s
 import { providerFor, runAiJob } from "../lib/ai";
 import { liveSessionDocs, toContextItem, toGoal, toSession, messageByMessageId, threadByThreadId } from "../lib/db";
 import { activeLimits } from "../lib/limitsDb";
+import { placeByPlaceId } from "../lib/placesDb";
 import { markFactsChanged } from "../lib/factsChanged";
 import { coachEntries, entryImageFiles, loadEntryImages } from "../lib/entriesDb";
 import { fileByFileId, loadAttachment } from "../lib/files";
@@ -57,6 +58,7 @@ export const input = internalQuery({
       const f = await fileByFileId(ctx, id);
       if (f) files.push({ fileId: f.fileId, storageId: f.storageId, name: f.name, mime: f.mime, size: f.size, kind: f.kind, createdAt: f.createdAt });
     }
+    const place = thread.placeId !== undefined ? await placeByPlaceId(ctx, thread.placeId) : null;
     const now = Date.now();
     const entries = await coachEntries(ctx, now);
     const entryImages = await entryImageFiles(ctx, now);
@@ -68,6 +70,7 @@ export const input = internalQuery({
       data: { otherThreads, sessions, goals, context, limits: await activeLimits(ctx), entries },
       files,
       entryImages,
+      place: place ? { name: place.name, equipment: place.text } : null,
       knownContext: contextDocs.filter((c) => c.active).slice(0, CHAT_KNOWN_ITEMS).map((c) => c.text),
       knownGoals: goalDocs.slice(0, CHAT_KNOWN_ITEMS).map((g) => g.title),
     };
@@ -162,7 +165,7 @@ export const reply = internalAction({
         if (a) files.push(a);
       }
       const coach = assembleCoachContext(data.data, files, supportsImages, await loadEntryImages(ctx, data.entryImages, supportsImages));
-      const r = await runAiJob(ctx, chatJob, { contextBlock: coach.contextBlock, history: data.history, images: coach.images });
+      const r = await runAiJob(ctx, chatJob, { contextBlock: coach.contextBlock, history: data.history, images: coach.images, ...(data.place ? { place: data.place } : {}) });
       kept = await ctx.runMutation(internal.jobs.chat.saveReply, { threadId, text: r.value, sources: r.path === "ai" ? coach.sources : [] });
       replyText = r.value;
     } catch (e) {

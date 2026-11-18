@@ -2,7 +2,7 @@ import { ConvexError, v } from "convex/values";
 import { internal } from "../_generated/api";
 import { internalMutation, mutation } from "../_generated/server";
 import { requireToken } from "../lib/auth";
-import { sessionRowBySessionId, stableJson, withoutSystemFields } from "../lib/db";
+import { sessionBySessionId, sessionRowBySessionId, stableJson, withoutSystemFields } from "../lib/db";
 import { markFactsChanged, scheduleReview } from "../lib/factsChanged";
 import { parseOrThrow } from "../lib/validate";
 import { LogTextInputSchema, SessionSchema } from "../model/schema";
@@ -20,6 +20,8 @@ import { sessionFields } from "../schema";
  * `parse` (ADR-018) belongs to the parse_log job: a user save never writes it. It is left out of the stored row and of the
  * "nothing changed" comparison, so a resend of a row that still carries it changes nothing and a real edit clears it
  * (the user's edit is final: a parse_log result that arrives later is dropped).
+ * `placeId` (ADR-021) is stored as given, even for an unknown place (the app may be ahead offline). A save WITHOUT it (an old app
+ * build) keeps the stored one; only `setPlace` clears it.
  */
 export const save = mutation({
   args: { token: v.string(), session: v.object({ ...sessionFields, type: v.optional(v.string()) }) },
@@ -27,10 +29,11 @@ export const save = mutation({
     requireToken(token);
     const { parse: _parse, ...clean } = given;
     void _parse;
-    const session = normalizeSession({ ...clean, type: clean.type ?? (clean.kind === "gym" ? GYM_TYPE : "") });
-    const { sessionId, ...rest } = session;
+    const first = normalizeSession({ ...clean, type: clean.type ?? (clean.kind === "gym" ? GYM_TYPE : "") });
+    const { sessionId, ...rest } = first;
     parseOrThrow(SessionSchema, { id: sessionId, ...rest }, "session");
     const old = await sessionRowBySessionId(ctx, sessionId);
+    const session = first.placeId === undefined && old?.placeId !== undefined ? { ...first, placeId: old.placeId } : first;
     if (old?.deletedAt !== undefined) return sessionId; // marked as deleted (ADR-020): a late resend must not bring it back
     if (old && stableJson(withoutSystemFields({ ...old, parse: undefined })) === stableJson(session)) return sessionId; // resend, nothing changed
     if (old) await ctx.db.replace(old._id, session);
@@ -97,6 +100,23 @@ export const restoreSession = internalMutation({
     if (!old || old.deletedAt === undefined) return false;
     await ctx.db.patch(old._id, { deletedAt: undefined });
     await markFactsChanged(ctx);
+    return true;
+  },
+});
+
+/**
+ * Sets or clears (`null`) the place of one session (ADR-021). Nothing else on the row changes, and no rebuild or review is scheduled:
+ * the place is not part of the plan or the numbers. The place id is stored as given (an unknown id is fine). Returns false when the
+ * session is unknown or marked as deleted, true otherwise.
+ */
+export const setPlace = mutation({
+  args: { token: v.string(), sessionId: v.string(), placeId: v.union(v.string(), v.null()) },
+  handler: async (ctx, { token, sessionId, placeId }) => {
+    requireToken(token);
+    if (placeId !== null && (placeId.length < 1 || placeId.length > 100)) throw new ConvexError("placeId: must be 1 to 100 characters");
+    const doc = await sessionBySessionId(ctx, sessionId);
+    if (!doc) return false;
+    await ctx.db.patch(doc._id, { placeId: placeId ?? undefined });
     return true;
   },
 });

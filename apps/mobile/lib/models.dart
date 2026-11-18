@@ -13,6 +13,7 @@ export 'models/dashboard.dart';
 export 'models/entry.dart';
 export 'models/goal.dart';
 export 'models/misc.dart';
+export 'models/place.dart';
 export 'models/plan.dart';
 
 /// One entry of an exercise. An entry of an exercise with sets holds [reps]
@@ -214,6 +215,7 @@ class Session {
     this.importId,
     this.planNote,
     this.parse,
+    this.placeId,
   }) : exercises = exercises ?? <Exercise>[];
 
   String id;
@@ -246,6 +248,9 @@ class Session {
   /// server has read the text into minutes, distance, exercises, then 'done'
   /// or 'failed'. Written by the server only; never sent back on a save.
   String? parse;
+
+  /// Where the session happened (a place id), or null.
+  String? placeId;
 
   /// The text of this session is still being read.
   bool get parsePending => parse == 'pending';
@@ -285,6 +290,9 @@ class Session {
     if (parse != null) {
       m['parse'] = parse;
     }
+    if (placeId != null) {
+      m['placeId'] = placeId;
+    }
     return m;
   }
 
@@ -318,6 +326,9 @@ class Session {
     }
     if (importId != null) {
       m['importId'] = importId;
+    }
+    if (placeId != null) {
+      m['placeId'] = placeId;
     }
     return m;
   }
@@ -360,6 +371,7 @@ class Session {
       parse: const <String>['pending', 'done', 'failed'].contains(j['parse'])
           ? j['parse'] as String
           : null,
+      placeId: j['placeId'] is String && (j['placeId'] as String).isNotEmpty ? j['placeId'] as String : null,
     );
   }
 }

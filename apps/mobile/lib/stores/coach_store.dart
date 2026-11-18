@@ -67,6 +67,10 @@ class CoachStore extends ChangeNotifier {
   /// The open chat is new and not on the server yet. It is created with the
   /// first message, so backing out leaves no empty thread behind.
   bool isDraft = false;
+
+  /// Set on a draft chat about a place: the place id and the thread title.
+  String? draftPlaceId;
+  String? draftTitle;
   bool loadingThreads = true;
   bool loadingMessages = false;
 
@@ -185,11 +189,16 @@ class CoachStore extends ChangeNotifier {
   /// Opens an empty new chat at once, with a client-made id. Nothing is sent to
   /// the server until the first message, so there is no name prompt and no
   /// empty thread left behind.
-  Future<void> startNewChat() async {
+  ///
+  /// With [placeId] the chat is about that place: the thread is made with the
+  /// place and the [title] (for example "About Home").
+  Future<void> startNewChat({String? placeId, String? title}) async {
     await _msgSub?.cancel();
     _msgSub = null;
     currentId = newId();
     isDraft = true;
+    draftPlaceId = placeId;
+    draftTitle = placeId == null ? null : title;
     _server = <Message>[];
     _pending.clear();
     loadingMessages = false;
@@ -272,6 +281,8 @@ class CoachStore extends ChangeNotifier {
     await _msgSub?.cancel();
     currentId = id;
     isDraft = false;
+    draftPlaceId = null;
+    draftTitle = null;
     _server = <Message>[];
     _pending.clear();
     loadingMessages = true;
@@ -305,6 +316,8 @@ class CoachStore extends ChangeNotifier {
     _msgSub = null;
     currentId = null;
     isDraft = false;
+    draftPlaceId = null;
+    draftTitle = null;
     _server = <Message>[];
     _pending.clear();
     notifyListeners();
@@ -361,8 +374,10 @@ class CoachStore extends ChangeNotifier {
 
   Future<String?> _createDraft(String id) async {
     try {
-      await _client.createThread(threadId: id);
+      await _client.createThread(threadId: id, title: draftTitle, placeId: draftPlaceId);
       isDraft = false;
+      draftPlaceId = null;
+      draftTitle = null;
       error = null;
       loadingMessages = true;
       _subscribeMessages(id);

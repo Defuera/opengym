@@ -5,6 +5,8 @@ import { providerFor, runAiJob } from "../lib/ai";
 import { allContext, allGoals, allSessions, startRequestById } from "../lib/db";
 import { coachEntries, entryImageFiles, loadEntryImages } from "../lib/entriesDb";
 import { activeLimits } from "../lib/limitsDb";
+import { allPlaces, createPlace, placeByName, placeByPlaceId } from "../lib/placesDb";
+import { lastPlaceIdFor } from "../model/places";
 import { startDraft } from "../lib/validators";
 import { buildSessionJob } from "../model/ai/jobs/buildSession";
 import { coachPicture } from "../model/ai/jobs/coachPicture";
@@ -31,11 +33,15 @@ export const input = internalQuery({
     const match = doc.name ? known.find((a) => activityKey(a.type) === activityKey(doc.name!)) : undefined;
     const rules = match?.kind === "gym" ? dropAvoided(rulesPlan(sessions, match.type), limits) : null;
     // The coach builds the session from the full picture of the user. A fixed name is the activity; with no name the coach names it from the text.
+    // The places the coach knows (ADR-021): all of them, with the one last used for this activity marked. Only places go here, never records.
+    const lastPlaceId = doc.name ? lastPlaceIdFor(sessions, doc.name) : undefined;
+    const placesTheCoachKnows = (await allPlaces(ctx)).map((p) => ({ name: p.name, equipment: p.text, lastUsedForThisActivity: p.placeId === lastPlaceId }));
     const job = {
       name: doc.name ?? null,
       note: doc.name ? (doc.text ?? "") : "",
       ...(doc.name ? {} : { request: doc.text ?? "" }),
       ...(doc.feedback ? { feedbackFromThePerson: doc.feedback, ...(doc.previousPlan ? { previousPlan: doc.previousPlan } : {}) } : {}),
+      placesTheCoachKnows,
       picture: coachPicture(sessions, [...goals].sort((x, y) => x.createdAt - y.createdAt), context, limits, await coachEntries(ctx, now), now),
       limits,
     };
@@ -66,6 +72,10 @@ export const save = internalMutation({
       sessions,
       await activeLimits(ctx),
     );
+    // The place (ADR-021), by plain code: the name the coach gave (a new name makes a place with an empty text), else the place of the
+    // newest session of this activity (also on the rules fallback). None when neither is known.
+    const given = proposal.place?.trim();
+    const place = given ? ((await placeByName(ctx, given)) ?? (await createPlace(ctx, given))) : await placeOfLastSession(ctx, lastPlaceIdFor(sessions, checked.type));
     await ctx.db.patch(doc._id, {
       status: "ready",
       proposal: {
@@ -75,10 +85,17 @@ export const save = internalMutation({
         ...(checked.minutes !== undefined ? { minutes: checked.minutes } : {}),
         ...(checked.reason ? { reason: checked.reason } : {}),
         ...(checked.plan ? { plan: { source: source ?? "rules", ...checked.plan } } : {}),
+        ...(place ? { place: { placeId: place.placeId, name: place.name } } : {}),
       },
     });
+    // Background learning (ADR-021), never blocking: the newest feedback, else the note or text, is read for what it says about this place.
+    const feedback = doc.feedback?.[doc.feedback.length - 1];
+    const sentence = feedback ?? doc.text?.trim();
+    if (place && sentence) await ctx.scheduler.runAfter(0, internal.jobs.places.learn, { placeId: place.placeId, source: feedback ? "feedback" : "note", sentence });
   },
 });
+
+const placeOfLastSession = async (ctx: Parameters<typeof placeByPlaceId>[0], placeId: string | undefined) => (placeId ? await placeByPlaceId(ctx, placeId) : null);
 
 /** build_session job: input query -> AI pipeline (one retry, then the code fallback) -> save. Any unexpected error marks the request failed. */
 export const build = internalAction({

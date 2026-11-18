@@ -124,6 +124,7 @@ class Outbox extends ChangeNotifier {
         for (final OutboxOp o in <OutboxOp>[..._ops, ..._parked])
           if (o.type == OutboxOp.sessionSave ||
               o.type == OutboxOp.sessionRemove ||
+              o.type == OutboxOp.sessionSetPlace ||
               o.type == OutboxOp.sessionLogText)
             o.targetId,
       };
@@ -173,12 +174,25 @@ class Outbox extends ChangeNotifier {
     });
   }
 
+  /// The place of a finished session was changed (null clears it). A newer
+  /// change of the same session replaces the old one.
+  Future<void> setSessionPlace(String id, String? placeId) {
+    return _enqueue(
+      OutboxOp.sessionSetPlace,
+      <String, dynamic>{'id': id, 'placeId': placeId},
+      replaces: (OutboxOp o) => o.type == OutboxOp.sessionSetPlace && o.targetId == id,
+    );
+  }
+
   Future<void> removeSession(String id) {
     return _enqueue(
       OutboxOp.sessionRemove,
       <String, dynamic>{'id': id},
       replaces: (OutboxOp o) =>
-          (o.type == OutboxOp.sessionSave || o.type == OutboxOp.sessionLogText) && o.targetId == id,
+          (o.type == OutboxOp.sessionSave ||
+              o.type == OutboxOp.sessionLogText ||
+              o.type == OutboxOp.sessionSetPlace) &&
+          o.targetId == id,
     );
   }
 

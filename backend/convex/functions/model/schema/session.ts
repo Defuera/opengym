@@ -53,6 +53,8 @@ export const SessionSchema = z
     note: z.string().optional(),
     source: SessionSourceSchema,
     importId: z.string().optional(),
+    /** Where the session happened (ADR-021). Not known when absent. */
+    placeId: z.string().min(1).max(100).optional(),
   })
   .refine((s) => s.type.trim().length > 0, { message: "type must not be blank", path: ["type"] })
   .refine((s) => s.kind === "gym" || s.exercises.length === 0, {

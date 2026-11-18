@@ -20,6 +20,7 @@ export function toSession(d: Doc<"sessions">): Session {
     ...(d.note !== undefined ? { note: d.note } : {}),
     source: d.source,
     ...(d.importId !== undefined ? { importId: d.importId } : {}),
+    ...(d.placeId !== undefined ? { placeId: d.placeId } : {}),
   });
 }
 

@@ -1,4 +1,4 @@
-import type { Session } from "../schema";
+import { repEntries, type Session } from "../schema";
 import { DAY_MS, dayKey } from "./util";
 
 export interface StatsResult {
@@ -25,7 +25,8 @@ export function stats(sessions: Session[], days: number, now: number): StatsResu
       cur++;
       dayKeys.add(dayKey(s.endedAt));
       for (const e of s.exercises) {
-        for (const x of e.sets) {
+        // Time entries are not sets: they add nothing here, so a bike never becomes the "most trained" lift.
+        for (const x of repEntries(e)) {
           sets++;
           count.set(e.name, (count.get(e.name) ?? 0) + 1);
           top.set(e.name, Math.max(top.get(e.name) ?? 0, x.kg));

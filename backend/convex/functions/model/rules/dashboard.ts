@@ -1,4 +1,4 @@
-import type { Dashboard, DashboardModule, DashboardSpec, Goal, ModuleSpec, Session } from "../schema";
+import { repEntries, topKg, totalMinutes, type Dashboard, type DashboardModule, type DashboardSpec, type Goal, type ModuleSpec, type Session } from "../schema";
 import { stats } from "./stats";
 import { DAY_MS, dayKey, fmtKg, whenLabel } from "./util";
 
@@ -19,7 +19,7 @@ export function rulesSpec(goals: Goal[]): DashboardSpec {
 function bestKg(sessions: Session[], exercise: string): number {
   const k = exercise.toLowerCase();
   let best = 0;
-  for (const s of sessions) for (const e of s.exercises) if (e.name.toLowerCase() === k) for (const x of e.sets) best = Math.max(best, x.kg);
+  for (const s of sessions) for (const e of s.exercises) if (e.name.toLowerCase() === k) best = Math.max(best, topKg(e));
   return best;
 }
 
@@ -52,8 +52,9 @@ function goalModule(g: Goal, sessions: Session[], now: number): DashboardModule 
 function sessionSubtitle(s: Session): string {
   const tag = s.focus ? `${s.focus} · ` : "";
   if (s.kind === "gym") {
-    const sets = s.exercises.reduce((n, e) => n + e.sets.length, 0);
-    return `${tag}${s.exercises.length} exercises, ${sets} sets`;
+    const sets = s.exercises.reduce((n, e) => n + repEntries(e).length, 0);
+    const minutes = s.exercises.reduce((n, e) => n + totalMinutes(e), 0);
+    return `${tag}${s.exercises.length} exercises, ${sets} sets${minutes > 0 ? `, ${fmtKg(minutes)} min` : ""}`;
   }
   return tag + [s.minutes !== undefined ? `${s.minutes} min` : null, s.distanceKm !== undefined ? `${fmtKg(s.distanceKm)} km` : null].filter(Boolean).join(", ") || "Activity";
 }
@@ -83,7 +84,7 @@ export function resolveDashboard(spec: DashboardSpec, sessions: Session[], goals
         const k = exercise.toLowerCase();
         const points = sessions
           .filter((s) => s.endedAt >= from)
-          .map((s) => ({ t: s.endedAt, value: Math.max(0, ...s.exercises.filter((e) => e.name.toLowerCase() === k).flatMap((e) => e.sets.map((x) => x.kg))), has: s.exercises.some((e) => e.name.toLowerCase() === k) }))
+          .map((s) => ({ t: s.endedAt, value: Math.max(0, ...s.exercises.filter((e) => e.name.toLowerCase() === k).map(topKg)), has: s.exercises.some((e) => e.name.toLowerCase() === k) }))
           .filter((p) => p.has)
           .map(({ t, value }) => ({ t, value }));
         modules.push({ type: "trend", title: `${exercise}, top set`, unit: "kg", points });

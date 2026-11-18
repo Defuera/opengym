@@ -7,7 +7,11 @@ export const goalStatus = v.union(v.literal("active"), v.literal("done"));
 export const dashboardDays = v.union(v.literal(7), v.literal(30));
 
 export const planSet = v.object({ reps: v.number(), kg: v.number(), max: v.boolean() });
-export const planExercise = v.object({ name: v.string(), sets: v.array(planSet), note: v.optional(v.string()) });
+export const planTimeSet = v.object({ minutes: v.number(), distanceKm: v.optional(v.number()) });
+export const planExercise = v.union(
+  v.object({ name: v.string(), measure: v.optional(v.literal("sets")), sets: v.array(planSet), note: v.optional(v.string()) }),
+  v.object({ name: v.string(), measure: v.literal("time"), sets: v.array(planTimeSet), note: v.optional(v.string()) }),
+);
 export const prediction = v.object({ kind: v.union(v.literal("gym"), v.literal("activity")), type: v.string(), focus: v.optional(v.string()), reason: v.string() });
 
 export const startStatus = v.union(v.literal("pending"), v.literal("ready"), v.literal("failed"));

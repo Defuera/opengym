@@ -48,7 +48,14 @@ class PlanStore extends ChangeNotifier {
         id: newId(),
         name: pe.name,
         note: pe.note,
-        sets: pe.sets.map((PlanSet s) => SetEntry(reps: s.reps, kg: s.kg, isMax: s.max)).toList(),
+        measure: pe.measure == measureTime ? measureTime : measureSets,
+        sets: pe.sets.map((PlanSet s) {
+          final double? min = s.minutes;
+          if (pe.measure == measureTime) {
+            return SetEntry.time(min ?? 10, distanceKm: s.distanceKm);
+          }
+          return SetEntry(reps: s.reps, kg: s.kg, isMax: s.max);
+        }).toList(),
       );
     }).toList();
   }

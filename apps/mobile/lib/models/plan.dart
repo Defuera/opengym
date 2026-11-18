@@ -1,13 +1,30 @@
 import 'json_util.dart';
 
+/// One planned entry. A set has [reps] and [kg]; an entry of a time exercise
+/// has [minutes] and, optionally, [distanceKm].
 class PlanSet {
-  const PlanSet({required this.reps, required this.kg, this.max = false});
+  const PlanSet({
+    required this.reps,
+    required this.kg,
+    this.max = false,
+    this.minutes,
+    this.distanceKm,
+  });
 
   final int reps;
   final double kg;
   final bool max;
+  final double? minutes;
+  final double? distanceKm;
 
   Map<String, dynamic> toJson() {
+    final double? min = minutes;
+    if (min != null) {
+      return <String, dynamic>{
+        'minutes': min,
+        if (distanceKm != null) 'distanceKm': distanceKm,
+      };
+    }
     return <String, dynamic>{'reps': reps, 'kg': kg, 'max': max};
   }
 
@@ -16,20 +33,31 @@ class PlanSet {
       reps: intOf(j['reps']),
       kg: dblOf(j['kg']),
       max: j['max'] == true,
+      minutes: dblOrNull(j['minutes']),
+      distanceKm: dblOrNull(j['distanceKm']),
     );
   }
 }
 
 class PlanExercise {
-  const PlanExercise({required this.name, required this.sets, this.note});
+  const PlanExercise({
+    required this.name,
+    required this.sets,
+    this.note,
+    this.measure = 'sets',
+  });
 
   final String name;
+
+  /// 'sets' (default) or 'time'.
+  final String measure;
   final List<PlanSet> sets;
   final String? note;
 
   Map<String, dynamic> toJson() {
     final Map<String, dynamic> m = <String, dynamic>{
       'name': name,
+      if (measure == 'time') 'measure': 'time',
       'sets': sets.map((PlanSet s) => s.toJson()).toList(),
     };
     if (note != null) {
@@ -41,6 +69,7 @@ class PlanExercise {
   factory PlanExercise.fromJson(Map<String, dynamic> j) {
     return PlanExercise(
       name: str(j['name']),
+      measure: j['measure'] == 'time' ? 'time' : 'sets',
       sets: asList(j['sets'])
           .map((Object? e) => PlanSet.fromJson(asMap(e)))
           .toList(),

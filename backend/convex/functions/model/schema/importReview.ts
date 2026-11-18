@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { IdSchema, MsSchema } from "./common";
 import { ContextInputSchema, GoalInputSchema } from "./goalContext";
-import { SetEntrySchema } from "./session";
+import { SetEntrySchema, TimeExerciseSchema } from "./session";
 
 export const ImportJobSchema = z.object({
   id: IdSchema,
@@ -26,10 +26,14 @@ export const ReviewSchema = z.object({
 
 export const ReviewDraftSchema = ReviewSchema.omit({ sessionId: true, source: true });
 
-const ImportExerciseSchema = z.object({
-  name: z.string().min(1).max(60),
-  sets: z.array(SetEntrySchema.extend({ max: z.boolean().default(false) })).max(12),
-});
+const ImportExerciseSchema = z.union([
+  z.object({
+    name: z.string().min(1).max(60),
+    measure: z.literal("sets").optional(),
+    sets: z.array(SetEntrySchema.extend({ max: z.boolean().default(false) })).max(12),
+  }),
+  TimeExerciseSchema,
+]);
 
 /** A session as the import job may produce it; the date is optional on purpose (ISO string). */
 export const ImportSessionDraftSchema = z.object({

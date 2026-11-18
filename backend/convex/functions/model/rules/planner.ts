@@ -1,21 +1,29 @@
-import type { PlanDraft, PlanExercise, PlanSet, Session } from "../schema";
+import { repEntries, type PlanDraft, type PlanExercise, type PlanSet, type PlanTimeSet, type Session } from "../schema";
 import { lastOfActivity } from "./foci";
-import { fmtKg, truncate } from "./util";
+import { fmtKg, timeText, truncate } from "./util";
 
 export const MAX_PLAN_EXERCISES = 12;
 export const MAX_PLAN_SETS = 10;
 export const WEIGHT_CAP_FACTOR = 1.25;
 
-/** Sets of the most recent session containing this exercise (case-insensitive). */
-export function lastSetsFor(sessions: Session[], name: string): PlanSet[] | null {
+/** The most recent logged work of an exercise (case-insensitive): its measure and entries, copied as plan entries. */
+export function lastWorkFor(sessions: Session[], name: string): Pick<PlanExercise, "measure" | "sets"> | null {
   const key = name.toLowerCase();
   for (let i = sessions.length - 1; i >= 0; i--) {
     const s = sessions[i]!;
     if (s.kind !== "gym") continue;
     const e = s.exercises.find((x) => x.name.toLowerCase() === key && x.sets.length > 0);
-    if (e) return e.sets.map((x) => ({ reps: x.reps, kg: x.kg, max: x.max }));
+    if (!e) continue;
+    if (e.measure === "time") return { measure: "time", sets: e.sets.map((x) => ({ minutes: x.minutes, ...(x.distanceKm !== undefined ? { distanceKm: x.distanceKm } : {}) })) };
+    return { sets: e.sets.map((x) => ({ reps: x.reps, kg: x.kg, max: x.max })) };
   }
   return null;
+}
+
+/** Sets (reps and kg) of the most recent session containing this exercise; null when it was never done with sets. */
+export function lastSetsFor(sessions: Session[], name: string): PlanSet[] | null {
+  const w = lastWorkFor(sessions, name);
+  return w && w.measure !== "time" ? (w.sets as PlanSet[]) : null;
 }
 
 /** Sets for an exercise with no sets in the log: three open sets of 8 reps, no weight. No exercise has special numbers. */
@@ -31,7 +39,12 @@ export function rulesPlan(sessions: Session[], activity: string, focus?: string)
   const last = lastOfActivity(sessions, activity, focus);
   const label = focus ? `${activity} ${focus}` : activity;
   if (!last || last.exercises.length === 0) return { rationale: truncate(`No ${label} session logged yet. Start empty and add what you do.`, 200), exercises: [] };
-  const exercises: PlanExercise[] = last.exercises.map((e) => ({ name: e.name, sets: lastSetsFor(sessions, e.name) ?? defaultSets() }));
+  const exercises: PlanExercise[] = last.exercises.map((e) => {
+    const w = lastWorkFor(sessions, e.name);
+    if (w) return { name: e.name, ...w } as PlanExercise;
+    // Nothing logged with entries: a time exercise stays empty (no invented minutes); others get open sets.
+    return e.measure === "time" ? { name: e.name, measure: "time", sets: [] } : { name: e.name, sets: defaultSets() };
+  });
   return { rationale: truncate(`Repeats your last ${label} session with the same sets.`, 200), exercises };
 }
 
@@ -40,7 +53,7 @@ export function heaviestByExercise(sessions: Session[]): Map<string, number> {
   const m = new Map<string, number>();
   for (const s of sessions) {
     for (const e of s.exercises) {
-      for (const x of e.sets) {
+      for (const x of repEntries(e)) {
         const k = e.name.toLowerCase();
         m.set(k, Math.max(m.get(k) ?? 0, x.kg));
       }
@@ -53,14 +66,29 @@ export function heaviestByExercise(sessions: Session[]): Map<string, number> {
 export const MINUTES_PER_SET = 2;
 export const MIN_FIT_SETS = 4;
 
-/** Keeps a plan to the time asked for: at most max(4, minutes / 2) sets in total, cut from the end; an exercise left with no sets is dropped. */
+/**
+ * Keeps a plan to the time asked for: a budget of max(4, minutes / 2) sets, cut from the end. A normal set costs
+ * MINUTES_PER_SET minutes; a time entry costs its own minutes (the last one that does not fit is shortened).
+ * An exercise left with no entries is dropped.
+ */
 export function fitPlanToMinutes(draft: PlanDraft, minutes: number): PlanDraft {
-  let left = Math.max(MIN_FIT_SETS, Math.ceil(minutes / MINUTES_PER_SET));
+  let left = Math.max(MIN_FIT_SETS, Math.ceil(minutes / MINUTES_PER_SET)) * MINUTES_PER_SET;
   const exercises: PlanExercise[] = [];
   for (const e of draft.exercises) {
     if (left <= 0) break;
-    const sets = e.sets.slice(0, left);
-    left -= sets.length;
+    if (e.measure === "time") {
+      const sets: PlanTimeSet[] = [];
+      for (const x of e.sets) {
+        const m = Math.min(x.minutes, Math.floor(left));
+        if (m < 1) break;
+        sets.push({ ...x, minutes: m });
+        left -= m;
+      }
+      if (sets.length > 0) exercises.push({ ...e, sets });
+      continue;
+    }
+    const sets = e.sets.slice(0, Math.floor(left / MINUTES_PER_SET));
+    left -= sets.length * MINUTES_PER_SET;
     if (sets.length > 0) exercises.push({ ...e, sets });
   }
   return { ...draft, exercises };
@@ -70,6 +98,7 @@ export function fitPlanToMinutes(draft: PlanDraft, minutes: number): PlanDraft {
 export function applyPlanLimits(draft: PlanDraft, sessions: Session[]): PlanDraft {
   const heaviest = heaviestByExercise(sessions);
   const exercises = draft.exercises.slice(0, MAX_PLAN_EXERCISES).map((e) => {
+    if (e.measure === "time") return { ...e, sets: e.sets.slice(0, MAX_PLAN_SETS) };
     const top = heaviest.get(e.name.toLowerCase());
     const cap = top !== undefined && top > 0 ? Math.round(top * WEIGHT_CAP_FACTOR * 100) / 100 : null;
     return {
@@ -81,6 +110,8 @@ export function applyPlanLimits(draft: PlanDraft, sessions: Session[]): PlanDraf
 }
 
 export function describePlanForPrompt(sessions: Session[], exerciseName: string): string {
-  const s = lastSetsFor(sessions, exerciseName);
-  return s ? s.map((x) => `${x.reps}x${fmtKg(x.kg)}`).join(", ") : "no history";
+  const w = lastWorkFor(sessions, exerciseName);
+  if (!w) return "no history";
+  if (w.measure === "time") return (w.sets as PlanTimeSet[]).map(timeText).join(", ");
+  return (w.sets as PlanSet[]).map((x) => `${x.reps}x${fmtKg(x.kg)}`).join(", ");
 }

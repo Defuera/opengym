@@ -30,7 +30,12 @@ type Source = "app" | "user" | "ai" | "rules" | "import";
 
 SetEntry   { reps: int 0..100, kg: number 0..500, max: boolean, failed?: boolean, at?: number }
            /* reps = completed reps. failed = one more rep was tried and not completed (the user's "6.5 reps") */
-Exercise   { name: string 1..60, sets: SetEntry[] (<=12) }
+TimeEntry  { minutes: number >0..600, distanceKm?: number >=0, note?: string (<=200), at?: number }
+           /* one entry of a time exercise (a bike, a hold, a treadmill). No reps, no kg. Usually one entry; more are allowed (intervals). */
+Exercise   = { name: string 1..60, measure?: "sets", sets: SetEntry[] (<=12) }        /* sets and reps; `measure` is absent in all stored data = "sets" */
+           | { name: string 1..60, measure: "time", sets: TimeEntry[] (<=12) }       /* time: the work is held as `sets` entries of minutes (and distance) */
+           /* The two shapes are not mixed: a "sets" exercise needs reps/kg on every entry and takes no minutes; a "time" exercise needs minutes and takes no reps/kg.
+              Old rows have no `measure` and stay valid; nothing was rewritten. The Convex validator is a union of the two exercise shapes. */
 Session    { id, kind: "gym" | "activity",
              type: string 1..40 /* the ACTIVITY name. kind gym = a session with sets: any name ("Gym" by default, "Home", ...);
                                    kind activity = time/distance: "Run", "Cycle", ... Names match by activityKey(name) = lower case,
@@ -41,7 +46,9 @@ Session    { id, kind: "gym" | "activity",
              source: "app" | "import", importId?: string }
 
 PlanSet      { reps, kg, max }
-PlanExercise { name, sets: PlanSet[], note?: string (<=120) }
+PlanTimeSet  { minutes: number >0..600, distanceKm?: number >=0 }
+PlanExercise = { name, measure?: "sets", sets: PlanSet[], note?: string (<=120) }
+             | { name, measure: "time", sets: PlanTimeSet[], note?: string (<=120) }
 Plan       { id, type: string /* the activity this plan is for, as the log spells it */, focus? /* the focus, when it has one */, createdAt, source: "ai" | "rules", rationale: string (<=200),
              exercises: PlanExercise[] }
 
@@ -138,7 +145,19 @@ plans and the dashboard layout; they are regenerated in the background.
 
 Plan safety limits applied in code after validation: at most 12 exercises and
 10 sets each; a planned weight may not exceed 1.25 × the heaviest logged
-weight for that exercise (when history exists).
+weight for that exercise (when history exists). A time exercise has no weight,
+so the weight cap does not apply to it.
+
+Time exercises (a bike, a plank hold, a treadmill) inside a session with sets:
+- Time fitting of a start proposal with `minutes`: the budget is max(4, minutes / 2) sets, that is about 2 minutes per set.
+  A normal set costs 2 minutes; a time entry costs its own minutes (the last entry that does not fit is shortened).
+- The rules plan copies the last time entry of an exercise. An exercise that was never logged with entries stays empty.
+- Load levels: a time exercise loads its muscles by minutes, about one set per 4 minutes. The muscle keywords also know bike, cycling, treadmill, running and rowing machine.
+- Records such as best weight, the top set, the "Sets" stat and the most-trained exercise ignore time entries.
+- Prompts print a time entry as "25 min" or "25 min, 10.9 km". `coachPicture` gives `lastSets` the same way and adds `measure: "time"` for such an exercise.
+- The AI writes a time exercise as `{"name", "measure": "time", "sets": [{"minutes"}], "note"?}` next to the normal form (jobs `plan_session`, `interpret_request`, `build_session`).
+- The app's add-exercise sheet lists the exercises of the user's own log (most recently used first, the log's spelling) and nothing else.
+  A new name asks "Sets and reps" or "Time"; a name from the log keeps the measure it had last time.
 
 ## Providers
 

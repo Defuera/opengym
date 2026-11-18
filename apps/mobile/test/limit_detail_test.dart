@@ -14,7 +14,7 @@ Future<InMemoryAboutRepository> _open(WidgetTester t) async {
     LimitDetailScreen(
       about: storeOn(repo),
       limitId: 'knee',
-      exercises: AboutStore.knownExercises(const <String>['Spin bike']),
+      exercises: AboutStore.knownExercises(const <String>['Leg press', 'Spin bike']),
     ),
   );
   return repo;

@@ -55,6 +55,9 @@ export const normName = (name: string): string => name.toLowerCase().replace(/[^
 
 /** Keyword fallback for names not in the table. First matching rule wins. */
 const KEYWORDS: [RegExp, Muscles][] = [
+  [/\bbike\b|\bbicycle\b|\bbiking\b|\bcycling\b|\bcycle\b|\bspin\b|\bspinning\b/, m(["quads", "calves"], ["glutes", "hamstrings"])],
+  [/\btreadmill\b|\brunning\b|\bjogging\b|\bstair climber\b|\bstairmaster\b/, m(["quads", "hamstrings", "calves", "glutes"])],
+  [/\browing machine\b|\brower\b|\browing\b|\bergometer\b/, m(["upper_back", "lats", "quads"], ["biceps", "hamstrings"])],
   [/\bcalf\b|\bcalves\b/, m(["calves"])],
   [/\babduct|\badduct/, m(["hips"], ["glutes"])],
   [/\bleg curl\b|\bhamstring/, m(["hamstrings"], ["calves"])],

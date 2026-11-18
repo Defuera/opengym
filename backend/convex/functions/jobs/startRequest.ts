@@ -5,6 +5,8 @@ import { runAiJob } from "../lib/ai";
 import { allContext, allGoals, allSessions, startRequestById } from "../lib/db";
 import { activeLimits } from "../lib/limitsDb";
 import { startDraft } from "../lib/validators";
+import { buildSessionJob } from "../model/ai/jobs/buildSession";
+import { coachPicture } from "../model/ai/jobs/coachPicture";
 import { buildInterpretInput } from "../model/ai/jobs/inputs";
 import { fallbackProposal, interpretRequestJob } from "../model/ai/jobs/interpretRequest";
 import { finalizeStartProposal } from "../model/proposals";
@@ -18,7 +20,12 @@ export const input = internalQuery({
   handler: async (ctx, { requestId }) => {
     const doc = await startRequestById(ctx, requestId);
     if (!doc || doc.status !== "pending") return null;
-    return buildInterpretInput(doc.text ?? "", await allSessions(ctx), await allGoals(ctx), await allContext(ctx), await activeLimits(ctx), Date.now(), doc.name);
+    const [sessions, goals, context, limits] = [await allSessions(ctx), await allGoals(ctx), await allContext(ctx), await activeLimits(ctx)];
+    const now = Date.now();
+    const old = buildInterpretInput(doc.text ?? "", sessions, goals, context, limits, now, doc.name);
+    // The user chose the activity (the two-step start): the coach builds the session from the full picture of the user.
+    const next = doc.name ? { name: doc.name, note: doc.text ?? "", picture: coachPicture(sessions, [...goals].sort((x, y) => x.createdAt - y.createdAt), context, limits, now), limits } : null;
+    return { old, next };
   },
 });
 
@@ -64,8 +71,10 @@ export const build = internalAction({
     try {
       const input = await ctx.runQuery(internal.jobs.startRequest.input, { requestId });
       if (!input) return;
-      const r = await runAiJob(ctx, interpretRequestJob, input, { timeoutMs: BUDGET_MS });
-      const proposal = r.path === "ai" ? r.value : fallbackProposal(input);
+      const r = input.next ? await runAiJob(ctx, buildSessionJob, input.next, { timeoutMs: BUDGET_MS }) : await runAiJob(ctx, interpretRequestJob, input.old, { timeoutMs: BUDGET_MS });
+      // Plain-code fallback: the named activity with the rules plan from the log, or an empty plan when the log has none.
+      const plain = fallbackProposal(input.old);
+      const proposal = r.path === "ai" ? r.value : input.next && input.old.rules.exercises.length > 0 ? { ...plain, plan: input.old.rules } : plain;
       await ctx.runMutation(internal.jobs.startRequest.save, { requestId, source: r.path === "ai" ? "ai" : "rules", proposal });
     } catch (e) {
       console.error(`[start] request failed: ${(e as Error).message}`);

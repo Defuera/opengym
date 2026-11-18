@@ -247,7 +247,11 @@ Widget sheetsStory(BuildContext context) {
           showExercisePicker(
             context,
             title: 'Add exercise',
-            options: const <String>['Bench press', 'Dips', 'Squat', 'Plank'],
+            options: const <ExerciseOption>[
+              ExerciseOption('Bench press'),
+              ExerciseOption('Dips'),
+              ExerciseOption('Plank', timed: true),
+            ],
           );
         },
         child: Text('Open exercise picker', style: OG.body(weight: FontWeight.w700)),

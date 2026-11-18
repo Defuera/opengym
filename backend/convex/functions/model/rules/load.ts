@@ -1,4 +1,4 @@
-import type { Session } from "../schema";
+import { repEntries, totalMinutes, type Session } from "../schema";
 import { MUSCLE_KEYS, type MuscleKey, musclesFor } from "./muscles";
 import { DAY_MS } from "./util";
 
@@ -12,6 +12,8 @@ const ACTIVITY_SETS: Record<string, { sets: number; muscles: MuscleKey[] }> = {
 };
 
 const SECONDARY_WEIGHT = 0.5;
+/** A time exercise loads its muscles by minutes: about one set per 4 minutes. */
+export const MINUTES_PER_LOAD_SET = 4;
 
 /** Weighted sets per muscle for the sessions that ended in [from, to]. */
 export function setsPerMuscle(sessions: Session[], from: number, to: number): Record<MuscleKey, number> {
@@ -21,8 +23,9 @@ export function setsPerMuscle(sessions: Session[], from: number, to: number): Re
     if (s.kind === "gym") {
       for (const e of s.exercises) {
         const x = musclesFor(e.name);
-        for (const k of x.primary) out[k] += e.sets.length;
-        for (const k of x.secondary) out[k] += e.sets.length * SECONDARY_WEIGHT;
+        const n = repEntries(e).length + totalMinutes(e) / MINUTES_PER_LOAD_SET;
+        for (const k of x.primary) out[k] += n;
+        for (const k of x.secondary) out[k] += n * SECONDARY_WEIGHT;
       }
     } else {
       const a = ACTIVITY_SETS[s.type.toLowerCase()];

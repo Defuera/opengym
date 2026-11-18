@@ -3,7 +3,7 @@ import type { JobDef } from "../runJob";
 import { LIMITS_RULE, dataPrompt, systemPrompt } from "../promptRules";
 import { avoidedInPlan, dropAvoided } from "../../rules/limits";
 import { type ContextItem, type Goal, type Limit, type PlanDraft, PlanDraftSchema, type Session } from "../../schema";
-import { contextForPrompt, goalsForPrompt, limitsForPrompt, logForPrompt } from "./shared";
+import { TIME_RULE, contextForPrompt, goalsForPrompt, limitsForPrompt, logForPrompt } from "./shared";
 
 /**
  * `sessions` is the bounded recent history that goes to the model (see inputs.ts).
@@ -22,7 +22,7 @@ export interface PlanInput {
   rules: PlanDraft;
 }
 
-const SHAPE = `{"rationale": string (max 200 chars), "exercises": [{"name": string, "sets": [{"reps": int, "kg": number, "max": boolean}], "note"?: string (max 120 chars)}]}  // at most 12 exercises, at most 10 sets each`;
+const SHAPE = `{"rationale": string (max 200 chars), "exercises": [{"name": string, "sets": [{"reps": int, "kg": number, "max": boolean}], "note"?: string (max 120 chars)} | {"name": string, "measure": "time", "sets": [{"minutes": number}], "note"?: string (max 120 chars)}]}  // at most 12 exercises, at most 10 sets each. ${TIME_RULE}`;
 
 export const planSessionJob: JobDef<PlanInput, PlanDraft> = {
   name: "plan_session",

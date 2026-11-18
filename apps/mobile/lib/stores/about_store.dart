@@ -49,10 +49,10 @@ class AboutStore extends ChangeNotifier {
 
   Limit? limit(String id) => data.limitById(id);
 
-  /// Names of the exercises the user knows: the library plus [logged].
+  /// Names of the exercises the user knows: the ones of the log, once each.
   static List<String> knownExercises(Iterable<String> logged) {
-    final Set<String> seen = <String>{...exerciseLibrary};
-    final List<String> out = List<String>.from(exerciseLibrary);
+    final Set<String> seen = <String>{};
+    final List<String> out = <String>[];
     for (final String n in logged) {
       if (n.trim().isNotEmpty && seen.add(n)) {
         out.add(n);

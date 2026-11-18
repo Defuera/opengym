@@ -10,10 +10,32 @@ export const SetEntrySchema = z.object({
   at: z.number().optional(),
 });
 
-export const ExerciseSchema = z.object({
+/** One entry of a time exercise (a bike, a hold): minutes, and optionally the distance. No reps, no kg. */
+export const TimeEntrySchema = z
+  .object({
+    minutes: z.number().gt(0).max(600),
+    distanceKm: z.number().nonnegative().optional(),
+    note: z.string().max(200).optional(),
+    at: z.number().optional(),
+  })
+  .strict();
+
+/** An exercise measured in sets and reps. `measure` is absent in all stored data: absent means "sets". */
+export const SetsExerciseSchema = z.object({
   name: z.string().min(1).max(60),
-  sets: z.array(SetEntrySchema).max(12),
+  measure: z.literal("sets").optional(),
+  // Strict: minutes/distanceKm must not appear on a sets entry, so a mixed exercise is rejected.
+  sets: z.array(SetEntrySchema.strict()).max(12),
 });
+
+/** An exercise measured in time. Usually one entry; more are allowed (intervals). */
+export const TimeExerciseSchema = z.object({
+  name: z.string().min(1).max(60),
+  measure: z.literal("time"),
+  sets: z.array(TimeEntrySchema).max(12),
+});
+
+export const ExerciseSchema = z.union([SetsExerciseSchema, TimeExerciseSchema]);
 
 export const SessionSchema = z
   .object({
@@ -43,5 +65,23 @@ export const SessionSchema = z
   });
 
 export type SetEntry = z.infer<typeof SetEntrySchema>;
-export type Exercise = z.infer<typeof ExerciseSchema>;
+export type TimeEntry = z.infer<typeof TimeEntrySchema>;
+export type SetsExercise = z.infer<typeof SetsExerciseSchema>;
+export type TimeExercise = z.infer<typeof TimeExerciseSchema>;
+export type Exercise = SetsExercise | TimeExercise;
+
+/** True when the exercise is measured in minutes. Absent `measure` means sets and reps. */
+export const isTimeExercise = (e: { measure?: "sets" | "time" }): boolean => e.measure === "time";
+
+/** The sets-and-reps entries of an exercise; empty for a time exercise. */
+export const repEntries = (e: Exercise): SetsExercise["sets"] => (e.measure === "time" ? [] : e.sets);
+
+/** The time entries of an exercise; empty for an exercise with sets. */
+export const timeEntries = (e: Exercise): TimeEntry[] => (e.measure === "time" ? e.sets : []);
+
+/** The heaviest kg of an exercise; time entries are ignored (0 when there is no weight). */
+export const topKg = (e: Exercise): number => Math.max(0, ...repEntries(e).map((x) => x.kg));
+
+/** Total minutes of a time exercise; 0 for an exercise with sets. */
+export const totalMinutes = (e: Exercise): number => timeEntries(e).reduce((n, x) => n + x.minutes, 0);
 export type Session = z.infer<typeof SessionSchema>;

@@ -390,28 +390,28 @@ describe("start request with a name", () => {
   const plan = (n: string) => ({ rationale: "r", exercises: [{ name: n, sets: [{ reps: 10, kg: 0, max: false }] }] });
 
   it("name only: stored, the job gets name and an empty wish, the type is the name", async () => {
-    const calls = stubOpenAi((job) => (job === "interpret_request" ? JSON.stringify({ kind: "gym", type: "Home", plan: plan("Squat") }) : "{}"));
+    const calls = stubOpenAi((job) => (job === "build_session" ? JSON.stringify({ kind: "gym", type: "Home", plan: plan("Squat") }) : "{}"));
     await requestNamed("n1", " Hotel gym ");
     expect(await t.run((c) => c.db.query("startRequests").first())).toMatchObject({ name: "Hotel gym", status: "pending" });
     await settle(t);
-    expect(calls.find((c) => c.job === "interpret_request")!.input).toMatchObject({ name: "Hotel gym", wish: "" });
+    expect(calls.find((c) => c.job === "build_session")!.input).toMatchObject({ activity: "Hotel gym", noteForToday: null });
     expect(await getRequest("n1")).toMatchObject({ status: "ready", proposal: { kind: "gym", type: "Hotel gym" } });
   });
 
   it("name + text: both stored and sent as separate inputs; the known spelling is kept", async () => {
     await save(setsSession("h", NOW - DAY, "Gym", "Upper", [{ name: "Bench press", sets: [{ reps: 8, kg: 60, max: false }] }]));
-    const calls = stubOpenAi((job) => (job === "interpret_request" ? JSON.stringify({ kind: "gym", type: "Gym", minutes: 20, plan: plan("Bench press") }) : "{}"));
+    const calls = stubOpenAi((job) => (job === "build_session" ? JSON.stringify({ kind: "gym", type: "Gym", minutes: 20, plan: plan("Bench press") }) : "{}"));
     await requestNamed("n2", "GYM", "only 20 minutes, no bench");
     expect(await t.run((c) => c.db.query("startRequests").first())).toMatchObject({ name: "GYM", text: "only 20 minutes, no bench" });
     await settle(t);
-    const input = calls.find((c) => c.job === "interpret_request")!.input;
-    expect(input).toMatchObject({ name: "GYM", wish: "only 20 minutes, no bench", bestMatch: "Gym" });
-    expect(input.request).toBeUndefined();
+    const input = calls.find((c) => c.job === "build_session")!.input;
+    expect(input).toMatchObject({ activity: "GYM", noteForToday: "only 20 minutes, no bench" });
+    expect(input.exercisesTheUserKnows[0]).toMatchObject({ name: "Bench press", lastSets: "8x60", bestKg: 60 });
     expect(await getRequest("n2")).toMatchObject({ status: "ready", proposal: { type: "Gym", minutes: 20 } });
   });
 
   it("the name forces the type even when the AI answers another type", async () => {
-    stubOpenAi((job) => (job === "interpret_request" ? JSON.stringify({ kind: "gym", type: "Upper body day", plan: plan("Push-up") }) : "{}"));
+    stubOpenAi((job) => (job === "build_session" ? JSON.stringify({ kind: "gym", type: "Upper body day", plan: plan("Push-up") }) : "{}"));
     await requestNamed("n3", "Home", "quick");
     await settle(t);
     expect(await getRequest("n3")).toMatchObject({ status: "ready", proposal: { type: "Home", plan: { type: "Home", source: "ai" } } });
@@ -472,13 +472,13 @@ describe("start request with a fixed name and a note (the coach decides the focu
 
   it("the job input has the name, the note, the time and the last sessions; the type stays the name", async () => {
     await seed();
-    const calls = stubOpenAi((job) => (job === "interpret_request" ? JSON.stringify({ kind: "gym", type: "Other", focus: "Upper", plan: plan("Bench press") }) : "{}"));
+    const calls = stubOpenAi((job) => (job === "build_session" ? JSON.stringify({ kind: "gym", type: "Other", focus: "Upper", plan: plan("Bench press") }) : "{}"));
     await t.mutation(api.commands.start.request, { token: TOKEN, requestId: "t1", name: "Gym", text: "left hand is sore" });
     await settle(t);
-    const input = calls.find((c) => c.job === "interpret_request")!.input;
-    expect(input).toMatchObject({ name: "Gym", wish: "left hand is sore" });
-    expect(input.suggestedToday).toBeUndefined();
-    expect(input.lastSessionsOfAnyKind).toBeDefined();
+    const input = calls.find((c) => c.job === "build_session")!.input;
+    expect(input).toMatchObject({ activity: "Gym", noteForToday: "left hand is sore" });
+    expect(input.recentSessions).toBeDefined();
+    expect(input.last4Weeks).toHaveLength(4);
     expect(input.timeNow).toBeDefined();
     expect(await getRequest("t1")).toMatchObject({ status: "ready", proposal: { type: "Gym", focus: "Upper", plan: { source: "ai" } } });
   });

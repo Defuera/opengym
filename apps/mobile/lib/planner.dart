@@ -8,30 +8,6 @@ export 'focus.dart';
 /// Planning rules in plain code. No Flutter imports. Every function takes the
 /// session list as an argument.
 
-/// The add-exercise picker list. It is a convenience list of exercise names,
-/// not product vocabulary for activities or foci.
-const List<String> exerciseLibrary = <String>[
-  'Bench press',
-  'Incline bench press',
-  'Overhead press',
-  'Dips',
-  'Triceps pushdown',
-  'Lateral raise',
-  'Pull-up',
-  'Barbell row',
-  'Lat pulldown',
-  'Face pull',
-  'Biceps curl',
-  'Squat',
-  'Deadlift',
-  'Romanian deadlift',
-  'Leg press',
-  'Leg curl',
-  'Leg extension',
-  'Calf raise',
-  'Plank',
-];
-
 const int dayMs = 86400000;
 
 final math.Random _rng = math.Random();
@@ -42,7 +18,8 @@ String newId() {
   return a + b;
 }
 
-List<SetEntry>? lastSetsFor(List<Session> sessions, String name) {
+/// The most recent logged exercise of that name (exact spelling) with entries.
+Exercise? lastExerciseFor(List<Session> sessions, String name) {
   for (int i = sessions.length - 1; i >= 0; i--) {
     final Session s = sessions[i];
     if (s.kind != 'gym') {
@@ -50,13 +27,17 @@ List<SetEntry>? lastSetsFor(List<Session> sessions, String name) {
     }
     for (final Exercise e in s.exercises) {
       if (e.name == name && e.sets.isNotEmpty) {
-        return e.sets
-            .map((SetEntry x) => SetEntry(reps: x.reps, kg: x.kg, isMax: x.isMax))
-            .toList();
+        return e;
       }
     }
   }
   return null;
+}
+
+/// Fresh (not done) copies of the sets of the last time [name] was logged.
+/// Works for a time exercise too: the copies are time entries.
+List<SetEntry>? lastSetsFor(List<Session> sessions, String name) {
+  return lastExerciseFor(sessions, name)?.sets.map((SetEntry x) => x.copy()).toList();
 }
 
 List<SetEntry> defaultSets(String name) {
@@ -75,16 +56,72 @@ List<SetEntry> defaultSets(String name) {
   ];
 }
 
-Exercise makeExercise(List<Session> sessions, String name) {
-  final List<SetEntry>? last = lastSetsFor(sessions, name);
-  final bool fresh = last == null && name != 'Bench press';
+/// Minutes a new time exercise starts with, until the user sets it.
+const double defaultMinutes = 20;
+
+/// A fresh exercise for a session. A name from the log keeps the measure and
+/// the entries of its last time. A new name uses [measure] (default sets).
+Exercise makeExercise(List<Session> sessions, String name, {String measure = measureSets}) {
+  final Exercise? last = lastExerciseFor(sessions, name);
+  if (last != null) {
+    return Exercise(
+      id: newId(),
+      name: name,
+      measure: last.measure,
+      sets: last.sets.map((SetEntry x) => x.copy()).toList(),
+    );
+  }
+  if (measure == measureTime) {
+    return Exercise(
+      id: newId(),
+      name: name,
+      measure: measureTime,
+      sets: <SetEntry>[SetEntry.time(defaultMinutes)],
+    );
+  }
+  final bool fresh = name != 'Bench press';
   return Exercise(
     id: newId(),
     name: name,
-    sets: last ?? defaultSets(name),
+    sets: defaultSets(name),
     fresh: fresh,
     carry: fresh,
   );
+}
+
+/// An exercise of the user's log: the spelling and the measure of its latest entry.
+class LoggedExercise {
+  const LoggedExercise(this.name, this.measure);
+
+  final String name;
+  final String measure;
+}
+
+/// The key two exercise names match by: lower case, trimmed, inner spaces collapsed.
+String exerciseKey(String name) => name.trim().replaceAll(RegExp(r'\s+'), ' ').toLowerCase();
+
+/// The exercises of the whole log, most recently used first, in the spelling
+/// of their latest use. Nothing else: the vocabulary comes from the log (ADR-016).
+List<LoggedExercise> loggedExercises(List<Session> sessions) {
+  final List<Session> byTime = List<Session>.of(sessions.where((Session s) => s.kind == 'gym'))
+    ..sort((Session a, Session b) => b.when.compareTo(a.when));
+  final Set<String> seen = <String>{};
+  final List<LoggedExercise> out = <LoggedExercise>[];
+  for (final Session s in byTime) {
+    for (final Exercise e in s.exercises.reversed) {
+      final String n = e.name.trim();
+      if (n.isNotEmpty && seen.add(exerciseKey(n))) {
+        out.add(LoggedExercise(n, e.measure));
+      }
+    }
+  }
+  return out;
+}
+
+/// A time entry as text: "25 min" or "25 min, 10.9 km".
+String timeText(double minutes, [double? distanceKm]) {
+  final String m = '${fmtKg(minutes)} min';
+  return distanceKm == null ? m : '$m, ${fmtKg(distanceKm)} km';
 }
 
 bool _sameFocus(String? a, String? b) => activityKey(a ?? '') == activityKey(b ?? '');
@@ -95,7 +132,7 @@ List<Exercise> planFor(List<Session> sessions, String activity, String? focus) {
   final List<Session> g = sessionsOf(sessions, activity);
   for (int i = g.length - 1; i >= 0; i--) {
     if (_sameFocus(g[i].focus, focus) && g[i].exercises.isNotEmpty) {
-      return g[i].exercises.map((Exercise e) => makeExercise(sessions, e.name)).toList();
+      return g[i].exercises.map((Exercise e) => makeExercise(sessions, e.name, measure: e.measure)).toList();
     }
   }
   return <Exercise>[];
@@ -139,7 +176,8 @@ StatsResult stats(List<Session> sessions, int days, {int? nowMs}) {
       final DateTime d = DateTime.fromMillisecondsSinceEpoch(end);
       dayKeys.add('${d.year}-${d.month}-${d.day}');
       for (final Exercise e in s.exercises) {
-        for (final SetEntry x in e.sets) {
+        // A time entry is not a set: it counts for nothing here.
+        for (final SetEntry x in e.sets.where((SetEntry x) => !x.isTime)) {
           sets++;
           count[e.name] = (count[e.name] ?? 0) + 1;
           top[e.name] = math.max(top[e.name] ?? 0.0, x.kg);

@@ -7,11 +7,29 @@ export const PlanSetSchema = z.object({
   max: z.boolean().default(false),
 });
 
-export const PlanExerciseSchema = z.object({
+/** One planned entry of a time exercise. */
+export const PlanTimeSetSchema = z
+  .object({
+    minutes: z.number().gt(0).max(600),
+    distanceKm: z.number().nonnegative().optional(),
+  })
+  .strict();
+
+const PlanSetsExerciseSchema = z.object({
   name: z.string().min(1).max(60),
+  measure: z.literal("sets").optional(),
   sets: z.array(PlanSetSchema),
   note: z.string().max(120).optional(),
 });
+
+const PlanTimeExerciseSchema = z.object({
+  name: z.string().min(1).max(60),
+  measure: z.literal("time"),
+  sets: z.array(PlanTimeSetSchema),
+  note: z.string().max(120).optional(),
+});
+
+export const PlanExerciseSchema = z.union([PlanSetsExerciseSchema, PlanTimeExerciseSchema]);
 
 export const PlanSchema = z.object({
   id: IdSchema,
@@ -41,6 +59,7 @@ export const PredictionSchema = z.object({
 });
 
 export type PlanSet = z.infer<typeof PlanSetSchema>;
+export type PlanTimeSet = z.infer<typeof PlanTimeSetSchema>;
 export type PlanExercise = z.infer<typeof PlanExerciseSchema>;
 export type Plan = z.infer<typeof PlanSchema>;
 export type PlanDraft = z.infer<typeof PlanDraftSchema>;

@@ -1,4 +1,4 @@
-import type { Review, Session } from "../schema";
+import { repEntries, type Review, type Session } from "../schema";
 import { fmtKg, truncate } from "./util";
 
 const label = (s: Session) => (s.focus ? `${s.type} (${s.focus})` : s.type);
@@ -7,7 +7,7 @@ type Draft = Pick<Review, "summary" | "changes">;
 
 function topByExercise(s: Session): Map<string, number> {
   const m = new Map<string, number>();
-  for (const e of s.exercises) for (const x of e.sets) m.set(e.name, Math.max(m.get(e.name) ?? 0, x.kg));
+  for (const e of s.exercises) for (const x of repEntries(e)) m.set(e.name, Math.max(m.get(e.name) ?? 0, x.kg));
   return m;
 }
 
@@ -27,11 +27,12 @@ export function rulesReview(sessions: Session[], s: Session): Draft {
     if (prev && s.distanceKm !== undefined && prev.distanceKm !== undefined) changes.push(`Distance ${fmtKg(s.distanceKm)} km (was ${fmtKg(prev.distanceKm)})`);
     return { summary: `${label(s)} logged${bits.length ? `: ${bits.join(", ")}` : ""}.`, changes: changes.slice(0, 5) };
   }
-  const sets = s.exercises.reduce((n, e) => n + e.sets.length, 0);
-  const summary = `${label(s)}: ${s.exercises.length} exercises, ${sets} sets.${prev ? "" : " First session of this kind."}`;
+  const sets = s.exercises.reduce((n, e) => n + repEntries(e).length, 0);
+  const timed = s.exercises.filter((e) => e.measure === "time").length;
+  const summary = `${label(s)}: ${s.exercises.length} exercises, ${sets} sets${timed ? `, ${timed} timed` : ""}.${prev ? "" : " First session of this kind."}`;
   const changes: string[] = [];
   if (prev) {
-    const prevSets = prev.exercises.reduce((n, e) => n + e.sets.length, 0);
+    const prevSets = prev.exercises.reduce((n, e) => n + repEntries(e).length, 0);
     if (prevSets !== sets) changes.push(`Total sets ${sets} (was ${prevSets})`);
     const before = topByExercise(prev);
     for (const [name, kg] of topByExercise(s)) {

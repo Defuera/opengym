@@ -11,7 +11,22 @@ export const setEntry = v.object({
   at: v.optional(v.number()),
 });
 
-export const exercise = v.object({ name: v.string(), sets: v.array(setEntry) });
+/** One entry of a time exercise: minutes and optionally the distance. */
+export const timeEntry = v.object({
+  minutes: v.number(),
+  distanceKm: v.optional(v.number()),
+  note: v.optional(v.string()),
+  at: v.optional(v.number()),
+});
+
+/**
+ * An exercise: `measure` is absent in all old rows (= "sets"). A "time" exercise holds timeEntry items, any other holds
+ * setEntry items. Two shapes, told apart by `measure`.
+ */
+export const exercise = v.union(
+  v.object({ name: v.string(), measure: v.optional(v.literal("sets")), sets: v.array(setEntry) }),
+  v.object({ name: v.string(), measure: v.literal("time"), sets: v.array(timeEntry) }),
+);
 
 /** A fact: written only by the app or by an import the user started. Never by the AI. */
 export const sessionFields = {

@@ -5,6 +5,11 @@ export function fmtKg(k: number): string {
   return Number.isInteger(r) ? String(r) : String(r);
 }
 
+/** A time entry as text: "25 min" or "25 min, 10.9 km". */
+export function timeText(x: { minutes: number; distanceKm?: number }): string {
+  return `${fmtKg(x.minutes)} min${x.distanceKm !== undefined ? `, ${fmtKg(x.distanceKm)} km` : ""}`;
+}
+
 /** UTC calendar-day key. The server has no user time zone. */
 export function dayKey(ms: number): string {
   return new Date(ms).toISOString().slice(0, 10);

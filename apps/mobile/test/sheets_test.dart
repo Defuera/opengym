@@ -28,7 +28,7 @@ final Map<String, Opener> sheets = <String, Opener>{
         choices: const <SheetChoice>[SheetChoice(value: 'a', label: 'Alpha')],
       ),
   'exercise picker': (BuildContext c) =>
-      showExercisePicker(c, title: 'Exercise', options: const <String>['Squat', 'Bench press']),
+      showExercisePicker(c, title: 'Exercise', options: const <ExerciseOption>[ExerciseOption('Squat'), ExerciseOption('Bench press')]),
 };
 
 Future<void> open(WidgetTester tester, Opener opener) async {

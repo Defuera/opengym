@@ -3,7 +3,7 @@ import { LIMITS_RULE, dataPrompt, systemPrompt } from "../promptRules";
 import { avoidedInPlan } from "../../rules/limits";
 import { type ContextItem, type Goal, type Limit, type PlanDraft, type StartProposal, StartProposalSchema, type Session } from "../../schema";
 import { activityKey } from "../../sessionShape";
-import { localTime, contextForPrompt, goalsForPrompt, limitsForPrompt, logForPrompt, type KnownActivity } from "./shared";
+import { TIME_RULE, localTime, contextForPrompt, goalsForPrompt, limitsForPrompt, logForPrompt, type KnownActivity } from "./shared";
 
 /**
  * A typed "Start session" request (ADR-016). `known` is the vocabulary of the FULL log; `sessions` is the recent
@@ -31,7 +31,7 @@ export interface InterpretInput {
   rules: PlanDraft;
 }
 
-const SHAPE = `{"kind": "gym" | "activity", "type": string (1..40; the activity; reuse a name from knownActivities when one fits), "focus"?: string (max 40), "minutes"?: int (the duration asked for), "reason"?: string (max 80 chars), "plan"?: {"rationale": string (max 200 chars), "exercises": [{"name": string, "sets": [{"reps": int, "kg": number, "max": boolean}], "note"?: string (max 120 chars)}]}}  // plan is required when kind is "gym", left out when kind is "activity"; at most 12 exercises, at most 10 sets each`;
+const SHAPE = `{"kind": "gym" | "activity", "type": string (1..40; the activity; reuse a name from knownActivities when one fits), "focus"?: string (max 40), "minutes"?: int (the duration asked for), "reason"?: string (max 80 chars), "plan"?: {"rationale": string (max 200 chars), "exercises": [{"name": string, "sets": [{"reps": int, "kg": number, "max": boolean}], "note"?: string (max 120 chars)} | {"name": string, "measure": "time", "sets": [{"minutes": number}], "note"?: string (max 120 chars)}]}}  // plan is required when kind is "gym", left out when kind is "activity"; at most 12 exercises, at most 10 sets each. ${TIME_RULE}`;
 
 /** First letter upper case, the text before the first comma, at most 40 characters. The same rule the app uses offline. */
 export function nameFromText(text: string): string {

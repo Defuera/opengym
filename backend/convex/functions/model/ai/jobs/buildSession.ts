@@ -3,6 +3,7 @@ import { JSON_ONLY } from "../promptRules";
 import { avoidedInPlan } from "../../rules/limits";
 import { type Limit, type StartProposal, StartProposalSchema } from "../../schema";
 import type { coachPicture } from "./coachPicture";
+import { TIME_RULE } from "./shared";
 
 export interface BuildSessionInput {
   /** The activity the user chose. Fixed. */
@@ -13,7 +14,7 @@ export interface BuildSessionInput {
   limits: Limit[];
 }
 
-const SHAPE = `{"kind": "gym", "type": string (the activity, exactly as given), "focus": string (max 40), "minutes": int, "reason": string (max 80 chars, why this session today), "plan": {"rationale": string (max 200 chars), "exercises": [{"name": string, "sets": [{"reps": int, "kg": number, "max": boolean}], "note"?: string (max 120 chars)}]}}  // at most 12 exercises, at most 10 sets each`;
+const SHAPE = `{"kind": "gym", "type": string (the activity, exactly as given), "focus": string (max 40), "minutes": int, "reason": string (max 80 chars, why this session today), "plan": {"rationale": string (max 200 chars), "exercises": [{"name": string, "sets": [{"reps": int, "kg": number, "max": boolean}], "note"?: string (max 120 chars)} | {"name": string, "measure": "time", "sets": [{"minutes": number}], "note"?: string (max 120 chars)}]}}  // at most 12 exercises, at most 10 sets each. ${TIME_RULE}`;
 
 const ROLE = `You are the personal coach of the person described in the data. They have chosen today's activity and may have left a note. You decide what the session contains, and you write the session you would hand to this person today.
 

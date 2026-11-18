@@ -9,6 +9,7 @@ import '../widgets/exercise_panel.dart';
 import '../widgets/item_state.dart';
 import '../widgets/note_box.dart';
 import '../widgets/set_list.dart';
+import '../widgets/time_list.dart';
 
 /// Maps the active session's exercises onto the carousel.
 class ExerciseStrip extends StatelessWidget {
@@ -63,7 +64,26 @@ class SessionPanel extends StatelessWidget {
       name: ex.name,
       hint: _hint(ex),
       children: <Widget>[
-        SetList(
+        if (ex.isTime)
+          TimeList(
+            entries: <TimeRowData>[
+              for (final SetEntry x in ex.sets)
+                TimeRowData(
+                  id: x,
+                  minutes: x.minutes ?? 0,
+                  distanceKm: x.distanceKm == null ? null : fmtKg(x.distanceKm!),
+                  done: x.done,
+                ),
+            ],
+            selected: store.curSet,
+            onSelect: store.pickSet,
+            onAdd: store.addSet,
+            onRemove: store.removeSetAt,
+            onMinutesChanged: store.changeMinutes,
+            onDistanceChanged: store.setDistance,
+          )
+        else
+          SetList(
           sets: <SetRowData>[
             for (final SetEntry x in ex.sets)
               SetRowData(

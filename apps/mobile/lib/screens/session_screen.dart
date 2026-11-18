@@ -59,16 +59,18 @@ class SessionScreen extends StatelessWidget {
     if (a == null) {
       return;
     }
-    final List<String> used = a.exercises.map((Exercise e) => e.name).toList();
-    final String? name = await showExercisePicker(
+    final ExerciseChoice? pick = await showExercisePicker(
       context,
       title: 'Add exercise',
-      options: exerciseLibrary.where((String n) => !used.contains(n)).toList(),
+      options: <ExerciseOption>[
+        for (final LoggedExercise x in loggedExercises(store.sessions))
+          ExerciseOption(x.name, timed: x.measure == measureTime),
+      ],
     );
-    if (name == null || name.isEmpty) {
+    if (pick == null || pick.name.isEmpty) {
       return;
     }
-    store.addExercise(name);
+    store.addExercise(pick.name, measure: pick.timed ? measureTime : measureSets);
   }
 
   @override
@@ -143,7 +145,7 @@ class SessionScreen extends StatelessWidget {
     final bool last = store.curEx >= a.exercises.length - 1;
     if (ex != null && !allDone(ex)) {
       return CtaButton(
-        label: 'Complete set',
+        label: ex.isTime ? 'Complete' : 'Complete set',
         icon: Icons.check,
         variant: OgVariant.accent,
         onPressed: () {

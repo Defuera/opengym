@@ -1,5 +1,5 @@
 import type { ContextItem, Goal, Session } from "../../schema";
-import { fmtKg } from "../../rules/util";
+import { fmtKg, timeText } from "../../rules/util";
 
 /** Compact, factual view of the log for prompts. */
 /** "HH:MM" in the owner's time zone (env APP_TIMEZONE, an IANA name; UTC when not set). */
@@ -18,7 +18,7 @@ export function logForPrompt(sessions: Session[], limit = 12) {
     kind: s.kind,
     type: s.type,
     focus: s.focus,
-    exercises: s.exercises.map((e) => ({ name: e.name, sets: e.sets.map((x) => `${x.reps}x${fmtKg(x.kg)}${x.max ? " max" : ""}`).join(", ") })),
+    exercises: s.exercises.map((e) => ({ name: e.name, sets: e.sets.map((x) => ("kg" in x ? `${x.reps}x${fmtKg(x.kg)}${x.max ? " max" : ""}` : timeText(x))).join(", ") })),
     minutes: s.minutes,
     distanceKm: s.distanceKm,
   }));
@@ -37,3 +37,6 @@ export interface KnownActivity {
   kind: "gym" | "activity";
   foci: string[];
 }
+
+/** One sentence for every plan-writing prompt: work measured in time uses minutes, not reps. */
+export const TIME_RULE = "For work that is measured in time (for example a bike or a hold), use measure time with minutes, not reps.";

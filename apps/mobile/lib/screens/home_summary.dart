@@ -69,16 +69,34 @@ class HomeSummary extends StatelessWidget {
 
   Widget _item(Session s) {
     int n = 0;
+    double min = 0;
+    double km = 0;
     for (final Exercise e in s.exercises) {
-      n += e.sets.length;
+      if (e.isTime) {
+        for (final SetEntry x in e.sets) {
+          min += x.minutes ?? 0;
+          km += x.distanceKm ?? 0;
+        }
+      } else {
+        n += e.sets.length;
+      }
     }
     final bool gym = s.kind == 'gym';
+    final String timed = min > 0 ? timeText(min, km > 0 ? km : null) : '';
     return SessionListItem(
       title: s.type,
       tag: s.focus,
       subtitle: whenLabel(s.endedAt ?? s.startedAt),
-      trailing: gym ? '$n sets' : _activityTrailing(s),
+      trailing: gym ? _gymTrailing(n, timed) : _activityTrailing(s),
     );
+  }
+
+  /// "8 sets", "25 min, 10.9 km" or both.
+  String _gymTrailing(int sets, String timed) {
+    if (timed.isEmpty) {
+      return '$sets sets';
+    }
+    return sets == 0 ? timed : '$sets sets, $timed';
   }
 
   String _activityTrailing(Session s) {

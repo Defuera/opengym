@@ -63,7 +63,7 @@ class SetEditorCard extends StatelessWidget {
           Row(
             children: <Widget>[
               Expanded(
-                child: _Stepper(
+                child: NumberStepper(
                   value: reps,
                   unit: 'reps',
                   onMinus: () => onRepsChanged(-1),
@@ -72,7 +72,7 @@ class SetEditorCard extends StatelessWidget {
               ),
               const SizedBox(width: 14),
               Expanded(
-                child: _Stepper(
+                child: NumberStepper(
                   value: kg,
                   unit: 'kg',
                   onMinus: () => onKgChanged(-2.5),
@@ -127,24 +127,31 @@ class _FailedPill extends StatelessWidget {
   }
 }
 
-class _Stepper extends StatelessWidget {
-  const _Stepper({
+/// A value with a minus and a plus button. A long press on a button calls
+/// the optional [onLongMinus] or [onLongPlus] (a larger step).
+class NumberStepper extends StatelessWidget {
+  const NumberStepper({
+    super.key,
     required this.value,
     required this.unit,
     required this.onMinus,
     required this.onPlus,
+    this.onLongMinus,
+    this.onLongPlus,
   });
 
   final String value;
   final String unit;
   final VoidCallback onMinus;
   final VoidCallback onPlus;
+  final VoidCallback? onLongMinus;
+  final VoidCallback? onLongPlus;
 
   @override
   Widget build(BuildContext context) {
     return Row(
       children: <Widget>[
-        _Btn(icon: Icons.remove, onTap: onMinus),
+        StepperButton(icon: Icons.remove, onTap: onMinus, onLongPress: onLongMinus),
         Expanded(
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 6),
@@ -168,17 +175,18 @@ class _Stepper extends StatelessWidget {
             ),
           ),
         ),
-        _Btn(icon: Icons.add, onTap: onPlus),
+        StepperButton(icon: Icons.add, onTap: onPlus, onLongPress: onLongPlus),
       ],
     );
   }
 }
 
-class _Btn extends StatelessWidget {
-  const _Btn({required this.icon, required this.onTap});
+class StepperButton extends StatelessWidget {
+  const StepperButton({super.key, required this.icon, required this.onTap, this.onLongPress});
 
   final IconData icon;
   final VoidCallback onTap;
+  final VoidCallback? onLongPress;
 
   @override
   Widget build(BuildContext context) {
@@ -188,6 +196,12 @@ class _Btn extends StatelessWidget {
         HapticFeedback.lightImpact();
         onTap();
       },
+      onLongPress: onLongPress == null
+          ? null
+          : () {
+              HapticFeedback.mediumImpact();
+              onLongPress!();
+            },
       child: Container(
         width: 42,
         height: 52,

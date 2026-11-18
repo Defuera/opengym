@@ -14,6 +14,9 @@ export 'models/goal.dart';
 export 'models/misc.dart';
 export 'models/plan.dart';
 
+/// One entry of an exercise. An entry of an exercise with sets holds [reps]
+/// and [kg]. An entry of a time exercise holds [minutes] and, optionally,
+/// [distanceKm]; its [reps] and [kg] stay 0 and are never saved.
 class SetEntry {
   SetEntry({
     required this.reps,
@@ -22,18 +25,49 @@ class SetEntry {
     this.failed = false,
     this.done = false,
     this.at,
+    this.minutes,
+    this.distanceKm,
   });
+
+  /// A new entry of a time exercise.
+  factory SetEntry.time(double minutes, {double? distanceKm, bool done = false, int? at}) =>
+      SetEntry(reps: 0, kg: 0, minutes: minutes, distanceKm: distanceKm, done: done, at: at);
 
   int reps;
   double kg;
   bool isMax;
+
+  /// Time entries only: minutes (> 0, at most 600) and the optional distance.
+  double? minutes;
+  double? distanceKm;
 
   /// One more rep was tried after [reps] and not completed.
   bool failed;
   bool done;
   int? at;
 
+  /// Whether this is a time entry.
+  bool get isTime => minutes != null;
+
+  /// A fresh copy: the same numbers, not done, no time stamp, no "failed" mark.
+  SetEntry copy() => SetEntry(
+        reps: reps,
+        kg: kg,
+        isMax: isMax,
+        minutes: minutes,
+        distanceKm: distanceKm,
+      );
+
   Map<String, dynamic> toJson() {
+    final double? min = minutes;
+    if (min != null) {
+      return <String, dynamic>{
+        'minutes': min,
+        if (distanceKm != null) 'distanceKm': distanceKm,
+        'done': done,
+        if (at != null) 'at': at,
+      };
+    }
     final Map<String, dynamic> m = <String, dynamic>{
       'reps': reps,
       'kg': kg,
@@ -51,6 +85,15 @@ class SetEntry {
 
   /// API shape: {reps, kg, max, at?}.
   Map<String, dynamic> toContractJson() {
+    final double? min = minutes;
+    if (min != null) {
+      final double? km = distanceKm;
+      return <String, dynamic>{
+        'minutes': min.clamp(0.5, 600.0).toDouble(),
+        if (km != null && km >= 0) 'distanceKm': km,
+        if (at != null) 'at': at,
+      };
+    }
     final Map<String, dynamic> m = <String, dynamic>{
       'reps': reps.clamp(0, 100).toInt(),
       'kg': kg.clamp(0.0, 500.0).toDouble(),
@@ -68,9 +111,13 @@ class SetEntry {
   factory SetEntry.fromJson(Map<String, dynamic> j) {
     final Object? rawDone = j['done'];
     final Object? rawAt = j['at'];
+    final Object? rawMin = j['minutes'];
+    final Object? rawKm = j['distanceKm'];
     return SetEntry(
-      reps: (j['reps'] as num).toInt(),
-      kg: (j['kg'] as num).toDouble(),
+      reps: j['reps'] is num ? (j['reps'] as num).toInt() : 0,
+      kg: j['kg'] is num ? (j['kg'] as num).toDouble() : 0,
+      minutes: rawMin is num ? rawMin.toDouble() : null,
+      distanceKm: rawKm is num ? rawKm.toDouble() : null,
       isMax: j['max'] == true,
       failed: j['failed'] == true,
       // Saved sessions only hold completed sets, so a missing flag means done.
@@ -80,11 +127,16 @@ class SetEntry {
   }
 }
 
+/// How an exercise is measured: sets and reps (the default), or time.
+const String measureSets = 'sets';
+const String measureTime = 'time';
+
 class Exercise {
   Exercise({
     required this.id,
     required this.name,
     required this.sets,
+    this.measure = measureSets,
     this.fresh = false,
     this.carry = false,
     this.note,
@@ -92,6 +144,10 @@ class Exercise {
 
   String id;
   String name;
+
+  /// [measureSets] (default, also for all old data) or [measureTime].
+  String measure;
+  bool get isTime => measure == measureTime;
   List<SetEntry> sets;
   bool fresh;
   bool carry;
@@ -103,6 +159,7 @@ class Exercise {
     return <String, dynamic>{
       'id': id,
       'name': name,
+      if (isTime) 'measure': measureTime,
       'sets': sets.map((SetEntry s) => s.toJson()).toList(),
       'fresh': fresh,
       'carry': carry,
@@ -115,6 +172,7 @@ class Exercise {
     final String n = name.length > 60 ? name.substring(0, 60) : name;
     return <String, dynamic>{
       'name': n,
+      if (isTime) 'measure': measureTime,
       'sets': sets.take(12).map((SetEntry s) => s.toContractJson()).toList(),
     };
   }
@@ -130,6 +188,7 @@ class Exercise {
     return Exercise(
       id: (j['id'] as String?) ?? '',
       name: j['name'] as String,
+      measure: j['measure'] == measureTime ? measureTime : measureSets,
       sets: list,
       fresh: j['fresh'] == true,
       carry: j['carry'] == true,

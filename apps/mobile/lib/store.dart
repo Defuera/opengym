@@ -133,10 +133,12 @@ class AppStore extends ChangeNotifier {
                 failed: s.failed,
                 done: true,
                 at: s.at,
+                minutes: s.minutes,
+                distanceKm: s.distanceKm,
               ))
           .toList();
       if (done.isNotEmpty) {
-        kept.add(Exercise(id: e.id, name: e.name, sets: done));
+        kept.add(Exercise(id: e.id, name: e.name, measure: e.measure, sets: done));
       }
     }
     a.exercises = kept;
@@ -307,12 +309,14 @@ class AppStore extends ChangeNotifier {
     _commit();
   }
 
-  void addExercise(String name) {
+  /// Adds an exercise. A name from the log keeps the measure it had last
+  /// time; for a new name [measure] says how it is tracked.
+  void addExercise(String name, {String measure = measureSets}) {
     final Session? a = active;
     if (a == null) {
       return;
     }
-    a.exercises.add(makeExercise(sessions, name));
+    a.exercises.add(makeExercise(sessions, name, measure: measure));
     _select(a.exercises.length - 1);
     _commit();
   }
@@ -332,6 +336,26 @@ class AppStore extends ChangeNotifier {
     }
     s.reps = math.max(0, s.reps + delta);
     e.fresh = false;
+    _commit();
+  }
+
+  /// Time exercise: changes the minutes of the current entry (1 to 600).
+  void changeMinutes(double delta) {
+    final SetEntry? s = currentSet;
+    if (s == null || !s.isTime) {
+      return;
+    }
+    s.minutes = ((s.minutes ?? 0) + delta).clamp(1.0, 600.0).toDouble();
+    _commit();
+  }
+
+  /// Time exercise: sets the distance of the current entry; null or 0 clears it.
+  void setDistance(double? km) {
+    final SetEntry? s = currentSet;
+    if (s == null || !s.isTime) {
+      return;
+    }
+    s.distanceKm = (km == null || km <= 0) ? null : km;
     _commit();
   }
 
@@ -361,6 +385,13 @@ class AppStore extends ChangeNotifier {
   void addSet() {
     final Exercise? e = currentExercise;
     if (e == null) {
+      return;
+    }
+    if (e.isTime) {
+      final SetEntry? last = e.sets.isEmpty ? null : e.sets.last;
+      e.sets.add(SetEntry.time(last?.minutes ?? defaultMinutes, distanceKm: last?.distanceKm));
+      curSet = e.sets.length - 1;
+      _commit();
       return;
     }
     final int reps = e.sets.isEmpty ? 8 : e.sets.last.reps;

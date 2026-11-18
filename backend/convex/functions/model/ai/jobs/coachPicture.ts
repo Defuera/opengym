@@ -1,11 +1,14 @@
 import { limitsForPrompt } from "../../rules/limits";
 import { musclesFor } from "../../rules/muscles";
-import type { ContextItem, Goal, Limit, Session } from "../../schema";
+import type { Goal, Limit, Session } from "../../schema";
+import { timeText } from "../../rules/util";
+import { topKg, type ContextItem } from "../../schema";
 import { contextForPrompt, goalsForPrompt, localTime } from "./shared";
 
 const DAY = 86_400_000;
 const day = (ms: number) => new Date(ms).toISOString().slice(0, 10);
-const setsText = (sets: { reps: number; kg: number }[]) => sets.map((x) => `${x.reps}x${x.kg}`).join(", ");
+const setsText = (sets: ({ reps: number; kg: number } | { minutes: number; distanceKm?: number })[]) =>
+  sets.map((x) => ("kg" in x ? `${x.reps}x${x.kg}` : timeText(x))).join(", ");
 
 /**
  * The picture of the user a coach needs to build one session: who trains, what they can do (every exercise of the
@@ -14,19 +17,20 @@ const setsText = (sets: { reps: number; kg: number }[]) => sets.map((x) => `${x.
  */
 export function coachPicture(all: Session[], goals: Goal[], context: ContextItem[], limits: Limit[], now: number) {
   const gym = all.filter((s) => s.kind === "gym");
-  const byName = new Map<string, { name: string; times: number; last: Session; lastSets: string; bestKg: number }>();
+  const byName = new Map<string, { name: string; times: number; last: Session; lastSets: string; bestKg: number; time: boolean }>();
   for (const s of gym) {
     for (const e of s.exercises) {
       if (e.sets.length === 0) continue;
-      const best = Math.max(...e.sets.map((x) => x.kg));
+      const best = topKg(e);
+      const time = e.measure === "time";
       const row = byName.get(e.name);
-      if (!row) byName.set(e.name, { name: e.name, times: 1, last: s, lastSets: setsText(e.sets), bestKg: best });
-      else Object.assign(row, { times: row.times + 1, last: s, lastSets: setsText(e.sets), bestKg: Math.max(row.bestKg, best) });
+      if (!row) byName.set(e.name, { name: e.name, times: 1, last: s, lastSets: setsText(e.sets), bestKg: best, time });
+      else Object.assign(row, { times: row.times + 1, last: s, lastSets: setsText(e.sets), bestKg: Math.max(row.bestKg, best), time });
     }
   }
   const exercises = [...byName.values()]
     .sort((a, b) => b.last.endedAt - a.last.endedAt)
-    .map((r) => ({ name: r.name, area: musclesFor(r.name).primary, timesLogged: r.times, lastDone: day(r.last.endedAt), lastSets: r.lastSets, bestKg: r.bestKg }));
+    .map((r) => ({ name: r.name, area: musclesFor(r.name).primary, timesLogged: r.times, lastDone: day(r.last.endedAt), lastSets: r.lastSets, bestKg: r.bestKg, ...(r.time ? { measure: "time" as const } : {}) }));
   const weeks = [0, 1, 2, 3].map((w) => {
     const to = now - w * 7 * DAY;
     const inWeek = all.filter((s) => s.endedAt > to - 7 * DAY && s.endedAt <= to);

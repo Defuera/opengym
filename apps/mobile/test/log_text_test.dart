@@ -114,7 +114,7 @@ void main() {
     expect(d.store.sessions.last.type, 'padel');
   });
 
-  testWidgets('a log with an activity named Other shows one "Other" and one "Something else" in Start',
+  testWidgets('a log with an activity named Other shows one "Other" row in Start: the free text',
       (WidgetTester t) async {
     t.view.physicalSize = const Size(800, 2000);
     t.view.devicePixelRatio = 1;
@@ -122,7 +122,10 @@ void main() {
     await openHome(t, sessions: <Session>[...sheetLog, actSession('Other', 2, minutes: 20)]);
     await openStart(t);
     expect(inSheet(find.text('Other')), findsOneWidget);
-    expect(inSheet(find.text('Something else')), findsOneWidget);
+    await t.tap(inSheet(find.text('Other')));
+    await t.pumpAndSettle();
+    expect(find.text('What do you want to do?'), findsOneWidget);
+    expect(find.text('Start'), findsOneWidget);
   });
 
   group('outbox', () {

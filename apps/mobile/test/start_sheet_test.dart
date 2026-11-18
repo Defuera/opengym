@@ -40,7 +40,7 @@ void main() {
     expect(startTypes(<Session>[]), isEmpty);
   });
 
-  testWidgets('step 1 lists the types of the log in order, the first highlighted, then Something else',
+  testWidgets('step 1 lists the types of the log in order, the first highlighted, then Other',
       (WidgetTester t) async {
     t.view.physicalSize = const Size(800, 2000);
     t.view.devicePixelRatio = 1;
@@ -57,7 +57,7 @@ void main() {
       }
       last = y;
     }
-    expect(t.getTopLeft(find.text('Something else')).dy, greaterThan(last!));
+    expect(t.getTopLeft(find.text('Other')).dy, greaterThan(last!));
     OgVariant variant(String n) =>
         t.widget<OgButton>(find.ancestor(of: inSheet(find.text(n)), matching: find.byType(OgButton))).variant;
     expect(variant('Home'), OgVariant.accent);
@@ -69,11 +69,11 @@ void main() {
     expect(find.text('Start empty, without a plan ›'), findsOneWidget);
   });
 
-  testWidgets('an empty log shows only Something else, a short line and the empty link', (WidgetTester t) async {
+  testWidgets('an empty log shows only Other, a short line and the empty link', (WidgetTester t) async {
     await openHome(t, sessions: <Session>[]);
     await openStart(t);
     expect(find.text('Nothing in your log yet.'), findsOneWidget);
-    expect(find.text('Something else'), findsOneWidget);
+    expect(find.text('Other'), findsOneWidget);
     expect(find.text('Start empty, without a plan ›'), findsOneWidget);
   });
 
@@ -224,21 +224,21 @@ void main() {
     expect(d.store.active!.exercises, isEmpty);
   });
 
-  testWidgets('a time/distance type opens the Log form for it, with no request', (WidgetTester t) async {
+  testWidgets('a time/distance type goes to step 2 with Start, never to the Log form', (WidgetTester t) async {
     t.view.physicalSize = const Size(800, 2000);
     t.view.devicePixelRatio = 1;
     addTearDown(t.view.reset);
     final (FakeConvexClient fake, AppDeps d) = await openHome(t);
     await openStart(t);
     await pickType(t, 'Run');
-    expect(find.byType(LogTextScreen), findsOneWidget);
-    expect(find.text('Run'), findsOneWidget);
-    expect(find.text('What did you do?'), findsOneWidget);
+    expect(find.byType(LogTextScreen), findsNothing);
+    expect(find.text('Start'), findsOneWidget);
+    expect(find.text('What did you do?'), findsNothing);
     expect(fake.startSent, isEmpty);
     expect(d.store.active, isNull);
   });
 
-  group('Something else', () {
+  group('Other', () {
     const String hint = 'quick home session, 15 min';
     Finder field() => find.widgetWithText(TextField, hint);
     Finder start() => find.ancestor(of: find.text('Start'), matching: find.byType(OgButton));

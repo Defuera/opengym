@@ -87,10 +87,10 @@ Future<void> pickType(WidgetTester t, String type) async {
   await t.pumpAndSettle();
 }
 
-/// Step 1: scrolls to the "Something else" row and taps it.
+/// Step 1: scrolls to the "Other" row and taps it.
 Future<void> openOther(WidgetTester t) async {
-  await t.scrollUntilVisible(find.text('Something else'), 80, scrollable: find.descendant(of: find.byType(BottomSheet), matching: find.byType(Scrollable)).first);
-  await t.tap(find.text('Something else'));
+  await t.scrollUntilVisible(find.text('Other'), 80, scrollable: find.descendant(of: find.byType(BottomSheet), matching: find.byType(Scrollable)).first);
+  await t.tap(find.text('Other'));
   await t.pumpAndSettle();
 }
 

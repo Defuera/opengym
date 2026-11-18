@@ -4,7 +4,7 @@ import 'labeled_field.dart';
 import 'og_button.dart';
 import 'start_details.dart';
 
-/// "Something else" in the Start tab: one free text (max 200) that says what the user
+/// "Other" in the Start tab: one free text (max 200) that says what the user
 /// wants to do, and "Start". The coach names the activity and builds the
 /// session. "Start" stays off while the text is empty.
 class StartOther extends StatelessWidget {
@@ -25,7 +25,7 @@ class StartOther extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
-        StartStepHeader(title: 'Something else', onBack: onBack),
+        StartStepHeader(title: 'Other', onBack: onBack),
         const SizedBox(height: 8),
         Flexible(
           child: SingleChildScrollView(

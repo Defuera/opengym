@@ -70,13 +70,6 @@ class _StartSheetState extends State<StartSheet> {
         activity: name, focus: rot.isEmpty ? null : rot.first.focus, local: true);
   }
 
-  /// A time/distance type opens the Log form for that activity.
-  void _log(String name) {
-    widget.nav.pop();
-    openLogForm(widget.nav, widget.deps, name);
-  }
-
-  /// Step 2: the chosen type, with the optional note.
   Future<void> _start() async {
     final String t = _draft.type;
     final String note = _draft.note.text.trim();
@@ -85,7 +78,7 @@ class _StartSheetState extends State<StartSheet> {
     }
   }
 
-  /// "Something else": the free text alone; the coach names the activity.
+  /// "Other": the free text alone; the coach names the activity.
   Future<void> _startOther() async {
     final String text = _draft.otherText.text.trim();
     if (text.isNotEmpty) {
@@ -167,7 +160,10 @@ class _StartSheetState extends State<StartSheet> {
   }
 
   Widget _types() {
-    final List<StartType> types = startTypes(widget.deps.store.sessions);
+    // A log type that is itself named "Other" is left out: "Other" here is the free text.
+    final List<StartType> types = startTypes(widget.deps.store.sessions)
+        .where((StartType x) => activityKey(x.name) != 'other')
+        .toList();
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -186,11 +182,11 @@ class _StartSheetState extends State<StartSheet> {
                 ProposalRow(
                   title: types[i].name,
                   primary: i == 0,
-                  onTap: () => types[i].hasSets ? _draft.pick(types[i].name) : _log(types[i].name),
+                  onTap: () => _draft.pick(types[i].name),
                 ),
                 const SizedBox(height: 10),
               ],
-              NewKindRow(label: 'Something else', onTap: _draft.openOther),
+              NewKindRow(label: 'Other', onTap: _draft.openOther),
             ],
           ),
         ),

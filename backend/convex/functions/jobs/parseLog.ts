@@ -5,15 +5,13 @@ import { runAiJob } from "../lib/ai";
 import { allSessions, sessionBySessionId, withoutSystemFields } from "../lib/db";
 import { markFactsChanged, scheduleReview } from "../lib/factsChanged";
 import { exercise } from "../schema";
-import { coachPicture } from "../model/ai/jobs/coachPicture";
-import { parseLogJob, structureOf, usualSets } from "../model/ai/jobs/parseLog";
-import { dayWithWeekday } from "../model/logDate";
+import { parseLogJob, structureOf } from "../model/ai/jobs/parseLog";
+import { buildParseLogInput } from "../model/parseLogInput";
 import { type Exercise, SessionSchema } from "../model/schema";
 import { activityKey } from "../model/sessionShape";
 
 /** The AI budget for one text. The session is already stored and shown; nothing waits for this. */
 const BUDGET_MS = 25_000;
-const MAX_KNOWN = 150;
 
 /**
  * The text, the activity and the exercises of the log, or null when the session is gone, was edited, or is not pending
@@ -24,20 +22,7 @@ export const input = internalQuery({
   handler: async (ctx, { sessionId, text }) => {
     const doc = await sessionBySessionId(ctx, sessionId);
     if (!doc || doc.parse !== "pending" || doc.note !== text) return null;
-    const all = await allSessions(ctx);
-    const now = Date.now();
-    const known = coachPicture(all, [], [], [], [], now).exercisesTheUserKnows.slice(0, MAX_KNOWN);
-    return {
-      job: {
-        activity: doc.type,
-        text,
-        today: dayWithWeekday(now),
-        exercisesTheUserKnows: known.map((e) => ({ name: e.name, lastSets: e.lastSets, ...(e.measure ? { measure: e.measure } : {}) })),
-      },
-      usual: [...usualSets(all).values()],
-      at: doc.startedAt,
-      now,
-    };
+    return buildParseLogInput(await allSessions(ctx), doc, text, Date.now());
   },
 });
 

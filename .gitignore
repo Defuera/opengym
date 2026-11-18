@@ -41,3 +41,7 @@ xcuserdata/
 
 # Logs
 *.log
+
+# Eval reports (written by backend/convex/evals; keep the folder)
+backend/convex/evals/reports/*
+!backend/convex/evals/reports/.gitkeep

@@ -1,0 +1,5 @@
+{
+  "extends": "../functions/tsconfig.json",
+  "include": ["./**/*", "../functions/model/**/*", "../functions/lib/placeFields.ts", "../tests/evals*.test.ts"],
+  "exclude": []
+}

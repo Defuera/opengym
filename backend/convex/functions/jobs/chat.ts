@@ -13,15 +13,12 @@ import { extractFromChatJob } from "../model/ai/jobs/extractFromChat";
 import { summariseThreadJob } from "../model/ai/jobs/summariseThread";
 import { titleThreadJob } from "../model/ai/jobs/titleThread";
 import { type AttachedFile, assembleCoachContext } from "../model/coachContext";
+import { CHAT_CONTEXT_ITEMS, CHAT_GOALS, CHAT_HISTORY_MESSAGES, CHAT_OTHER_THREADS, CHAT_RECENT_SESSIONS } from "../model/chatInput";
 import { truncate } from "../model/rules/util";
 import { contextInput, goalInput } from "../lib/validators";
 
-/** Bounds on what the coach reads (ADR-012). The model never gets the full history. */
-export const CHAT_HISTORY_MESSAGES = 20;
-export const CHAT_OTHER_THREADS = 8;
-export const CHAT_RECENT_SESSIONS = 10;
-export const CHAT_GOALS = 30;
-export const CHAT_CONTEXT_ITEMS = 40;
+/** Bounds on what the coach reads (ADR-012): in model/chatInput.ts, so the eval runner reads the same numbers. */
+export { CHAT_HISTORY_MESSAGES, CHAT_OTHER_THREADS, CHAT_RECENT_SESSIONS, CHAT_GOALS, CHAT_CONTEXT_ITEMS };
 /** Titles/texts sent to extract_from_chat so it does not repeat itself. Dedupe against the whole database happens in code. */
 export const CHAT_KNOWN_ITEMS = 50;
 export const SUMMARY_MESSAGES = 30;

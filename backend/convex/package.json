@@ -6,8 +6,9 @@
   "scripts": {
     "dev": "convex dev",
     "deploy": "convex deploy",
-    "typecheck": "tsc --noEmit -p functions",
-    "test": "vitest run"
+    "typecheck": "tsc --noEmit -p functions && tsc --noEmit -p evals",
+    "test": "vitest run",
+    "eval": "tsx evals/runner/main.ts"
   },
   "dependencies": {
     "convex": "^1.50.0",
@@ -18,6 +19,7 @@
     "@edge-runtime/vm": "^5.0.0",
     "@types/node": "^26.6.6",
     "convex-test": "^0.0.71",
+    "tsx": "^4.23.15",
     "typescript": "^5.6.0",
     "vitest": "^5.1.0"
   }

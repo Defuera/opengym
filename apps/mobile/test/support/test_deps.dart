@@ -7,6 +7,7 @@ import 'package:opengym/data/in_memory_session_repository.dart';
 import 'package:opengym/data/outbox.dart';
 import 'package:opengym/data/pickers.dart';
 import 'package:opengym/data/settings_repository.dart';
+import 'package:opengym/data/tracker_source.dart';
 import 'package:opengym/data/switchable_convex_client.dart';
 import 'package:opengym/models.dart';
 import 'package:opengym/store.dart';
@@ -30,6 +31,7 @@ Future<AppDeps> testDeps(
   FakeConvexClient fake, {
   bool connected = true,
   List<Session> sessions = const <Session>[],
+  TrackerSource? tracker,
 }) async {
   final InMemorySessionRepository repo = InMemorySessionRepository();
   final AppStore store = AppStore(repo);
@@ -64,5 +66,6 @@ Future<AppDeps> testDeps(
     pickers: NoPickers(),
     about: AboutStore(repo: aboutRepo),
     aiModel: AiModelStore(client: fake)..start(),
+    tracker: tracker ?? FakeTrackerSource(),
   );
 }

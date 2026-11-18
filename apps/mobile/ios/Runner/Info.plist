@@ -35,6 +35,8 @@
 	</dict>
 	<key>NSCameraUsageDescription</key>
 	<string>OpenGym uses the camera to attach photos, such as a machine screen, to chat or import.</string>
+	<key>NSHealthShareUsageDescription</key>
+	<string>Gym Days reads your workouts, sleep, heart rate and steps so that your coach can plan around them.</string>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>OpenGym talks to your own server on your local network.</string>
 	<key>NSPhotoLibraryUsageDescription</key>

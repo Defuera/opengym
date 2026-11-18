@@ -8,8 +8,10 @@ import '../widgets/labeled_field.dart';
 import '../widgets/note_box.dart';
 import '../widgets/og_icon_button.dart';
 import '../widgets/og_button.dart';
+import '../widgets/sheet_link.dart';
 import '../widgets/status_line.dart';
 import 'coach_model_panel.dart';
+import 'tracker_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key, required this.deps});
@@ -117,6 +119,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           ],
                         ),
                       ],
+                      SheetLink(
+                        label: 'Trackers',
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (BuildContext c) => TrackerScreen(source: widget.deps.tracker),
+                          ),
+                        ),
+                      ),
                       CoachModelPanel(store: widget.deps.aiModel, connection: c),
                       const SizedBox(height: 22),
                       const NoteBox(

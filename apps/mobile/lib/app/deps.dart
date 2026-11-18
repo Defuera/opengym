@@ -1,5 +1,6 @@
 import '../data/convex_client.dart';
 import '../data/pickers.dart';
+import '../data/tracker_source.dart';
 import '../data/outbox.dart';
 import '../store.dart';
 import '../stores/about_store.dart';
@@ -32,6 +33,7 @@ class AppDeps {
     required this.pickers,
     required this.about,
     required this.aiModel,
+    required this.tracker,
   });
 
   /// The gateway, for screens that follow one record (the session recap).
@@ -50,4 +52,7 @@ class AppDeps {
   final Pickers pickers;
   final AboutStore about;
   final AiModelStore aiModel;
+
+  /// Tracker data from the phone's health store (read only).
+  final TrackerSource tracker;
 }

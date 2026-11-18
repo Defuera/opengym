@@ -23,6 +23,35 @@ first and fix anything it reports before anything else.**
    pick your team
 7. Plug in the iPhone (Developer Mode on) -> `flutter run --release`
 
+## Android
+
+`android/` is generated with
+`flutter create . --platforms=android --org io.devartel --project-name opengym`
+(application id `io.devartel.opengym`). By hand: `minSdk` 26 (Health Connect),
+`MainActivity` extends `FlutterFragmentActivity`, the manifest has `INTERNET`,
+read-only Health Connect permissions, the `queries` entry, the
+permission-rationale intent filter and the `ViewPermissionUsageActivity` alias
+(privacy policy link). Build: `flutter build apk --debug` (needs the Android SDK).
+
+## Trackers
+
+The app reads tracker data from the phone's health store: Apple Health on
+iPhone, Health Connect on Android (ADR-019). Read only; no background sync.
+
+- `lib/data/tracker_source.dart`: `TrackerSource` interface, plain models
+  (`TrackerWorkout`, `TrackerDay`, `TrackerSnapshot`) and `FakeTrackerSource`.
+- `lib/data/health_tracker_source.dart`: the real source over the `health`
+  plugin. The only file that imports it.
+- `lib/data/tracker_mapping.dart`: pure functions (sleep de-duplication,
+  average heart rate in a workout, day rows).
+- `lib/screens/tracker_screen.dart`: Settings, Trackers. Shows sources,
+  workouts and days of the last 7 days. It reads on open and on "Read again".
+  Nothing is sent to the server yet.
+- iOS: `ios/Runner/Runner.entitlements` (HealthKit), set as
+  `CODE_SIGN_ENTITLEMENTS` for all Runner configurations;
+  `NSHealthShareUsageDescription` in `Info.plist`. The HealthKit capability must
+  also be on the App ID in the developer account for a signed device build.
+
 ## First run with the backend
 
 The backend is hosted Convex (ADR-012). Get the deployment address
@@ -140,7 +169,7 @@ End-to-end check against a deployment: see `tool/convex_trial.dart`.
 - Tests: `test/` (plain flutter_test): planner, store, model JSON, gateway,
   outbox, connection, live stores. `test/support/fake_convex_client.dart` fakes
   the gateway.
-- `tool/patch_ios_plist.sh`: iOS permission and networking keys.
+- `tool/patch_ios_plist.sh`: iOS permission and networking keys. It does not add the HealthKit key; that one is already in `Info.plist`.
 
 ## Widget gallery
 

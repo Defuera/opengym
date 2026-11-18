@@ -4,6 +4,7 @@ import '../data/about_repository.dart';
 import '../data/convex_client.dart';
 import '../data/legacy_outbox_migration.dart';
 import '../data/outbox.dart';
+import '../data/health_tracker_source.dart';
 import '../data/pickers.dart';
 import '../data/session_sync.dart';
 import '../data/settings_repository.dart';
@@ -112,6 +113,7 @@ Future<AppDeps> compose() async {
     pickers: DevicePickers(),
     about: about,
     aiModel: aiModel,
+    tracker: HealthTrackerSource(),
   );
 
   // Do not wait for the network: the app opens straight away.

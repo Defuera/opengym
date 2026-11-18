@@ -6,6 +6,7 @@ import '../data/legacy_outbox_migration.dart';
 import '../data/outbox.dart';
 import '../data/health_tracker_source.dart';
 import '../data/pickers.dart';
+import '../data/voice_recorder.dart';
 import '../data/session_sync.dart';
 import '../data/settings_repository.dart';
 import '../data/shared_prefs_session_repository.dart';
@@ -115,6 +116,7 @@ Future<AppDeps> compose() async {
     imports: imports,
     reviews: reviews,
     pickers: DevicePickers(),
+    voice: DeviceVoiceRecorder(),
     about: about,
     aiModel: aiModel,
     tracker: HealthTrackerSource(),

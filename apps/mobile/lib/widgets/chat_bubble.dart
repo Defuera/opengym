@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../theme.dart';
+import 'og_button.dart';
 
 /// One chat message. Mine on the right (accent), the coach's on the left.
 /// [sources] adds a muted "Also read: ..." line under a coach message.
@@ -17,6 +18,9 @@ class ChatBubble extends StatefulWidget {
     this.attachments = const <String>[],
     this.media = const <Widget>[],
     this.copyable = true,
+    this.voice,
+    this.voiceFailedText = 'Could not read the recording.',
+    this.onRetryVoice,
   });
 
   final String text;
@@ -27,6 +31,13 @@ class ChatBubble extends StatefulWidget {
   /// Thumbnails or file chips of what was sent. They replace the "Attached" line.
   final List<Widget> media;
   final bool copyable;
+
+  /// Set on a voice message: pending | done | failed. It shows a small mic
+  /// icon; pending says "Listening…", failed says [voiceFailedText] with a
+  /// "Try again" action ([onRetryVoice]).
+  final String? voice;
+  final String voiceFailedText;
+  final VoidCallback? onRetryVoice;
 
   @override
   State<ChatBubble> createState() => _ChatBubbleState();
@@ -53,6 +64,53 @@ class _ChatBubbleState extends State<ChatBubble> {
     super.dispose();
   }
 
+  List<Widget> _voiceBody(Color fg) {
+    final String v = widget.voice ?? '';
+    final Widget mic = Padding(
+      padding: const EdgeInsets.only(top: 3, right: 8),
+      child: Icon(Icons.mic_none, size: 16, color: fg),
+    );
+    if (v == 'failed') {
+      return <Widget>[
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[mic, Flexible(child: Text(widget.voiceFailedText, style: OG.body(color: fg)))],
+        ),
+        const SizedBox(height: 10),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: OgButton(
+          key: const ValueKey<String>('voice-retry'),
+          onPressed: widget.onRetryVoice,
+          minHeight: 44,
+          radius: 12,
+          shadow: false,
+          child: const Text('Try again'),
+          ),
+        ),
+      ];
+    }
+    final bool pending = v == 'pending';
+    return <Widget>[
+      Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          mic,
+          Flexible(
+            child: Text(
+              pending ? 'Listening…' : widget.text,
+              style: pending
+                  ? OG.body(color: fg).copyWith(fontStyle: FontStyle.italic)
+                  : OG.body(color: fg),
+            ),
+          ),
+        ],
+      ),
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
     final String text = widget.text;
@@ -65,7 +123,11 @@ class _ChatBubbleState extends State<ChatBubble> {
       body.add(Wrap(spacing: 6, runSpacing: 6, children: widget.media));
       body.add(const SizedBox(height: 8));
     }
-    body.add(Text(text, style: OG.body(color: fg)));
+    if (widget.voice != null) {
+      body.addAll(_voiceBody(fg));
+    } else {
+      body.add(Text(text, style: OG.body(color: fg)));
+    }
     if (attachments.isNotEmpty && widget.media.isEmpty) {
       body.add(const SizedBox(height: 6));
       body.add(Text(

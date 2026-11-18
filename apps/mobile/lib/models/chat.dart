@@ -90,6 +90,7 @@ class Message {
     required this.createdAt,
     this.fileIds = const <String>[],
     this.sources = const <String>[],
+    this.voice,
   });
 
   final String id;
@@ -104,6 +105,9 @@ class Message {
   final List<String> sources;
   final int createdAt;
 
+  /// Set on a voice message: pending | done | failed. Null on a text message.
+  final String? voice;
+
   bool get mine => role == 'user';
 
   Map<String, dynamic> toJson() {
@@ -115,6 +119,7 @@ class Message {
       'fileIds': fileIds,
       'sources': sources,
       'createdAt': createdAt,
+      if (voice != null) 'voice': voice,
     };
   }
 
@@ -127,6 +132,7 @@ class Message {
       createdAt: intOf(j['createdAt']),
       fileIds: strList(j['fileIds']),
       sources: strList(j['sources']),
+      voice: strOrNull(j['voice']),
     );
   }
 }

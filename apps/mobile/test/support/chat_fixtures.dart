@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:opengym/app/deps.dart';
 import 'package:opengym/data/pickers.dart';
+import 'package:opengym/data/voice_recorder.dart';
 import 'package:opengym/screens/chat_screen.dart';
 
 /// A 1x1 PNG, enough for a thumbnail.
@@ -41,4 +42,28 @@ Future<void> openChat(WidgetTester t, AppDeps deps, {Size size = const Size(390,
   await deps.coach.startNewChat();
   await t.pumpWidget(MaterialApp(home: ChatScreen(deps: deps)));
   await t.pumpAndSettle();
+}
+
+/// A recorder that records nothing: it only counts calls and hands back a
+/// small in-memory file.
+class FakeVoiceRecorder implements VoiceRecorder {
+  FakeVoiceRecorder({this.result = VoiceStart.started});
+
+  VoiceStart result;
+  final List<String> calls = <String>[];
+
+  @override
+  Future<VoiceStart> start() async {
+    calls.add('start');
+    return result;
+  }
+
+  @override
+  Future<UploadItem?> stop() async {
+    calls.add('stop');
+    return const UploadItem(path: 'voice.m4a', name: 'voice.m4a', bytes: <int>[1, 2, 3]);
+  }
+
+  @override
+  Future<void> cancel() async => calls.add('cancel');
 }

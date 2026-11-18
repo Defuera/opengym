@@ -23,11 +23,16 @@ export const MessageSchema = z.object({
   text: z.string(),
   fileIds: z.array(z.string()),
   sources: z.array(z.string()),
+  /** Set only on a voice message: the transcript is pending, done or failed. */
+  voice: z.enum(["pending", "done", "failed"]).optional(),
   createdAt: MsSchema,
 });
 
+/** Longest message text, typed or transcribed. */
+export const MESSAGE_MAX_CHARS = 8000;
+
 export const MessageInputSchema = z.object({
-  text: z.string().min(1).max(8000),
+  text: z.string().min(1).max(MESSAGE_MAX_CHARS),
   fileIds: z.array(z.string()).max(10).optional(),
 });
 

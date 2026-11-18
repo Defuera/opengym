@@ -184,6 +184,8 @@ export default defineSchema({
     text: v.string(),
     fileIds: v.array(v.string()),
     sources: v.array(v.string()),
+    /** Set only on a voice message (jobs/voice): the transcript is pending, done or failed. The text is empty until done. */
+    voice: v.optional(v.union(v.literal("pending"), v.literal("done"), v.literal("failed"))),
     createdAt: v.number(),
   })
     .index("by_messageId", ["messageId"])

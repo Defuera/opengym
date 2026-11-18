@@ -8,6 +8,7 @@ import 'package:opengym/data/outbox.dart';
 import 'package:opengym/data/pickers.dart';
 import 'package:opengym/data/settings_repository.dart';
 import 'package:opengym/data/tracker_source.dart';
+import 'package:opengym/data/voice_recorder.dart';
 import 'package:opengym/data/switchable_convex_client.dart';
 import 'package:opengym/models.dart';
 import 'package:opengym/store.dart';
@@ -34,6 +35,7 @@ Future<AppDeps> testDeps(
   List<Session> sessions = const <Session>[],
   TrackerSource? tracker,
   Pickers? pickers,
+  VoiceRecorder? voice,
 }) async {
   final InMemorySessionRepository repo = InMemorySessionRepository();
   final AppStore store = AppStore(repo);
@@ -67,6 +69,7 @@ Future<AppDeps> testDeps(
     imports: ImportStore(client: fake),
     reviews: ReviewStore(client: fake),
     pickers: pickers ?? NoPickers(),
+    voice: voice ?? NoVoiceRecorder(),
     about: AboutStore(repo: aboutRepo),
     aiModel: AiModelStore(client: fake)..start(),
     tracker: tracker ?? FakeTrackerSource(),

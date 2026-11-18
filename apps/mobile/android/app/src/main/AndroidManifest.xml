@@ -1,5 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- Voice message in the chat. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO"/>
     <!-- Health Connect: read only. Workouts, sleep, heart rate, resting heart
          rate, steps, active energy, distance. No write permission. -->
     <uses-permission android:name="android.permission.health.READ_EXERCISE"/>

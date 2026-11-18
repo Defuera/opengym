@@ -67,6 +67,9 @@ class FakeConvexClient implements ConvexClient {
   /// When set, [uploadFile] waits for it first.
   Completer<void>? uploadGate;
 
+  /// Set to make [sendVoice] fail once (an old server without it).
+  ConvexCallException? failVoice;
+
   /// Set to make [uploadFile] fail once.
   ConvexCallException? failUpload;
 
@@ -530,6 +533,67 @@ class FakeConvexClient implements ConvexClient {
     }
     _setThread(threadId, status: 'thinking');
     _publish();
+  }
+
+  @override
+  Future<void> sendVoice({
+    required String threadId,
+    required String messageId,
+    required String fileId,
+  }) async {
+    final ConvexCallException? f = failVoice;
+    if (f != null) {
+      failVoice = null;
+      throw f;
+    }
+    _command('sendVoice:$messageId');
+    final List<Message> list = serverMessages.putIfAbsent(threadId, () => <Message>[]);
+    if (list.any((Message m) => m.id == messageId)) {
+      return;
+    }
+    list.add(Message(
+        id: messageId,
+        threadId: threadId,
+        role: 'user',
+        text: '',
+        createdAt: ++_clock,
+        fileIds: <String>[fileId],
+        voice: 'pending'));
+    _setThread(threadId, status: 'thinking');
+    _publish();
+  }
+
+  @override
+  Future<void> retryVoice(String messageId) async {
+    _command('retryVoice:$messageId');
+    _patchVoice(messageId, voice: 'pending');
+  }
+
+  /// The transcript arrives (the server patches the message text).
+  void voiceDone(String messageId, String text) => _patchVoice(messageId, voice: 'done', text: text);
+
+  /// The transcription failed.
+  void voiceFailed(String messageId) => _patchVoice(messageId, voice: 'failed');
+
+  void _patchVoice(String messageId, {required String voice, String? text}) {
+    serverChanged(() {
+      for (final MapEntry<String, List<Message>> e in serverMessages.entries) {
+        for (int i = 0; i < e.value.length; i++) {
+          final Message m = e.value[i];
+          if (m.id == messageId) {
+            e.value[i] = Message(
+                id: m.id,
+                threadId: m.threadId,
+                role: m.role,
+                text: text ?? m.text,
+                createdAt: m.createdAt,
+                fileIds: m.fileIds,
+                voice: voice);
+            _setThread(m.threadId, status: voice == 'pending' ? 'thinking' : 'idle');
+          }
+        }
+      }
+    });
   }
 
   @override

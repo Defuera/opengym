@@ -26,6 +26,8 @@ export interface AiProvider {
   complete(req: CompleteRequest): Promise<string>;
   /** Ids of the text/chat models the provider offers (see modelList.ts). Throws ProviderError on a failed request. */
   listModels(): Promise<string[]>;
+  /** Speech to text. Absent on a provider that cannot do it. Throws ProviderError on a failed request. Returns the text as the provider gave it. */
+  transcribe?(bytes: Uint8Array, mime: string, filename: string): Promise<string>;
 }
 
 export interface HttpProviderOptions {
@@ -34,6 +36,8 @@ export interface HttpProviderOptions {
   baseUrl?: string;
   timeoutMs?: number;
   fetch?: typeof fetch;
+  /** Model for speech to text (OpenAI only). */
+  transcribeModel?: string;
 }
 
 export class ProviderError extends Error {}
@@ -43,12 +47,18 @@ export function postJson(f: typeof fetch, url: string, headers: Record<string, s
   return requestJson(f, url, "POST", headers, timeoutMs, body);
 }
 
+/** POST a multipart form with a timeout and read JSON back. The content-type (with its boundary) is set by fetch. */
+export function postForm(f: typeof fetch, url: string, headers: Record<string, string>, form: FormData, timeoutMs: number): Promise<unknown> {
+  return requestJson(f, url, "POST", headers, timeoutMs, form);
+}
+
 /** GET JSON with a timeout; throws ProviderError on non-2xx or timeout. */
 export function getJson(f: typeof fetch, url: string, headers: Record<string, string>, timeoutMs: number): Promise<unknown> {
   return requestJson(f, url, "GET", headers, timeoutMs);
 }
 
 async function requestJson(f: typeof fetch, url: string, method: "GET" | "POST", headers: Record<string, string>, timeoutMs: number, body?: unknown): Promise<unknown> {
+  const isForm = typeof FormData !== "undefined" && body instanceof FormData;
   let res: Response;
   // AbortSignal.timeout is not guaranteed in the Convex runtime, so use a plain timer.
   const controller = new AbortController();
@@ -56,8 +66,8 @@ async function requestJson(f: typeof fetch, url: string, method: "GET" | "POST",
   try {
     res = await f(url, {
       method,
-      headers: { "content-type": "application/json", ...headers },
-      ...(method === "POST" ? { body: JSON.stringify(body) } : {}),
+      headers: isForm ? headers : { "content-type": "application/json", ...headers },
+      ...(method === "POST" ? { body: isForm ? (body as FormData) : JSON.stringify(body) } : {}),
       signal: controller.signal,
     });
   } catch (e) {

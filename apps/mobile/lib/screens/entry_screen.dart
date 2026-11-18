@@ -45,6 +45,26 @@ class EntryScreen extends StatelessWidget {
     }
   }
 
+  /// Edit and Delete live behind the menu button at the top right.
+  Future<void> _menu(BuildContext context, LogEntry e) async {
+    final String? c = await showChoiceSheet(
+      context,
+      title: 'Note',
+      choices: const <SheetChoice>[
+        SheetChoice(value: 'edit', label: 'Edit', key: ValueKey<String>('entry-edit')),
+        SheetChoice(value: 'delete', label: 'Delete', variant: OgVariant.dashed, key: ValueKey<String>('entry-delete')),
+      ],
+    );
+    if (!context.mounted) {
+      return;
+    }
+    if (c == 'edit') {
+      _edit(context, e);
+    } else if (c == 'delete' && !deps.entries.busy) {
+      _delete(context);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
@@ -65,6 +85,12 @@ class EntryScreen extends StatelessWidget {
                     ),
                     const SizedBox(width: 12),
                     Expanded(child: Text('Note', style: OG.display(32))),
+                    if (e != null)
+                      OgIconButton(
+                        key: const ValueKey<String>('entry-menu'),
+                        icon: Icons.more_horiz,
+                        onPressed: () => _menu(context, e),
+                      ),
                   ],
                 ),
                 const SizedBox(height: 18),
@@ -93,19 +119,6 @@ class EntryScreen extends StatelessWidget {
                     const SizedBox(height: 12),
                     NoteBox(title: 'That did not work.', message: err),
                   ],
-                  const SizedBox(height: 20),
-                  OgButton(
-                    key: const ValueKey<String>('entry-edit'),
-                    onPressed: () => _edit(context, e),
-                    child: const Text('Edit'),
-                  ),
-                  const SizedBox(height: 10),
-                  OgButton(
-                    key: const ValueKey<String>('entry-delete'),
-                    variant: OgVariant.dashed,
-                    onPressed: deps.entries.busy ? null : () => _delete(context),
-                    child: const Text('Delete'),
-                  ),
                 ],
               ],
             ),

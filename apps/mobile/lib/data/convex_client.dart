@@ -163,6 +163,19 @@ abstract class ConvexClient {
     List<String> fileIds = const <String>[],
   });
 
+  /// Sends a recorded voice message: the audio file [fileId] is already
+  /// uploaded. The server stores a user message with `voice: pending`, turns
+  /// the audio into text and then the coach answers as for a text message.
+  /// Sending the same [messageId] again changes nothing on the server.
+  Future<void> sendVoice({
+    required String threadId,
+    required String messageId,
+    required String fileId,
+  });
+
+  /// Asks the server to read a voice message again (one with `voice: failed`).
+  Future<void> retryVoice(String messageId);
+
   /// Uploads [bytes] (get an upload URL, POST the bytes, register) and
   /// returns the stored file. A retry with the same [fileId] is safe.
   Future<FileMeta> uploadFile({
@@ -569,6 +582,20 @@ class DartvexConvexClient implements ConvexClient {
       if (fileIds.isNotEmpty) 'fileIds': fileIds,
     });
   }
+
+  @override
+  Future<void> sendVoice({
+    required String threadId,
+    required String messageId,
+    required String fileId,
+  }) {
+    return _mutate('commands/messages:sendVoice',
+        <String, dynamic>{'threadId': threadId, 'messageId': messageId, 'fileId': fileId});
+  }
+
+  @override
+  Future<void> retryVoice(String messageId) =>
+      _mutate('commands/messages:retryVoice', <String, dynamic>{'messageId': messageId});
 
   @override
   Future<FileMeta> uploadFile({

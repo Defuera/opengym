@@ -125,6 +125,7 @@ void main() {
 
     await t.tap(find.byType(TextField));
     await t.enterText(find.byType(TextField), 'hi');
+    await t.pump();
     await t.tap(find.byIcon(Icons.arrow_upward));
     await t.pumpAndSettle();
     expect(field().focusNode.hasFocus, isTrue);

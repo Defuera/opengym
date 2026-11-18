@@ -4,6 +4,7 @@ import '../app/deps.dart';
 import '../models.dart';
 import '../data/upload_item.dart';
 import '../stores/coach_store.dart';
+import '../stores/voice_controller.dart';
 import '../theme.dart';
 import '../widgets/attach_sheet.dart';
 import '../widgets/attachment_strip.dart';
@@ -30,11 +31,23 @@ class _ChatScreenState extends State<ChatScreen> {
   final TextEditingController _text = TextEditingController();
   final FocusNode _focus = FocusNode();
   String? _pickError;
+  late final VoiceController _voice;
 
   CoachStore get _coach => widget.deps.coach;
 
   @override
+  void initState() {
+    super.initState();
+    _voice = VoiceController(recorder: widget.deps.voice, onRecorded: _sendVoice);
+  }
+
+  Future<void> _sendVoice(UploadItem audio) async {
+    await _coach.sendVoice(audio);
+  }
+
+  @override
   void dispose() {
+    _voice.dispose();
     _text.dispose();
     _focus.dispose();
     super.dispose();
@@ -105,8 +118,14 @@ class _ChatScreenState extends State<ChatScreen> {
         text: m.text,
         mine: m.mine,
         sources: m.sources,
+        voice: m.voice,
+        voiceFailedText:
+            c.isUnsentVoice(m.id) ? 'Could not send the recording.' : 'Could not read the recording.',
+        onRetryVoice: c.sending ? null : () => c.retryVoice(m.id),
+        copyable: m.voice != 'pending' && m.voice != 'failed',
         media: <Widget>[
-          for (final String id in m.fileIds)
+          // The audio itself is never shown, only its text.
+          for (final String id in (m.voice == null ? m.fileIds : const <String>[]))
             ChatFileThumb(key: ValueKey<String>('file-$id'), coach: c, fileId: id),
         ],
       ));
@@ -116,7 +135,9 @@ class _ChatScreenState extends State<ChatScreen> {
       items.add(SavedChips(labels: c.saved));
       items.add(const SizedBox(height: 12));
     }
-    if (c.thinking) {
+    final List<Message> all = c.messages;
+    final bool listening = all.isNotEmpty && all.last.voice == 'pending';
+    if (c.thinking && !listening) {
       items.add(const ChatBubble(text: 'Thinking…', mine: false, copyable: false));
       items.add(const SizedBox(height: 12));
     }
@@ -141,7 +162,7 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: Listenable.merge(<Listenable>[_coach, widget.deps.connection]),
+      listenable: Listenable.merge(<Listenable>[_coach, widget.deps.connection, _voice]),
       builder: (BuildContext context, Widget? child) {
         final CoachStore c = _coach;
         // A send problem is shown with its retry action, not twice.
@@ -241,6 +262,12 @@ class _ChatScreenState extends State<ChatScreen> {
                   onRemoveAttachment: c.removeAttachment,
                   onAttach: _attach,
                   onSend: _send,
+                  onMic: _voice.start,
+                  recording: _voice.recording,
+                  recordSeconds: _voice.seconds,
+                  onCancelRecording: _voice.cancel,
+                  onStopRecording: _voice.stopAndSend,
+                  voiceNote: _voice.note,
                 ),
               ],
             ),

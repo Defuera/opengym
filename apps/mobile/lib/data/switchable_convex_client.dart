@@ -303,6 +303,18 @@ class SwitchableConvexClient implements ConvexClient {
   }
 
   @override
+  Future<void> sendVoice({
+    required String threadId,
+    required String messageId,
+    required String fileId,
+  }) {
+    return _call((ConvexClient c) => c.sendVoice(threadId: threadId, messageId: messageId, fileId: fileId));
+  }
+
+  @override
+  Future<void> retryVoice(String messageId) => _call((ConvexClient c) => c.retryVoice(messageId));
+
+  @override
   Future<FileMeta> uploadFile({
     required String fileId,
     required String name,

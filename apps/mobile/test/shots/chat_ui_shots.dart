@@ -2,7 +2,9 @@
 // suffix). Run by path:
 //   flutter test test/shots/chat_ui_shots.dart
 // It writes a.png (empty new chat), b.png (a thread, a typed draft, one photo,
-// keyboard space of 336 px) and c.png (the "+" sheet) at 390x844, pixel ratio 3.
+// keyboard space of 336 px), c.png (the "+" sheet), d.png (the mic button, empty
+// field), e.png (the recording bar at 0:07), f.png (a thread with a done and a
+// pending voice bubble) and g.png (a failed voice bubble) at 390x844, pixel ratio 3.
 import 'dart:io';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
@@ -15,6 +17,7 @@ import 'package:opengym/data/pickers.dart';
 import 'package:opengym/screens/chat_screen.dart';
 import 'package:opengym/theme.dart';
 
+import '../support/chat_fixtures.dart';
 import '../support/fake_convex_client.dart';
 import '../support/load_fonts.dart';
 import '../support/test_deps.dart';
@@ -59,15 +62,23 @@ class _Pick implements Pickers {
   Future<UploadItem?> pickPhoto({required bool camera}) async => photo;
 }
 
-Future<(AppDeps, GlobalKey, FakeConvexClient)> _open(WidgetTester t, {bool thread = false}) async {
+Future<(AppDeps, GlobalKey, FakeConvexClient)> _open(WidgetTester t,
+    {bool thread = false, bool voiceThread = false}) async {
   t.view.physicalSize = const Size(390 * 3, 844 * 3);
   t.view.devicePixelRatio = 3;
   addTearDown(t.view.reset);
   final FakeConvexClient fake = FakeConvexClient();
   final UploadItem photo = await _photo(t);
-  final AppDeps d = await testDeps(fake, pickers: _Pick(photo));
+  final AppDeps d = await testDeps(fake, pickers: _Pick(photo), voice: FakeVoiceRecorder());
   d.coach.start();
-  if (thread) {
+  if (voiceThread) {
+    await fake.createThread(threadId: 'a', title: 'Squat progress');
+    await t.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 20)));
+    await d.coach.openThread('a');
+    await fake.sendVoice(threadId: 'a', messageId: 'v1', fileId: 'f1');
+    fake.voiceDone('v1', 'Did three sets of squats at 100 kilos, the last one felt heavy.');
+    fake.coachAnswers('a', 'Good. Keep 100 next week and add a rep to the last set. How was the depth?');
+  } else if (thread) {
     await fake.createThread(threadId: 'a', title: 'Left arm pain');
     await t.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 20)));
     await d.coach.openThread('a');
@@ -126,5 +137,36 @@ void main() {
     await t.tap(find.byKey(const ValueKey<String>('composer-plus')));
     await t.pumpAndSettle();
     await _save(t, key, 'c');
+  });
+
+  testWidgets('d: the composer with the mic button', (WidgetTester t) async {
+    final (AppDeps _, GlobalKey key, FakeConvexClient _) = await _open(t, voiceThread: true);
+    await _save(t, key, 'd');
+  });
+
+  testWidgets('e: the recording bar at 0:07', (WidgetTester t) async {
+    final (AppDeps _, GlobalKey key, FakeConvexClient _) = await _open(t, voiceThread: true);
+    await t.tap(find.byKey(const ValueKey<String>('composer-mic')));
+    await t.pump();
+    await t.pump(const Duration(seconds: 7));
+    await t.pump();
+    await _save(t, key, 'e');
+    await t.tap(find.byKey(const ValueKey<String>('composer-cancel-record')));
+    await t.pump();
+  });
+
+  testWidgets('f: a done and a pending voice bubble', (WidgetTester t) async {
+    final (AppDeps _, GlobalKey key, FakeConvexClient fake) = await _open(t, voiceThread: true);
+    await fake.sendVoice(threadId: 'a', messageId: 'v2', fileId: 'f2');
+    await t.pumpAndSettle();
+    await _save(t, key, 'f');
+  });
+
+  testWidgets('g: a failed voice bubble', (WidgetTester t) async {
+    final (AppDeps _, GlobalKey key, FakeConvexClient fake) = await _open(t, voiceThread: true);
+    await fake.sendVoice(threadId: 'a', messageId: 'v2', fileId: 'f2');
+    fake.voiceFailed('v2');
+    await t.pumpAndSettle();
+    await _save(t, key, 'g');
   });
 }

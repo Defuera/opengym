@@ -141,6 +141,8 @@ void main() {
     testWidgets('Edit opens the form with the note; a file can be removed and saved',
         (WidgetTester t) async {
       final (FakeConvexClient fake, AppDeps d) = await open(t);
+      await t.tap(find.byKey(const ValueKey<String>('entry-menu')));
+      await t.pumpAndSettle();
       await t.tap(find.byKey(const ValueKey<String>('entry-edit')));
       await t.pumpAndSettle();
       expect(find.text('Edit note'), findsOneWidget);
@@ -167,6 +169,8 @@ void main() {
     testWidgets('Delete asks first; Keep changes nothing; Delete removes and returns',
         (WidgetTester t) async {
       final (FakeConvexClient fake, AppDeps _) = await open(t);
+      await t.tap(find.byKey(const ValueKey<String>('entry-menu')));
+      await t.pumpAndSettle();
       await t.tap(find.byKey(const ValueKey<String>('entry-delete')));
       await t.pumpAndSettle();
       expect(find.text('Delete this note?'), findsOneWidget);
@@ -174,6 +178,8 @@ void main() {
       await t.tap(find.text('Keep it'));
       await t.pumpAndSettle();
       expect(fake.serverEntries, hasLength(1));
+      await t.tap(find.byKey(const ValueKey<String>('entry-menu')));
+      await t.pumpAndSettle();
       await t.tap(find.byKey(const ValueKey<String>('entry-delete')));
       await t.pumpAndSettle();
       await t.tap(find.text('Delete note'));

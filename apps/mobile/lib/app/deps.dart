@@ -1,6 +1,7 @@
 import '../data/convex_client.dart';
 import '../data/pickers.dart';
 import '../data/tracker_source.dart';
+import '../data/voice_recorder.dart';
 import '../data/outbox.dart';
 import '../store.dart';
 import '../stores/about_store.dart';
@@ -32,6 +33,7 @@ class AppDeps {
     required this.imports,
     required this.reviews,
     required this.pickers,
+    required this.voice,
     required this.about,
     required this.aiModel,
     required this.tracker,
@@ -52,6 +54,9 @@ class AppDeps {
   final ImportStore imports;
   final ReviewStore reviews;
   final Pickers pickers;
+
+  /// The microphone for voice messages in the chat.
+  final VoiceRecorder voice;
   final AboutStore about;
   final AiModelStore aiModel;
 

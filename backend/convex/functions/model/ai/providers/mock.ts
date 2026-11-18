@@ -1,5 +1,7 @@
 import type { AiProvider, CompleteRequest } from "../provider";
 
+export const MOCK_TRANSCRIPT = "Mock voice: my left knee felt tight on squats today.";
+
 type Data = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
 
 const jobOf = (system: string) => system.match(/^JOB: (\w+)/m)?.[1] ?? "";
@@ -40,6 +42,11 @@ export class MockProvider implements AiProvider {
 
   async listModels(): Promise<string[]> {
     return [];
+  }
+
+  /** A fixed transcript, so tests need no audio. A file named "silence..." gives an empty one. */
+  async transcribe(_bytes: Uint8Array, _mime: string, filename: string): Promise<string> {
+    return /^silence/i.test(filename) ? "" : MOCK_TRANSCRIPT;
   }
 
   async complete(req: CompleteRequest): Promise<string> {

@@ -1,4 +1,4 @@
-import { type AiProvider, type CompleteRequest, type HttpProviderOptions, ProviderError, getJson, postJson } from "../provider";
+import { type AiProvider, type CompleteRequest, type HttpProviderOptions, ProviderError, getJson, postForm, postJson } from "../provider";
 import { chatModelIds } from "../modelList";
 
 export interface OpenAiCompatibleConfig extends HttpProviderOptions {
@@ -11,16 +11,28 @@ export interface OpenAiCompatibleConfig extends HttpProviderOptions {
   supportsImages: boolean;
   /** OpenAI wants max_completion_tokens; DeepSeek still uses max_tokens. */
   maxTokensField: "max_completion_tokens" | "max_tokens";
+  /** Path of speech to text (POST multipart). Without it the provider has no `transcribe`. */
+  transcribePath?: string;
 }
 
 /** Shared by the openai and deepseek providers (same wire format). */
 export class OpenAiCompatibleProvider implements AiProvider {
   readonly name: string;
   readonly supportsImages: boolean;
+  readonly transcribe?: (bytes: Uint8Array, mime: string, filename: string) => Promise<string>;
 
   constructor(private readonly c: OpenAiCompatibleConfig) {
     this.name = c.name;
     this.supportsImages = c.supportsImages;
+    if (c.transcribePath) this.transcribe = (bytes, mime, filename) => this.speechToText(c.transcribePath!, bytes, mime, filename);
+  }
+
+  private async speechToText(path: string, bytes: Uint8Array, mime: string, filename: string): Promise<string> {
+    const form = new FormData();
+    form.append("model", this.c.transcribeModel ?? "gpt-4o-transcribe");
+    form.append("file", new Blob([bytes as BlobPart], { type: mime }), filename);
+    const data = (await postForm(this.c.fetch ?? fetch, `${this.c.baseUrl ?? this.c.defaultBaseUrl}${path}`, { authorization: `Bearer ${this.c.apiKey}` }, form, 60_000)) as { text?: unknown };
+    return typeof data.text === "string" ? data.text : "";
   }
 
   async complete(req: CompleteRequest): Promise<string> {

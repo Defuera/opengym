@@ -227,6 +227,20 @@ Chat: when the thread has `placeId` and the place exists, the coach input of `ch
 
 Seed (once, by the operator, idempotent): `internal.jobs.places:seed {}`. It makes the place "Gym" with the text of the active context item(s) whose topic is "equipment" and sets those items inactive (so the equipment is not sent twice), logs a `placeChanges` row with source `seed`, makes the place "Home" with an empty text, and gives every live session with no place a place: activity "Gym" (an old flavour name counts as Gym) to Gym, "Home" or a name that starts with the word home to Home, other sessions stay as they are; sessions marked as deleted are not touched. At most 2000 sessions per run; `remaining` in the result tells if another run is needed. Returns `{ gymCreated, homeCreated, equipmentMoved, sessionsGym, sessionsHome, remaining }`. A second run changes nothing.
 
+## Voice message in the chat (Convex backend)
+
+The user records speech; the server turns it into text; the message is then a normal text message and the coach answers as usual. All changes are additive; old app builds are not affected.
+
+| Item | Contract |
+|---|---|
+| Upload | The existing flow: `commands/files:generateUploadUrl`, then `commands/files:register`. A file with mime `audio/*` (or an m4a, mp3, wav, aac, ogg, opus name) gets kind `"audio"`. The app records AAC in `.m4a` (`audio/mp4`), max 180 s. |
+| mutation `commands/messages:sendVoice` | `{ token, threadId, messageId (1..100), fileId }` returns the messageId. Idempotent by messageId (a second call changes nothing). Rejects an unknown thread, an unknown file, a file that is not kind `audio`, and a file over 10 MB, with a `ConvexError`. Inserts a user message `{ text: "", fileIds: [fileId], voice: "pending" }`, sets the thread to `thinking` with `pending + 1`, and schedules `jobs/voice:transcribe`. A resend of the messageId through `messages:send` never starts a coach run for a voice message that is not `done`. |
+| action `jobs/voice:transcribe` (internal) | Reads the blob and calls the provider's `transcribe`. Success with a non-empty text: stores the trimmed text (max 8000 characters, like a typed message) and `voice: "done"`, then schedules the same work as `messages:send` (`jobs/chat:reply`, and `jobs/places:learn` in a place thread). The unnamed thread gets its code title from the transcript. The `pending` count is not raised again. An empty transcript, a provider error, a provider without `transcribe`, or a missing blob: `voice: "failed"`, `pending - 1`, status `idle` (`thinking` while other replies run), no coach reply. A run for a message that is no longer `pending` does nothing, so the reply is scheduled once. The log holds only a short reduced text (`HTTP 401`, `timed out`), never a provider message. |
+| mutation `commands/messages:retryVoice` | `{ token, messageId }` returns `true` and does for a message with `voice: "failed"`: sets `voice: "pending"`, thread `thinking` with `pending + 1`, schedules the transcription again. Returns `false` for any other message or an unknown id. |
+| `messages.voice` | Optional `"pending" \| "done" \| "failed"`. `queries/messages:list` returns it when set. Absent on a typed message and on an assistant message. |
+| Coach input | `jobs/chat:input` returns nothing for a message that is `pending` or `failed`. A voice message without a transcript is left out of the history of other replies and of the thread summary. A file of kind `audio` is never a coach file: not as text, not as an image, not in `sources`. Only the transcript (the message text) reaches the model. |
+| Provider | Optional `transcribe(bytes, mime, filename): Promise<string>`. OpenAI: `POST {base}/v1/audio/transcriptions`, multipart form with `model` and `file`, answer `{ text }`, timeout 60 s. The model is the env `OPENAI_TRANSCRIBE_MODEL`, default `gpt-4o-transcribe`. Anthropic and DeepSeek have none. The mock returns a fixed text (a file named `silence...` gives an empty one). |
+
 ## Coach model (Convex backend)
 
 The owner picks the coach model in the app's Settings. The choice lives in one

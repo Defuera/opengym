@@ -14,7 +14,9 @@ const ValueKey<String> _send = ValueKey<String>('composer-send');
 
 UploadItem _photo() => UploadItem(path: 'p.png', name: 'p.png', bytes: tinyPng);
 
-bool _sendOn(WidgetTester t) => t.widget<GestureDetector>(find.byKey(_send)).onTap != null;
+/// Send is on only when it shows; with an empty field the mic takes its place.
+bool _sendOn(WidgetTester t) =>
+    find.byKey(_send).evaluate().isNotEmpty && t.widget<GestureDetector>(find.byKey(_send)).onTap != null;
 
 EditableText _field(WidgetTester t) => t.widget<EditableText>(find.byType(EditableText));
 

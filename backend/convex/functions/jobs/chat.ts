@@ -54,7 +54,9 @@ export const input = internalQuery({
     const titleJob = thread.titleSource === "auto" && userMessages.length === 1 && userMessages[0]!.messageId === messageId ? { currentTitle: thread.title } : null;
 
     const files = [];
-    for (const id of trigger.fileIds) {
+    // The files of this message and of the earlier user messages still in the history (newest 6), so a photo stays visible in later turns.
+    const threadFileIds = [...new Set(recent.filter((m) => m.role === "user").flatMap((m) => m.fileIds ?? []).concat(trigger.fileIds))].slice(-6);
+    for (const id of threadFileIds) {
       const f = await fileByFileId(ctx, id);
       if (f) files.push({ fileId: f.fileId, storageId: f.storageId, name: f.name, mime: f.mime, size: f.size, kind: f.kind, createdAt: f.createdAt });
     }

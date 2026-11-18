@@ -42,7 +42,7 @@ Each part has its own dependencies. There is no root `package.json`.
 - The AI never writes facts. Sessions and sets are written only by the app or by an import the user starts. AI output is a proposal tagged `source: "ai"` or `"rules"` (ADR-002).
 - The AI is never in the tap path. Logging is local and offline-first (ADR-003).
 - Every AI job follows this pipeline: prompt, provider, JSON, zod validation, one retry, plain code fallback. Keep the plan safety limits (ADR-004).
-- No medical wording in anything the app or the AI writes: UI copy, docs, code, AI prompts (ADR-010). The user may store his own records word for word; a record never goes to an AI provider (ADR-015).
+- AI prompts carry no wording safeguards while the owner is the only user (ADR-022, which supersedes ADR-010 for AI output for now). Do not add such rules back without the owner. The user may store his own records word for word; a record never goes to an AI provider (ADR-015).
 - Keep files small and modular. Keep Flutter widgets standalone: `lib/widgets` imports only Flutter, `theme.dart` and other widgets.
 - Access data only through repositories. They are interfaces, so the store can change later.
 - `docs/api-contract.md` is the contract between backend and app. Change it only together with both sides.

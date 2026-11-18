@@ -36,3 +36,4 @@ This directory holds the Architecture Decision Records (ADRs) for Gym Days (Open
 | [019](019-trackers-through-the-phone-health-store.md) | Trackers Through the Phone's Health Store | Proposed |
 | [020](020-delete-marks-then-purges.md) | Delete Marks the Row, a Cron Erases It After 72 Hours | Accepted |
 | [021](021-places-the-coach-learns.md) | Places and Their Equipment Are Learned by the Coach | Accepted |
+| [022](022-no-wording-safeguards-while-one-owner-tests.md) | No Wording Safeguards on the Coach While One Owner Tests | Accepted |

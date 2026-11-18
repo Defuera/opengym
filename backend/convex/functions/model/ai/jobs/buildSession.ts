@@ -35,7 +35,7 @@ When previousPlan and feedbackFromThePerson are present, the person saw that pla
 
 placesTheCoachKnows says where the person trains and what is there; choose today's place (the note may say it, otherwise the one last used for this activity) and use only equipment that place has. A place with an empty equipment text is unknown: prefer bodyweight and what the person's log shows there.
 
-Three things are fixed. Never use an exercise or a movement that a limit marks avoid. Use training words only: no diagnosis and no medical language. The name of the activity is not yours to change; when activity is null, name it from the request (one to three words), and reuse a name from the person's log when the request means the same activity.`;
+Two things are fixed. Never use an exercise or a movement that a limit marks avoid. The name of the activity is not yours to change; when activity is null, name it from the request (one to three words), and reuse a name from the person's log when the request means the same activity.`;
 
 /** One prompt for "build today's session": the picture of the user, a short role, the hard constraints. */
 export const buildSessionJob: JobDef<BuildSessionInput, StartProposal> = {

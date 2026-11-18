@@ -365,6 +365,8 @@ void main() {
 
     testWidgets('editing a session keeps its place', (WidgetTester t) async {
       final (_, AppDeps d) = await _openRecap(t, placeId: 'home');
+      await t.tap(find.byKey(const ValueKey<String>('recap-menu')));
+      await t.pumpAndSettle();
       await t.tap(find.byKey(const ValueKey<String>('recap-edit')));
       await t.pumpAndSettle();
       await t.tap(find.byIcon(Icons.add).first); // one more rep: a real change

@@ -9,7 +9,11 @@ class SheetChoice {
     required this.value,
     required this.label,
     this.variant = OgVariant.plain,
+    this.key,
   });
+
+  /// Key of the button of this choice.
+  final Key? key;
 
   final String value;
   final String label;
@@ -33,6 +37,7 @@ Future<String?> showChoiceSheet(
       }
       for (final SheetChoice c in choices) {
         items.add(OgButton(
+          key: c.key,
           variant: c.variant,
           onPressed: () => Navigator.of(ctx).pop(c.value),
           child: Text(c.label),

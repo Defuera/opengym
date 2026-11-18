@@ -69,6 +69,26 @@ class _SessionRecapScreenState extends State<SessionRecapScreen> {
     }
   }
 
+  /// Edit and Delete live behind the menu button at the top right.
+  Future<void> _menu(Session s) async {
+    final String? c = await showChoiceSheet(
+      context,
+      title: 'Session',
+      choices: const <SheetChoice>[
+        SheetChoice(value: 'edit', label: 'Edit', key: ValueKey<String>('recap-edit')),
+        SheetChoice(value: 'delete', label: 'Delete', variant: OgVariant.dashed, key: ValueKey<String>('recap-delete')),
+      ],
+    );
+    if (!mounted) {
+      return;
+    }
+    if (c == 'edit') {
+      _edit(s);
+    } else if (c == 'delete') {
+      await _delete();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
@@ -88,6 +108,12 @@ class _SessionRecapScreenState extends State<SessionRecapScreen> {
                     ),
                     const SizedBox(width: 12),
                     Expanded(child: Text('Session', style: OG.display(32))),
+                    if (s != null)
+                      OgIconButton(
+                        key: const ValueKey<String>('recap-menu'),
+                        icon: Icons.more_horiz,
+                        onPressed: () => _menu(s),
+                      ),
                   ],
                 ),
                 const SizedBox(height: 18),
@@ -169,19 +195,6 @@ class _SessionRecapScreenState extends State<SessionRecapScreen> {
         BodyFigure(key: const ValueKey<String>('recap-figure'), load: load, loadOnly: true, onTap: (String _) {}),
         const SizedBox(height: 16),
       ],
-      const SizedBox(height: 8),
-      OgButton(
-        key: const ValueKey<String>('recap-edit'),
-        onPressed: () => _edit(s),
-        child: const Text('Edit'),
-      ),
-      const SizedBox(height: 10),
-      OgButton(
-        key: const ValueKey<String>('recap-delete'),
-        variant: OgVariant.dashed,
-        onPressed: _delete,
-        child: const Text('Delete'),
-      ),
     ];
   }
 }

@@ -80,6 +80,8 @@ Future<(FakeConvexClient, AppDeps)> _open(
   await t.pumpWidget(MaterialApp(home: SessionRecapScreen(deps: d, sessionId: s.id)));
   await t.pump();
   if (openEdit) {
+    await t.tap(find.byKey(const ValueKey<String>('recap-menu')));
+    await t.pumpAndSettle();
     await t.tap(find.byKey(const ValueKey<String>('recap-edit')));
     await t.pumpAndSettle();
   }
@@ -119,7 +121,7 @@ void main() {
       expect(t.widget<Text>(_key('recap-activity')).data, '30 min, 5.2 km');
       expect(find.text('Cold morning'), findsOneWidget);
       expect(find.text('Easy'), findsOneWidget);
-      expect(find.text('Edit'), findsOneWidget);
+      expect(find.byKey(const ValueKey<String>('recap-menu')), findsOneWidget);
     });
 
     testWidgets('shows the coach review and the body figure when they exist', (WidgetTester t) async {
@@ -152,6 +154,8 @@ void main() {
 
     testWidgets('Delete asks first, then removes the session', (WidgetTester t) async {
       final (FakeConvexClient _, AppDeps d) = await _open(t, _run);
+      await t.tap(find.byKey(const ValueKey<String>('recap-menu')));
+      await t.pumpAndSettle();
       await t.tap(_key('recap-delete'));
       await t.pumpAndSettle();
       expect(find.text('Delete this session?'), findsOneWidget);
@@ -159,6 +163,8 @@ void main() {
       await t.tap(find.text('Keep it'));
       await t.pumpAndSettle();
       expect(d.store.sessionById('a1'), isNotNull);
+      await t.tap(find.byKey(const ValueKey<String>('recap-menu')));
+      await t.pumpAndSettle();
       await t.tap(_key('recap-delete'));
       await t.pumpAndSettle();
       await t.tap(find.text('Delete session'));
@@ -180,6 +186,8 @@ void main() {
       await t.pump();
       await t.tap(find.text('Run'));
       await t.pumpAndSettle();
+      await t.tap(find.byKey(const ValueKey<String>('recap-menu')));
+      await t.pumpAndSettle();
       await t.tap(_key('recap-delete'));
       await t.pumpAndSettle();
       await t.tap(find.text('Delete session'));
@@ -195,6 +203,8 @@ void main() {
 
     testWidgets('closing the sheet without a choice keeps the session', (WidgetTester t) async {
       final (FakeConvexClient fake, AppDeps d) = await _open(t, _run);
+      await t.tap(find.byKey(const ValueKey<String>('recap-menu')));
+      await t.pumpAndSettle();
       await t.tap(_key('recap-delete'));
       await t.pumpAndSettle();
       await t.tap(find.byKey(const ValueKey<String>('og-sheet-close')));
@@ -327,7 +337,9 @@ void main() {
       final (FakeConvexClient _, AppDeps d) = await _open(t, _gym(), openEdit: true);
       await t.tap(find.byIcon(Icons.chevron_left)); // nothing changed: leaves at once
       await t.pumpAndSettle();
-      expect(_key('recap-edit'), findsOneWidget);
+      expect(_key('recap-menu'), findsOneWidget);
+      await t.tap(find.byKey(const ValueKey<String>('recap-menu')));
+      await t.pumpAndSettle();
       await t.tap(_key('recap-edit'));
       await t.pumpAndSettle();
       await t.tap(find.byIcon(Icons.add).first);
@@ -342,7 +354,7 @@ void main() {
       await t.pumpAndSettle();
       await t.tap(find.text('Leave without saving'));
       await t.pumpAndSettle();
-      expect(_key('recap-edit'), findsOneWidget);
+      expect(_key('recap-menu'), findsOneWidget);
       expect(d.store.sessionById('s1')!.exercises.first.sets.first.reps, 8);
       expect(d.outbox.ops, isEmpty);
     });
@@ -372,7 +384,7 @@ void main() {
     await t.tap(find.text('Finish session'));
     await t.pumpAndSettle();
     expect(find.text('8 × 60 kg'), findsOneWidget);
-    expect(find.byKey(const ValueKey<String>('recap-edit')), findsOneWidget);
+    expect(find.byKey(const ValueKey<String>('recap-menu')), findsOneWidget);
     expect(d.store.active, isNull);
   });
 

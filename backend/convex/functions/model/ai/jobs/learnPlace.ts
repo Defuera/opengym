@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { ImageInput } from "../provider";
 import type { JobDef } from "../runJob";
 import { dataPrompt, systemPrompt } from "../promptRules";
 
@@ -14,12 +15,14 @@ export interface LearnPlaceInput {
   otherPlaces: string[];
   /** The user's own sentence (feedback on a plan, the note for today, or a chat message). */
   sentence: string;
+  /** Photos that came with the sentence: the person may show the equipment. */
+  images?: ImageInput[];
 }
 
 export const LearnPlaceSchema = z.object({ changed: z.boolean(), equipment: z.string().max(1500) });
 export type LearnPlaceOutput = z.infer<typeof LearnPlaceSchema>;
 
-const ROLE = `You keep a short note about one place where a person trains. The note is a plain list of what is and what is not at this place. Change it only when the sentence says something about the equipment or the room of THIS place (not of another place in otherPlaces); never invent anything; otherwise set changed to false and return the note as it is.`;
+const ROLE = `You keep a short note about one place where a person trains. The note is a plain list of what is and what is not at this place. Change it only when the sentence, or a photo that came with it, says or shows something about the equipment or the room of THIS place (not of another place in otherPlaces); never invent anything; otherwise set changed to false and return the note as it is.`;
 
 export const learnPlaceJob: JobDef<LearnPlaceInput, LearnPlaceOutput> = {
   name: "learn_place",
@@ -31,6 +34,7 @@ export const learnPlaceJob: JobDef<LearnPlaceInput, LearnPlaceOutput> = {
   build: (i) => ({
     system: systemPrompt("learn_place", ROLE, `{"changed": boolean, "equipment": string (the whole note after the change; max 1500 chars)}`),
     messages: [{ role: "user", content: dataPrompt("Update the note of this place if the sentence calls for it.", { place: i.place, otherPlaces: i.otherPlaces, sentence: i.sentence }) }],
+    ...(i.images?.length ? { images: i.images } : {}),
   }),
   fallback: (i) => ({ changed: false, equipment: i.place.equipment.slice(0, 1500) }),
 };

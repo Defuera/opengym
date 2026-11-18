@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../theme.dart';
+import 'set_check.dart';
 import 'set_editor_card.dart';
 import 'set_row.dart';
 
@@ -41,6 +42,8 @@ class TimeList extends StatelessWidget {
     required this.onRemove,
     required this.onMinutesChanged,
     required this.onDistanceChanged,
+    this.onToggle,
+    this.checkPrefix = 'set-check',
   });
 
   final List<TimeRowData> entries;
@@ -50,6 +53,12 @@ class TimeList extends StatelessWidget {
   final ValueChanged<int> onRemove;
   final ValueChanged<double> onMinutesChanged;
   final ValueChanged<double?> onDistanceChanged;
+
+  /// Tap on an entry's check control (complete or undo). Null: no check controls.
+  final ValueChanged<int>? onToggle;
+
+  /// Check keys are `'<checkPrefix>-<index>'`.
+  final String checkPrefix;
 
   @override
   Widget build(BuildContext context) {
@@ -65,6 +74,9 @@ class TimeList extends StatelessWidget {
             title: entries.length > 1 ? 'Round ${i + 1}' : 'Time',
             minutes: _min(x.minutes),
             distance: x.distanceKm,
+            done: x.done,
+            onCheck: onToggle == null ? null : () => onToggle!(i),
+            checkKey: ValueKey<String>('$checkPrefix-$i'),
             onMinutesChanged: onMinutesChanged,
             onDistanceChanged: onDistanceChanged,
           ),
@@ -82,7 +94,13 @@ class TimeList extends StatelessWidget {
           padding: const EdgeInsets.only(right: 16),
           child: Text('Remove', style: OG.body(size: 14, weight: FontWeight.w700, color: OG.mute)),
         ),
-        child: _TimeRow(number: i + 1, data: x, onTap: () => onSelect(i)),
+        child: _TimeRow(
+          number: i + 1,
+          data: x,
+          onTap: () => onSelect(i),
+          onCheck: onToggle == null ? null : () => onToggle!(i),
+          checkKey: ValueKey<String>('$checkPrefix-$i'),
+        ),
       ));
     }
     items.add(_AddRow(onTap: onAdd));
@@ -91,11 +109,19 @@ class TimeList extends StatelessWidget {
 }
 
 class _TimeRow extends StatelessWidget {
-  const _TimeRow({required this.number, required this.data, required this.onTap});
+  const _TimeRow({
+    required this.number,
+    required this.data,
+    required this.onTap,
+    this.onCheck,
+    this.checkKey,
+  });
 
   final int number;
   final TimeRowData data;
   final VoidCallback onTap;
+  final VoidCallback? onCheck;
+  final Key? checkKey;
 
   @override
   Widget build(BuildContext context) {
@@ -116,6 +142,8 @@ class _TimeRow extends StatelessWidget {
               timeLabel(data.minutes, data.distanceKm),
               style: OG.display(20, color: data.done ? OG.mute : OG.ink),
             ),
+            const Spacer(),
+            if (onCheck != null) SetCheck(key: checkKey, done: data.done, onTap: onCheck!),
           ],
         ),
       ),
@@ -159,6 +187,9 @@ class TimeEditorCard extends StatefulWidget {
     required this.onMinutesChanged,
     required this.onDistanceChanged,
     this.distance,
+    this.done = false,
+    this.onCheck,
+    this.checkKey,
   });
 
   final int number;
@@ -167,6 +198,11 @@ class TimeEditorCard extends StatefulWidget {
   final String? distance;
   final ValueChanged<double> onMinutesChanged;
   final ValueChanged<double?> onDistanceChanged;
+  final bool done;
+
+  /// Tap on the check control; null hides the control.
+  final VoidCallback? onCheck;
+  final Key? checkKey;
 
   @override
   State<TimeEditorCard> createState() => _TimeEditorCardState();
@@ -191,7 +227,7 @@ class _TimeEditorCardState extends State<TimeEditorCard> {
       borderSide: const BorderSide(color: OG.ink, width: 2),
     );
     return Container(
-      padding: const EdgeInsets.fromLTRB(12, 12, 12, 14),
+      padding: const EdgeInsets.fromLTRB(12, 6, 12, 14),
       decoration: BoxDecoration(
         color: OG.ground,
         borderRadius: BorderRadius.circular(16),
@@ -216,9 +252,14 @@ class _TimeEditorCardState extends State<TimeEditorCard> {
                   style: OG.body(size: 15, weight: FontWeight.w800),
                 ),
               ),
+              if (widget.onCheck != null)
+                Transform.translate(
+                  offset: const Offset(6, 0),
+                  child: SetCheck(key: widget.checkKey, done: widget.done, onTap: widget.onCheck!),
+                ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 6),
           NumberStepper(
             value: widget.minutes,
             unit: 'min',

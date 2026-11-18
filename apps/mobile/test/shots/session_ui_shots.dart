@@ -1,8 +1,10 @@
 // Visual proof of the session screen. Not part of the normal suite (the file
 // name has no _test suffix). Run by path:
 //   flutter test test/shots/session_ui_shots.dart
-// It writes a.png (main), b.png ("Change plan" sheet) and c.png ("Why this
-// session" sheet) at 390x844 logical px, pixel ratio 3.
+// It writes a.png (main), b.png ("Change plan" sheet), c.png ("Why this
+// session" sheet with the figure), d.png (rep/kg exercise, set 1 done), e.png
+// (time exercise), f.png (all sets done) and g.png (leave sheet) at 390x844
+// logical px, pixel ratio 3.
 import 'dart:io';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
@@ -38,11 +40,11 @@ Future<void> _save(WidgetTester t, GlobalKey key, String name) async {
   });
 }
 
-Future<(AppDeps, GlobalKey)> _open(WidgetTester t) async {
+Future<(AppDeps, GlobalKey)> _open(WidgetTester t, {int sets = 1, FakeConvexClient? client}) async {
   t.view.physicalSize = const Size(390 * 3, 844 * 3);
   t.view.devicePixelRatio = 3;
   addTearDown(t.view.reset);
-  final AppDeps d = await testDeps(FakeConvexClient());
+  final AppDeps d = await testDeps(client ?? FakeConvexClient());
   d.store.begin(
     activity: 'Home Accessories',
     focus: 'Side delts, shoulder control, shins',
@@ -63,7 +65,7 @@ Future<(AppDeps, GlobalKey)> _open(WidgetTester t) async {
           id: 'l',
           name: 'Lateral Raise',
           fresh: false,
-          sets: <SetEntry>[SetEntry(reps: 12, kg: 5)]),
+          sets: <SetEntry>[for (int i = 0; i < sets; i++) SetEntry(reps: 12, kg: 6)]),
     ],
   );
   final GlobalKey key = GlobalKey();
@@ -101,10 +103,47 @@ void main() {
   });
 
   testWidgets('c: Why this session sheet', (WidgetTester t) async {
-    final (AppDeps _, GlobalKey key) = await _open(t);
-    await t.tap(find.text('Why this?'));
+    final FakeConvexClient fake = FakeConvexClient()
+      ..planLoadAnswer = <String, int>{'shoulders': 3, 'forearms': 1, 'calves': 2, 'chest': 0};
+    final (AppDeps _, GlobalKey key) = await _open(t, client: fake);
+    await t.tap(find.byKey(const ValueKey<String>('why-icon')));
     await t.pumpAndSettle();
     expect(find.text(_why.split(' · ').last), findsOneWidget);
+    expect(find.byKey(const ValueKey<String>('why-figure')), findsOneWidget);
     await _save(t, key, 'c');
+  });
+
+  testWidgets('d: rep/kg exercise, set 1 done', (WidgetTester t) async {
+    final (AppDeps d, GlobalKey key) = await _open(t, sets: 3);
+    d.store.pickExercise(1);
+    await t.pumpAndSettle();
+    await t.tap(find.byKey(const ValueKey<String>('set-check-1-0')));
+    await t.pumpAndSettle();
+    await _save(t, key, 'd');
+  });
+
+  testWidgets('e: time exercise entry open', (WidgetTester t) async {
+    final (AppDeps _, GlobalKey key) = await _open(t, sets: 3);
+    await _save(t, key, 'e');
+  });
+
+  testWidgets('f: all sets done shows the bottom button', (WidgetTester t) async {
+    final (AppDeps d, GlobalKey key) = await _open(t, sets: 3);
+    d.store.pickExercise(1);
+    await t.pumpAndSettle();
+    for (int i = 0; i < 3; i++) {
+      await t.tap(find.byKey(ValueKey<String>('set-check-1-$i')));
+      await t.pumpAndSettle();
+    }
+    await _save(t, key, 'f');
+  });
+
+  testWidgets('g: leave sheet', (WidgetTester t) async {
+    final (AppDeps d, GlobalKey key) = await _open(t, sets: 3);
+    d.store.completeSet();
+    await t.pumpAndSettle();
+    await t.tap(find.byIcon(Icons.arrow_back));
+    await t.pumpAndSettle();
+    await _save(t, key, 'g');
   });
 }

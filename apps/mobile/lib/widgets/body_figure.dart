@@ -22,7 +22,11 @@ class BodyFigure extends StatelessWidget {
     this.limits = const <String, LimitMark>{},
     this.focus = const <String>{},
     this.selected,
+    this.loadOnly = false,
   });
+
+  /// The legend shows only the load colours.
+  final bool loadOnly;
 
   /// Muscle key -> level 0..3. A missing key means 0.
   final Map<String, int> load;
@@ -55,7 +59,7 @@ class BodyFigure extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 12),
-        const BodyLegend(),
+        BodyLegend(loadOnly: loadOnly),
       ],
     );
   }

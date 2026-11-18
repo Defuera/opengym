@@ -61,15 +61,15 @@ void main() {
   });
 
   testWidgets(
-      'Why this session shows only with a rationale and opens the full text in a sheet',
+      'Why this session icon opens the full text in a sheet',
       (WidgetTester t) async {
     await _open(t);
-    expect(find.text('Why this?'), findsNothing);
+    expect(find.byKey(const ValueKey<String>('why-icon')), findsOneWidget); // a session with an exercise
     final String long =
         ('Side delts and shins have had little direct work. ' * 6).trim();
     await _open(t, focus: 'Side delts, shins', note: long);
     expect(find.text(long), findsNothing);
-    await t.tap(find.text('Why this?'));
+    await t.tap(find.byKey(const ValueKey<String>('why-icon')));
     await t.pumpAndSettle();
     expect(find.text(long), findsOneWidget);
     expect(find.text('Side delts, shins'), findsOneWidget);
@@ -85,7 +85,7 @@ void main() {
     expect(find.byType(TextField), findsNothing);
     expect(find.text('Rebuild'), findsNothing);
     expect(find.text('Change plan'), findsNothing);
-    expect(find.text('End session'), findsOneWidget);
+    expect(find.text('End session'), findsNothing);
   });
 
   testWidgets('distance shows only when planned or after Add distance',
@@ -117,7 +117,7 @@ void main() {
     expect(find.text('Add distance'), findsNothing);
   });
 
-  testWidgets('the whole card scrolls together and Complete stays pinned',
+  testWidgets('the whole card scrolls together and the next button stays pinned',
       (WidgetTester t) async {
     t.view.physicalSize = const Size(390 * 2, 420 * 2);
     t.view.devicePixelRatio = 2;
@@ -131,7 +131,7 @@ void main() {
           fresh: false,
           note: 'n ' * 80,
           sets: <SetEntry>[
-            for (int i = 0; i < 6; i++) SetEntry(reps: 8, kg: 10),
+            for (int i = 0; i < 6; i++) SetEntry(reps: 8, kg: 10, done: true),
           ]),
     ]);
     await t.pumpWidget(MaterialApp(
@@ -140,13 +140,12 @@ void main() {
         home: SessionScreen(store: store)));
     await t.pump();
     final double before = t.getTopLeft(find.text('Curl').last).dy;
-    expect(t.getRect(find.text('Complete set')).bottom, lessThanOrEqualTo(420));
+    expect(t.getRect(find.text('Finish session')).bottom, lessThanOrEqualTo(420));
     await t.drag(
         find.byType(SingleChildScrollView).last, const Offset(0, -150));
     await t.pump();
     expect(t.getTopLeft(find.text('Curl').last).dy,
         lessThan(before)); // the title moved with the card
-    expect(t.getRect(find.text('Complete set')).bottom, lessThanOrEqualTo(420));
-    expect(find.text('Complete set'), findsOneWidget);
+    expect(t.getRect(find.text('Finish session')).bottom, lessThanOrEqualTo(420));
   });
 }

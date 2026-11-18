@@ -12,6 +12,7 @@ import 'package:opengym/theme.dart';
 import 'package:opengym/widgets/exercise_picker.dart';
 import 'package:opengym/widgets/set_editor_card.dart';
 
+import 'support/set_taps.dart';
 import 'support/fake_convex_client.dart';
 
 Map<String, dynamic> _trip(Map<String, dynamic> m) => jsonDecode(jsonEncode(m)) as Map<String, dynamic>;
@@ -265,7 +266,7 @@ void main() {
       await t.tap(find.byKey(const ValueKey<String>('time-add-distance')));
       await t.pump();
       expect(find.byKey(const ValueKey<String>('time-distance')), findsOneWidget);
-      expect(find.text('Complete'), findsOneWidget);
+      expect(setCheck(0, 0), findsOneWidget);
       expect(find.text('REPS'), findsNothing);
       expect(find.text('KG'), findsNothing);
       expect(find.text('Last rep failed'), findsNothing);
@@ -286,7 +287,7 @@ void main() {
       await t.pump();
       expect(store.currentSet!.distanceKm, 10.9);
 
-      await t.tap(find.text('Complete'));
+      await tapCurrentCheck(t, store);
       await t.pump();
       expect(find.text('1 / 1'), findsOneWidget);
       expect(find.text('Finish session'), findsOneWidget);
@@ -305,7 +306,7 @@ void main() {
         Exercise(id: 'c', name: 'Biceps Curl', sets: <SetEntry>[SetEntry(reps: 8, kg: 10)]),
       ]);
       expect(find.text('REPS'), findsOneWidget);
-      expect(find.text('Complete set'), findsOneWidget);
+      expect(setCheck(0, 0), findsOneWidget);
     });
 
     testWidgets('Add exercise lists the log, filters, and adds a new time exercise', (WidgetTester t) async {
@@ -330,7 +331,7 @@ void main() {
       await t.pumpAndSettle();
       expect(store.currentExercise!.name, 'Treadmill');
       expect(store.currentExercise!.isTime, isTrue);
-      expect(find.text('Complete'), findsOneWidget);
+      expect(setCheck(0, 0), findsOneWidget);
     });
   });
 

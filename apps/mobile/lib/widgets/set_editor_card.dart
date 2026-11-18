@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../theme.dart';
+import 'set_check.dart';
 import 'set_row.dart';
 
 /// The current set, expanded: badge and title, "Last rep failed" pill, then
@@ -17,6 +18,9 @@ class SetEditorCard extends StatelessWidget {
     required this.onRepsChanged,
     required this.onKgChanged,
     required this.onFailedChanged,
+    this.done = false,
+    this.onCheck,
+    this.checkKey,
   });
 
   final int number;
@@ -27,11 +31,16 @@ class SetEditorCard extends StatelessWidget {
   final ValueChanged<int> onRepsChanged;
   final ValueChanged<double> onKgChanged;
   final ValueChanged<bool> onFailedChanged;
+  final bool done;
+
+  /// Tap on the check control; null hides the control.
+  final VoidCallback? onCheck;
+  final Key? checkKey;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(12, 12, 12, 14),
+      padding: const EdgeInsets.fromLTRB(12, 6, 6, 14),
       decoration: BoxDecoration(
         color: OG.ground,
         borderRadius: BorderRadius.circular(16),
@@ -48,7 +57,8 @@ class SetEditorCard extends StatelessWidget {
             children: <Widget>[
               SetBadge(number: number, accent: true),
               const SizedBox(width: 10),
-              Expanded(
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 110),
                 child: Text(
                   title,
                   maxLines: 1,
@@ -56,11 +66,26 @@ class SetEditorCard extends StatelessWidget {
                   style: OG.body(size: 15, weight: FontWeight.w800),
                 ),
               ),
-              _FailedPill(value: failed, onChanged: onFailedChanged),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: _FailedPill(value: failed, onChanged: onFailedChanged),
+                  ),
+                ),
+              ),
+              if (onCheck != null) ...<Widget>[
+                const SizedBox(width: 4),
+                SetCheck(key: checkKey, done: done, onTap: onCheck!),
+              ],
             ],
           ),
-          const SizedBox(height: 12),
-          Row(
+          const SizedBox(height: 6),
+          Padding(
+            padding: const EdgeInsets.only(right: 6),
+            child: Row(
             children: <Widget>[
               Expanded(
                 child: NumberStepper(
@@ -80,6 +105,7 @@ class SetEditorCard extends StatelessWidget {
                 ),
               ),
             ],
+          ),
           ),
         ],
       ),

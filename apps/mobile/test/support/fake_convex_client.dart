@@ -86,6 +86,10 @@ class FakeConvexClient implements ConvexClient {
   final Map<String, Live<Stored<Plan>>> plans = <String, Live<Stored<Plan>>>{};
   final Map<int, Live<Stored<Dashboard>>> dashboards = <int, Live<Stored<Dashboard>>>{};
   final Map<String, Live<Map<String, int>?>> loads = <String, Live<Map<String, int>?>>{};
+  /// What [planLoad] answers (null: nothing known). With [planLoadFails] it throws.
+  Map<String, int>? planLoadAnswer;
+  bool planLoadFails = false;
+  final List<List<PlanLoadItem>> planLoadRequests = <List<PlanLoadItem>>[];
   final Map<String, Live<Stored<Review?>>> reviews = <String, Live<Stored<Review?>>>{};
   final StreamController<ConvexLink> link = StreamController<ConvexLink>.broadcast(sync: true);
   ConvexLink linkNow = ConvexLink.connected;
@@ -316,6 +320,15 @@ class FakeConvexClient implements ConvexClient {
   @override
   Stream<Map<String, int>?> watchSessionLoad(String sessionId) =>
       loads.putIfAbsent(sessionId, () => Live<Map<String, int>?>()).stream();
+
+  @override
+  Future<Map<String, int>?> planLoad(List<PlanLoadItem> exercises) async {
+    planLoadRequests.add(exercises);
+    if (planLoadFails) {
+      throw const ConvexCallException('offline');
+    }
+    return planLoadAnswer;
+  }
 
   @override
   Stream<List<ImportJob>> watchImports() => _imports.stream();

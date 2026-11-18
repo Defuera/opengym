@@ -18,6 +18,19 @@ export 'convex_types.dart';
 /// an error event ([ConvexCallException]) when the server refuses (for
 /// example a wrong token) and keeps running. Commands are idempotent on the
 /// server (client-made ids), so the outbox may send them again.
+/// One exercise of a planned session, for [ConvexClient.planLoad].
+/// [sets] counts rep sets (0 for a time exercise); [minutes] is the planned
+/// total of a time exercise (0 otherwise).
+class PlanLoadItem {
+  const PlanLoadItem({required this.name, required this.sets, required this.minutes});
+
+  final String name;
+  final int sets;
+  final double minutes;
+
+  Map<String, dynamic> toJson() => <String, dynamic>{'name': name, 'sets': sets, 'minutes': minutes};
+}
+
 abstract class ConvexClient {
   /// Link state changes. The first event is the current state.
   Stream<ConvexLink> get connection;
@@ -49,6 +62,10 @@ abstract class ConvexClient {
 
   /// What one session loaded: muscle key -> level 0..3 (`queries/sessions:load`). Null: no such session.
   Stream<Map<String, int>?> watchSessionLoad(String sessionId);
+
+  /// What a planned session would load: muscle key -> level 0..3, every key
+  /// present (`queries/sessions:planLoad`). One call.
+  Future<Map<String, int>?> planLoad(List<PlanLoadItem> exercises);
   Stream<List<ImportJob>> watchImports();
 
   /// Limits (with rules, records, check-ins), body load and focus parts.
@@ -344,6 +361,19 @@ class DartvexConvexClient implements ConvexClient {
   @override
   Stream<Map<String, int>?> watchSessionLoad(String sessionId) =>
       _watch('queries/sessions:load', <String, dynamic>{'sessionId': sessionId}, decodeSessionLoad);
+
+  @override
+  Future<Map<String, int>?> planLoad(List<PlanLoadItem> exercises) async {
+    try {
+      final Object? v = await _caller.query('queries/sessions:planLoad', <String, dynamic>{
+        'token': _token,
+        'exercises': <Map<String, dynamic>>[for (final PlanLoadItem x in exercises) x.toJson()],
+      });
+      return decodeSessionLoad(v);
+    } on cx.ConvexException catch (e) {
+      throw ConvexCallException.fromData(e.data);
+    }
+  }
 
   @override
   Stream<List<ImportJob>> watchImports() =>

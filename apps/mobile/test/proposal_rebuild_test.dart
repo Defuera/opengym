@@ -7,6 +7,7 @@ import 'package:opengym/stores/connection_store.dart';
 import 'package:opengym/widgets/og_button.dart';
 import 'package:opengym/widgets/session_meta_row.dart';
 
+import 'support/set_taps.dart';
 import 'support/fake_convex_client.dart';
 import 'support/sheet_fixtures.dart';
 
@@ -69,7 +70,7 @@ void main() {
     expect(find.byType(SessionScreen), findsOneWidget);
     expect(_field, findsNothing);
     expect(_rebuild, findsNothing);
-    expect(find.text('Complete set'), findsOneWidget); // Start behaviour unchanged
+    expect(setCheck(0, 0), findsOneWidget); // Start behaviour unchanged
     await _openChange(t);
     expect(_field, findsOneWidget);
     expect(t.widget<OgButton>(_rebuild).onPressed, isNull);
@@ -92,7 +93,6 @@ void main() {
     expect(find.text('Rebuilding…'), findsOneWidget);
     expect(find.text('Keep this session'), findsOneWidget);
     expect(_field, findsNothing); // the sheet closed
-    expect(find.text('Complete set'), findsOneWidget);
     fake.answerStart(StartRequest(requestId: fake.lastStartId, status: 'ready', proposal: _proposal('Goblet squat', rationale: 'Dumbbells')));
     await t.pumpAndSettle();
     expect(find.text('Rebuilding…'), findsNothing);
@@ -200,7 +200,9 @@ void main() {
   testWidgets('a session reopened from Home still takes feedback: it goes as the note of a new request',
       (WidgetTester t) async {
     final (FakeConvexClient fake, AppDeps _) = await _openProposal(t);
-    await t.tap(find.byIcon(Icons.keyboard_arrow_down));
+    await t.tap(find.byIcon(Icons.arrow_back));
+    await t.pumpAndSettle();
+    await t.tap(find.text('Pause, come back later'));
     await t.pumpAndSettle();
     expect(find.byType(SessionScreen), findsNothing);
     await t.tap(find.textContaining('Resume'));
@@ -213,26 +215,62 @@ void main() {
     expect(find.text('Goblet squat'), findsWidgets);
   });
 
-  testWidgets('leave goes Home without a question; the session stays; End session opens the old sheet', (WidgetTester t) async {
+  testWidgets('back asks; Pause goes Home with the session unchanged; Resume reopens it', (WidgetTester t) async {
     final (FakeConvexClient _, AppDeps d) = await _openProposal(t);
     d.store.completeSet();
     await t.pump();
     final String id = d.store.active!.id;
-    await t.tap(find.byIcon(Icons.keyboard_arrow_down));
+    await t.tap(find.byIcon(Icons.arrow_back));
+    await t.pumpAndSettle();
+    expect(find.text('Leave this session?'), findsOneWidget);
+    await t.tap(find.text('Pause, come back later'));
     await t.pumpAndSettle();
     expect(find.byType(SessionScreen), findsNothing);
-    expect(find.text('End this session?'), findsNothing);
     expect(d.store.active!.id, id);
     expect(d.store.hasDoneSet, isTrue);
     await t.tap(find.textContaining('Resume'));
     await t.pumpAndSettle();
     expect(find.byType(SessionScreen), findsOneWidget);
     expect(d.store.active!.exercises.single.sets.first.done, isTrue);
-    await t.tap(find.text('End session'));
+    expect(find.text('End session'), findsNothing);
+  });
+
+  testWidgets('Finish is offered only with a done set; Discard removes the session', (WidgetTester t) async {
+    final (FakeConvexClient _, AppDeps d) = await _openProposal(t);
+    await t.tap(find.byIcon(Icons.arrow_back));
     await t.pumpAndSettle();
-    expect(find.text('End this session?'), findsOneWidget);
-    expect(find.text('Finish and save'), findsOneWidget);
-    expect(find.text('Discard without saving'), findsOneWidget);
-    expect(find.text('Keep going'), findsOneWidget);
+    expect(find.text('Finish and save'), findsNothing);
+    expect(find.text('Discard session'), findsOneWidget);
+    await t.tap(find.text('Discard session'));
+    await t.pumpAndSettle();
+    expect(d.store.active, isNull);
+    expect(find.byType(SessionScreen), findsNothing);
+  });
+
+  testWidgets('Finish and save ends the session when a set is done', (WidgetTester t) async {
+    final (FakeConvexClient _, AppDeps d) = await _openProposal(t);
+    d.store.completeSet();
+    await t.pump();
+    await t.tap(find.byIcon(Icons.arrow_back));
+    await t.pumpAndSettle();
+    await t.tap(find.text('Finish and save'));
+    await t.pumpAndSettle();
+    expect(d.store.active, isNull);
+    expect(d.store.sessions, isNotEmpty);
+  });
+
+  testWidgets('closing the sheet stays; system back opens it', (WidgetTester t) async {
+    final (FakeConvexClient _, AppDeps d) = await _openProposal(t);
+    await t.tap(find.byIcon(Icons.arrow_back));
+    await t.pumpAndSettle();
+    await t.tap(find.byKey(const ValueKey<String>('og-sheet-close')));
+    await t.pumpAndSettle();
+    expect(find.text('Leave this session?'), findsNothing);
+    expect(find.byType(SessionScreen), findsOneWidget);
+    await t.binding.handlePopRoute();
+    await t.pumpAndSettle();
+    expect(find.text('Leave this session?'), findsOneWidget);
+    expect(find.byType(SessionScreen), findsOneWidget);
+    expect(d.store.active, isNotNull);
   });
 }

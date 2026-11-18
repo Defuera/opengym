@@ -47,7 +47,7 @@ void main() {
     expect(find.text('REPS'), findsOneWidget);
     expect(find.text('KG'), findsOneWidget);
     expect(find.text('Add set'), findsOneWidget);
-    expect(find.byIcon(Icons.check), findsOneWidget);
+    expect(find.byIcon(Icons.check), findsNothing); // no check controls without onToggle
   });
 
   testWidgets('failed flag shows a half rep', (WidgetTester t) async {

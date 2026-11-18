@@ -81,6 +81,8 @@ class SessionPanel extends StatelessWidget {
             onRemove: store.removeSetAt,
             onMinutesChanged: store.changeMinutes,
             onDistanceChanged: store.setDistance,
+            onToggle: store.toggleSet,
+            checkPrefix: 'set-check-${store.curEx}',
           )
         else
           SetList(
@@ -102,6 +104,8 @@ class SessionPanel extends StatelessWidget {
           onRepsChanged: store.changeReps,
           onKgChanged: store.changeKg,
           onFailedChanged: (bool _) => store.toggleFailed(),
+          onToggle: store.toggleSet,
+          checkPrefix: 'set-check-${store.curEx}',
         ),
       ],
     );

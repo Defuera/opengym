@@ -2,7 +2,7 @@ import { v } from "convex/values";
 import { query } from "../_generated/server";
 import { requireToken } from "../lib/auth";
 import { liveSessionDocs, sessionBySessionId, toSession } from "../lib/db";
-import { loadForSession } from "../model/rules/load";
+import { loadForPlan, loadForSession } from "../model/rules/load";
 import { normalizeSession } from "../model/sessionShape";
 
 /**
@@ -38,5 +38,17 @@ export const load = query({
     requireToken(token);
     const doc = await sessionBySessionId(ctx, sessionId);
     return doc ? loadForSession(toSession(doc)) : null;
+  },
+});
+
+/**
+ * What a planned session will load, for the body figure of an open session: muscle key -> level 0..3, every muscle key present.
+ * Plain code, no stored data: per exercise the name, the number of rep sets and the planned minutes (time exercises). At most 30 exercises.
+ */
+export const planLoad = query({
+  args: { token: v.string(), exercises: v.array(v.object({ name: v.string(), sets: v.number(), minutes: v.number() })) },
+  handler: async (_ctx, { token, exercises }) => {
+    requireToken(token);
+    return loadForPlan(exercises.slice(0, 30).map((e) => ({ name: e.name.slice(0, 80), sets: Math.max(0, Math.min(20, e.sets)), minutes: Math.max(0, Math.min(600, e.minutes)) })));
   },
 });

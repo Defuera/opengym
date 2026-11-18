@@ -166,7 +166,7 @@ class _SessionRecapScreenState extends State<SessionRecapScreen> {
       if (load != null && load.values.any((int v) => v > 0)) ...<Widget>[
         Text('What it worked', style: OG.display(24)),
         const SizedBox(height: 10),
-        BodyFigure(key: const ValueKey<String>('recap-figure'), load: load, onTap: (String _) {}),
+        BodyFigure(key: const ValueKey<String>('recap-figure'), load: load, loadOnly: true, onTap: (String _) {}),
         const SizedBox(height: 16),
       ],
       const SizedBox(height: 8),

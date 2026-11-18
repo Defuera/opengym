@@ -161,6 +161,15 @@ class SwitchableConvexClient implements ConvexClient {
       _proxy((ConvexClient c) => c.watchSessionLoad(sessionId));
 
   @override
+  Future<Map<String, int>?> planLoad(List<PlanLoadItem> exercises) {
+    final ConvexClient? c = _inner;
+    if (c == null) {
+      return Future<Map<String, int>?>.error(const ConvexCallException.notConfigured());
+    }
+    return c.planLoad(exercises);
+  }
+
+  @override
   Stream<List<ImportJob>> watchImports() => _proxy((ConvexClient c) => c.watchImports());
 
   @override

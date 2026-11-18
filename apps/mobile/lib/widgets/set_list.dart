@@ -38,6 +38,8 @@ class SetList extends StatefulWidget {
     required this.onRepsChanged,
     required this.onKgChanged,
     required this.onFailedChanged,
+    this.onToggle,
+    this.checkPrefix = 'set-check',
   });
 
   final List<SetRowData> sets;
@@ -48,6 +50,12 @@ class SetList extends StatefulWidget {
   final ValueChanged<int> onRepsChanged;
   final ValueChanged<double> onKgChanged;
   final ValueChanged<bool> onFailedChanged;
+
+  /// Tap on a set's check control (complete or undo). Null: no check controls.
+  final ValueChanged<int>? onToggle;
+
+  /// Check keys are `'<checkPrefix>-<index>'`.
+  final String checkPrefix;
 
   @override
   State<SetList> createState() => _SetListState();
@@ -89,6 +97,9 @@ class _SetListState extends State<SetList> {
             reps: '${x.reps}',
             kg: x.kg,
             failed: x.failed,
+            done: x.done,
+            onCheck: widget.onToggle == null ? null : () => widget.onToggle!(i),
+            checkKey: ValueKey<String>('${widget.checkPrefix}-$i'),
             onRepsChanged: widget.onRepsChanged,
             onKgChanged: widget.onKgChanged,
             onFailedChanged: widget.onFailedChanged,
@@ -104,6 +115,8 @@ class _SetListState extends State<SetList> {
         failed: x.failed,
         isMax: x.isMax,
         onTap: () => widget.onSelect(i),
+        onCheck: widget.onToggle == null ? null : () => widget.onToggle!(i),
+        checkKey: ValueKey<String>('${widget.checkPrefix}-$i'),
       );
       items.add(Dismissible(
         key: ObjectKey(x.id),

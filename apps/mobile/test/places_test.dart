@@ -9,6 +9,7 @@ import 'package:opengym/screens/session_recap_screen.dart';
 import 'package:opengym/screens/session_screen.dart';
 import 'package:opengym/widgets/place_mark.dart';
 
+import 'support/set_taps.dart';
 import 'support/fake_convex_client.dart';
 import 'support/sheet_fixtures.dart';
 import 'support/test_deps.dart';
@@ -217,7 +218,7 @@ void main() {
         (WidgetTester t) async {
       final (_, AppDeps d) = await _openProposal(
           t, _proposal(place: const PlaceRef(id: 'home', name: 'Home')));
-      await t.tap(find.text('Complete set'));
+      await tapCurrentCheck(t, d.store);
       await t.pumpAndSettle();
       expect(d.store.hasDoneSet, isTrue);
       expect(find.descendant(of: _mark, matching: find.text('Home')),

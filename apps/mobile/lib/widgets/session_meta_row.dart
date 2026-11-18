@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../theme.dart';
+import 'body_figure.dart';
 
 /// One quiet tappable item of the session meta row.
 class MetaItem extends StatelessWidget {
@@ -21,6 +22,38 @@ class MetaItem extends StatelessWidget {
           child: Text(label,
               style:
                   OG.body(size: 14, weight: FontWeight.w500, color: OG.mute)),
+        ),
+      ),
+    );
+  }
+}
+
+/// A quiet icon item of the meta row, with a 44 x 44 tap target.
+class MetaIconItem extends StatelessWidget {
+  const MetaIconItem({super.key, required this.icon, required this.label, required this.onTap});
+
+  final IconData icon;
+
+  /// Semantics label and tooltip.
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: label,
+      excludeSemantics: true,
+      child: Tooltip(
+        message: label,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(22),
+          child: SizedBox(
+            width: 44,
+            height: 44,
+            child: Icon(icon, size: 22, color: OG.mute),
+          ),
         ),
       ),
     );
@@ -60,18 +93,33 @@ class SessionMetaRow extends StatelessWidget {
 
 /// The full focus and rationale text, for the "Why this session" sheet.
 class WhySessionBody extends StatelessWidget {
-  const WhySessionBody({super.key, this.focus, this.rationale});
+  const WhySessionBody({super.key, this.focus, this.rationale, this.load});
 
   final String? focus;
   final String? rationale;
+
+  /// Muscle key -> level 0..3 of the planned session. Null or all zero: no figure.
+  final Map<String, int>? load;
 
   @override
   Widget build(BuildContext context) {
     final String? f = focus;
     final String? r = rationale;
+    final Map<String, int>? l = load;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
+        if (l != null && l.values.any((int v) => v > 0)) ...<Widget>[
+          Text('What it works', style: OG.muted(size: 14, weight: FontWeight.w700)),
+          const SizedBox(height: 6),
+          Center(
+            child: FractionallySizedBox(
+              widthFactor: 0.6,
+              child: BodyFigure(key: const ValueKey<String>('why-figure'), load: l, loadOnly: true, onTap: (String _) {}),
+            ),
+          ),
+          const SizedBox(height: 14),
+        ],
         if (f != null) ...<Widget>[
           Text('Focus', style: OG.muted(size: 14, weight: FontWeight.w700)),
           const SizedBox(height: 2),

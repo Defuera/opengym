@@ -473,12 +473,41 @@ class AppStore extends ChangeNotifier {
     _commit();
   }
 
-  void completeSet() {
+  /// Completes the current set.
+  void completeSet() => completeSetAt(curSet);
+
+  /// Done sets are undone, open sets are completed (the check control).
+  void toggleSet(int i) {
     final Exercise? e = currentExercise;
-    final SetEntry? s = currentSet;
-    if (e == null || s == null) {
+    if (e != null && i >= 0 && i < e.sets.length && e.sets[i].done) {
+      uncompleteSet(i);
+    } else {
+      completeSetAt(i);
+    }
+  }
+
+  /// Marks set [i] of the current exercise undone and makes it the current set.
+  void uncompleteSet(int i) {
+    final Exercise? e = currentExercise;
+    if (e == null || i < 0 || i >= e.sets.length || !e.sets[i].done) {
       return;
     }
+    e.sets[i]
+      ..done = false
+      ..at = null;
+    curSet = i;
+    _commit();
+  }
+
+  /// Completes set [i] of the current exercise (any open set, not only the
+  /// current one), carries its numbers to the open sets, and moves the
+  /// current set to the first open one.
+  void completeSetAt(int i) {
+    final Exercise? e = currentExercise;
+    if (e == null || i < 0 || i >= e.sets.length || e.sets[i].done) {
+      return;
+    }
+    final SetEntry s = e.sets[i];
     s.done = true;
     s.at = DateTime.now().millisecondsSinceEpoch;
     e.fresh = false;

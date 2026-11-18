@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../theme.dart';
+import 'set_check.dart';
 
-/// Round badge used by set rows: number, check mark, or plus.
+/// Round badge used by set rows: the set number, or a plus. A done set keeps
+/// its number (dimmed); the check control at the right shows the state.
 class SetBadge extends StatelessWidget {
   const SetBadge({
     super.key,
@@ -19,14 +21,13 @@ class SetBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final Color fill = accent ? OG.accent : (done ? OG.ink : Colors.transparent);
-    final Color edge = accent ? OG.accent : (dashed ? OG.mute : OG.ink);
-    final Color fg = (accent || done) ? OG.white : (dashed ? OG.mute : OG.ink);
-    final Widget inner = done
-        ? Icon(Icons.check, size: 16, color: fg)
-        : (dashed
-            ? Icon(Icons.add, size: 16, color: fg)
-            : Text('${number ?? ''}', style: OG.body(size: 13, weight: FontWeight.w800, color: fg)));
+    final bool dim = dashed || (done && !accent);
+    final Color fill = accent ? OG.accent : Colors.transparent;
+    final Color edge = accent ? OG.accent : (dim ? OG.mute : OG.ink);
+    final Color fg = accent ? OG.white : (dim ? OG.mute : OG.ink);
+    final Widget inner = dashed
+        ? Icon(Icons.add, size: 16, color: fg)
+        : Text('${number ?? ''}', style: OG.body(size: 13, weight: FontWeight.w800, color: fg));
     return Container(
       width: 26,
       height: 26,
@@ -83,6 +84,8 @@ class SetRow extends StatelessWidget {
     this.failed = false,
     this.isMax = false,
     this.onTap,
+    this.onCheck,
+    this.checkKey,
   });
 
   final int number;
@@ -92,6 +95,10 @@ class SetRow extends StatelessWidget {
   final bool failed;
   final bool isMax;
   final VoidCallback? onTap;
+
+  /// Tap on the check control; null hides the control.
+  final VoidCallback? onCheck;
+  final Key? checkKey;
 
   /// "6 × 60 kg", or "6½ × 70 kg" when the last rep failed.
   String get label => '$reps${failed ? '½' : ''} × $kg kg';
@@ -134,6 +141,7 @@ class SetRow extends StatelessWidget {
             const Spacer(),
             if (isMax)
               Text('Max', style: OG.body(size: 13, weight: FontWeight.w500, color: OG.mute)),
+            if (onCheck != null) SetCheck(key: checkKey, done: done, onTap: onCheck!),
           ],
         ),
       ),

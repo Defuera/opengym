@@ -1,13 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-
 import '../app/deps.dart';
 import '../models.dart';
+import '../data/convex_client.dart';
 import '../planner.dart';
 import '../store.dart';
 import '../theme.dart';
 import '../widgets/choice_sheet.dart';
-import '../widgets/cta_button.dart';
 import '../widgets/exercise_picker.dart';
 import '../widgets/og_button.dart';
 import '../widgets/og_icon_button.dart';
@@ -74,10 +72,35 @@ class _SessionScreenState extends State<SessionScreen> {
     Navigator.of(context).popUntil((Route<dynamic> r) => r.isFirst);
   }
 
+  /// The planned load of the session. Null when offline, not set up, or on any failure.
+  Future<Map<String, int>?> _planLoad(Session a) async {
+    final AppDeps? d = deps;
+    if (d == null || !d.connection.connected || a.exercises.isEmpty) {
+      return null;
+    }
+    try {
+      return await d.client.planLoad(<PlanLoadItem>[
+        for (final Exercise e in a.exercises)
+          PlanLoadItem(
+            name: e.name,
+            sets: e.isTime ? 0 : e.sets.length,
+            minutes: e.isTime ? e.sets.fold<double>(0, (double s, SetEntry x) => s + (x.minutes ?? 0)) : 0,
+          ),
+      ]);
+    } catch (_) {
+      return null;
+    }
+  }
+
   Future<void> _showWhy(BuildContext context, Session a) {
+    final Future<Map<String, int>?> load = _planLoad(a);
     return showOgSheet<void>(
       context,
-      (BuildContext c) => WhySessionBody(focus: a.focus, rationale: a.planNote),
+      (BuildContext c) => FutureBuilder<Map<String, int>?>(
+        future: load,
+        builder: (BuildContext c, AsyncSnapshot<Map<String, int>?> s) =>
+            WhySessionBody(focus: a.focus, rationale: a.planNote, load: s.data),
+      ),
       title: 'Why this session',
     );
   }
@@ -113,26 +136,29 @@ class _SessionScreenState extends State<SessionScreen> {
     }
   }
 
-  Future<void> _close(BuildContext context) async {
+  /// The one way out: Pause, Finish (with a done set) or Discard. Closing the
+  /// sheet stays in the session.
+  Future<void> _askLeave(BuildContext context) async {
     final String? choice = await showChoiceSheet(
       context,
-      title: 'End this session?',
-      choices: const <SheetChoice>[
-        SheetChoice(
-          value: 'finish',
-          label: 'Finish and save',
+      title: 'Leave this session?',
+      choices: <SheetChoice>[
+        const SheetChoice(
+          value: 'pause',
+          label: 'Pause, come back later',
           variant: OgVariant.accent,
         ),
-        SheetChoice(value: 'discard', label: 'Discard without saving'),
-        SheetChoice(
-          value: 'keep',
-          label: 'Keep going',
-          variant: OgVariant.dashed,
-        ),
+        if (store.hasDoneSet) const SheetChoice(value: 'finish', label: 'Finish and save'),
+        const SheetChoice(value: 'discard', label: 'Discard session', variant: OgVariant.dashed),
       ],
     );
     String? saved;
-    if (choice == 'finish') {
+    if (choice == 'pause') {
+      if (context.mounted) {
+        _minimise(context);
+      }
+      return;
+    } else if (choice == 'finish') {
       saved = store.finish();
     } else if (choice == 'discard') {
       store.discard();
@@ -174,8 +200,15 @@ class _SessionScreenState extends State<SessionScreen> {
         }
         final bool canChange = rebuild != null && !store.hasDoneSet;
         final bool busy = canChange && rebuild!.busy;
-        final bool why = a.focus != null || a.planNote != null;
-        return Scaffold(
+        final bool why = a.focus != null || a.planNote != null || a.exercises.isNotEmpty;
+        return PopScope<Object?>(
+          canPop: false,
+          onPopInvokedWithResult: (bool didPop, Object? result) {
+            if (!didPop) {
+              _askLeave(context);
+            }
+          },
+          child: Scaffold(
           body: SafeArea(
             child: Column(
               children: <Widget>[
@@ -184,9 +217,17 @@ class _SessionScreenState extends State<SessionScreen> {
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: <Widget>[
+                      KeyedSubtree(
+                        key: const ValueKey<String>('leave-back'),
+                        child: OgIconButton(
+                          icon: Icons.arrow_back,
+                          onPressed: () => _askLeave(context),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
                       Expanded(
                         child: Padding(
-                          padding: const EdgeInsets.only(top: 2),
+                          padding: const EdgeInsets.only(top: 8),
                           child: Text(
                             a.type,
                             maxLines: 2,
@@ -194,11 +235,6 @@ class _SessionScreenState extends State<SessionScreen> {
                             style: OG.display(a.type.length > 24 ? 26 : 30),
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 12),
-                      OgIconButton(
-                        icon: Icons.keyboard_arrow_down,
-                        onPressed: () => _minimise(context),
                       ),
                     ],
                   ),
@@ -210,9 +246,14 @@ class _SessionScreenState extends State<SessionScreen> {
                     items: <Widget>[
                       if (deps != null)
                         PlaceMarkView(deps: deps!, placeId: a.placeId, onPick: store.setActivePlace),
-                      if (why) MetaItem(label: 'Why this?', onTap: () => _showWhy(context, a)),
+                      if (why)
+                        MetaIconItem(
+                          key: const ValueKey<String>('why-icon'),
+                          icon: Icons.help_outline,
+                          label: 'Why this session',
+                          onTap: () => _showWhy(context, a),
+                        ),
                       if (canChange) MetaItem(label: 'Change plan', onTap: () => _showChangePlan(context)),
-                      MetaItem(label: 'End session', onTap: () => _close(context)),
                     ],
                   ),
                 ),
@@ -241,46 +282,34 @@ class _SessionScreenState extends State<SessionScreen> {
                     ),
                   ),
                 ],
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 18),
-                  child: _cta(context, a),
-                ),
+                _bottomButton(context, a),
               ],
             ),
           ),
-        );
+        ));
       },
     );
   }
 
-  Widget _cta(BuildContext context, Session a) {
+  /// A button shows only when every set of the current exercise is done.
+  Widget _bottomButton(BuildContext context, Session a) {
     final Exercise? ex = store.currentExercise;
     final bool last = store.curEx >= a.exercises.length - 1;
     if (ex != null && !allDone(ex)) {
-      return CtaButton(
-        label: ex.isTime ? 'Complete' : 'Complete set',
-        icon: Icons.check,
-        variant: OgVariant.accent,
-        onPressed: () {
-          HapticFeedback.mediumImpact();
-          store.completeSet();
-        },
-      );
+      return const SizedBox(height: 8);
     }
-    if (ex != null && !last) {
-      return CtaButton(
-        label: 'Next exercise',
-        icon: Icons.arrow_forward,
-        iconAfter: true,
-        onPressed: store.nextExercise,
-      );
-    }
-    return CtaButton(
-      label: 'Finish session',
-      icon: Icons.check,
-      onPressed: () {
-        _leave(context, recapId: store.finish());
-      },
+    final bool next = ex != null && !last;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 14),
+      child: SizedBox(
+        width: double.infinity,
+        child: OgButton(
+          key: ValueKey<String>(next ? 'next-exercise' : 'finish-session'),
+          variant: OgVariant.ink,
+          onPressed: next ? store.nextExercise : () => _leave(context, recapId: store.finish()),
+          child: Text(next ? 'Next exercise' : 'Finish session', style: OG.display(20, color: OG.white)),
+        ),
+      ),
     );
   }
 }

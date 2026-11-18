@@ -62,3 +62,15 @@ export function loadForSession(session: Session): LoadMap {
   addSession(out, session);
   return loadLevels(out);
 }
+
+/** Load levels of a plan that is not a session yet: per exercise the number of sets and the planned minutes. Same rule as a session. */
+export function loadForPlan(exercises: { name: string; sets: number; minutes: number }[]): LoadMap {
+  const out = emptySets();
+  for (const e of exercises) {
+    const x = musclesFor(e.name);
+    const n = e.sets + e.minutes / MINUTES_PER_LOAD_SET;
+    for (const k of x.primary) out[k] += n;
+    for (const k of x.secondary) out[k] += n * SECONDARY_WEIGHT;
+  }
+  return loadLevels(out);
+}

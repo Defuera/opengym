@@ -148,7 +148,8 @@ class _AddRow extends StatelessWidget {
 }
 
 /// The current entry of a time exercise, expanded: badge and title, a minutes
-/// stepper (step 1, long press steps 5) and an optional distance in km.
+/// stepper (step 1, long press steps 5) and a distance in km that shows only
+/// when set or after a tap on "Add distance".
 class TimeEditorCard extends StatefulWidget {
   const TimeEditorCard({
     super.key,
@@ -173,6 +174,9 @@ class TimeEditorCard extends StatefulWidget {
 
 class _TimeEditorCardState extends State<TimeEditorCard> {
   late final TextEditingController _km = TextEditingController(text: widget.distance ?? '');
+
+  /// The distance field shows when the entry has a distance, or after "Add distance".
+  late bool _showKm = widget.distance != null;
 
   @override
   void dispose() {
@@ -224,6 +228,20 @@ class _TimeEditorCardState extends State<TimeEditorCard> {
             onLongPlus: () => widget.onMinutesChanged(5),
           ),
           const SizedBox(height: 12),
+          if (!_showKm)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: GestureDetector(
+                key: const ValueKey<String>('time-add-distance'),
+                behavior: HitTestBehavior.opaque,
+                onTap: () => setState(() => _showKm = true),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Text('Add distance', style: OG.muted(size: 14, weight: FontWeight.w600)),
+                ),
+              ),
+            )
+          else
           TextField(
             key: const ValueKey<String>('time-distance'),
             controller: _km,

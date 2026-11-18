@@ -48,10 +48,8 @@ class PlaceMarkView extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListenableBuilder(
       listenable: deps.places,
-      builder: (BuildContext context, Widget? child) => Align(
-        alignment: Alignment.centerLeft,
-        child: PlaceMark(name: deps.places.byId(placeId)?.name, onTap: () => _open(context)),
-      ),
+      builder: (BuildContext context, Widget? child) =>
+          PlaceMark(name: deps.places.byId(placeId)?.name, onTap: () => _open(context)),
     );
   }
 }

@@ -11,13 +11,16 @@ import '../widgets/cta_button.dart';
 import '../widgets/exercise_picker.dart';
 import '../widgets/og_button.dart';
 import '../widgets/og_icon_button.dart';
+import '../widgets/og_sheet.dart';
+import '../widgets/preparing_card.dart';
 import '../widgets/proposal_feedback.dart';
+import '../widgets/session_meta_row.dart';
 import '../stores/proposal_rebuild.dart';
 import 'place_mark_view.dart';
 import 'session_parts.dart';
 import 'session_recap_screen.dart';
 
-class SessionScreen extends StatelessWidget {
+class SessionScreen extends StatefulWidget {
   const SessionScreen({
     super.key,
     required this.store,
@@ -30,8 +33,74 @@ class SessionScreen extends StatelessWidget {
   /// With [deps], finishing a session ends on its recap. Without, on Home.
   final AppDeps? deps;
 
-  /// Set on a coach proposal: a feedback field and "Rebuild" show until a set is done.
+  /// Set on a coach proposal: "Change plan" shows until a set is done.
   final ProposalRebuild? rebuild;
+
+  @override
+  State<SessionScreen> createState() => _SessionScreenState();
+}
+
+class _SessionScreenState extends State<SessionScreen> {
+  final TextEditingController _feedback = TextEditingController();
+  bool _wasBusy = false;
+
+  AppStore get store => widget.store;
+  AppDeps? get deps => widget.deps;
+  ProposalRebuild? get rebuild => widget.rebuild;
+
+  @override
+  void initState() {
+    super.initState();
+    rebuild?.addListener(_onRebuild);
+  }
+
+  @override
+  void dispose() {
+    rebuild?.removeListener(_onRebuild);
+    _feedback.dispose();
+    super.dispose();
+  }
+
+  /// The typed text is cleared after a rebuild went through, kept after a failure.
+  void _onRebuild() {
+    final ProposalRebuild r = rebuild!;
+    if (_wasBusy && !r.busy && !r.failed) {
+      _feedback.clear();
+    }
+    _wasBusy = r.busy;
+  }
+
+  void _minimise(BuildContext context) {
+    Navigator.of(context).popUntil((Route<dynamic> r) => r.isFirst);
+  }
+
+  Future<void> _showWhy(BuildContext context, Session a) {
+    return showOgSheet<void>(
+      context,
+      (BuildContext c) => WhySessionBody(focus: a.focus, rationale: a.planNote),
+      title: 'Why this session',
+    );
+  }
+
+  Future<void> _showChangePlan(BuildContext context) {
+    final ProposalRebuild r = rebuild!;
+    return showOgSheet<void>(
+      context,
+      (BuildContext c) => ListenableBuilder(
+        listenable: Listenable.merge(<Listenable?>[r, deps?.connection].whereType<Listenable>().toList()),
+        builder: (BuildContext c, Widget? w) => ProposalFeedback(
+          controller: _feedback,
+          failed: r.failed,
+          online: deps?.connection.connected ?? true,
+          onRebuild: (String t) {
+            Navigator.of(c).pop();
+            r.rebuild(t);
+          },
+        ),
+      ),
+      title: 'Change plan',
+    );
+  }
 
   void _leave(BuildContext context, {String? recapId}) {
     final NavigatorState nav = Navigator.of(context);
@@ -103,6 +172,9 @@ class SessionScreen extends StatelessWidget {
         if (a == null) {
           return const Scaffold(body: SizedBox.shrink());
         }
+        final bool canChange = rebuild != null && !store.hasDoneSet;
+        final bool busy = canChange && rebuild!.busy;
+        final bool why = a.focus != null || a.planNote != null;
         return Scaffold(
           body: SafeArea(
             child: Column(
@@ -110,62 +182,65 @@ class SessionScreen extends StatelessWidget {
                 Padding(
                   padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
                   child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: <Widget>[
                       Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: <Widget>[
-                            Text(
-                              sessionSubtitle(a),
-                              maxLines: 3,
-                              overflow: TextOverflow.ellipsis,
-                              style: OG.muted(size: 14, weight: FontWeight.w600),
-                            ),
-                            Text(
-                              a.type,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: OG.display(32),
-                            ),
-                            if (deps != null)
-                              PlaceMarkView(
-                                deps: deps!,
-                                placeId: a.placeId,
-                                onPick: store.setActivePlace,
-                              ),
-                          ],
+                        child: Padding(
+                          padding: const EdgeInsets.only(top: 2),
+                          child: Text(
+                            a.type,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: OG.display(a.type.length > 24 ? 26 : 30),
+                          ),
                         ),
                       ),
                       const SizedBox(width: 12),
                       OgIconButton(
-                        icon: Icons.close,
-                        onPressed: () => _close(context),
+                        icon: Icons.keyboard_arrow_down,
+                        onPressed: () => _minimise(context),
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(height: 14),
-                ExerciseStrip(
-                  store: store,
-                  onAdd: () => _addExercise(context),
-                ),
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: SessionPanel(store: store),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(18, 4, 20, 0),
+                  child: SessionMetaRow(
+                    note: (rebuild?.failed ?? false) && !busy ? 'Could not rebuild. Try again.' : null,
+                    items: <Widget>[
+                      if (deps != null)
+                        PlaceMarkView(deps: deps!, placeId: a.placeId, onPick: store.setActivePlace),
+                      if (why) MetaItem(label: 'Why this?', onTap: () => _showWhy(context, a)),
+                      if (canChange) MetaItem(label: 'Change plan', onTap: () => _showChangePlan(context)),
+                      MetaItem(label: 'End session', onTap: () => _close(context)),
+                    ],
                   ),
                 ),
-                if (rebuild != null && !store.hasDoneSet)
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
-                    child: ProposalFeedback(
-                      busy: rebuild!.busy,
-                      failed: rebuild!.failed,
-                      online: deps?.connection.connected ?? true,
-                      onRebuild: rebuild!.rebuild,
-                      onKeep: rebuild!.cancel,
+                const SizedBox(height: 10),
+                if (busy)
+                  Expanded(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: PreparingCard(
+                        title: 'Rebuilding…',
+                        message: 'The coach changes the session with your feedback.',
+                        actionLabel: 'Keep this session',
+                        onAction: rebuild!.cancel,
+                      ),
+                    ),
+                  )
+                else ...<Widget>[
+                  ExerciseStrip(
+                    store: store,
+                    onAdd: () => _addExercise(context),
+                  ),
+                  Expanded(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.fromLTRB(20, 14, 20, 8),
+                      child: SessionPanel(store: store),
                     ),
                   ),
+                ],
                 Padding(
                   padding: const EdgeInsets.fromLTRB(20, 12, 20, 18),
                   child: _cta(context, a),
@@ -208,12 +283,4 @@ class SessionScreen extends StatelessWidget {
       },
     );
   }
-}
-
-/// The small line under the activity name: the focus, then where the session
-/// came from, e.g. "Upper · prepared from your log".
-String sessionSubtitle(Session a) {
-  final String note = a.planNote ?? 'prepared from your log';
-  final String? f = a.focus;
-  return f == null ? note : '$f · $note';
 }

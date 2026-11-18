@@ -13,12 +13,16 @@ class OG {
   static const Color done = Color(0xFFDCE3FF);
   static const Color white = Color(0xFFFFFFFF);
 
+  /// Null: the system font. Only the screenshot test sets it, to render real glyph widths.
+  static String? fontFamily;
+
   static const double radius = 16;
   static const double borderWidth = 2;
 
   /// Display text: system font, heavy weight.
   static TextStyle display(double size, {Color color = ink}) {
     return TextStyle(
+      fontFamily: fontFamily,
       fontSize: size,
       fontWeight: FontWeight.w800,
       height: 1.05,
@@ -33,6 +37,7 @@ class OG {
     Color color = ink,
   }) {
     return TextStyle(
+      fontFamily: fontFamily,
       fontSize: size,
       fontWeight: weight,
       height: 1.3,

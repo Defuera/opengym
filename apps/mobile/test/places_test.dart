@@ -238,6 +238,8 @@ void main() {
       await _openSheet(t);
       await t.tap(find.text('Gym').last);
       await t.pumpAndSettle();
+      await t.tap(find.text('Change plan'));
+      await t.pumpAndSettle();
       await t.enterText(find.byType(TextField).last, 'no bottles');
       await t.pump();
       await t.tap(find.text('Rebuild'));

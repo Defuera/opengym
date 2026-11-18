@@ -123,7 +123,10 @@ void main() {
     expect(d.store.active!.focus, 'Legs');
     expect(d.store.active!.exercises.single.name, 'Squat');
     expect(d.store.active!.planNote, 'Legs are due');
-    expect(find.text('Legs · Legs are due'), findsOneWidget);
+    expect(find.text('Legs are due'), findsNothing); // the rationale is one tap away
+    await t.tap(find.text('Why this?'));
+    await t.pumpAndSettle();
+    expect(find.text('Legs are due'), findsOneWidget);
   });
 
   testWidgets('without a note the request carries no text', (WidgetTester t) async {

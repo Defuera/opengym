@@ -261,6 +261,9 @@ void main() {
         Exercise(id: 'b', name: 'Stationary bike', measure: measureTime, fresh: false, sets: <SetEntry>[SetEntry.time(20)]),
       ]);
       expect(find.text('MIN'), findsOneWidget);
+      expect(find.byKey(const ValueKey<String>('time-distance')), findsNothing);
+      await t.tap(find.byKey(const ValueKey<String>('time-add-distance')));
+      await t.pump();
       expect(find.byKey(const ValueKey<String>('time-distance')), findsOneWidget);
       expect(find.text('Complete'), findsOneWidget);
       expect(find.text('REPS'), findsNothing);

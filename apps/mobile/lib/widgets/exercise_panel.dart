@@ -2,10 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../theme.dart';
 
-/// The big card: title, optional hint, [pinned] widgets,
-/// then the children. Only the children scroll; the title and pinned part stay
-/// in place, so nothing is cut at the top edge. Give it a bounded height
-/// (e.g. inside Expanded).
+/// The big card: title, optional hint, [pinned] widgets, then the children.
+/// It has its own natural height and does not scroll: put it in a scroll view
+/// so the whole card moves together and nothing slides under the title.
 class ExercisePanel extends StatelessWidget {
   const ExercisePanel({
     super.key,
@@ -36,26 +35,13 @@ class ExercisePanel extends StatelessWidget {
     }
     return Container(
       margin: const EdgeInsets.only(bottom: 4),
+      padding: const EdgeInsets.all(16),
       decoration: ogBox(radius: 20),
-      clipBehavior: Clip.antiAlias,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: body),
-          ),
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  for (final Widget c in children) ...<Widget>[const SizedBox(height: 14), c],
-                ],
-              ),
-            ),
-          ),
+          ...body,
+          for (final Widget c in children) ...<Widget>[const SizedBox(height: 14), c],
         ],
       ),
     );

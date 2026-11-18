@@ -3,108 +3,72 @@ import 'package:flutter/material.dart';
 import '../theme.dart';
 import 'labeled_field.dart';
 import 'og_button.dart';
-import 'preparing_card.dart';
 
-/// Under a proposed session: one text field for what to change and a
-/// "Rebuild" button. While the coach rebuilds it shows the preparing card.
-/// The field is cleared after a rebuild went through and kept after a failure.
-class ProposalFeedback extends StatefulWidget {
+/// The body of the "Change plan" sheet: one text field for what to change, a
+/// "Rebuild" button, and a line when offline or after a failure. The caller
+/// owns [controller], so typed text survives closing the sheet.
+class ProposalFeedback extends StatelessWidget {
   const ProposalFeedback({
     super.key,
-    required this.busy,
+    required this.controller,
     required this.failed,
     required this.online,
     required this.onRebuild,
-    required this.onKeep,
   });
 
-  final bool busy;
+  final TextEditingController controller;
   final bool failed;
   final bool online;
 
   /// Called with the trimmed text.
   final void Function(String feedback) onRebuild;
 
-  /// Stops waiting and keeps the shown proposal.
-  final VoidCallback onKeep;
-
-  @override
-  State<ProposalFeedback> createState() => _ProposalFeedbackState();
-}
-
-class _ProposalFeedbackState extends State<ProposalFeedback> {
-  final TextEditingController _text = TextEditingController();
-
-  @override
-  void didUpdateWidget(ProposalFeedback old) {
-    super.didUpdateWidget(old);
-    if (old.busy && !widget.busy && !widget.failed) {
-      _text.clear();
-    }
-  }
-
-  @override
-  void dispose() {
-    _text.dispose();
-    super.dispose();
-  }
-
   void _send() {
-    final String t = _text.text.trim();
+    final String t = controller.text.trim();
     if (t.isNotEmpty) {
       FocusManager.instance.primaryFocus?.unfocus();
-      widget.onRebuild(t);
+      onRebuild(t);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    if (widget.busy) {
-      return PreparingCard(
-        title: 'Rebuilding…',
-        message: 'The coach changes the session with your feedback.',
-        actionLabel: 'Keep this session',
-        onAction: widget.onKeep,
-      );
-    }
     return ListenableBuilder(
-      listenable: _text,
+      listenable: controller,
       builder: (BuildContext context, Widget? child) {
-        final bool can = widget.online && _text.text.trim().isNotEmpty;
+        final bool can = online && controller.text.trim().isNotEmpty;
         return Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Expanded(
-                  child: LabeledField(
-                    controller: _text,
-                    hint: 'Change something? For example: no water bottles, I have dumbbells',
-                    maxLength: 300,
-                    maxLines: 3,
-                    minLines: 1,
-                    autocorrect: true,
-                    keyboardType: TextInputType.multiline,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                OgButton(
-                  onPressed: can ? _send : null,
-                  child: const Text('Rebuild'),
-                ),
-              ],
+            LabeledField(
+              controller: controller,
+              hint:
+                  'Change something? For example: no water bottles, I have dumbbells',
+              maxLength: 300,
+              maxLines: 4,
+              minLines: 2,
+              autocorrect: true,
+              keyboardType: TextInputType.multiline,
             ),
-            if (!widget.online)
+            const SizedBox(height: 12),
+            OgButton(
+              variant: OgVariant.accent,
+              onPressed: can ? _send : null,
+              child: const Text('Rebuild'),
+            ),
+            if (!online)
               Padding(
-                padding: const EdgeInsets.only(top: 6),
-                child: Text('Offline. You can rebuild when you are back online.', style: OG.muted(size: 14)),
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(
+                    'Offline. You can rebuild when you are back online.',
+                    style: OG.muted(size: 14)),
               ),
-            if (widget.failed && widget.online)
+            if (failed && online)
               Padding(
-                padding: const EdgeInsets.only(top: 6),
-                child: Text('Could not rebuild. Try again.', style: OG.muted(size: 14)),
+                padding: const EdgeInsets.only(top: 8),
+                child: Text('Could not rebuild. Try again.',
+                    style: OG.muted(size: 14)),
               ),
           ],
         );

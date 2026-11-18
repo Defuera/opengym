@@ -50,10 +50,6 @@ Future<void> main() async {
         'modules=${d.value.modules.length}');
   }
 
-  final Stored<List<Prediction>> p = await _next(c.watchPredictions(), (_) => true, 'predictions');
-  print('predictions: source=${p.source} stored=${p.stored} '
-      'first=${p.value.isEmpty ? '-' : p.value.first.type}');
-
   final List<Session> before =
       await _next(c.watchRecentSessions(limit: 200), (_) => true, 'sessions');
   print('recent sessions before: ${before.length} (none will be touched)');

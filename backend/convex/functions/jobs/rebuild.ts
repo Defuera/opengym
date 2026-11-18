@@ -1,10 +1,10 @@
 import { internal } from "../_generated/api";
 import { internalMutation } from "../_generated/server";
 import { REBUILD_DEBOUNCE_MS, REBUILD_MAX_WAIT_MS } from "../lib/constants";
-import { allSessions, planKey, storedPredictions } from "../lib/db";
+import { allSessions, planKey } from "../lib/db";
 import { rulesPredictions } from "../model/rules/predictions";
 
-/** Plans precomputed per rebuild: the set-based items of the current predictions, at most this many (ADR-016). */
+/** Plans precomputed per rebuild: the set-based items of the rules ranking (activity + focus due), at most this many (ADR-016). */
 export const MAX_PRECOMPUTED_PLANS = 3;
 
 /**
@@ -28,11 +28,11 @@ export const run = internalMutation({
     }
     await ctx.db.patch(state._id, { runnerScheduled: false, runs: state.runs + 1, lastRunAt: now });
     const version = state.dirtyAt;
-    // Plans only for the set-based items of the current predictions (max 3), so switching in the app needs no AI (ADR-003).
+    // Plans only for the set-based items of the rules ranking (max 3), so switching in the app needs no AI (ADR-003). The AI predict job is gone: the Start tab lists the log's activities.
     // Any other activity or focus is built by the rules fallback on read. Plan rows no longer wanted (and rows from before ADR-016,
     // which have no activity key) are removed: they are read models, rebuilt from the log.
     const sessions = await allSessions(ctx);
-    const current = (await storedPredictions(ctx))?.items ?? rulesPredictions(sessions, now);
+    const current = rulesPredictions(sessions, now);
     const wanted = new Map<string, { activity: string; focus?: string }>();
     for (const p of current) {
       if (p.kind !== "gym" || wanted.size >= MAX_PRECOMPUTED_PLANS) continue;
@@ -43,7 +43,6 @@ export const run = internalMutation({
       if (plan.activityKey === undefined || !wanted.has(`${plan.activityKey}|${plan.focusKey ?? ""}`)) await ctx.db.delete(plan._id);
     }
     for (const w of wanted.values()) await ctx.scheduler.runAfter(0, internal.jobs.plans.build, { ...w, version });
-    await ctx.scheduler.runAfter(0, internal.jobs.predictions.build, { version });
     await ctx.scheduler.runAfter(0, internal.jobs.dashboards.build, { days: 7, version });
     await ctx.scheduler.runAfter(0, internal.jobs.dashboards.build, { days: 30, version });
   },

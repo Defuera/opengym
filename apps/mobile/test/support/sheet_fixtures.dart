@@ -60,14 +60,9 @@ Future<(FakeConvexClient, AppDeps)> openHome(
   List<Session>? sessions,
 }) async {
   final FakeConvexClient fake = FakeConvexClient();
-  fake.predictions.set(const Stored<List<Prediction>>(<Prediction>[
-    Prediction(kind: 'gym', type: 'Gym', focus: 'Upper', reason: 'Last upper session was 13 Nov'),
-    Prediction(kind: 'gym', type: 'Home', focus: 'Quick', reason: 'Done 3 times'),
-  ], stored: true, source: 'ai'));
   fake.plans[FakeConvexClient.planKey(activity: 'Gym', focus: 'Upper')] =
       Live<Stored<Plan>>(const Stored<Plan>(sheetPlan, stored: true, source: 'ai'));
   final AppDeps d = await testDeps(fake, connected: connected, sessions: sessions ?? sheetLog);
-  d.plans.start();
   await t.pumpWidget(MaterialApp(home: HomeScreen(deps: d)));
   await t.pump();
   return (fake, d);
@@ -86,21 +81,30 @@ Future<void> openLog(WidgetTester t) async {
   await t.pumpAndSettle();
 }
 
-/// Opens the Start form from the dashed row.
-Future<void> openForm(WidgetTester t) async {
-  await t.tap(find.text('New kind of session'));
+/// Step 1 of the Start tab: taps the row of [type].
+Future<void> pickType(WidgetTester t, String type) async {
+  await t.tap(inSheet(find.text(type)));
   await t.pumpAndSettle();
 }
 
-/// Opens the form, types the name (and the wish), taps "Prepare session".
-Future<void> typeAndPrepare(WidgetTester t, String name, {String? wish}) async {
-  await openForm(t);
-  await t.enterText(find.widgetWithText(TextField, 'Home'), name);
-  await t.pump();
-  if (wish != null) {
-    await t.enterText(find.widgetWithText(TextField, '15 minutes, no equipment, easy on the knee'), wish);
+/// Step 1: scrolls to the "Other" row and taps it.
+Future<void> openOther(WidgetTester t) async {
+  await t.scrollUntilVisible(find.text('Other'), 80, scrollable: find.descendant(of: find.byType(BottomSheet), matching: find.byType(Scrollable)).first);
+  await t.tap(find.text('Other'));
+  await t.pumpAndSettle();
+}
+
+/// The note field of step 2.
+const String noteHint = 'Short on time, go easy, left hand is sore…';
+
+/// Taps [type] (a type with sets), types the note and taps "Start".
+Future<void> pickAndStart(WidgetTester t, String type, {String? note}) async {
+  await pickType(t, type);
+  if (note != null) {
+    await t.enterText(find.widgetWithText(TextField, noteHint), note);
+    await t.pump();
   }
-  await t.tap(find.text('Prepare session'));
+  await t.tap(find.text('Start'));
   await t.pump();
 }
 

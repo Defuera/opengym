@@ -1,7 +1,7 @@
 import type { DatabaseReader } from "../_generated/server";
 import type { Doc } from "../_generated/dataModel";
-import type { ContextItem, Goal, Prediction, Session } from "../model/schema";
-import { activityKey, normalizePredictions, normalizeSession } from "../model/sessionShape";
+import type { ContextItem, Goal, Session } from "../model/schema";
+import { activityKey, normalizeSession } from "../model/sessionShape";
 
 /** Fact docs use client-made `sessionId`/`goalId`/`itemId`; the model uses the contract's `id`. */
 
@@ -122,12 +122,6 @@ export async function planFor(ctx: Reader, activity: string, focus?: string): Pr
   if (doc || k.activityKey !== "gym" || !focus) return doc;
   const legacy = await ctx.db.query("plans").withIndex("by_focus", (q) => q.eq("focus", focus)).collect();
   return legacy.find((p) => p.activityKey === undefined) ?? null;
-}
-
-/** The stored predictions row with legacy items normalised (type "Upper" -> Gym + focus, at most 2 per activity), or null. */
-export async function storedPredictions(ctx: Reader): Promise<{ items: Prediction[]; source: "ai" | "rules" } | null> {
-  const doc = await ctx.db.query("predictions").first();
-  return doc ? { items: normalizePredictions(doc.items), source: doc.source } : null;
 }
 
 export const startRequestById = (ctx: Reader, requestId: string) =>

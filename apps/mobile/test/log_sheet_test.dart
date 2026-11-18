@@ -31,7 +31,8 @@ void main() {
     await t.pumpWidget(MaterialApp(home: HomeScreen(deps: d)));
     await t.pump();
     await openStart(t);
-    expect(find.text('New kind of session'), findsOneWidget);
+    expect(find.text('Other'), findsOneWidget);
+    expect(find.text('Nothing in your log yet.'), findsOneWidget);
     expect(find.textContaining(' · '), findsNothing);
     expect(find.text('Start empty, without a plan ›'), findsOneWidget);
     await t.tap(inSheet(find.text('Log')));

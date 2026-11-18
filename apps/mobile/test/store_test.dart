@@ -197,7 +197,7 @@ void _storeSetAndOrderTests() {
     expect(store.active!.exercises.map((Exercise e) => e.name).toList(), after);
   });
 
-  test('begin makes a session of any activity; changeFocus swaps the plan before the first set', () async {
+  test('begin makes a session of any activity; an open session with a done set is resumed', () async {
     final AppStore store = await _newStore(InMemorySessionRepository());
     store.sessions.add(Session(
       id: 'h1',
@@ -214,9 +214,6 @@ void _storeSetAndOrderTests() {
     expect(store.active!.type, 'Gym');
     expect(store.active!.focus, 'Push');
     expect(store.hasDoneSet, isFalse);
-    store.changeFocus('Legs'); // no Gym + Legs in the log: an empty plan
-    expect(store.active!.focus, 'Legs');
-    expect(store.active!.exercises, isEmpty);
     store.discard();
 
     store.begin(activity: ' Home ', focus: 'Quick');
@@ -229,8 +226,6 @@ void _storeSetAndOrderTests() {
     store.completeSet();
     store.begin(activity: 'Other'); // a set is done: the open session is resumed
     expect(store.active!.type, 'Home');
-    store.changeFocus('Pull'); // a set is done: only the label changes
-    expect(store.active!.focus, 'Pull');
     expect(store.active!.exercises.single.name, 'Press-up');
   });
 

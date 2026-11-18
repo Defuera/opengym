@@ -4,31 +4,21 @@ import 'package:flutter/services.dart';
 import '../models.dart';
 import '../planner.dart';
 import '../store.dart';
-import '../stores/plan_store.dart';
 import '../theme.dart';
 import '../widgets/choice_sheet.dart';
 import '../widgets/cta_button.dart';
 import '../widgets/exercise_picker.dart';
 import '../widgets/og_button.dart';
 import '../widgets/og_icon_button.dart';
-import 'session_focus_bar.dart';
 import 'session_parts.dart';
 
 class SessionScreen extends StatelessWidget {
   const SessionScreen({
     super.key,
     required this.store,
-    this.plans,
-    this.online = false,
-    this.advisedFocus,
   });
 
   final AppStore store;
-
-  /// When set, the focus chips show before the first set is done.
-  final PlanStore? plans;
-  final bool online;
-  final String? advisedFocus;
 
   void _leave(BuildContext context) {
     Navigator.of(context).popUntil((Route<dynamic> r) => r.isFirst);
@@ -104,7 +94,7 @@ class SessionScreen extends StatelessWidget {
                           children: <Widget>[
                             Text(
                               sessionSubtitle(a),
-                              maxLines: 2,
+                              maxLines: 3,
                               overflow: TextOverflow.ellipsis,
                               style: OG.muted(size: 14, weight: FontWeight.w600),
                             ),
@@ -125,13 +115,6 @@ class SessionScreen extends StatelessWidget {
                     ],
                   ),
                 ),
-                if (plans != null)
-                  SessionFocusBar(
-                    store: store,
-                    plans: plans!,
-                    online: online,
-                    advised: advisedFocus,
-                  ),
                 const SizedBox(height: 14),
                 ExerciseStrip(
                   store: store,

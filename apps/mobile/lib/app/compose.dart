@@ -70,7 +70,6 @@ Future<AppDeps> compose() async {
 
   // Live subscriptions: opened once, they survive a change of server address.
   sessions.start();
-  plans.start();
   goals.start();
   context.start();
   about.start();

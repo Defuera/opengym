@@ -128,38 +128,11 @@ describe("predictions with several set-based activities", () => {
     const log = [model("1", 5, "home", "Quick"), model("2", 1, "Home", "Quick")];
     expect(rulesPredictions(log, NOW)).toEqual([{ kind: "gym", type: "Home", focus: "Quick", reason: "Last quick session was yesterday" }]);
   });
-
-  it("the stored predictions (rules, AI off) hold Gym and Home after the log has both", async () => {
-    await save(pushSession("g", NOW - 3 * DAY, 60, "Upper"));
-    await save(setsSession("h", NOW - DAY, "Home", "Quick"));
-    await settle(t);
-    const r = await t.query(api.queries.start.predictions, { token: TOKEN });
-    expect(r).toMatchObject({ stored: true });
-    expect(r.predictions.map((p) => `${p.type}:${p.focus}`).sort()).toEqual(["Gym:Upper", "Home:Quick"]);
-  });
-
-  it("an AI answer with names that differ only in case or spacing is accepted and shown with the log's spelling", async () => {
-    stubOpenAi((job) => (job === "predict_activity" ? JSON.stringify({ predictions: [{ kind: "gym", type: "  HOME ", focus: "quick", reason: "r" }, { kind: "gym", type: "gym", focus: "Upper", reason: "r2" }] }) : "{}"));
-    await save(pushSession("g", NOW - 3 * DAY, 60, "Upper"));
-    await save(setsSession("h", NOW - DAY, "Home", "Quick"));
-    await settle(t);
-    const r = await t.query(api.queries.start.predictions, { token: TOKEN });
-    expect(r).toMatchObject({ source: "ai" });
-    expect(r.predictions.map((p) => `${p.type}:${p.focus}`)).toEqual(["Home:Quick", "Gym:Upper"]);
-  });
-
-  it("the predict prompt carries the log's vocabulary (kind and foci)", async () => {
-    const calls = stubOpenAi(() => "{}");
-    await save(pushSession("g", NOW - 3 * DAY, 60, "Upper"));
-    await save(setsSession("h", NOW - DAY, "Home", "Quick"));
-    await settle(t);
-    const input = calls.find((c) => c.job === "predict_activity")!.input;
-    expect(input.knownActivities).toEqual(expect.arrayContaining([{ type: "Home", kind: "gym", foci: ["Quick"] }, { type: "Gym", kind: "gym", foci: ["Upper"] }]));
-  });
 });
 
+
 describe("plans by activity and focus", () => {
-  it("are stored per activity + focus, only for the set-based predicted items (max 3)", async () => {
+  it("are stored per activity + focus, only for the set-based ranked items (max 3)", async () => {
     await save(pushSession("g1", NOW - 4 * DAY, 60, "Upper"));
     await save(pushSession("g2", NOW - 3 * DAY, 60, "Legs"));
     await save(setsSession("h1", NOW - 2 * DAY, "Home", "Quick"));
@@ -171,7 +144,7 @@ describe("plans by activity and focus", () => {
     expect(plans.length).toBe(3);
     expect(plans.every((p) => p.activityKey !== undefined && p.focusKey !== undefined)).toBe(true);
     expect(plans.some((p) => p.activityKey === "run")).toBe(false);
-    const preds = (await t.query(api.queries.start.predictions, { token: TOKEN })).predictions.filter((p) => p.kind === "gym").slice(0, 3);
+    const preds = rulesPredictions(await t.run((c) => c.db.query("sessions").collect().then((rows) => rows.map((r) => normalizeSession(r as never) as never))) as never, NOW).filter((p) => p.kind === "gym").slice(0, 3);
     for (const p of preds) expect(await planNext({ activity: p.type, focus: p.focus })).toMatchObject({ stored: true, plan: { type: p.type, focus: p.focus } });
   });
 
@@ -486,61 +459,38 @@ describe("interpret input", () => {
   });
 });
 
-describe("start request in today mode", () => {
+describe("start request with a fixed name and a note (the coach decides the focus)", () => {
   const plan = (n: string) => ({ rationale: "r", exercises: [{ name: n, sets: [{ reps: 10, kg: 0, max: false }] }] });
-  const today = (requestId: string, extra: Record<string, unknown> = {}) => t.mutation(api.commands.start.request, { token: TOKEN, requestId, mode: "today", ...extra } as never);
   const seed = () => save(setsSession("h", NOW - 3 * DAY, "Gym", "Legs", [{ name: "Squat", sets: [{ reps: 5, kg: 100, max: false }] }]));
 
-  it("validates: no name, wish max 200, hint 1..40, hint only with today; the wish is optional", async () => {
-    await expect(today("t1", { name: "Home" })).rejects.toThrow(/name/);
-    await expect(today("t2", { text: "x".repeat(201) })).rejects.toThrow(/text/);
-    await expect(today("t3", { hintType: "x".repeat(41) })).rejects.toThrow(/hintType/);
-    await expect(today("t4", { hintType: " " })).rejects.toThrow(/hintType/);
-    await expect(today("t5", { hintFocus: "Legs" })).rejects.toThrow(/hintType/);
-    await expect(requestNamed("t6", "Home")).resolves.toBe("t6");
-    await expect(t.mutation(api.commands.start.request, { token: TOKEN, requestId: "t7", text: "x", hintType: "Gym" } as never)).rejects.toThrow(/mode today/);
-    await today("t8");
-    await today("t9", { text: " easy ", hintType: " Gym ", hintFocus: "Legs" });
-    expect(await t.run((c) => c.db.query("startRequests").collect())).toHaveLength(3);
-    expect(await t.run((c) => c.db.query("startRequests").withIndex("by_requestId", (q) => q.eq("requestId", "t9")).first())).toMatchObject({ mode: "today", text: "easy", hintType: "Gym", hintFocus: "Legs", status: "pending" });
+  it("the removed today mode is no longer an argument", async () => {
+    await expect(t.mutation(api.commands.start.request, { token: TOKEN, requestId: "t1", mode: "today" } as never)).rejects.toThrow();
+    await expect(t.mutation(api.commands.start.request, { token: TOKEN, requestId: "t2", name: "Gym", hintType: "Gym" } as never)).rejects.toThrow();
+    await expect(requestNamed("t3", "Gym")).resolves.toBe("t3");
     await settle(t);
   });
 
-  it("the job input has the wish and suggestedToday; the AI may change the type; no name is forced", async () => {
+  it("the job input has the name, the note, the time and the last sessions; the type stays the name", async () => {
     await seed();
-    const calls = stubOpenAi((job) => (job === "interpret_request" ? JSON.stringify({ kind: "gym", type: "Gym", focus: "Upper", plan: plan("Bench press") }) : "{}"));
-    await today("t1", { text: "left hand is sore", hintType: "Gym", hintFocus: "Legs" });
+    const calls = stubOpenAi((job) => (job === "interpret_request" ? JSON.stringify({ kind: "gym", type: "Other", focus: "Upper", plan: plan("Bench press") }) : "{}"));
+    await t.mutation(api.commands.start.request, { token: TOKEN, requestId: "t1", name: "Gym", text: "left hand is sore" });
     await settle(t);
     const input = calls.find((c) => c.job === "interpret_request")!.input;
-    expect(input).toMatchObject({ wish: "left hand is sore", suggestedToday: { type: "Gym", focus: "Legs" } });
-    expect(input.request).toBeUndefined();
-    expect(input.recentLogOfBestMatch).toBeDefined();
+    expect(input).toMatchObject({ name: "Gym", wish: "left hand is sore" });
+    expect(input.suggestedToday).toBeUndefined();
+    expect(input.lastSessionsOfAnyKind).toBeDefined();
+    expect(input.timeNow).toBeDefined();
     expect(await getRequest("t1")).toMatchObject({ status: "ready", proposal: { type: "Gym", focus: "Upper", plan: { source: "ai" } } });
   });
 
-  it("buildInterpretInput: recent sessions of the hinted activity, rules plan for the hinted focus", () => {
-    const log = [model("1", 9, "Home"), model("2", 5, "Gym", "Legs"), model("3", 1, "Home")];
-    const i = buildInterpretInput("", log, [], [], [], NOW, undefined, { mode: "today", hint: { type: "gym", focus: "Legs" } });
-    expect(i).toMatchObject({ mode: "today", bestMatch: "Gym", hint: { type: "gym", focus: "Legs" } });
-    expect(i.sessions.map((s) => s.id)).toEqual(["2"]);
+  it("the fallback is the named activity with an empty plan", () => {
+    expect(fallbackProposal({ text: "", known: [], name: "Home" })).toMatchObject({ type: "Home", plan: { exercises: [] } });
   });
 
-  it("the fallback uses the hint with the rules plan, not an empty plan", async () => {
-    await seed();
-    stubOpenAi(() => "not json");
-    await today("f1", { hintType: "gym", hintFocus: "Legs" });
-    await settle(t);
-    const r = await getRequest("f1");
-    expect(r).toMatchObject({ status: "ready", proposal: { kind: "gym", type: "Gym", focus: "Legs", plan: { source: "rules" } } });
-    expect(r!.proposal!.plan).toBeDefined();
-    expect(fallbackProposal({ text: "", known: [], mode: "today", hint: { type: "Home" } })).toMatchObject({ type: "Home", plan: { exercises: [] } });
-  });
-
-  it("the interpret prompt branches: today differs from the name and typed branches", () => {
+  it("the name prompt makes the coach decide the focus and fill the time", () => {
     const base = { text: "", known: [], sessions: [], goals: [], lately: [], now: NOW, context: [], limits: [], rules: { rationale: "", exercises: [] } };
-    const sys = (x: object) => JSON.stringify(interpretRequestJob.build({ ...base, ...x }).system);
-    expect(sys({ mode: "today" })).toContain("does not want to choose");
-    expect(sys({ name: "Home" })).not.toContain("does not want to choose");
-    expect(sys({})).not.toContain("does not want to choose");
+    const sys = JSON.stringify(interpretRequestJob.build({ ...base, name: "Gym" }).system);
+    for (const part of ["Decide the focus for today", "lastSessionsOfAnyKind", "Do not repeat what was trained today or yesterday", "wins over everything else", "about two minutes per set", "plan about 60 minutes", "bodyweight exercises only"]) expect(sys).toContain(part);
+    expect(JSON.stringify(interpretRequestJob.build(base).system)).not.toContain("Decide the focus for today");
   });
 });

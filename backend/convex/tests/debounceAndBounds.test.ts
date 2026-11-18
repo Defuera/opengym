@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api, internal } from "../functions/_generated/api";
 import { REBUILD_DEBOUNCE_MS } from "../functions/lib/constants";
-import { boundedPlanSessions, buildPredictInput, buildReviewInput, DASHBOARD_RECENT, PLAN_RECENT_ANY, PLAN_RECENT_OF_TYPE, PREDICTIONS_RECENT, REVIEW_RECENT_OF_TYPE } from "../functions/model/ai/jobs/inputs";
+import { boundedPlanSessions, buildReviewInput, DASHBOARD_RECENT, PLAN_RECENT_ANY, PLAN_RECENT_OF_TYPE, REVIEW_RECENT_OF_TYPE } from "../functions/model/ai/jobs/inputs";
 import type { Session } from "../functions/model/schema";
 import { TOKEN, pushSession, setup, settle, stubOpenAi, type T } from "./helpers";
 
@@ -29,7 +29,7 @@ describe("debounce", () => {
     const n = (job: string) => calls.filter((c) => c.job === job && c.input !== undefined).length;
     // Fallback happens after one retry, so each job calls the provider twice.
     expect(n("plan_session") / 2).toBe(1); // only the focus in the log (Gym Push), once
-    expect(n("predict_activity") / 2).toBe(1);
+    expect(n("predict_activity")).toBe(0); // the AI predict job is no longer scheduled
     expect(n("build_dashboard") / 2).toBe(2); // 7 and 30 days
     expect(n("review_session") / 2).toBe(10); // one review per saved session
     expect(await t.run((c) => c.db.query("plans").collect())).toHaveLength(1);
@@ -94,13 +94,6 @@ describe("bounded model input (pure)", () => {
     expect(input.sessions[input.sessions.length - 1]).toBe(s);
     expect(input.sessions.every((x) => x.endedAt <= s.endedAt)).toBe(true);
   });
-
-  it("predictions: the last 30, while the rules answer sees all", () => {
-    const input = buildPredictInput(forty(), [], Date.UTC(2026, 0, 15));
-    expect(input.sessions).toHaveLength(PREDICTIONS_RECENT);
-    expect(DASHBOARD_RECENT).toBe(30);
-    expect(input.sessions[0]!.id).toBe("s10");
-  });
 });
 
 describe("bounded model input (in the database)", () => {
@@ -124,8 +117,6 @@ describe("bounded model input (in the database)", () => {
     const { plan } = await t.query(api.queries.plans.next, { token: TOKEN, focus: "Push" });
     expect(plan.exercises[0]!.sets[0]!.kg).toBe(125);
 
-    const pred = await t.query(internal.jobs.predictions.input, {});
-    expect(pred.sessions).toHaveLength(PREDICTIONS_RECENT);
     const dash = await t.query(internal.jobs.dashboards.input, { days: 7 });
     expect(dash.sessions).toHaveLength(DASHBOARD_RECENT);
     const rev = await t.query(internal.jobs.reviews.input, { sessionId: "s37" });
@@ -139,7 +130,5 @@ describe("bounded model input (in the database)", () => {
     await settle(t);
     const plan = calls.find((c) => c.job === "plan_session" && c.input.focus === "Push")!;
     expect(plan.input.recentLog.length).toBeLessThanOrEqual(PLAN_RECENT_OF_TYPE + PLAN_RECENT_ANY);
-    const pred = calls.find((c) => c.job === "predict_activity")!;
-    expect(pred.input.recentLog.length).toBeLessThanOrEqual(PREDICTIONS_RECENT);
   });
 });

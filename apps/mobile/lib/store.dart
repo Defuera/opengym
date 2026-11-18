@@ -117,23 +117,6 @@ class AppStore extends ChangeNotifier {
     return active?.exercises.any((Exercise e) => e.sets.any((SetEntry s) => s.done)) ?? false;
   }
 
-  /// Changes the focus of the open gym session. Before the first done set the
-  /// exercises are swapped for [prepared] (a stored plan of that focus) or the
-  /// local plan; later only the label changes, so logged work is never dropped.
-  void changeFocus(String focus, {List<Exercise>? prepared, String? rationale}) {
-    final Session? a = active;
-    if (a == null || a.kind != 'gym' || a.focus == focus) {
-      return;
-    }
-    a.focus = focus;
-    if (!hasDoneSet) {
-      a.exercises = prepared ?? planFor(sessions, a.type, focus);
-      a.planNote = (rationale == null || rationale.isEmpty) ? null : rationale;
-      _select(0);
-    }
-    _commit();
-  }
-
   void finish() {
     final Session? a = active;
     if (a == null) {

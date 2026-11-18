@@ -36,14 +36,6 @@ describe("rules answers (AI off, nothing stored)", () => {
     expect(plan.exercises[0]!.sets).toEqual(s.exercises[0]!.sets);
   });
 
-  it("start predictions rank activities: Gym once, with the focus that is due", async () => {
-    await save(pushSession("p1", 5_000_000));
-    const r = await t.query(api.queries.start.predictions, { token: TOKEN });
-    expect(r).toMatchObject({ stored: false, source: "rules" });
-    expect(r.predictions.map((p) => p.type)).toEqual(["Gym"]);
-    expect(r.predictions[0]).toMatchObject({ kind: "gym", focus: "Push", reason: expect.stringContaining("Last push session was") });
-  });
-
   it("dashboard numbers are computed by code from facts", async () => {
     await save(pushSession("p1", Date.now() - 3_600_000, 60));
     await t.mutation(api.commands.goals.create, { token: TOKEN, goalId: "g1", title: "Bench 80", kind: "strength", exercise: "Bench press", targetKg: 80 });
@@ -79,7 +71,7 @@ describe("rules answers (AI off, nothing stored)", () => {
 });
 
 describe("AI path (mock provider)", () => {
-  it("stores an AI plan, predictions, dashboard layout and review after the jobs ran", async () => {
+  it("stores an AI plan, dashboard layout and review after the jobs ran", async () => {
     vi.stubEnv("AI_PROVIDER", "mock");
     await t.mutation(api.commands.goals.create, { token: TOKEN, goalId: "g1", title: "Train 3x", kind: "consistency", sessionsPerWeek: 3 });
     await save(pushSession("p1", Date.now() - 3_600_000));
@@ -89,7 +81,6 @@ describe("AI path (mock provider)", () => {
     expect(r).toMatchObject({ stored: true });
     expect(r.plan.source).toBe("ai");
     expect(r.plan.rationale).toContain("Mock plan");
-    expect(await t.query(api.queries.start.predictions, { token: TOKEN })).toMatchObject({ stored: true, source: "ai" });
     const d = await t.query(api.queries.dashboard.get, { token: TOKEN, days: 30 });
     expect(d).toMatchObject({ stored: true, dashboard: { days: 30, source: "ai" } });
     expect(d.dashboard.modules.some((m) => m.type === "goal_progress")).toBe(true);

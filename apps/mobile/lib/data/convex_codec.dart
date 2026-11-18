@@ -76,15 +76,6 @@ StartRequest? decodeStartRequest(Object? v) {
   return v is Map ? StartRequest.fromJson(asMap(normalize(v))) : null;
 }
 
-Stored<List<Prediction>> decodePredictions(Object? v) {
-  final Map<String, dynamic> m = asMap(normalize(v));
-  return Stored<List<Prediction>>(
-    _list(m['predictions'], (Object? e) => Prediction.fromJson(asMap(e))),
-    stored: m['stored'] == true,
-    source: str(m['source'], 'rules'),
-  );
-}
-
 Stored<Dashboard> decodeDashboard(Object? v) {
   final Map<String, dynamic> m = asMap(normalize(v));
   final Dashboard d = Dashboard.fromJson(asMap(m['dashboard']));

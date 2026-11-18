@@ -209,9 +209,8 @@ export default defineSchema({
     text: v.optional(v.string()),
     // The fixed session name (1..40). When set, the proposal type is always this name.
     name: v.optional(v.string()),
-    // "today": the coach picks the one session for today (no name). `text` is then the wish.
+    // Legacy fields of the removed "today" mode. Old rows may hold them, so they stay optional and are never written or read now.
     mode: v.optional(v.literal("today")),
-    // The pick the app showed (type 1..40, focus max 40). A hint for "today" mode.
     hintType: v.optional(v.string()),
     hintFocus: v.optional(v.string()),
     status: startStatus,

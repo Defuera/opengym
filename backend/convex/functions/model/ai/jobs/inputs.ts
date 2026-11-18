@@ -3,11 +3,9 @@ import type { ContextItem, Goal, Limit, PlanDraft, Session } from "../../schema"
 import { activityKey } from "../../sessionShape";
 import { fociByDue, loggedActivities } from "../../rules/foci";
 import { rulesPlan } from "../../rules/planner";
-import { rulesPredictions } from "../../rules/predictions";
 import { rulesReview } from "../../rules/review";
 import type { DashboardInput } from "./buildDashboard";
 import type { PlanInput } from "./planSession";
-import type { PredictInput } from "./predictActivity";
 import type { InterpretInput } from "./interpretRequest";
 import type { ReviewInput } from "./reviewSession";
 import type { KnownActivity } from "./shared";
@@ -21,7 +19,6 @@ import type { KnownActivity } from "./shared";
 export const PLAN_RECENT_OF_TYPE = 6;
 export const PLAN_RECENT_ANY = 6;
 export const REVIEW_RECENT_OF_TYPE = 6;
-export const PREDICTIONS_RECENT = 30;
 export const DASHBOARD_RECENT = 30;
 
 const lastN = <T>(xs: T[], n: number): T[] => (n <= 0 ? [] : xs.slice(-n));
@@ -61,10 +58,6 @@ function activityFoci(all: Session[], key: string): string[] {
   return [...seen.values()];
 }
 
-export function buildPredictInput(all: Session[], goals: Goal[], now: number, limits: Limit[] = []): PredictInput {
-  return { sessions: lastN(all, PREDICTIONS_RECENT), known: knownActivities(all, now), goals, limits, now, rules: rulesPredictions(all, now) };
-}
-
 export const INTERPRET_RECENT = 6;
 
 /** The log activity a typed text most likely means: its name is inside the text (longest first), else most words in common. null when none. */
@@ -82,17 +75,8 @@ export function bestMatchingActivity(text: string, known: KnownActivity[]): Know
 }
 
 /** Interpret a typed start request. `limits` must be the non-cleared limits. The log is the full history, oldest first. */
-export function buildInterpretInput(text: string, all: Session[], goals: Goal[], context: ContextItem[], limits: Limit[], now: number, name?: string, today?: { mode: "today"; hint?: { type: string; focus?: string } }): InterpretInput {
+export function buildInterpretInput(text: string, all: Session[], goals: Goal[], context: ContextItem[], limits: Limit[], now: number, name?: string): InterpretInput {
   const known = knownActivities(all, now);
-  if (today) {
-    // "Today" mode: the hinted activity is the match; the rules plan is for its hinted focus (else any focus).
-    const hint = today.hint;
-    const m = hint ? (known.find((a) => activityKey(a.type) === activityKey(hint.type)) ?? null) : null;
-    const rec = m ? lastN(all.filter((s) => activityKey(s.type) === activityKey(m.type)), INTERPRET_RECENT) : [];
-    const plan = !m || m.kind !== "gym" ? null : dropAvoided(rulesPlan(all, m.type, hint?.focus), limits);
-    const rulesToday: PlanDraft = plan && plan.exercises.length > 0 ? plan : m && m.kind === "gym" ? dropAvoided(rulesPlan(all, m.type), limits) : { rationale: "No matching session logged yet. Start empty and add what you do.", exercises: [] };
-    return { text, mode: "today", ...(hint ? { hint } : {}), known, ...(m ? { bestMatch: m.type } : {}), sessions: rec, lately: lastN(all, PLAN_RECENT_ANY), now, goals, context, limits, rules: rulesToday };
-  }
   // With a fixed name the match is by that name only (the wish does not pick another activity).
   const match = name ? (known.find((a) => activityKey(a.type) === activityKey(name)) ?? null) : bestMatchingActivity(text, known);
   const recent = match ? lastN(all.filter((s) => activityKey(s.type) === activityKey(match.type)), INTERPRET_RECENT) : [];

@@ -2,16 +2,13 @@ import 'package:flutter/material.dart';
 
 import '../app/deps.dart';
 import '../models.dart';
-import '../planner.dart';
 import '../theme.dart';
-import '../widgets/focus_chips.dart';
 import '../widgets/og_icon_button.dart';
 import '../widgets/preparing_card.dart';
 import 'session_screen.dart';
 
 /// Asks the server for the stored plan of the activity + focus (at most a few
-/// seconds), then opens the session. The chips change the focus meanwhile: a
-/// pick asks for the stored plan of that focus (no AI call).
+/// seconds), then opens the session.
 /// "Use my last session" skips the wait and uses the local planner.
 class PrepareSessionScreen extends StatefulWidget {
   const PrepareSessionScreen({
@@ -35,31 +32,16 @@ class PrepareSessionScreen extends StatefulWidget {
 
 class _PrepareSessionScreenState extends State<PrepareSessionScreen> {
   bool _done = false;
-  int _request = 0;
-  String? _focus;
 
   @override
   void initState() {
     super.initState();
-    _focus = widget.focus;
     _load();
   }
 
   Future<void> _load() async {
-    final int mine = ++_request;
-    final Plan? p = await widget.deps.plans.fetchNext(activity: widget.activity, focus: _focus);
-    if (mine != _request) {
-      return; // another chip was picked meanwhile
-    }
+    final Plan? p = await widget.deps.plans.fetchNext(activity: widget.activity, focus: widget.focus);
     _go(p);
-  }
-
-  void _pick(String focus) {
-    if (_done || focus == _focus) {
-      return;
-    }
-    setState(() => _focus = focus);
-    _load();
   }
 
   void _go(Plan? plan) {
@@ -68,7 +50,7 @@ class _PrepareSessionScreenState extends State<PrepareSessionScreen> {
     }
     _done = true;
     final AppDeps d = widget.deps;
-    final String? focus = _focus ?? plan?.focus;
+    final String? focus = widget.focus ?? plan?.focus;
     if (plan != null) {
       d.store.begin(
         activity: widget.activity,
@@ -81,19 +63,14 @@ class _PrepareSessionScreenState extends State<PrepareSessionScreen> {
     }
     Navigator.of(context).pushReplacement(
       MaterialPageRoute<void>(
-        builder: (BuildContext c) => SessionScreen(
-          store: d.store,
-          plans: d.plans,
-          online: d.connection.connected,
-          advisedFocus: widget.focus,
-        ),
+        builder: (BuildContext c) => SessionScreen(store: d.store),
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final String? focus = _focus;
+    final String? focus = widget.focus;
     return Scaffold(
       body: SafeArea(
         child: Padding(
@@ -123,20 +100,6 @@ class _PrepareSessionScreenState extends State<PrepareSessionScreen> {
                   ),
                 ],
               ),
-              if (widget.focus != null)
-                Padding(
-                  padding: const EdgeInsets.only(top: 14),
-                  child: FocusChips(
-                    foci: gymFoci(
-                      widget.deps.store.sessions,
-                      activity: widget.activity,
-                      advised: widget.focus,
-                    ),
-                    selected: focus,
-                    advised: widget.focus,
-                    onSelect: _pick,
-                  ),
-                ),
               const SizedBox(height: 24),
               PreparingCard(
                 title: 'Preparing your session…',

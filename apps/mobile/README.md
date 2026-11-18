@@ -31,7 +31,7 @@ The backend is hosted Convex (ADR-012). Get the deployment address
 1. In the app open Settings (gear icon, top right).
 2. Enter the Convex URL and the token, then press "Test connection". A wrong
    token or address shows a clear message; it never spins forever.
-3. Home says "Connected". Sessions, goals, plans, predictions, the dashboard
+3. Home says "Connected". Sessions, goals, plans, the dashboard
    and reviews are live subscriptions: the server pushes every change, there
    is no refresh. For test builds, `--dart-define=OPENGYM_URL=...` and
    `--dart-define=OPENGYM_TOKEN=...` set the defaults.

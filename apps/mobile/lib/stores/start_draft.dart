@@ -1,36 +1,47 @@
 import 'package:flutter/widgets.dart';
 
-/// What the Start tab holds between tab switches: the wish for today, the two
-/// fields of the "new kind of session" form, and whether that form is open.
-/// Owned by the plus sheet; the Start tab only reads it.
+/// The steps of the Start tab: the list of types, the "Other" form, the details.
+enum StartStep { types, other, details }
+
+/// What the Start tab holds between tab switches: the step, the chosen type,
+/// the note for today and the name typed under "Other". Owned by the plus
+/// sheet; the Start tab only reads it.
 class StartDraft extends ChangeNotifier {
-  /// The optional wish for today's session (max 200).
-  final TextEditingController today = TextEditingController();
-  final TextEditingController name = TextEditingController();
-  final TextEditingController wish = TextEditingController();
-  bool _open = false;
+  /// The optional note for today (max 200).
+  final TextEditingController note = TextEditingController();
 
-  bool get open => _open;
+  /// The name typed under "Other" (max 40).
+  final TextEditingController otherName = TextEditingController();
+  StartStep _step = StartStep.types;
+  String _type = '';
 
-  /// The name to send: the trimmed field.
-  String get effectiveName => name.text.trim();
+  StartStep get step => _step;
 
-  /// The form for a new kind of session. Typed values stay.
-  void openNew() {
-    _open = true;
+  /// The type of step 2 (a name from the log, or the one typed under "Other").
+  String get type => _type;
+
+  void openOther() {
+    _step = StartStep.other;
     notifyListeners();
   }
 
-  void close() {
-    _open = false;
+  /// Step 2 for [name], a type with sets.
+  void pick(String name) {
+    _type = name;
+    _step = StartStep.details;
+    notifyListeners();
+  }
+
+  /// Back to the list of types. Typed values stay.
+  void back() {
+    _step = StartStep.types;
     notifyListeners();
   }
 
   @override
   void dispose() {
-    today.dispose();
-    name.dispose();
-    wish.dispose();
+    note.dispose();
+    otherName.dispose();
     super.dispose();
   }
 }

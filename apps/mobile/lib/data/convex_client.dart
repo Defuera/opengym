@@ -34,7 +34,6 @@ abstract class ConvexClient {
   /// The stored plan for [activity] (null: Gym) and [focus]; a null focus asks
   /// for the advised focus.
   Stream<Stored<Plan>> watchNextPlan({String? activity, String? focus});
-  Stream<Stored<List<Prediction>>> watchPredictions();
 
   /// [days] is 7 or 30.
   Stream<Stored<Dashboard>> watchDashboard(int days);
@@ -127,16 +126,12 @@ abstract class ConvexClient {
   /// the app never queues it in the outbox. The answer arrives through
   /// [watchStartRequest]. Sending the same [requestId] again changes nothing.
   ///
-  /// With [today] the coach picks the one session for today: [text] is the
-  /// optional wish, there is no [name], and [hintType] / [hintFocus] are the
-  /// pick the user saw.
+  /// The Start tab sends the chosen activity as [name] and the optional note
+  /// as [text]: the coach then decides the focus and the plan.
   Future<void> requestStart({
     required String requestId,
     String? name,
     String? text,
-    bool today = false,
-    String? hintType,
-    String? hintFocus,
   });
 
   /// The state of one start request; null while the server has none.
@@ -254,22 +249,12 @@ class DartvexConvexClient implements ConvexClient {
     required String requestId,
     String? name,
     String? text,
-    bool today = false,
-    String? hintType,
-    String? hintFocus,
   }) =>
       _mutate('commands/start:request', <String, dynamic>{
         'requestId': requestId,
         if (name != null) 'name': name,
         if (text != null) 'text': text,
-        if (today) 'mode': 'today',
-        if (today && hintType != null) 'hintType': hintType,
-        if (today && hintType != null && hintFocus != null) 'hintFocus': hintFocus,
       });
-
-  @override
-  Stream<Stored<List<Prediction>>> watchPredictions() =>
-      _watch('queries/start:predictions', const <String, dynamic>{}, decodePredictions);
 
   @override
   Stream<Stored<Dashboard>> watchDashboard(int days) =>

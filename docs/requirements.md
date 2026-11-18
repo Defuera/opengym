@@ -32,9 +32,9 @@ conversation (A01–A16). Wording is kept close to his.
 ## Starting a session
 - Decided 2026-11-17, in plain words: gym upper and gym legs are not separate activities. The activity is Gym. The AI advises which exercises (the focus, for example Upper or Legs). The same holds for running: you just go for a run, and the AI may advise the session type. See ADR-013.
 - R16 Plus button starts an activity
-- R17 App predicts what you're about to do (it ranks activities, and advises the focus of each)
-- R18 Predictions ordered most-likely first
-- R19 Gym → a session is generated to follow, for the advised focus (the user may pick another focus)
+- R17 The Start tab lists the activity types of the log (both sessions with sets and time/distance), most used recently first. No AI ranks them (updated 2026-11-18)
+- R18 The most likely type is first and highlighted; a row shows only the type name
+- R19 A type with sets → the user may add a note, then the coach decides the focus and builds the session to follow. The user does not choose the focus, and the session screen has no focus chips (updated 2026-11-18)
 - R20 Exercises can be reordered
 - R21 Exercises can be swapped
 - R22 Session is prepared, edited only as needed — never a blank slate
@@ -42,7 +42,7 @@ conversation (A01–A16). Wording is kept close to his.
 ## Start session and Log (ADR-016)
 - Decided 2026-11-17: Home has two actions, **Start session** and **Log**. Each opens a bottom sheet. Nothing in the app is a fixed list: activities, foci and starter plans come from the log.
 - A session with sets (`kind: "gym"`) may have any activity name in `type` (1..40, default "Gym"): "Gym", "Home", ... `kind: "activity"` is time and distance. Old rows stay valid. Names match by `activityKey` (lower case, trimmed, spaces collapsed); display uses the most recent spelling.
-- Updated 2026-11-18: the Start session tab shows one "Today" card (the coach's top pick and its reason), an optional wish field (max 200) and the button "Start today's session". The owner does not choose from a list: the coach builds the one session for today from the log, the pick and the wish. "New kind of session" and "Start empty" stay. Before that, the tab showed stored proposals (several activities with sets are allowed; at most 2 per activity and 6 in all), then a free-text field ("Something new"). Typed text becomes a start request: the coach proposes a name (a known one is reused), a focus and a plan of the right size for the time asked. After 20 seconds, offline or on failure the app opens an empty session named from the text. The AI never writes a fact.
+- Updated 2026-11-18 (two steps): "I choose the activity, the coach decides the content." Step 1 of the Start session tab lists the activity types of the log, most used recently first, one row per type with the name only (no focus, no reason, no coach pick). The first row is highlighted. Both kinds are listed. The last row is "Other": a name (1..40) and "Sets and reps" or "Time or distance". With an empty log only "Other" shows, with a short line. "Start empty, without a plan" stays. Step 2 (a type with sets): the type as title, one optional note ("Anything for today?", max 200) and "Start". The request carries the type as `name` and the note as `text`; the coach decides focus and plan, and the note wins. Offline or on failure the plan of plain code for that activity opens, else an empty session. A time/distance type opens the Log form for that activity. The open session shows the activity, the focus and the coach's rationale as text; the focus cannot be changed there. The earlier Today card, the "today" request mode, the AI ranking of predictions and the focus chips were removed.
 - With an empty log there are no proposals and no starter plan: the fallback is an empty session. Plans are stored per activity and focus, only for the first 3 set-based proposals; any other is built from the user's own last session of it, or empty. Safety limits and the avoid rules still apply.
 - Log lists time and distance activities from the log and opens the small log form. No AI call.
 

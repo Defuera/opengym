@@ -1,6 +1,6 @@
 # OpenGym API contract (v1)
 
-> Note: this file still describes the old REST API. The live contract is the Convex functions in `backend/convex/functions` (ADR-012). Only the session, plan, prediction and start-request shapes below were updated for ADR-013 (activity first, focus is advice) and ADR-016 (start or log; the vocabulary comes from the log).
+> Note: this file still describes the old REST API. The live contract is the Convex functions in `backend/convex/functions` (ADR-012). Only the session, plan and start-request shapes below were updated for ADR-013 (activity first, focus is advice) and ADR-016 (start or log; the vocabulary comes from the log).
 
 One backend, one core database, one user. The Flutter app (`mobile/`) and the
 server (`backend/`) both build against this file. JSON everywhere, times are
@@ -58,8 +58,7 @@ Message    { id, threadId, role: "user" | "assistant", text, fileIds: string[],
              createdAt }
 FileMeta   { id, name, mime, size, kind: "text" | "image" | "pdf" | "audio" | "other", createdAt }
 
-Prediction { kind: "gym" | "activity", type: string /* an activity of the log; several set-based ones allowed; at most 2 items per activity, 6 in all */,
-             focus?: string 1..40 /* advised flavour, when the log supports one */, reason: string (<=80) }
+Prediction   /* removed from the contract: the AI job `predict_activity` and `queries/start:predictions` no longer exist. The Start tab lists the activities of the log (plain code). The `predictions` table stays in the schema only so old rows validate. */
 StartRequest { requestId, status: "pending" | "ready" | "failed",
              proposal?: { kind: "gym" | "activity", type: string 1..40, focus?: string (<=40), minutes?: int, reason?: string (<=80),
                           plan?: Plan /* required when kind is "gym", absent for "activity"; id is "start:<requestId>" */ } }
@@ -91,9 +90,8 @@ goal).
 | PUT | `/v1/sessions/:id` | Session | `{ session }` idempotent upsert; then (async) review, replan, dashboard refresh |
 | DELETE | `/v1/sessions/:id` | – | `{ ok: true }` |
 | GET | `/v1/sessions/:id/review` | – | `{ review: Review | null }` |
-| GET | `/v1/start` | – | `{ predictions: Prediction[] }` most likely first |
 | GET | `/v1/plans/next?focus=Upper` (Convex: `queries/plans:next { activity?: string (default "Gym"), focus?, type? (legacy name of focus) }`; no focus = the advised focus of that activity) | – | `{ plan: Plan, stored: boolean }` the stored plan, else the rules plan computed now: the user's own last session of that activity and focus, or an EMPTY plan (no starter template). Never calls the AI. |
-| POST | Convex only: `commands/start:request { token, requestId, name?: 1..40, text?: 0..200, mode?: "today", hintType?: 1..40, hintFocus?: 0..40 }` (at least one of `name`, `text`; a text-only request from an old client works as before. With `mode: "today"` the coach picks the one session for today: `text` is the optional wish, `name` must be absent, the hint is the pick the app showed) | – | the requestId. Idempotent by requestId. Stores `{requestId, text?, name?, mode?, hintType?, hintFocus?, status: "pending"}` and schedules `interpret_request`. Requests older than one day are removed. |
+| POST | Convex only: `commands/start:request { token, requestId, name?: 1..40, text?: 0..200 }` (at least one of `name`, `text`; a text-only request from an old client works as before. The Start tab sends the activity the user chose as `name` and the optional note as `text`: the coach decides the focus and the plan. The earlier `mode: "today"`, `hintType` and `hintFocus` arguments were removed) | – | the requestId. Idempotent by requestId. Stores `{requestId, text?, name?, status: "pending"}` and schedules `interpret_request`. Requests older than one day are removed. Old rows may still hold `mode`, `hintType`, `hintFocus`; the schema keeps them optional and nothing reads them. |
 | GET | Convex only: `queries/start:request { token, requestId }` | – | `StartRequest` or `null` |
 | GET | `/v1/dashboard?days=7` | – | `{ dashboard: Dashboard }` |
 | GET | `/v1/goals` | – | `{ goals: Goal[] }` |
@@ -128,8 +126,7 @@ plans and the dashboard layout; they are regenerated in the background.
 | Job | Output | Fallback (plain code) |
 |---|---|---|
 | `plan_session` | Plan for a session with sets for one activity (and focus) from log, goals, active context (equipment and preferences), limits | the user's last session of that activity and focus with its last sets; an EMPTY plan if there is none |
-| `predict_activity` | Prediction[] (names checked against the log by activityKey; max 2 per activity, 6 in all) | the log's activities ranked by recent use; a session with sets gets the focus done longest ago, plus a second item when the log has a second focus; empty for an empty log |
-| `interpret_request` | StartRequest proposal for a typed text: activity (a known name is reused by activityKey), focus, minutes, reason, plan | status `ready` with `{kind: "gym", type: <name as typed, else the text before the first comma>, plan: empty}`. With a `name`, the proposal `type` is always that name (the log's spelling when the key matches); the job gets `name` and `wish` (the text) as separate inputs. In `today` mode the job gets `wish` and `suggestedToday` (the hint) and may change the pick; the fallback is the hint with the rules plan for it |
+| `interpret_request` | StartRequest proposal for a typed text: activity (a known name is reused by activityKey), focus, minutes, reason, plan | status `ready` with `{kind: "gym", type: <name as typed, else the text before the first comma>, plan: empty}`. With a `name`, the proposal `type` is always that name (the log's spelling when the key matches); the job gets `name` and `wish` (the text) as separate inputs, plus `lastSessionsOfAnyKind`, `today` and `timeNow`; the coach decides the focus for today from them and the goals and limits, the note wins, and the plan fills the time. |
 | `build_dashboard` | ordered module specs | sessions, active days, top set of most-trained exercise, one goal_progress per active goal, recent_sessions |
 | `chat` | reply text + sources | fixed "AI is not configured" reply; message still stored |
 | `extract_from_chat` | new Goal[] / ContextItem[] from a user message | none extracted |

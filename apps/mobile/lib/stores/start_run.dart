@@ -4,7 +4,7 @@ import '../data/convex_client.dart';
 import '../models.dart';
 import '../planner.dart';
 
-/// One typed "something new" request: sends `commands/start:request` with a
+/// One start request (a chosen activity name and an optional note, or a typed text): sends `commands/start:request` with a
 /// client-made request id, then watches `queries/start:request`.
 ///
 /// [result] completes with the proposal when the request is ready, and with
@@ -15,13 +15,10 @@ class StartRun {
     required ConvexClient client,
     String? name,
     String? text,
-    bool today = false,
-    String? hintType,
-    String? hintFocus,
     required Duration budget,
   }) : requestId = newId() {
     _timer = Timer(budget, () => _finish(null));
-    _start(client, name, text, today, hintType, hintFocus);
+    _start(client, name, text);
   }
 
   final String requestId;
@@ -36,9 +33,6 @@ class StartRun {
     ConvexClient client,
     String? name,
     String? text,
-    bool today,
-    String? hintType,
-    String? hintFocus,
   ) async {
     try {
       // Listen first, so an answer cannot be missed.
@@ -55,9 +49,6 @@ class StartRun {
         requestId: requestId,
         name: name,
         text: text,
-        today: today,
-        hintType: hintType,
-        hintFocus: hintFocus,
       );
     } catch (_) {
       _finish(null);

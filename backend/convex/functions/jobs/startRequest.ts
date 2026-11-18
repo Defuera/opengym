@@ -18,7 +18,7 @@ export const input = internalQuery({
   handler: async (ctx, { requestId }) => {
     const doc = await startRequestById(ctx, requestId);
     if (!doc || doc.status !== "pending") return null;
-    return buildInterpretInput(doc.text ?? "", await allSessions(ctx), await allGoals(ctx), await allContext(ctx), await activeLimits(ctx), Date.now(), doc.name, doc.mode === "today" ? { mode: "today", ...(doc.hintType ? { hint: { type: doc.hintType, ...(doc.hintFocus ? { focus: doc.hintFocus } : {}) } } : {}) } : undefined);
+    return buildInterpretInput(doc.text ?? "", await allSessions(ctx), await allGoals(ctx), await allContext(ctx), await activeLimits(ctx), Date.now(), doc.name);
   },
 });
 

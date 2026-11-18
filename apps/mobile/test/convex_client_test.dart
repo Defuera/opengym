@@ -110,22 +110,26 @@ void main() {
 
   test('read models decode with stored and source', () async {
     final _FakeCaller fake = _FakeCaller();
-    final List<Stored<List<Prediction>>> got = <Stored<List<Prediction>>>[];
-    final StreamSubscription<Stored<List<Prediction>>> sub =
-        _client(fake).watchPredictions().listen(got.add);
+    final List<Stored<Plan>> got = <Stored<Plan>>[];
+    final StreamSubscription<Stored<Plan>> sub =
+        _client(fake).watchNextPlan(activity: 'Gym', focus: 'Pull').listen(got.add);
     await Future<void>.delayed(Duration.zero);
     fake.results.add(const cx.QuerySuccess(<String, dynamic>{
-      'predictions': <dynamic>[
-        <String, dynamic>{'kind': 'gym', 'type': 'Gym', 'focus': 'Pull', 'reason': 'Due'}
-      ],
-      'source': 'rules',
+      'plan': <String, dynamic>{
+        'id': 'rules:Pull',
+        'type': 'Gym',
+        'focus': 'Pull',
+        'createdAt': 1,
+        'source': 'rules',
+        'rationale': 'r',
+        'exercises': <dynamic>[],
+      },
       'stored': false,
     }));
     await Future<void>.delayed(Duration.zero);
     expect(got.single.stored, isFalse);
     expect(got.single.source, 'rules');
-    expect(got.single.value.single.type, 'Gym');
-    expect(got.single.value.single.focus, 'Pull');
+    expect(got.single.value.focus, 'Pull');
     await sub.cancel();
   });
 

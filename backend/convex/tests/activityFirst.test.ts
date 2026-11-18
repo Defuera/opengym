@@ -107,14 +107,13 @@ describe("old rows before the migration has run", () => {
     expect((await t.query(api.queries.plans.next, { token: TOKEN, type: "Upper" })).plan.focus).toBe("Upper");
   });
 
-  it("a legacy plan row (type, no focus) and a legacy predictions row still validate and are read as the new shape", async () => {
+  it("a legacy plan row (type, no focus) and a legacy predictions row still validate; the plan row is read as the new shape", async () => {
     await t.run(async (c) => {
       await c.db.insert("plans", { type: "Upper", version: 1, createdAt: 1, source: "ai", rationale: "old", exercises: [] });
       await c.db.insert("predictions", { version: 1, createdAt: 1, source: "ai", items: [{ kind: "gym", type: "Legs", reason: "r" }, { kind: "activity", type: "Run", reason: "x" }] });
     });
-    const r = await t.query(api.queries.start.predictions, { token: TOKEN });
-    expect(r.predictions).toEqual([{ kind: "gym", type: "Gym", focus: "Legs", reason: "r" }, { kind: "activity", type: "Run", reason: "x" }]);
-    expect((await t.query(api.queries.plans.next, { token: TOKEN })).plan.focus).toBe("Legs"); // advised focus, no stored plan: rules
+    // the old predictions row stays in the table (never read now); the advised focus comes from the log
+    expect((await t.query(api.queries.plans.next, { token: TOKEN })).plan.type).toBe("Gym");
   });
 });
 
@@ -193,7 +192,7 @@ describe("jobs/migrations:activityFirst", () => {
     await settle(t);
     const plans = await t.run((c) => c.db.query("plans").collect());
     expect(plans.every((p) => p.focus !== undefined)).toBe(true);
-    expect(plans.map((p) => p.focus).sort()).toEqual(["Legs", "Upper"]); // the set-based items of the predictions (Gym Upper, Gym Legs); not every focus
+    expect(plans.map((p) => p.focus).sort()).toEqual(["Legs", "Upper"]); // the set-based items of the rules ranking (Gym Upper, Gym Legs); not every focus
   });
 });
 
@@ -242,70 +241,6 @@ describe("predictions: activities, not gym flavours", () => {
   it("with no history there are no predictions", () => {
     expect(rulesPredictions([], NOW)).toEqual([]);
   });
-
-  it("an AI gym focus that is not in the log is replaced by the focus due", async () => {
-    stubOpenAi((job) => (job === "predict_activity" ? JSON.stringify({ predictions: [{ kind: "gym", type: "Gym", focus: "Push", reason: "due" }] }) : "{}"));
-    await save(pushSession("a", NOW - 3 * DAY, 60, "Upper"));
-    await save(pushSession("b", NOW - DAY, 60, "Legs"));
-    await settle(t);
-    const r = await t.query(api.queries.start.predictions, { token: TOKEN });
-    expect(r).toMatchObject({ stored: true, source: "ai" });
-    expect(r.predictions[0]).toMatchObject({ type: "Gym", focus: "Upper", reason: "due" });
-  });
-
-  it("an activity that is not in the log fails the hard check: retried, then the rules list is stored", async () => {
-    const calls = stubOpenAi((job) => (job === "predict_activity" ? JSON.stringify({ predictions: [{ kind: "activity", type: "Swim", reason: "invented" }] }) : "{}"));
-    await save(pushSession("a", NOW - DAY, 60, "Upper"));
-    await settle(t);
-    expect(calls.filter((c) => c.job === "predict_activity")).toHaveLength(2);
-    const r = await t.query(api.queries.start.predictions, { token: TOKEN });
-    expect(r).toMatchObject({ stored: true, source: "rules" });
-    expect(r.predictions.map((p) => p.type)).toEqual(["Gym"]);
-  });
-
-  it("the save step drops an invented activity and an unknown kind pairing, whatever the job said", async () => {
-    await save(pushSession("a", NOW - DAY, 60, "Upper"));
-    await settle(t);
-    await t.mutation(internal.jobs.predictions.save, {
-      version: Date.now() + 1,
-      source: "ai",
-      items: [{ kind: "activity", type: "Swim", reason: "x" }, { kind: "activity", type: "Gym", reason: "wrong kind" }, { kind: "gym", type: " gym ", focus: "UPPER", reason: "ok" }],
-    });
-    const r = await t.query(api.queries.start.predictions, { token: TOKEN });
-    expect(r.predictions).toEqual([{ kind: "gym", type: "Gym", focus: "Upper", reason: "ok" }]);
-  });
-
-  it("with an empty log nothing is stored but an empty list, and the AI is not called", async () => {
-    const calls = stubOpenAi(() => "{}");
-    await t.mutation(api.commands.goals.create, { token: TOKEN, goalId: "g1", title: "Train 3x", kind: "consistency", sessionsPerWeek: 3 });
-    await settle(t);
-    expect(calls.filter((c) => c.job === "predict_activity")).toHaveLength(0);
-    expect(await t.query(api.queries.start.predictions, { token: TOKEN })).toMatchObject({ stored: true, predictions: [] });
-  });
-
-  it("the rotation hint is not sent under the name baseline", async () => {
-    const calls = stubOpenAi(() => "{}");
-    await save(pushSession("a", NOW - DAY, 60, "Upper"));
-    await settle(t);
-    const input = calls.find((c) => c.job === "predict_activity")!.input;
-    expect(input.baseline).toBeUndefined();
-    expect(input.rotationHint).toBeDefined();
-  });
-
-  it("the stored AI result is normalised: legacy answers, legacy shape, repeats, spelling by activityKey", async () => {
-    stubOpenAi((job) =>
-      job === "predict_activity"
-        ? JSON.stringify({ predictions: [{ kind: "gym", type: "Upper", reason: "due" }, { kind: "gym", type: "Gym", focus: "Upper", reason: "again" }, { kind: "activity", type: "run", focus: "Easy", reason: "steady" }] })
-        : "{}",
-    );
-    await save(pushSession("p0", NOW - 2 * DAY, 60, "Upper"));
-    await save(pushSession("p1", NOW - DAY, 60, "Legs"));
-    await save({ sessionId: "r1", kind: "activity", type: "Run", startedAt: 1, endedAt: NOW - 5 * DAY, exercises: [], minutes: 30, source: "app" });
-    await settle(t);
-    const r = await t.query(api.queries.start.predictions, { token: TOKEN });
-    expect(r).toMatchObject({ stored: true, source: "ai" });
-    expect(r.predictions).toEqual([{ kind: "gym", type: "Gym", focus: "Upper", reason: "due" }, { kind: "activity", type: "Run", focus: "Easy", reason: "steady" }]); // "run" -> the log's spelling
-  });
 });
 
 describe("plans per focus", () => {
@@ -322,7 +257,7 @@ describe("plans per focus", () => {
     expect(got.filter((x) => x.focus === "Upper").length).toBeGreaterThanOrEqual(6);
   });
 
-  it("next with no focus returns the plan of the advised focus; the jobs store plans only for the predicted items", async () => {
+  it("next with no focus returns the plan of the advised focus; the jobs store plans only for the ranked items", async () => {
     await save(pushSession("p1", NOW - 3 * DAY, 60, "Upper"));
     await save(pushSession("p2", NOW - 2 * DAY, 60, "Legs"));
     await save(pushSession("p3", NOW - DAY, 60, "Pull"));
@@ -330,8 +265,6 @@ describe("plans per focus", () => {
     const plans = await t.run((c) => c.db.query("plans").collect());
     expect(plans.map((p) => p.focus).sort()).toEqual(["Legs", "Upper"]); // Gym Upper and Gym Legs are the 2 items; Pull is built on read
     expect(plans.every((p) => p.type === undefined && p.activityKey === "gym")).toBe(true);
-    const { predictions } = await t.query(api.queries.start.predictions, { token: TOKEN });
-    expect(predictions[0]).toMatchObject({ type: "Gym", focus: "Upper" });
     expect(await t.query(api.queries.plans.next, { token: TOKEN })).toMatchObject({ stored: true, plan: { type: "Gym", focus: "Upper" } });
     expect(await t.query(api.queries.plans.next, { token: TOKEN, focus: "Upper" })).toMatchObject({ stored: true, plan: { focus: "Upper" } });
     expect(await t.query(api.queries.plans.next, { token: TOKEN, focus: "Pull" })).toMatchObject({ stored: false, plan: { focus: "Pull", source: "rules" } });

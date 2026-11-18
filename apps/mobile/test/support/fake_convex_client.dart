@@ -75,7 +75,6 @@ class FakeConvexClient implements ConvexClient {
   /// What [askAfter] answers per session id.
   final Map<String, List<AskItem>> asks = <String, List<AskItem>>{};
   final Live<List<ImportJob>> _imports = Live<List<ImportJob>>(<ImportJob>[]);
-  final Live<Stored<List<Prediction>>> predictions = Live<Stored<List<Prediction>>>();
   final Map<String, Live<Stored<Plan>>> plans = <String, Live<Stored<Plan>>>{};
   final Map<int, Live<Stored<Dashboard>>> dashboards = <int, Live<Stored<Dashboard>>>{};
   final Map<String, Live<Stored<Review?>>> reviews = <String, Live<Stored<Review?>>>{};
@@ -198,8 +197,6 @@ class FakeConvexClient implements ConvexClient {
   final List<(String, String?)> startSent = <(String, String?)>[];
   final List<String?> startNames = <String?>[];
 
-  /// Today-mode requests: (today, hintType, hintFocus), parallel to [startSent].
-  final List<(bool, String?, String?)> startToday = <(bool, String?, String?)>[];
   final Map<String, Live<StartRequest?>> startRequests = <String, Live<StartRequest?>>{};
 
   String get lastStartId => startSent.last.$1;
@@ -213,23 +210,16 @@ class FakeConvexClient implements ConvexClient {
     required String requestId,
     String? name,
     String? text,
-    bool today = false,
-    String? hintType,
-    String? hintFocus,
   }) async {
     _command('requestStart:$requestId');
     startSent.add((requestId, text));
     startNames.add(name);
-    startToday.add((today, hintType, hintFocus));
     startRequests.putIfAbsent(requestId, () => Live<StartRequest?>());
   }
 
   @override
   Stream<StartRequest?> watchStartRequest(String requestId) =>
       startRequests.putIfAbsent(requestId, () => Live<StartRequest?>()).stream();
-
-  @override
-  Stream<Stored<List<Prediction>>> watchPredictions() => predictions.stream();
 
   @override
   Stream<Stored<Dashboard>> watchDashboard(int days) =>

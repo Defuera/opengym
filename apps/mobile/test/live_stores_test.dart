@@ -8,25 +8,7 @@ import 'package:opengym/stores/review_store.dart';
 
 import 'support/fake_convex_client.dart';
 
-const Prediction _pull = Prediction(kind: 'gym', type: 'Gym', focus: 'Pull', reason: 'Due');
-
 void main() {
-  test('predictions are pushed to the store, rules first, AI later', () async {
-    final FakeConvexClient fake = FakeConvexClient();
-    final PlanStore plans = PlanStore(client: fake)..start();
-    fake.predictions.set(const Stored<List<Prediction>>(<Prediction>[_pull], stored: false));
-    await pump();
-    expect(plans.remote.single.focus, 'Pull');
-    expect(plans.source, 'rules');
-    fake.predictions.set(const Stored<List<Prediction>>(
-        <Prediction>[Prediction(kind: 'gym', type: 'Gym', focus: 'Legs')],
-        stored: true, source: 'ai'));
-    await pump();
-    expect(plans.remote.single.focus, 'Legs');
-    expect(plans.source, 'ai');
-    plans.dispose();
-  });
-
   test('the plan for a focus comes from the live plan query', () async {
     final FakeConvexClient fake = FakeConvexClient();
     final PlanStore plans = PlanStore(client: fake);

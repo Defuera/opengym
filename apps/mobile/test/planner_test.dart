@@ -112,34 +112,6 @@ void main() {
     expect(r.top, 60);
   });
 
-  test('rankActivities gives one item per set-based activity, most often first', () {
-    const int now = 1700000000000;
-    final List<Session> sessions = <Session>[
-      _gym('Upper', now - 6 * dayMs, <Exercise>[_ex('Row', <double>[40])]),
-      _gym('Legs', now - 2 * dayMs, <Exercise>[_ex('Squat', <double>[80])]),
-      _home('Quick', now - 3 * dayMs, <Exercise>[_ex('Press-up', <double>[0])]),
-      Session(id: 'r1', kind: 'activity', type: 'Run', startedAt: now, endedAt: now),
-    ];
-    final List<Prediction> p = rankActivities(sessions, nowMs: now);
-    expect(p.map((Prediction x) => x.type).toList(), <String>['Gym', 'Home']);
-    expect(p.first.focus, 'Upper');
-    expect(p.first.reason, 'Last upper session was 6 days ago');
-    expect(p[1].focus, 'Quick');
-    expect(rankActivities(<Session>[], nowMs: now), isEmpty);
-  });
-
-  test('gymFoci lists only the foci of that activity, the advised one first', () {
-    final List<Session> sessions = <Session>[
-      _gym('Upper', 1000, <Exercise>[_ex('Row', <double>[40])]),
-      _home('Quick', 2000, <Exercise>[_ex('Press-up', <double>[0])]),
-    ];
-    expect(gymFoci(sessions, advised: 'Legs').first, 'Legs');
-    expect(gymFoci(sessions).toList(), <String>['Upper']);
-    expect(gymFoci(sessions, activity: 'home').toList(), <String>['Quick']);
-    expect(gymFoci(sessions, advised: 'Upper').toList(), <String>['Upper']);
-    expect(gymFoci(<Session>[]).toList(), isEmpty);
-  });
-
   test('activityKey lower-cases, trims and collapses spaces', () {
     expect(activityKey('  Hotel   GYM '), 'hotel gym');
     expect(activityKey('Run'), activityKey('run '));

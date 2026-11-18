@@ -32,3 +32,4 @@ This directory holds the Architecture Decision Records (ADRs) for Gym Days (Open
 | [015](015-own-records-and-limits.md) | The User May Store Own Records; Limits Become Rules | Accepted |
 | [016](016-start-or-log-vocabulary-from-the-log.md) | Start or Log; the Vocabulary Comes From the Log | Accepted |
 | [017](017-log-entries.md) | Log Entries Are Free Notes With Attachments | Proposed |
+| [018](018-log-by-text.md) | Log an Activity as One Text; the AI Fills the Structure | Proposed |

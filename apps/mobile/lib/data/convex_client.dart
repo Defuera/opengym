@@ -67,6 +67,16 @@ abstract class ConvexClient {
 
   Future<void> saveSession(Session session);
   Future<void> removeSession(String sessionId);
+
+  /// Logs an activity as one text (ADR-018). The server stores [session] as
+  /// given (type, time, text as the note, parse pending) and then reads the
+  /// text into its structure. Sending the same session id again is safe.
+  Future<void> logSessionText({
+    required String sessionId,
+    required String type,
+    required String text,
+    required int at,
+  });
   Future<void> createGoal({
     required String goalId,
     required String title,
@@ -389,6 +399,21 @@ class DartvexConvexClient implements ConvexClient {
   @override
   Future<void> removeSession(String sessionId) =>
       _mutate('commands/sessions:remove', <String, dynamic>{'sessionId': sessionId});
+
+  @override
+  Future<void> logSessionText({
+    required String sessionId,
+    required String type,
+    required String text,
+    required int at,
+  }) {
+    return _mutate('commands/sessions:logText', <String, dynamic>{
+      'sessionId': sessionId,
+      'type': type,
+      'text': text,
+      'at': at,
+    });
+  }
 
   @override
   Future<void> createGoal({

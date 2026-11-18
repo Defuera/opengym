@@ -4,7 +4,7 @@ import 'package:opengym/app/deps.dart';
 import 'package:opengym/data/convex_client.dart';
 import 'package:opengym/activity_log.dart';
 import 'package:opengym/models.dart';
-import 'package:opengym/screens/other_activity_screen.dart';
+import 'package:opengym/screens/log_text_screen.dart';
 import 'package:opengym/screens/session_screen.dart';
 import 'package:opengym/widgets/og_button.dart';
 import 'support/fake_convex_client.dart';
@@ -40,7 +40,7 @@ void main() {
     expect(startTypes(<Session>[]), isEmpty);
   });
 
-  testWidgets('step 1 lists the types of the log in order, the first highlighted, then Other',
+  testWidgets('step 1 lists the types of the log in order, the first highlighted, then Something else',
       (WidgetTester t) async {
     t.view.physicalSize = const Size(800, 2000);
     t.view.devicePixelRatio = 1;
@@ -57,7 +57,7 @@ void main() {
       }
       last = y;
     }
-    expect(t.getTopLeft(find.text('Other')).dy, greaterThan(last!));
+    expect(t.getTopLeft(find.text('Something else')).dy, greaterThan(last!));
     OgVariant variant(String n) =>
         t.widget<OgButton>(find.ancestor(of: inSheet(find.text(n)), matching: find.byType(OgButton))).variant;
     expect(variant('Home'), OgVariant.accent);
@@ -69,11 +69,11 @@ void main() {
     expect(find.text('Start empty, without a plan ›'), findsOneWidget);
   });
 
-  testWidgets('an empty log shows only Other, a short line and the empty link', (WidgetTester t) async {
+  testWidgets('an empty log shows only Something else, a short line and the empty link', (WidgetTester t) async {
     await openHome(t, sessions: <Session>[]);
     await openStart(t);
     expect(find.text('Nothing in your log yet.'), findsOneWidget);
-    expect(find.text('Other'), findsOneWidget);
+    expect(find.text('Something else'), findsOneWidget);
     expect(find.text('Start empty, without a plan ›'), findsOneWidget);
   });
 
@@ -231,14 +231,14 @@ void main() {
     final (FakeConvexClient fake, AppDeps d) = await openHome(t);
     await openStart(t);
     await pickType(t, 'Run');
-    expect(find.byType(OtherActivityScreen), findsOneWidget);
+    expect(find.byType(LogTextScreen), findsOneWidget);
     expect(find.text('Run'), findsOneWidget);
-    expect(find.text('Log run'), findsOneWidget);
+    expect(find.text('What did you do?'), findsOneWidget);
     expect(fake.startSent, isEmpty);
     expect(d.store.active, isNull);
   });
 
-  group('Other', () {
+  group('Something else', () {
     const String hint = 'quick home session, 15 min';
     Finder field() => find.widgetWithText(TextField, hint);
     Finder start() => find.ancestor(of: find.text('Start'), matching: find.byType(OgButton));
@@ -281,7 +281,7 @@ void main() {
       await t.pumpAndSettle();
       expect(find.byType(SessionScreen), findsOneWidget);
       expect(d.store.active!.exercises.single.name, 'Squat');
-      expect(find.byType(OtherActivityScreen), findsNothing);
+      expect(find.byType(LogTextScreen), findsNothing);
     });
 
     testWidgets('offline: no request, an empty session named from the text before the first comma',

@@ -26,6 +26,7 @@ import type * as jobs_imports from "../jobs/imports.js";
 import type * as jobs_migrations from "../jobs/migrations.js";
 import type * as jobs_models from "../jobs/models.js";
 import type * as jobs_parseGoal from "../jobs/parseGoal.js";
+import type * as jobs_parseLog from "../jobs/parseLog.js";
 import type * as jobs_pdfText from "../jobs/pdfText.js";
 import type * as jobs_plans from "../jobs/plans.js";
 import type * as jobs_rebuild from "../jobs/rebuild.js";
@@ -52,6 +53,7 @@ import type * as model_ai_jobs_extractFromChat from "../model/ai/jobs/extractFro
 import type * as model_ai_jobs_importData from "../model/ai/jobs/importData.js";
 import type * as model_ai_jobs_inputs from "../model/ai/jobs/inputs.js";
 import type * as model_ai_jobs_parseGoal from "../model/ai/jobs/parseGoal.js";
+import type * as model_ai_jobs_parseLog from "../model/ai/jobs/parseLog.js";
 import type * as model_ai_jobs_planSession from "../model/ai/jobs/planSession.js";
 import type * as model_ai_jobs_reviewSession from "../model/ai/jobs/reviewSession.js";
 import type * as model_ai_jobs_shared from "../model/ai/jobs/shared.js";
@@ -70,6 +72,7 @@ import type * as model_coachContext from "../model/coachContext.js";
 import type * as model_entryContext from "../model/entryContext.js";
 import type * as model_fileText from "../model/fileText.js";
 import type * as model_importUnits from "../model/importUnits.js";
+import type * as model_logDate from "../model/logDate.js";
 import type * as model_proposals from "../model/proposals.js";
 import type * as model_rules_dashboard from "../model/rules/dashboard.js";
 import type * as model_rules_foci from "../model/rules/foci.js";
@@ -137,6 +140,7 @@ declare const fullApi: ApiFromModules<{
   "jobs/migrations": typeof jobs_migrations;
   "jobs/models": typeof jobs_models;
   "jobs/parseGoal": typeof jobs_parseGoal;
+  "jobs/parseLog": typeof jobs_parseLog;
   "jobs/pdfText": typeof jobs_pdfText;
   "jobs/plans": typeof jobs_plans;
   "jobs/rebuild": typeof jobs_rebuild;
@@ -163,6 +167,7 @@ declare const fullApi: ApiFromModules<{
   "model/ai/jobs/importData": typeof model_ai_jobs_importData;
   "model/ai/jobs/inputs": typeof model_ai_jobs_inputs;
   "model/ai/jobs/parseGoal": typeof model_ai_jobs_parseGoal;
+  "model/ai/jobs/parseLog": typeof model_ai_jobs_parseLog;
   "model/ai/jobs/planSession": typeof model_ai_jobs_planSession;
   "model/ai/jobs/reviewSession": typeof model_ai_jobs_reviewSession;
   "model/ai/jobs/shared": typeof model_ai_jobs_shared;
@@ -181,6 +186,7 @@ declare const fullApi: ApiFromModules<{
   "model/entryContext": typeof model_entryContext;
   "model/fileText": typeof model_fileText;
   "model/importUnits": typeof model_importUnits;
+  "model/logDate": typeof model_logDate;
   "model/proposals": typeof model_proposals;
   "model/rules/dashboard": typeof model_rules_dashboard;
   "model/rules/foci": typeof model_rules_foci;

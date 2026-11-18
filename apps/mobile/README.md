@@ -97,6 +97,19 @@ End-to-end check against a deployment: see `tool/convex_trial.dart`.
   note by `at`, a session by its end. On the server dashboard the app list
   replaces the server `recent_sessions` module when notes exist. A tap opens
   `screens/entry_screen.dart` (full text, photos, files, Edit, Delete).
+- Log by text (ADR-018): an activity from the Log tab list, "Something new" or
+  a time/distance type in the Start list opens `screens/log_text_screen.dart`:
+  the activity name, one text field ("What did you do?", up to 1000 characters)
+  and "Log" (off while empty). `AppStore.logText` saves the session at once
+  (`kind` activity, the text as its note, `parse` pending) and `onTextLogged`
+  queues the outbox op `session.logText`, which calls
+  `commands/sessions:logText` when online (so it works offline and survives a
+  restart; the local copy wins while the op waits). The recap opens at once and
+  shows "Reading your text…" while `Session.parse` is `pending`; the server's
+  `parse_log` job fills minutes, distance, focus, exercises and the day, and
+  the live session subscription updates the open recap. A user edit clears
+  `parse` locally and on the server. The Start tab's last row is "Something
+  else" (not "Other", which can be the name of an activity in the log).
 - Session recap and edit: a tap on a finished session (Home "Recent", and the end
   of Finish session) opens `screens/session_recap_screen.dart`: activity, focus,
   date, start and duration (hidden for `source` "import", its times are not

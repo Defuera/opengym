@@ -1,6 +1,6 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
-import { startProposal, startStatus, dashboardDays, feeling, limitRule, limitStatus, fileKind, threadStatus, goalKind, goalStatus, importCounts, importStatus, itemSource, moduleSpec, planExercise, prediction, proposalSource } from "./lib/validators";
+import { startProposal, startStatus, dashboardDays, feeling, limitRule, limitStatus, fileKind, threadStatus, goalKind, goalStatus, importCounts, importStatus, itemSource, moduleSpec, parseState, planExercise, prediction, proposalSource } from "./lib/validators";
 
 /** One logged set. `reps` = completed reps; `failed` = one more rep was tried and not completed. */
 export const setEntry = v.object({
@@ -45,6 +45,8 @@ export const sessionFields = {
   note: v.optional(v.string()),
   source: v.union(v.literal("app"), v.literal("import")),
   importId: v.optional(v.string()),
+  /** Set by commands/sessions:logText: "pending" until the parse_log job has read the note, then "done" or "failed" (ADR-018). */
+  parse: v.optional(parseState),
 };
 
 /** A fact: a user goal. Client-made `goalId` makes writes idempotent. */

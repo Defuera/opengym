@@ -59,6 +59,9 @@ List<SetEntry> defaultSets(String name) {
 /// Minutes a new time exercise starts with, until the user sets it.
 const double defaultMinutes = 20;
 
+/// The longest text of an activity log (ADR-018); the server takes the same.
+const int maxLogTextLength = 1000;
+
 /// A fresh exercise for a session. A name from the log keeps the measure and
 /// the entries of its last time. A new name uses [measure] (default sets).
 Exercise makeExercise(List<Session> sessions, String name, {String measure = measureSets}) {

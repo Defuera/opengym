@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../app/deps.dart';
 import '../models.dart';
-import 'other_activity_screen.dart';
+import 'log_text_screen.dart';
 import 'prepare_session_screen.dart';
 import 'session_screen.dart';
 
@@ -32,25 +32,20 @@ void openEmpty(NavigatorState nav, AppDeps d, {String activity = gymType}) {
   nav.push(_route(_session(d)));
 }
 
-/// The Log form of a time/distance activity named [activity].
+/// The Log form (one text) of a time/distance activity named [activity].
 void openLogForm(NavigatorState nav, AppDeps d, String activity) {
   final String n = activity.trim();
-  nav.push(_route(OtherActivityScreen(
-    store: d.store,
+  nav.push(_route(LogTextScreen(
+    deps: d,
     activity: n.length > 40 ? n.substring(0, 40).trim() : n,
   )));
 }
 
 /// The coach's answer to a typed request: a prepared session, or (kind
-/// "activity") the log form filled in.
+/// "activity") the log form of that activity.
 void openProposal(NavigatorState nav, AppDeps d, StartProposal p) {
   if (p.kind == 'activity') {
-    nav.push(_route(OtherActivityScreen(
-      store: d.store,
-      activity: p.type,
-      focus: p.focus,
-      minutes: p.minutes,
-    )));
+    openLogForm(nav, d, p.type);
     return;
   }
   final Plan? plan = p.plan;

@@ -122,7 +122,10 @@ class Outbox extends ChangeNotifier {
   /// replace the local copy.
   Set<String> get pendingSessionIds => <String>{
         for (final OutboxOp o in <OutboxOp>[..._ops, ..._parked])
-          if (o.type == OutboxOp.sessionSave || o.type == OutboxOp.sessionRemove) o.targetId,
+          if (o.type == OutboxOp.sessionSave ||
+              o.type == OutboxOp.sessionRemove ||
+              o.type == OutboxOp.sessionLogText)
+            o.targetId,
       };
 
   /// Read the saved ops. Call once at start.
@@ -158,11 +161,24 @@ class Outbox extends ChangeNotifier {
     );
   }
 
+  /// An activity logged as one text (ADR-018). It queues the same write the
+  /// server takes as `commands/sessions:logText`; the session itself is already
+  /// in the local log, so it works offline and is read by the server once sent.
+  Future<void> logText(Session s) {
+    return _enqueue(OutboxOp.sessionLogText, <String, dynamic>{
+      'id': s.id,
+      'type': s.type,
+      'text': s.note ?? '',
+      'at': s.startedAt,
+    });
+  }
+
   Future<void> removeSession(String id) {
     return _enqueue(
       OutboxOp.sessionRemove,
       <String, dynamic>{'id': id},
-      replaces: (OutboxOp o) => o.type == OutboxOp.sessionSave && o.targetId == id,
+      replaces: (OutboxOp o) =>
+          (o.type == OutboxOp.sessionSave || o.type == OutboxOp.sessionLogText) && o.targetId == id,
     );
   }
 

@@ -1,39 +1,11 @@
 import 'package:flutter/material.dart';
 
-import '../theme.dart';
 import '../widgets/exercise_card.dart';
 import '../widgets/exercise_carousel.dart';
 import '../widgets/item_state.dart';
 import '../widgets/og_chip.dart';
 import '../widgets/segmented_toggle.dart';
 import '../widgets/set_list.dart';
-import '../widgets/stepper_row.dart';
-
-/// Stepper that really counts.
-class StepperDemo extends StatefulWidget {
-  const StepperDemo({super.key});
-
-  @override
-  State<StepperDemo> createState() => _StepperDemoState();
-}
-
-class _StepperDemoState extends State<StepperDemo> {
-  double _kg = 60;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: ogBox(radius: 20),
-      child: StepperRow(
-        label: 'Weight (kg)',
-        value: _kg == _kg.truncateToDouble() ? '${_kg.toInt()}' : '$_kg',
-        onMinus: () => setState(() => _kg = _kg - 2.5 < 0 ? 0 : _kg - 2.5),
-        onPlus: () => setState(() => _kg = _kg + 2.5),
-      ),
-    );
-  }
-}
 
 /// SetList that really selects, edits, adds and removes.
 class SetListDemo extends StatefulWidget {

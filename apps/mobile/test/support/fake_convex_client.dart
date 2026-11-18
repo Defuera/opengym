@@ -568,6 +568,53 @@ class FakeConvexClient implements ConvexClient {
     _publish();
   }
 
+  /// Session ids of `logSessionText` calls: id -> (type, text, at). The fake
+  /// stores the session as the server does (pending); a test lets the "job"
+  /// finish with [finishParse].
+  final Map<String, (String, String, int)> loggedTexts = <String, (String, String, int)>{};
+
+  @override
+  Future<void> logSessionText({
+    required String sessionId,
+    required String type,
+    required String text,
+    required int at,
+  }) async {
+    _command('logSessionText:$sessionId');
+    loggedTexts.putIfAbsent(sessionId, () => (type, text, at));
+    serverSessions.putIfAbsent(
+      sessionId,
+      () => Session(
+        id: sessionId,
+        kind: 'activity',
+        type: type,
+        startedAt: at,
+        endedAt: at,
+        note: text,
+        parse: 'pending',
+      ),
+    );
+    _publish();
+  }
+
+  /// The server's parse_log job has written its result into the session.
+  void finishParse(String sessionId, {int? minutes, double? km, String parse = 'done'}) {
+    serverChanged(() {
+      final Session s = serverSessions[sessionId]!;
+      serverSessions[sessionId] = Session(
+        id: s.id,
+        kind: s.kind,
+        type: s.type,
+        startedAt: s.startedAt,
+        endedAt: s.endedAt,
+        minutes: minutes,
+        distanceKm: km,
+        note: s.note,
+        parse: parse,
+      );
+    });
+  }
+
   @override
   Future<void> removeSession(String sessionId) async {
     _command('removeSession:$sessionId');

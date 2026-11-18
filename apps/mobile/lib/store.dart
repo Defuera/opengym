@@ -18,6 +18,11 @@ class AppStore extends ChangeNotifier {
   /// gym session or logged activity). Compose wires this to the outbox.
   void Function(String id)? onSessionSaved;
 
+  /// Called with the session id after an activity was logged as one text
+  /// ([logText]). Compose wires this to the outbox (the same text is sent to
+  /// the server, which reads it into the session).
+  void Function(String id)? onTextLogged;
+
   /// Called with the session id after a finished session was changed locally.
   void Function(String id)? onSessionEdited;
 
@@ -212,7 +217,7 @@ class AppStore extends ChangeNotifier {
   }
 
   static bool _sameFacts(Session a, Session b) =>
-      jsonEncode(a.toContractJson()) == jsonEncode(b.toContractJson());
+      a.parse == b.parse && jsonEncode(a.toContractJson()) == jsonEncode(b.toContractJson());
 
   /// Replaces a finished session by its corrected copy (same id) and tells the
   /// outbox. The open session, timers and rest clocks are not touched. An
@@ -222,6 +227,7 @@ class AppStore extends ChangeNotifier {
     if (i < 0) {
       return;
     }
+    s.parse = null; // the user's edit is final: the server drops a late reading of the text
     sessions[i] = s;
     sessions.sort((Session a, Session b) => a.when.compareTo(b.when));
     _commit();
@@ -260,33 +266,30 @@ class AppStore extends ChangeNotifier {
     _commit();
   }
 
-  /// Logs a time/distance activity. [focus] is its session type ('Easy',
-  /// 'Intervals'), if any; [distanceKm] and [note] are optional.
-  void logActivity(
-    String type,
-    int minutes, {
-    String? focus,
-    double? distanceKm,
-    String? note,
-  }) {
-    final String? f = focus?.trim();
-    final String? n = note?.trim();
+  /// Logs an activity as one text (ADR-018). The session is saved at once with
+  /// the text word for word as its note and `parse: pending`; the server then
+  /// reads the text into minutes, distance and exercises and the session
+  /// updates by itself. Returns the id, or null when [text] is blank.
+  String? logText(String type, String text) {
+    final String t = text.trim();
+    if (t.isEmpty) {
+      return null;
+    }
+    final String name = type.trim().isEmpty ? 'Activity' : type.trim();
     final int now = DateTime.now().millisecondsSinceEpoch;
     final String id = newId();
-    final String name = type.trim().isEmpty ? 'Activity' : type.trim();
     sessions.add(Session(
       id: id,
       kind: 'activity',
       type: name.length > 40 ? name.substring(0, 40).trim() : name,
-      focus: (f == null || f.isEmpty) ? null : f,
-      startedAt: now - minutes * 60000,
+      startedAt: now,
       endedAt: now,
-      minutes: minutes,
-      distanceKm: (distanceKm == null || distanceKm <= 0) ? null : distanceKm,
-      note: (n == null || n.isEmpty) ? null : n,
+      note: t.length > maxLogTextLength ? t.substring(0, maxLogTextLength) : t,
+      parse: 'pending',
     ));
     _commit();
-    _announce(id);
+    onTextLogged?.call(id);
+    return id;
   }
 
   // ---------- exercises ----------

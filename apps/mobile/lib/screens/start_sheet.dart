@@ -85,7 +85,7 @@ class _StartSheetState extends State<StartSheet> {
     }
   }
 
-  /// "Other": the free text alone; the coach names the activity.
+  /// "Something else": the free text alone; the coach names the activity.
   Future<void> _startOther() async {
     final String text = _draft.otherText.text.trim();
     if (text.isNotEmpty) {
@@ -190,7 +190,7 @@ class _StartSheetState extends State<StartSheet> {
                 ),
                 const SizedBox(height: 10),
               ],
-              NewKindRow(label: 'Other', onTap: _draft.openOther),
+              NewKindRow(label: 'Something else', onTap: _draft.openOther),
             ],
           ),
         ),

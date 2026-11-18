@@ -84,6 +84,21 @@ export class MockProvider implements AiProvider {
           context: [{ text: "Prefers short sessions", topic: "schedule" }],
           notes: [],
         });
+      case "parse_log": {
+        // Reads "45 min", "8 km", "yesterday", "easy" and the names of the log's exercises it finds in the text. No sets: the code fills the usual ones.
+        const text = String(d.text ?? "");
+        const min = text.match(/(\d+)\s*min/i);
+        const km = text.match(/(\d+(?:\.\d+)?)\s*km/i);
+        const names: string[] = (d.exercisesTheUserKnows ?? []).map((e: Data) => String(e.name)).filter((n: string) => text.toLowerCase().includes(n.toLowerCase()));
+        const day = /\byesterday\b/i.test(text) ? new Date(Date.parse(String(d.today).slice(0, 10)) - 86_400_000).toISOString().slice(0, 10) : undefined;
+        return JSON.stringify({
+          ...(min ? { minutes: Number(min[1]) } : {}),
+          ...(km ? { distanceKm: Number(km[1]) } : {}),
+          ...(/\beasy\b/i.test(text) ? { focus: "Easy" } : {}),
+          ...(day ? { date: day } : {}),
+          ...(names.length > 0 ? { exercises: names.map((name) => ({ name })) } : {}),
+        });
+      }
       case "review_session":
         return JSON.stringify({ summary: "Mock review: solid session, repeat it next time.", changes: [] });
       default:

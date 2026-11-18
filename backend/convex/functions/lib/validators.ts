@@ -4,6 +4,8 @@ export const itemSource = v.union(v.literal("user"), v.literal("ai"), v.literal(
 export const proposalSource = v.union(v.literal("ai"), v.literal("rules"));
 export const goalKind = v.union(v.literal("strength"), v.literal("consistency"), v.literal("custom"));
 export const goalStatus = v.union(v.literal("active"), v.literal("done"));
+/** Where the AI reading of a text-logged session stands (ADR-018). Absent on every other session. */
+export const parseState = v.union(v.literal("pending"), v.literal("done"), v.literal("failed"));
 export const dashboardDays = v.union(v.literal(7), v.literal(30));
 
 export const planSet = v.object({ reps: v.number(), kg: v.number(), max: v.boolean() });

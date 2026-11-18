@@ -45,35 +45,3 @@ List<FocusRank> focusRotation(List<Session> sessions, {String activity = gymType
   });
   return out;
 }
-
-/// The session type of [activity] done longest ago, when the log has one.
-String? advisedActivityFocus(List<Session> sessions, String activity) {
-  final String key = activityKey(activity);
-  final Map<String, int> last = <String, int>{};
-  for (final Session s in sessions) {
-    final String? f = s.focus;
-    if (s.kind == 'activity' && activityKey(s.type) == key && f != null) {
-      last[f] = math.max(last[f] ?? 0, s.endedAt ?? 0);
-    }
-  }
-  String? best;
-  for (final MapEntry<String, int> e in last.entries) {
-    if (best == null || e.value < last[best]!) {
-      best = e.key;
-    }
-  }
-  return best;
-}
-
-/// The session types logged for [activity], most recent first.
-List<String> activityFoci(List<Session> sessions, String activity) {
-  final String key = activityKey(activity);
-  final List<String> out = <String>[];
-  for (final Session s in sessions.reversed) {
-    final String? f = s.focus;
-    if (s.kind == 'activity' && activityKey(s.type) == key && f != null && !out.contains(f)) {
-      out.add(f);
-    }
-  }
-  return out;
-}

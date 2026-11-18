@@ -213,6 +213,7 @@ class Session {
     this.source = 'app',
     this.importId,
     this.planNote,
+    this.parse,
   }) : exercises = exercises ?? <Exercise>[];
 
   String id;
@@ -240,6 +241,14 @@ class Session {
 
   /// Rationale of the plan this session started from (local only).
   String? planNote;
+
+  /// Set only on a session logged as one text (ADR-018): 'pending' until the
+  /// server has read the text into minutes, distance, exercises, then 'done'
+  /// or 'failed'. Written by the server only; never sent back on a save.
+  String? parse;
+
+  /// The text of this session is still being read.
+  bool get parsePending => parse == 'pending';
 
   int get when => endedAt ?? startedAt;
 
@@ -273,10 +282,13 @@ class Session {
     if (planNote != null) {
       m['planNote'] = planNote;
     }
+    if (parse != null) {
+      m['parse'] = parse;
+    }
     return m;
   }
 
-  /// API shape (see docs/api-contract.md). Sets are {reps, kg, max, at}.
+  /// API shape (see docs/api-contract.md). Sets are {reps, kg, max, at}. `parse` is not part of it: the server owns it.
   Map<String, dynamic> toContractJson() {
     final String t = type.length > 40 ? type.substring(0, 40) : type;
     final bool gym = kind == 'gym';
@@ -345,6 +357,9 @@ class Session {
       source: j['source'] == 'import' ? 'import' : 'app',
       importId: j['importId'] is String ? j['importId'] as String : null,
       planNote: j['planNote'] is String ? j['planNote'] as String : null,
+      parse: const <String>['pending', 'done', 'failed'].contains(j['parse'])
+          ? j['parse'] as String
+          : null,
     );
   }
 }

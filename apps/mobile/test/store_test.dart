@@ -246,15 +246,37 @@ void _storeSetAndOrderTests() {
     expect(again.sessions.single.focus, 'Quick');
   });
 
-  test('logActivity keeps the session type as focus; blank means none', () async {
+  test('logText saves the text at once as a pending activity and tells the outbox', () async {
     final AppStore store = await _newStore(InMemorySessionRepository());
-    store.logActivity('Run', 30, focus: ' Intervals ');
-    store.logActivity('Run', 20, focus: '  ');
-    expect(store.sessions[0].focus, 'Intervals');
-    expect(store.sessions[1].focus, isNull);
-    expect(store.sessions[0].type, 'Run');
-    store.logActivity('Padel', 45, distanceKm: 0, note: ' fun ');
-    expect(store.sessions[2].distanceKm, isNull);
-    expect(store.sessions[2].note, 'fun');
+    final List<String> told = <String>[];
+    store.onTextLogged = told.add;
+    final String? id = store.logText(' Run ', '  45 min, 8 km  ');
+    expect(id, isNotNull);
+    expect(told, <String>[id!]);
+    final Session s = store.sessions.single;
+    expect(s.kind, 'activity');
+    expect(s.type, 'Run');
+    expect(s.note, '45 min, 8 km');
+    expect(s.parse, 'pending');
+    expect(s.exercises, isEmpty);
+    expect(s.startedAt, s.endedAt);
+    expect(store.logText('Run', '   '), isNull);
+    expect(store.sessions, hasLength(1));
+  });
+
+  test('a user edit clears parse; the server copy with a result replaces the local one', () async {
+    final AppStore store = await _newStore(InMemorySessionRepository());
+    final String id = store.logText('Run', '45 min')!;
+    final Session server = Session.fromJson(<String, dynamic>{
+      ...store.sessions.single.toJson(),
+      'minutes': 45,
+      'parse': 'done',
+    });
+    expect(store.mergeRemote(<Session>[server]), 1);
+    expect(store.sessionById(id)!.minutes, 45);
+    expect(store.sessionById(id)!.parsePending, isFalse);
+    final Session edit = Session.fromJson(<String, dynamic>{...server.toJson(), 'parse': 'pending'});
+    store.updateSession(edit);
+    expect(store.sessionById(id)!.parse, isNull);
   });
 }

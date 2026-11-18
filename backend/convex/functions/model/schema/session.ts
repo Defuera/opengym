@@ -85,3 +85,11 @@ export const topKg = (e: Exercise): number => Math.max(0, ...repEntries(e).map((
 /** Total minutes of a time exercise; 0 for an exercise with sets. */
 export const totalMinutes = (e: Exercise): number => timeEntries(e).reduce((n, x) => n + x.minutes, 0);
 export type Session = z.infer<typeof SessionSchema>;
+
+/** What `commands/sessions:logText` takes: the activity name, the user's text (kept word for word) and the time it is about (ADR-018). */
+export const LogTextInputSchema = z.object({
+  type: z.string().trim().min(1).max(40),
+  text: z.string().min(1).max(1000).refine((t) => t.trim().length > 0, { message: "text must not be blank" }),
+  at: MsSchema,
+});
+export type LogTextInput = z.infer<typeof LogTextInputSchema>;

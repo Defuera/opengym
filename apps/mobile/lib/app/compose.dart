@@ -67,6 +67,14 @@ Future<AppDeps> compose() async {
       reviews.watch(id);
     }
   };
+  // An activity logged as one text: the text goes to the outbox on disk first; the server reads it into the session.
+  store.onTextLogged = (String id) {
+    final session = store.sessionById(id);
+    if (session != null) {
+      unawaited(outbox.logText(session).then((_) => about.askAfter(id)));
+      reviews.watch(id);
+    }
+  };
   // A corrected past session: same id, same save path. No review card, no question.
   store.onSessionEdited = (String id) {
     final session = store.sessionById(id);

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:opengym/app/deps.dart';
 import 'package:opengym/data/about_repository.dart';
 import 'package:opengym/data/in_memory_about_repository.dart';
@@ -43,6 +45,8 @@ Future<AppDeps> testDeps(
     isConnected: () => connected,
     retryAfter: const Duration(hours: 1),
   );
+  // As compose wires it: an activity logged as one text goes to the outbox.
+  store.onTextLogged = (String id) => unawaited(outbox.logText(store.sessionById(id)!));
   final AboutRepository aboutRepo = InMemoryAboutRepository();
   return AppDeps(
     client: fake,

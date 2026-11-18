@@ -203,6 +203,15 @@ class SwitchableConvexClient implements ConvexClient {
   Future<void> saveSession(Session session) => _call((ConvexClient c) => c.saveSession(session));
 
   @override
+  Future<void> logSessionText({
+    required String sessionId,
+    required String type,
+    required String text,
+    required int at,
+  }) =>
+      _call((ConvexClient c) => c.logSessionText(sessionId: sessionId, type: type, text: text, at: at));
+
+  @override
   Future<void> removeSession(String sessionId) =>
       _call((ConvexClient c) => c.removeSession(sessionId));
 

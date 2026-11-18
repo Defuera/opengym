@@ -16,7 +16,6 @@ class GalleryStory {
 final List<GalleryStory> galleryStories = <GalleryStory>[
   const GalleryStory(title: 'OgButton and OgIconButton', builder: buttonsStory),
   const GalleryStory(title: 'CtaButton', builder: ctaStory),
-  GalleryStory(title: 'StepperRow (counts)', builder: (BuildContext c) => const StepperDemo()),
   const GalleryStory(title: 'StatTile', builder: statTilesStory),
   GalleryStory(title: 'SegmentedToggle', builder: (BuildContext c) => const ToggleDemo()),
   const GalleryStory(title: 'SessionListItem', builder: listItemsStory),

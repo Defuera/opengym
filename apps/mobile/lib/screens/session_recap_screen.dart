@@ -108,20 +108,28 @@ class _SessionRecapScreenState extends State<SessionRecapScreen> {
     final Review? review = _review.current;
     final Map<String, int>? load = _load.load;
     final double? km = s.distanceKm;
+    // A session logged as one text has no length of its own until the text is read.
+    final bool spanKnown = (s.endedAt ?? s.startedAt) > s.startedAt;
+    final bool showTimes = hasRealTimes(s) && spanKnown;
     return <Widget>[
       Text(s.type, key: const ValueKey<String>('recap-type'), style: OG.display(28)),
       if (focus != null && focus.isNotEmpty)
         Text(focus, key: const ValueKey<String>('recap-focus'), style: OG.muted(weight: FontWeight.w600)),
       const SizedBox(height: 6),
       Text(
-        hasRealTimes(s)
+        showTimes
             ? '${sessionDate(s)} · ${sessionStart(s)} · ${sessionDuration(s)}'
             : sessionDate(s),
         key: const ValueKey<String>('recap-when'),
         style: OG.muted(),
       ),
       const SizedBox(height: 16),
-      if (!gym)
+      if (s.parsePending)
+        Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: Text('Reading your text…', key: const ValueKey<String>('recap-parsing'), style: OG.muted()),
+        ),
+      if (!gym && (s.minutes != null || km != null || spanKnown))
         Container(
           width: double.infinity,
           padding: const EdgeInsets.all(16),

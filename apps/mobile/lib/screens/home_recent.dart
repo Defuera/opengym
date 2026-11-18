@@ -115,6 +115,7 @@ class HomeRecent extends StatelessWidget {
     if (s.minutes == null && km != null) {
       return '${fmtKg(km)} km';
     }
-    return '${s.minutes ?? 0} min';
+    final int? min = s.minutes;
+    return min == null ? '' : '$min min';
   }
 }

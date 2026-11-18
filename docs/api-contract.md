@@ -43,7 +43,8 @@ Session    { id, kind: "gym" | "activity",
              focus?: string 1..40 /* the flavour: "Upper", "Legs"; for a run "Easy", "Intervals". A label. */,
              startedAt, endedAt, exercises: Exercise[] (<=15, [] for activity),
              minutes?: int, distanceKm?: number, note?: string,
-             source: "app" | "import", importId?: string }
+             source: "app" | "import", importId?: string,
+             parse?: "pending" | "done" | "failed" /* only on a session logged as one text (ADR-018); written by the server: pending until parse_log has read the note. A user save never writes it. */ }
 
 PlanSet      { reps, kg, max }
 PlanTimeSet  { minutes: number >0..600, distanceKm?: number >=0 }
@@ -137,6 +138,7 @@ plans and the dashboard layout; they are regenerated in the background.
 | `build_dashboard` | ordered module specs | sessions, active days, top set of most-trained exercise, one goal_progress per active goal, recent_sessions |
 | `chat` | reply text + sources | fixed "AI is not configured" reply; message still stored |
 | `extract_from_chat` | new Goal[] / ContextItem[] from a user message | none extracted |
+| `parse_log` | Structure of one text-logged session (ADR-018). Input: `{activity, text, today (date and weekday), exercisesTheUserKnows: [{name, lastSets, measure?}]}` (from `coachPicture`). Output: `{minutes?, distanceKm?, focus?, date? (YYYY-MM-DD), exercises?: [{name, measure?: "time", sets?: [{reps, kg} \| {minutes, distanceKm?}]}]}`. Scheduled by `commands/sessions:logText`. Patches only `minutes`, `distanceKm`, `focus`, the day of `startedAt/endedAt` (time of day kept; a future day or one more than a year back is ignored) and `exercises` (then `kind` becomes `gym`), sets `parse` to `done`, then schedules the facts-changed rebuild and the review like `save`. An exercise named without sets gets the sets of its last logging in plain code; one that is not in the log and has no sets is left out. Never changes `note`, `type` or `source`. Dropped when the session is gone, `parse` is no longer `pending` or the stored note is not the text read (the user edited it). Derived structure of the user's own text, not a new fact (ADR-002, ADR-018) | Minutes (`45 min`, `1h`, `1h30`, `1:10`) and km (`8 km`) by regex; `parse` is `failed` only when nothing was read |
 | `parse_goal` | Structure of the user's own goal text: `{kind, exercise? (a name of the log), targetKg?, sessionsPerWeek?}`. Scheduled by `commands/goals:create`, and by `goals:update` when the title changes (the old structure is cleared first). Patches only those fields, and only while the goal exists and its title is still the text read. Never changes title or status. Derived structure, not a new fact (ADR-002) | kind stays `custom`; a number before `kg` and a number before "times/sessions a week" are read when present |
 | `title_thread` | Thread.title (<=40 chars, no quotes, no trailing period), first message only, never over a user title | first words of the first message |
 | `summarise_thread` | Thread.summary (<=400 chars) | last user message truncated |
@@ -188,6 +190,8 @@ Upload uses `commands/files:generateUploadUrl` and `commands/files:register`, as
 | Function | Args | Returns |
 |---|---|---|
 | query `queries/sessions:load` | `{ token, sessionId }` | What one session loaded, for the body figure on its recap: `Record<muscleKey, 0 \| 1 \| 2 \| 3>` with every muscle key present, or `null` when the session is unknown. It uses the exercise-to-muscle table and the same level rule as the "About me" load (the busiest muscle of this session is the top: share >= 0.6 is 3, >= 0.25 is 2, above 0 is 1; a time exercise counts one set per 4 minutes). The code is shared (`model/rules/load.ts`, `loadForSession`). Additive: no stored row changes |
+
+**Log by text (ADR-018).** `commands/sessions:logText { token, sessionId, type (1..40), text (1..1000, not blank), at: number }` is an idempotent insert by `sessionId`: the same id again changes nothing and schedules nothing. It stores a session as a fact: `kind: "activity"`, `type`, `startedAt = endedAt = at`, `exercises: []`, `note: text` (word for word), `source: "app"`, `parse: "pending"`, and schedules `parse_log`. The app's session subscriptions (`queries/sessions:recent`, `since`) return `parse`, so the recap updates when the structure arrives. `commands/sessions:save` accepts a session that carries `parse` but never stores it: a resend of an unchanged session keeps the stored `parse`; a real edit clears it, so a late `parse_log` result is dropped.
 
 A past session is corrected with the same `commands/sessions:save` (an idempotent upsert by `sessionId`): the app sends the full session again with its `sessionId`, `kind`, `source` and `importId` unchanged. A changed session schedules a new review. `commands/sessions:remove` deletes it.
 

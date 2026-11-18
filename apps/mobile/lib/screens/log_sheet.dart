@@ -8,7 +8,7 @@ import '../widgets/sheet_link.dart';
 import '../widgets/something_new_box.dart';
 import 'entry_form_screen.dart';
 import 'import_screen.dart';
-import 'other_activity_screen.dart';
+import 'log_text_screen.dart';
 
 class LogSheet extends StatefulWidget {
   const LogSheet({
@@ -43,8 +43,8 @@ class _LogSheetState extends State<LogSheet> {
     }
     widget.nav.pop();
     widget.nav.push(MaterialPageRoute<void>(
-      builder: (BuildContext c) => OtherActivityScreen(
-        store: widget.deps.store,
+      builder: (BuildContext c) => LogTextScreen(
+        deps: widget.deps,
         activity: n.length > 40 ? n.substring(0, 40).trim() : n,
       ),
     ));

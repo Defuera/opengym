@@ -57,13 +57,21 @@ class FakeConvexClient implements ConvexClient {
   final Map<String, List<Message>> serverMessages = <String, List<Message>>{};
   final Map<String, FileMeta> serverFiles = <String, FileMeta>{};
 
+  /// Notes as the server stores them: file ids, the files are looked up in [serverFiles].
+  final Map<String, ({String text, List<String> fileIds, int at, int createdAt})> serverEntries =
+      <String, ({String text, List<String> fileIds, int at, int createdAt})>{};
+
   /// When set, [sendMessage] waits for it before the server stores anything.
   Completer<void>? sendGate;
+
+  /// When set, [uploadFile] waits for it first.
+  Completer<void>? uploadGate;
 
   /// Set to make [uploadFile] fail once.
   ConvexCallException? failUpload;
 
   final Live<List<Session>> _sessions = Live<List<Session>>(<Session>[]);
+  final Live<List<LogEntry>> _entries = Live<List<LogEntry>>(<LogEntry>[]);
   final Live<List<Goal>> _goals = Live<List<Goal>>(<Goal>[]);
   final Live<List<ContextItem>> _context = Live<List<ContextItem>>(<ContextItem>[]);
   final Live<AboutMe> about = Live<AboutMe>(const AboutMe());
@@ -87,6 +95,23 @@ class FakeConvexClient implements ConvexClient {
       ..sort((Session a, Session b) => b.when.compareTo(a.when));
     _sessions.set(s);
     _goals.set(serverGoals.values.toList());
+    final List<LogEntry> e = <LogEntry>[
+      for (final MapEntry<String, ({String text, List<String> fileIds, int at, int createdAt})> x
+          in serverEntries.entries)
+        LogEntry(id: x.key, text: x.value.text, at: x.value.at, createdAt: x.value.createdAt, files: <EntryFile>[
+          for (final String f in x.value.fileIds)
+            if (serverFiles[f] != null)
+              EntryFile(
+                  id: f,
+                  name: serverFiles[f]!.name,
+                  mime: serverFiles[f]!.mime,
+                  size: serverFiles[f]!.size,
+                  kind: serverFiles[f]!.mime.startsWith('image/') ? 'image' : serverFiles[f]!.kind,
+                  createdAt: serverFiles[f]!.createdAt,
+                  url: 'https://files.test/$f'),
+        ]),
+    ]..sort((LogEntry a, LogEntry b) => b.at.compareTo(a.at));
+    _entries.set(e);
     _context.set(serverContext.values.toList());
     _imports.set(serverImports.values.toList());
     final List<Thread> t = serverThreads.values.toList()
@@ -178,6 +203,38 @@ class FakeConvexClient implements ConvexClient {
 
   @override
   Stream<List<Goal>> watchGoals() => _goals.stream();
+
+  @override
+  Stream<List<LogEntry>> watchEntries({int limit = 50}) => _entries.stream();
+
+  @override
+  Future<void> saveEntry({
+    required String entryId,
+    required String text,
+    required List<String> fileIds,
+    required int at,
+    required int createdAt,
+  }) async {
+    _command('saveEntry:$entryId');
+    final List<String> before = serverEntries[entryId]?.fileIds ?? <String>[];
+    for (final String f in before) {
+      if (!fileIds.contains(f)) {
+        serverFiles.remove(f);
+      }
+    }
+    serverEntries[entryId] = (text: text, fileIds: fileIds, at: at, createdAt: createdAt);
+    _publish();
+  }
+
+  @override
+  Future<void> removeEntry(String entryId) async {
+    _command('removeEntry:$entryId');
+    final entry = serverEntries.remove(entryId);
+    for (final String f in entry?.fileIds ?? <String>[]) {
+      serverFiles.remove(f);
+    }
+    _publish();
+  }
 
   @override
   Stream<List<ContextItem>> watchContext() => _context.stream();
@@ -436,6 +493,7 @@ class FakeConvexClient implements ConvexClient {
     required String mime,
     required List<int> bytes,
   }) async {
+    await uploadGate?.future;
     final ConvexCallException? f = failUpload;
     if (f != null) {
       failUpload = null;

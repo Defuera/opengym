@@ -169,6 +169,22 @@ imports and image attachments answer with a clear note instead.
 `mock` returns deterministic canned JSON so the whole flow can be tested with
 no key.
 
+## Log entries (Convex backend, ADR-017)
+
+A log entry is a free note with a time and any number of attached files. It has no type. It is a fact: only the app writes it. The coach reads it; the AI never writes or changes it.
+
+`Entry = { entryId: string (client-made, 1..100), text: string (0..2000), fileIds: string[] (0..10), at: number (ms, the time the entry is about), createdAt: number (ms) }`. Rule: `text.trim()` is not empty, or `fileIds` is not empty. Table `entries`, indexes `by_entryId` and `by_at`.
+
+| Function | Args | Returns |
+|---|---|---|
+| mutation `commands/entries:save` | `{ token, entry: Entry }` | the entryId. Idempotent upsert by entryId. Every fileId must be a registered file (`commands/files:register`). A file that an update drops is deleted (row and blob). A bad entry is rejected with a `ConvexError` and nothing is stored |
+| mutation `commands/entries:remove` | `{ token, entryId }` | `true`, or `false` if the entry is unknown. Deletes the entry and its files (rows and blobs) |
+| query `queries/entries:recent` | `{ token, limit?: number }` | newest first by `at`. Default 50, at most 200. Each item: `{ entryId, text, at, createdAt, files: { fileId, name, mime, size, kind, createdAt, url: string \| null }[] }`. A missing file is left out |
+
+Upload uses `commands/files:generateUploadUrl` and `commands/files:register`, as for chat.
+
+Coach: `coachPicture` (the `build_session` input) has a field `logEntriesFromTheUser`: the entries of the last 7 days, oldest first, at most 20, each `{ date, time, text, attachments: number }`. The chat context lists the same entries. The image files of entries of the last 24 hours (at most 4, newest first) go with the `build_session` request and the chat request when the provider takes images; DeepSeek has no image input, so no image is sent there.
+
 ## Coach model (Convex backend)
 
 The owner picks the coach model in the app's Settings. The choice lives in one

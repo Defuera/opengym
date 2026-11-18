@@ -3,6 +3,7 @@ import { internal } from "../_generated/api";
 import { internalAction, internalQuery } from "../_generated/server";
 import { runAiJob } from "../lib/ai";
 import { allContext, allGoals, allSessions } from "../lib/db";
+import { coachEntries } from "../lib/entriesDb";
 import { activeLimits } from "../lib/limitsDb";
 import { buildSessionJob } from "../model/ai/jobs/buildSession";
 import { coachPicture } from "../model/ai/jobs/coachPicture";
@@ -18,7 +19,7 @@ export const inputs = internalQuery({
     const ordered = [...goals].sort((a, b) => a.createdAt - b.createdAt);
     return {
       old: buildInterpretInput(text, sessions, ordered, context, limits, now, name),
-      next: { name, note: text, picture: coachPicture(sessions, ordered, context, limits, now), limits },
+      next: { name, note: text, picture: coachPicture(sessions, ordered, context, limits, await coachEntries(ctx, now), now), limits },
     };
   },
 });

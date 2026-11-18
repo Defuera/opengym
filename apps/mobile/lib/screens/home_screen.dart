@@ -14,7 +14,9 @@ import '../widgets/status_line.dart';
 import 'about_me_screen.dart';
 import 'dashboard_view.dart';
 import 'limit_ask_bar.dart';
+import 'entry_screen.dart';
 import 'goals_screen.dart';
+import 'home_recent.dart';
 import 'home_summary.dart';
 import 'import_screen.dart';
 import 'session_screen.dart';
@@ -39,7 +41,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     final AppDeps d = widget.deps;
-    _all = Listenable.merge(<Listenable>[d.store, d.connection, d.dashboard, d.reviews, d.outbox]);
+    _all = Listenable.merge(<Listenable>[d.store, d.connection, d.dashboard, d.reviews, d.outbox, d.entries]);
     // The dashboard is a live subscription: no refresh, no load on connect.
     d.dashboard.select(_period);
   }
@@ -78,13 +80,31 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  void _openEntry(LogEntry e) {
+    _push(EntryScreen(deps: widget.deps, entryId: e.id));
+  }
+
+  /// The server draws the dashboard, but it does not know the notes. With
+  /// notes present, the app draws the recent list itself, from the sessions
+  /// and the notes by time, in place of the server's list.
   Widget _body() {
     final AppDeps d = widget.deps;
     final Dashboard? dash = d.dashboard.current;
+    final List<LogEntry> notes = d.entries.entries;
     if (d.connection.connected && dash != null && dash.modules.isNotEmpty) {
-      return DashboardView(dashboard: dash);
+      return DashboardView(
+        dashboard: dash,
+        recent: notes.isEmpty
+            ? null
+            : HomeRecent(sessions: d.store.sessions, entries: notes, onOpenEntry: _openEntry),
+      );
     }
-    return HomeSummary(sessions: d.store.sessions, period: _period);
+    return HomeSummary(
+      sessions: d.store.sessions,
+      period: _period,
+      entries: notes,
+      onOpenEntry: _openEntry,
+    );
   }
 
   @override

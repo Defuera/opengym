@@ -9,6 +9,7 @@
  */
 
 import type * as commands_context from "../commands/context.js";
+import type * as commands_entries from "../commands/entries.js";
 import type * as commands_files from "../commands/files.js";
 import type * as commands_goals from "../commands/goals.js";
 import type * as commands_imports from "../commands/imports.js";
@@ -35,6 +36,7 @@ import type * as lib_ai from "../lib/ai.js";
 import type * as lib_auth from "../lib/auth.js";
 import type * as lib_constants from "../lib/constants.js";
 import type * as lib_db from "../lib/db.js";
+import type * as lib_entriesDb from "../lib/entriesDb.js";
 import type * as lib_factsChanged from "../lib/factsChanged.js";
 import type * as lib_files from "../lib/files.js";
 import type * as lib_importWrite from "../lib/importWrite.js";
@@ -67,6 +69,7 @@ import type * as model_ai_providers_openai from "../model/ai/providers/openai.js
 import type * as model_ai_providers_openaiCompatible from "../model/ai/providers/openaiCompatible.js";
 import type * as model_ai_runJob from "../model/ai/runJob.js";
 import type * as model_coachContext from "../model/coachContext.js";
+import type * as model_entryContext from "../model/entryContext.js";
 import type * as model_fileText from "../model/fileText.js";
 import type * as model_importUnits from "../model/importUnits.js";
 import type * as model_proposals from "../model/proposals.js";
@@ -83,6 +86,7 @@ import type * as model_rules_stats from "../model/rules/stats.js";
 import type * as model_rules_util from "../model/rules/util.js";
 import type * as model_schema_common from "../model/schema/common.js";
 import type * as model_schema_dashboard from "../model/schema/dashboard.js";
+import type * as model_schema_entry from "../model/schema/entry.js";
 import type * as model_schema_goalContext from "../model/schema/goalContext.js";
 import type * as model_schema_importReview from "../model/schema/importReview.js";
 import type * as model_schema_index from "../model/schema/index.js";
@@ -97,6 +101,7 @@ import type * as model_threadTitle from "../model/threadTitle.js";
 import type * as queries_aboutMe from "../queries/aboutMe.js";
 import type * as queries_context from "../queries/context.js";
 import type * as queries_dashboard from "../queries/dashboard.js";
+import type * as queries_entries from "../queries/entries.js";
 import type * as queries_files from "../queries/files.js";
 import type * as queries_goals from "../queries/goals.js";
 import type * as queries_imports from "../queries/imports.js";
@@ -116,6 +121,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   "commands/context": typeof commands_context;
+  "commands/entries": typeof commands_entries;
   "commands/files": typeof commands_files;
   "commands/goals": typeof commands_goals;
   "commands/imports": typeof commands_imports;
@@ -142,6 +148,7 @@ declare const fullApi: ApiFromModules<{
   "lib/auth": typeof lib_auth;
   "lib/constants": typeof lib_constants;
   "lib/db": typeof lib_db;
+  "lib/entriesDb": typeof lib_entriesDb;
   "lib/factsChanged": typeof lib_factsChanged;
   "lib/files": typeof lib_files;
   "lib/importWrite": typeof lib_importWrite;
@@ -174,6 +181,7 @@ declare const fullApi: ApiFromModules<{
   "model/ai/providers/openaiCompatible": typeof model_ai_providers_openaiCompatible;
   "model/ai/runJob": typeof model_ai_runJob;
   "model/coachContext": typeof model_coachContext;
+  "model/entryContext": typeof model_entryContext;
   "model/fileText": typeof model_fileText;
   "model/importUnits": typeof model_importUnits;
   "model/proposals": typeof model_proposals;
@@ -190,6 +198,7 @@ declare const fullApi: ApiFromModules<{
   "model/rules/util": typeof model_rules_util;
   "model/schema/common": typeof model_schema_common;
   "model/schema/dashboard": typeof model_schema_dashboard;
+  "model/schema/entry": typeof model_schema_entry;
   "model/schema/goalContext": typeof model_schema_goalContext;
   "model/schema/importReview": typeof model_schema_importReview;
   "model/schema/index": typeof model_schema_index;
@@ -204,6 +213,7 @@ declare const fullApi: ApiFromModules<{
   "queries/aboutMe": typeof queries_aboutMe;
   "queries/context": typeof queries_context;
   "queries/dashboard": typeof queries_dashboard;
+  "queries/entries": typeof queries_entries;
   "queries/files": typeof queries_files;
   "queries/goals": typeof queries_goals;
   "queries/imports": typeof queries_imports;

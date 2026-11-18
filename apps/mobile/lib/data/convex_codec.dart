@@ -100,3 +100,6 @@ Map<String, dynamic> encodeSession(Session s) {
   m['sessionId'] = m.remove('id');
   return m;
 }
+
+LogEntry decodeEntry(Object? v) => LogEntry.fromJson(asMap(normalize(v)));
+List<LogEntry> decodeEntries(Object? v) => _list(v, decodeEntry);

@@ -55,17 +55,33 @@ Widget _recent(DashboardModule m) {
 
 /// Renders the server's dashboard modules in order.
 class DashboardView extends StatelessWidget {
-  const DashboardView({super.key, required this.dashboard});
+  const DashboardView({super.key, required this.dashboard, this.recent});
 
   final Dashboard dashboard;
+
+  /// Replaces the server's `recent_sessions` module: the list the app merged
+  /// from sessions and notes by time. When the server sends no such module it
+  /// is added at the end. Null keeps the server list as it is.
+  final Widget? recent;
 
   @override
   Widget build(BuildContext context) {
     final List<Widget> out = <Widget>[];
     final List<DashboardModule> mods = dashboard.modules;
+    final Widget? mine = recent;
+    bool recentUsed = false;
     int i = 0;
     while (i < mods.length) {
       final DashboardModule m = mods[i];
+      if (m.type == 'recent_sessions' && mine != null) {
+        if (!recentUsed) {
+          out.add(mine);
+          out.add(const SizedBox(height: 14));
+          recentUsed = true;
+        }
+        i++;
+        continue;
+      }
       if (m.type == 'stat') {
         final List<Widget> row = <Widget>[Expanded(child: _stat(m))];
         if (i + 1 < mods.length && mods[i + 1].type == 'stat') {
@@ -85,6 +101,9 @@ class DashboardView extends StatelessWidget {
       }
       out.add(const SizedBox(height: 14));
       i++;
+    }
+    if (mine != null && !recentUsed) {
+      out.add(mine);
     }
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: out);
   }

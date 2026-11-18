@@ -1,6 +1,7 @@
 import { limitsForPrompt } from "../../rules/limits";
 import { musclesFor } from "../../rules/muscles";
-import type { Goal, Limit, Session } from "../../schema";
+import type { Entry, Goal, Limit, Session } from "../../schema";
+import { entriesForPrompt } from "../../entryContext";
 import { timeText } from "../../rules/util";
 import { topKg, type ContextItem } from "../../schema";
 import { contextForPrompt, goalsForPrompt, localTime } from "./shared";
@@ -13,9 +14,9 @@ const setsText = (sets: ({ reps: number; kg: number } | { minutes: number; dista
 /**
  * The picture of the user a coach needs to build one session: who trains, what they can do (every exercise of the
  * full log with its last sets and best weight), what the last weeks looked like, the recent sessions with their
- * notes, the goals in order, the limits, the notes. Plain code, no AI. Never holds records (ADR-015).
+ * notes, the goals in order, the limits, the notes, the log entries of the last week. Plain code, no AI. Never holds records (ADR-015).
  */
-export function coachPicture(all: Session[], goals: Goal[], context: ContextItem[], limits: Limit[], now: number) {
+export function coachPicture(all: Session[], goals: Goal[], context: ContextItem[], limits: Limit[], entries: Entry[], now: number) {
   const gym = all.filter((s) => s.kind === "gym");
   const byName = new Map<string, { name: string; times: number; last: Session; lastSets: string; bestKg: number; time: boolean }>();
   for (const s of gym) {
@@ -54,6 +55,7 @@ export function coachPicture(all: Session[], goals: Goal[], context: ContextItem
     goalsInOrderOfPriority: goalsForPrompt(goals.filter((g) => g.status === "active")),
     limits: limitsForPrompt(limits),
     notesFromTheUser: contextForPrompt(context),
+    logEntriesFromTheUser: entriesForPrompt(entries),
     last4Weeks: weeks,
     recentSessions: recent,
     exercisesTheUserKnows: exercises,

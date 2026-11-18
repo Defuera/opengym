@@ -1,7 +1,8 @@
 import type { ImageInput } from "./ai/provider";
 import { contextForPrompt, goalsForPrompt, limitsForPrompt, logForPrompt } from "./ai/jobs/shared";
 import { CHUNK_CHARS } from "./fileText";
-import type { ContextItem, FileMeta, Goal, Limit, Session } from "./schema";
+import { entriesForPrompt } from "./entryContext";
+import type { ContextItem, Entry, FileMeta, Goal, Limit, Session } from "./schema";
 
 export interface CoachContext {
   contextBlock: string;
@@ -25,10 +26,12 @@ export interface CoachData {
   context: ContextItem[];
   /** Non-cleared limits; no records. Optional so old callers keep working. */
   limits?: Limit[];
+  /** Log entries of the last week, oldest first. Optional so old callers keep working. */
+  entries?: Entry[];
 }
 
 /** Port of services/coach-context.ts. Pure. Records what the coach actually read in `sources`. */
-export function assembleCoachContext(data: CoachData, files: AttachedFile[], supportsImages: boolean): CoachContext {
+export function assembleCoachContext(data: CoachData, files: AttachedFile[], supportsImages: boolean, entryImages: ImageInput[] = []): CoachContext {
   const sources: string[] = [];
   const parts: string[] = [];
   const images: ImageInput[] = [];
@@ -56,6 +59,14 @@ export function assembleCoachContext(data: CoachData, files: AttachedFile[], sup
   if (limits.length) {
     parts.push(`Limits the user trains around:\n${JSON.stringify(limits)}`);
     sources.push("limits");
+  }
+  if (data.entries?.length) {
+    parts.push(`Log entries from the user, free notes (oldest first):\n${JSON.stringify(entriesForPrompt(data.entries))}`);
+    sources.push("log entries");
+  }
+  if (supportsImages && entryImages.length) {
+    images.push(...entryImages);
+    parts.push("Photos from the user's log entries of the last day are shown to you (newest first).");
   }
 
   for (const f of files) {

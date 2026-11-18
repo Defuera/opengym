@@ -10,6 +10,7 @@ export 'models/activity.dart';
 export 'models/about_parts.dart';
 export 'models/chat.dart';
 export 'models/dashboard.dart';
+export 'models/entry.dart';
 export 'models/goal.dart';
 export 'models/misc.dart';
 export 'models/plan.dart';

@@ -14,6 +14,7 @@ import 'package:opengym/stores/coach_store.dart';
 import 'package:opengym/stores/connection_store.dart';
 import 'package:opengym/stores/context_store.dart';
 import 'package:opengym/stores/dashboard_store.dart';
+import 'package:opengym/stores/entries_store.dart';
 import 'package:opengym/stores/goals_store.dart';
 import 'package:opengym/stores/import_store.dart';
 import 'package:opengym/stores/plan_store.dart';
@@ -50,6 +51,7 @@ Future<AppDeps> testDeps(
     plans: PlanStore(client: fake),
     dashboard: DashboardStore(client: fake),
     goals: GoalsStore(client: fake, outbox: outbox),
+    entries: EntriesStore(client: fake, isConnected: () => connected)..start(),
     context: ContextStore(client: fake, outbox: outbox),
     coach: CoachStore(client: fake, isConnected: () => connected),
     imports: ImportStore(client: fake),

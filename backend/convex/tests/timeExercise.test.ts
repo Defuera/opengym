@@ -118,7 +118,7 @@ describe("time exercise in prompts", () => {
     expect(lp[0]!.exercises[0]!.sets).toBe("25 min, 10.9 km");
     expect(lp[0]!.exercises[1]!.sets).toBe("6x60");
     expect(logForPrompt([session("b", 5000, [{ name: "Plank", measure: "time", sets: [{ minutes: 25 }] }])])[0]!.exercises[0]!.sets).toBe("25 min");
-    const pic = coachPicture(log, [], [], [], 86_400_000 * 4);
+    const pic = coachPicture(log, [], [], [], [], 86_400_000 * 4);
     const row = pic.exercisesTheUserKnows.find((e) => e.name === "Stationary bike")!;
     expect(row.lastSets).toBe("25 min, 10.9 km");
     expect(row).toMatchObject({ measure: "time", bestKg: 0 });
@@ -130,7 +130,7 @@ describe("time exercise in prompts", () => {
     const plan = planSessionJob.build({ activity: "Gym", sessions: [], goals: [], context: [], limits: [], rules: { rationale: "", exercises: [] } } as never);
     expect(plan.system).toContain('"measure": "time"');
     expect(plan.system).toContain("use measure time with minutes, not reps");
-    expect(buildSessionJob.build({ name: "Gym", note: "", picture: coachPicture([], [], [], [], 0), limits: [] } as never).system).toContain("use measure time with minutes, not reps");
+    expect(buildSessionJob.build({ name: "Gym", note: "", picture: coachPicture([], [], [], [], [], 0), limits: [] } as never).system).toContain("use measure time with minutes, not reps");
     expect(interpretRequestJob.build({ text: "bike", known: [], sessions: [], lately: [], goals: [], context: [], limits: [], now: 0 } as never).system).toContain('"measure": "time"');
   });
 });

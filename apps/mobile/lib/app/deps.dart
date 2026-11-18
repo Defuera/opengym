@@ -7,6 +7,7 @@ import '../stores/coach_store.dart';
 import '../stores/connection_store.dart';
 import '../stores/context_store.dart';
 import '../stores/dashboard_store.dart';
+import '../stores/entries_store.dart';
 import '../stores/goals_store.dart';
 import '../stores/import_store.dart';
 import '../stores/plan_store.dart';
@@ -21,6 +22,7 @@ class AppDeps {
     required this.plans,
     required this.dashboard,
     required this.goals,
+    required this.entries,
     required this.context,
     required this.coach,
     required this.imports,
@@ -36,6 +38,7 @@ class AppDeps {
   final PlanStore plans;
   final DashboardStore dashboard;
   final GoalsStore goals;
+  final EntriesStore entries;
   final ContextStore context;
   final CoachStore coach;
   final ImportStore imports;

@@ -6,6 +6,7 @@ import '../theme.dart';
 import '../widgets/proposal_row.dart';
 import '../widgets/sheet_link.dart';
 import '../widgets/something_new_box.dart';
+import 'entry_form_screen.dart';
 import 'import_screen.dart';
 import 'other_activity_screen.dart';
 
@@ -49,6 +50,13 @@ class _LogSheetState extends State<LogSheet> {
     ));
   }
 
+  void _note() {
+    widget.nav.pop();
+    widget.nav.push(MaterialPageRoute<bool>(
+      builder: (BuildContext c) => EntryFormScreen(deps: widget.deps),
+    ));
+  }
+
   void _import() {
     widget.nav.pop();
     widget.nav.push(MaterialPageRoute<void>(
@@ -63,6 +71,13 @@ class _LogSheetState extends State<LogSheet> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
+        ProposalRow(
+          title: 'Note',
+          subtitle: 'A meal, a photo, anything.',
+          primary: true,
+          onTap: _note,
+        ),
+        const SizedBox(height: 14),
         Text(
           items.isEmpty
               ? 'Record what you did.'

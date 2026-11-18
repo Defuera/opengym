@@ -4,18 +4,31 @@ import '../models.dart';
 import '../planner.dart';
 import '../theme.dart';
 import '../widgets/note_box.dart';
-import '../widgets/session_list_item.dart';
 import '../widgets/stat_tile.dart';
+import 'home_recent.dart';
 
 /// Stats tiles, comparison line and the recent list (or the empty state).
 class HomeSummary extends StatelessWidget {
-  const HomeSummary({super.key, required this.sessions, required this.period});
+  const HomeSummary({
+    super.key,
+    required this.sessions,
+    required this.period,
+    this.entries = const <LogEntry>[],
+    this.onOpenEntry,
+  });
 
   final List<Session> sessions;
   final int period;
 
+  /// Notes. They join the recent list, by time.
+  final List<LogEntry> entries;
+  final ValueChanged<LogEntry>? onOpenEntry;
+
   @override
   Widget build(BuildContext context) {
+    if (sessions.isEmpty && entries.isNotEmpty) {
+      return HomeRecent(sessions: sessions, entries: entries, onOpenEntry: onOpenEntry);
+    }
     if (sessions.isEmpty) {
       return const NoteBox(
         title: 'Nothing logged yet.',
@@ -26,11 +39,6 @@ class HomeSummary extends StatelessWidget {
     final StatsResult st = stats(sessions, period);
     final String? best = st.best;
     final String sign = st.delta > 0 ? '+' : '';
-    final List<Widget> recent = <Widget>[];
-    for (final Session s in sessions.reversed.take(5)) {
-      recent.add(_item(s));
-      recent.add(const SizedBox(height: 10));
-    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
@@ -60,50 +68,8 @@ class HomeSummary extends StatelessWidget {
           style: OG.muted(),
         ),
         const SizedBox(height: 18),
-        Text('Recent', style: OG.display(24)),
-        const SizedBox(height: 10),
-        ...recent,
+        HomeRecent(sessions: sessions, entries: entries, onOpenEntry: onOpenEntry),
       ],
     );
-  }
-
-  Widget _item(Session s) {
-    int n = 0;
-    double min = 0;
-    double km = 0;
-    for (final Exercise e in s.exercises) {
-      if (e.isTime) {
-        for (final SetEntry x in e.sets) {
-          min += x.minutes ?? 0;
-          km += x.distanceKm ?? 0;
-        }
-      } else {
-        n += e.sets.length;
-      }
-    }
-    final bool gym = s.kind == 'gym';
-    final String timed = min > 0 ? timeText(min, km > 0 ? km : null) : '';
-    return SessionListItem(
-      title: s.type,
-      tag: s.focus,
-      subtitle: whenLabel(s.endedAt ?? s.startedAt),
-      trailing: gym ? _gymTrailing(n, timed) : _activityTrailing(s),
-    );
-  }
-
-  /// "8 sets", "25 min, 10.9 km" or both.
-  String _gymTrailing(int sets, String timed) {
-    if (timed.isEmpty) {
-      return '$sets sets';
-    }
-    return sets == 0 ? timed : '$sets sets, $timed';
-  }
-
-  String _activityTrailing(Session s) {
-    final double? km = s.distanceKm;
-    if (s.minutes == null && km != null) {
-      return '${fmtKg(km)} km';
-    }
-    return '${s.minutes ?? 0} min';
   }
 }

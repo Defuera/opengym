@@ -1,6 +1,6 @@
 import type { DatabaseReader } from "../_generated/server";
 import type { Doc } from "../_generated/dataModel";
-import type { ContextItem, Goal, Session } from "../model/schema";
+import type { ContextItem, Entry, Goal, Session } from "../model/schema";
 import { activityKey, normalizeSession } from "../model/sessionShape";
 
 /** Fact docs use client-made `sessionId`/`goalId`/`itemId`; the model uses the contract's `id`. */
@@ -57,6 +57,13 @@ export function toContextItem(d: Doc<"context">): ContextItem {
     createdAt: d.createdAt,
   };
 }
+
+export function toEntry(d: Doc<"entries">): Entry {
+  return { id: d.entryId, text: d.text, fileIds: d.fileIds, at: d.at, createdAt: d.createdAt };
+}
+
+export const entryByEntryId = (ctx: Reader, entryId: string) =>
+  ctx.db.query("entries").withIndex("by_entryId", (q) => q.eq("entryId", entryId)).unique();
 
 type Reader = { db: DatabaseReader };
 

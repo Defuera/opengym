@@ -56,7 +56,7 @@ End-to-end check against a deployment: see `tool/convex_trial.dart`.
 ## Structure
 
 - Domain: `lib/models.dart` (Session, Exercise, SetEntry) re-exports `lib/models/`
-  (Plan, Goal, ContextItem, Thread, Message, FileMeta, Prediction,
+  (Plan, Goal, ContextItem, LogEntry + EntryFile, Thread, Message, FileMeta, Prediction,
   DashboardModule, Dashboard, ImportJob, Review). `lib/planner.dart` has the local
   planning rules (pure Dart).
 - Data: `lib/data/` has the `SessionRepository`, `SettingsRepository` and
@@ -74,7 +74,7 @@ End-to-end check against a deployment: see `tool/convex_trial.dart`.
   `session_sync.dart` feeds the live session subscription into the local log.
 - Stores: `lib/store.dart` (`AppStore`, the live session and local log) and
   `lib/stores/` (`ConnectionStore`, `PlanStore`, `DashboardStore`, `GoalsStore`,
-  `ContextStore`, `CoachStore` (chat), `ImportStore` (file import),
+  `ContextStore`, `EntriesStore` (notes), `CoachStore` (chat), `ImportStore` (file import),
   `ReviewStore`, `AboutStore` (limits, body load, after-session questions)). One
   responsibility each, dependencies passed in the constructor.
 - About me: the person icon on Home opens `screens/about_me_screen.dart` (body
@@ -85,6 +85,18 @@ End-to-end check against a deployment: see `tool/convex_trial.dart`.
   Reads and writes go through `data/about_repository.dart`
   (`ConvexAboutRepository` on the outbox; `InMemoryAboutRepository` for tests).
   The figure is `widgets/body_figure.dart`.
+- Notes (log entries): free text with a time, plus photos or files. The plus
+  sheet, Log tab, has "Note" as its first choice; it opens
+  `screens/entry_form_screen.dart` (text up to 2000 characters, Attach with
+  camera / library / file, date and time, Save). `stores/entries_store.dart`
+  (`EntriesStore`) subscribes to `queries/entries:recent`, and `save` uploads
+  the new files first (`commands/files:generateUploadUrl` + `register`), then
+  calls `commands/entries:save`; `remove` calls `commands/entries:remove`. Notes
+  need a connection (no outbox); a failed save keeps the form. Home merges
+  notes and sessions by time in `screens/home_recent.dart` (`mergeRecent`): a
+  note by `at`, a session by its end. On the server dashboard the app list
+  replaces the server `recent_sessions` module when notes exist. A tap opens
+  `screens/entry_screen.dart` (full text, photos, files, Edit, Delete).
 - Composition: `lib/app/compose.dart` is the only place that picks real
   implementations; `lib/app/deps.dart` bundles them for the screens.
 - Widgets: `lib/widgets/` are standalone. They import only Flutter, `theme.dart`

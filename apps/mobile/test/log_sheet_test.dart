@@ -43,6 +43,9 @@ void main() {
 
   testWidgets('Log sheet: time and distance activities, most often first, with the last record',
       (WidgetTester t) async {
+    t.view.physicalSize = const Size(800, 1600); // the Note row takes room; show the whole list
+    t.view.devicePixelRatio = 1;
+    addTearDown(t.view.reset);
     await openHome(t);
     await openLog(t);
     final List<String> order = <String>['Cycling', 'Run', 'Bouldering'];
@@ -62,6 +65,9 @@ void main() {
 
   testWidgets('Log: a tap on an item opens the small log form and saves with distance and note',
       (WidgetTester t) async {
+    t.view.physicalSize = const Size(800, 1600); // the Note row takes room; show the whole list
+    t.view.devicePixelRatio = 1;
+    addTearDown(t.view.reset);
     final (FakeConvexClient _, AppDeps d) = await openHome(t);
     await openLog(t);
     await t.tap(inSheet(find.text('Run')));

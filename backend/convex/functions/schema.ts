@@ -102,6 +102,15 @@ export const checkinFields = {
   feeling,
 };
 
+/** A fact: a free note with a time and attached files (ADR-017). Client-made `entryId`. `at` is the time the entry is about. */
+export const entryFields = {
+  entryId: v.string(),
+  text: v.string(),
+  fileIds: v.array(v.string()),
+  at: v.number(),
+  createdAt: v.number(),
+};
+
 export default defineSchema({
   // Facts. Written only by commands (ADR-002).
   sessions: defineTable(sessionFields)
@@ -116,6 +125,7 @@ export default defineSchema({
     .index("by_itemId", ["itemId"])
     .index("by_createdAt", ["createdAt"])
     .index("by_importId", ["importId"]),
+  entries: defineTable(entryFields).index("by_entryId", ["entryId"]).index("by_at", ["at"]),
   limits: defineTable(limitFields).index("by_limitId", ["limitId"]),
   records: defineTable(recordFields).index("by_recordId", ["recordId"]).index("by_limitId", ["limitId"]),
   checkins: defineTable(checkinFields)

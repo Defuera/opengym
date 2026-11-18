@@ -1,8 +1,9 @@
 import { v } from "convex/values";
 import { internal } from "../_generated/api";
 import { internalAction, internalMutation, internalQuery } from "../_generated/server";
-import { runAiJob } from "../lib/ai";
+import { providerFor, runAiJob } from "../lib/ai";
 import { allContext, allGoals, allSessions, startRequestById } from "../lib/db";
+import { coachEntries, entryImageFiles, loadEntryImages } from "../lib/entriesDb";
 import { activeLimits } from "../lib/limitsDb";
 import { startDraft } from "../lib/validators";
 import { buildSessionJob } from "../model/ai/jobs/buildSession";
@@ -24,8 +25,8 @@ export const input = internalQuery({
     const now = Date.now();
     const old = buildInterpretInput(doc.text ?? "", sessions, goals, context, limits, now, doc.name);
     // The user chose the activity (the two-step start): the coach builds the session from the full picture of the user.
-    const next = doc.name ? { name: doc.name, note: doc.text ?? "", picture: coachPicture(sessions, [...goals].sort((x, y) => x.createdAt - y.createdAt), context, limits, now), limits } : null;
-    return { old, next };
+    const next = doc.name ? { name: doc.name, note: doc.text ?? "", picture: coachPicture(sessions, [...goals].sort((x, y) => x.createdAt - y.createdAt), context, limits, await coachEntries(ctx, now), now), limits } : null;
+    return { old, next, entryImages: next ? await entryImageFiles(ctx, now) : [] };
   },
 });
 
@@ -71,7 +72,9 @@ export const build = internalAction({
     try {
       const input = await ctx.runQuery(internal.jobs.startRequest.input, { requestId });
       if (!input) return;
-      const r = input.next ? await runAiJob(ctx, buildSessionJob, input.next, { timeoutMs: BUDGET_MS }) : await runAiJob(ctx, interpretRequestJob, input.old, { timeoutMs: BUDGET_MS });
+      // Photos of the entries of the last day go with the request when the provider takes images.
+      const images = input.next && input.entryImages.length > 0 ? await loadEntryImages(ctx, input.entryImages, !!(await providerFor(ctx))?.supportsImages) : [];
+      const r = input.next ? await runAiJob(ctx, buildSessionJob, { ...input.next, ...(images.length > 0 ? { images } : {}) }, { timeoutMs: BUDGET_MS }) : await runAiJob(ctx, interpretRequestJob, input.old, { timeoutMs: BUDGET_MS });
       // Plain-code fallback: the named activity with the rules plan from the log, or an empty plan when the log has none.
       const plain = fallbackProposal(input.old);
       const proposal = r.path === "ai" ? r.value : input.next && input.old.rules.exercises.length > 0 ? { ...plain, plan: input.old.rules } : plain;

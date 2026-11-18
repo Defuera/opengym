@@ -33,15 +33,18 @@ class AttachmentChip extends StatelessWidget {
               style: OG.body(size: 15, weight: FontWeight.w600),
             ),
           ),
-          GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: onRemove,
-            child: const SizedBox(
-              width: 44,
-              height: 44,
-              child: Icon(Icons.close, size: 18),
-            ),
-          ),
+          if (onRemove != null)
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: onRemove,
+              child: const SizedBox(
+                width: 44,
+                height: 44,
+                child: Icon(Icons.close, size: 18),
+              ),
+            )
+          else
+            const SizedBox(width: 14),
         ],
       ),
     );

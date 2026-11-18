@@ -101,6 +101,24 @@ class SwitchableConvexClient implements ConvexClient {
   Stream<List<Goal>> watchGoals() => _proxy((ConvexClient c) => c.watchGoals());
 
   @override
+  Stream<List<LogEntry>> watchEntries({int limit = 50}) =>
+      _proxy((ConvexClient c) => c.watchEntries(limit: limit));
+
+  @override
+  Future<void> saveEntry({
+    required String entryId,
+    required String text,
+    required List<String> fileIds,
+    required int at,
+    required int createdAt,
+  }) =>
+      _call((ConvexClient c) =>
+          c.saveEntry(entryId: entryId, text: text, fileIds: fileIds, at: at, createdAt: createdAt));
+
+  @override
+  Future<void> removeEntry(String entryId) => _call((ConvexClient c) => c.removeEntry(entryId));
+
+  @override
   Stream<List<ContextItem>> watchContext() => _proxy((ConvexClient c) => c.watchContext());
 
   @override

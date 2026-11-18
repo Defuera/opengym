@@ -5,6 +5,7 @@ import { providerFor, runAiJob } from "../lib/ai";
 import { toContextItem, toGoal, toSession, messageByMessageId, threadByThreadId } from "../lib/db";
 import { activeLimits } from "../lib/limitsDb";
 import { markFactsChanged } from "../lib/factsChanged";
+import { coachEntries, entryImageFiles, loadEntryImages } from "../lib/entriesDb";
 import { fileByFileId, loadAttachment } from "../lib/files";
 import { chatJob } from "../model/ai/jobs/chat";
 import { extractFromChatJob } from "../model/ai/jobs/extractFromChat";
@@ -56,13 +57,17 @@ export const input = internalQuery({
       const f = await fileByFileId(ctx, id);
       if (f) files.push({ fileId: f.fileId, storageId: f.storageId, name: f.name, mime: f.mime, size: f.size, kind: f.kind, createdAt: f.createdAt });
     }
+    const now = Date.now();
+    const entries = await coachEntries(ctx, now);
+    const entryImages = await entryImageFiles(ctx, now);
     return {
       title: thread.title,
       titleJob,
       text: trigger.text,
       history,
-      data: { otherThreads, sessions, goals, context, limits: await activeLimits(ctx) },
+      data: { otherThreads, sessions, goals, context, limits: await activeLimits(ctx), entries },
       files,
+      entryImages,
       knownContext: contextDocs.filter((c) => c.active).slice(0, CHAT_KNOWN_ITEMS).map((c) => c.text),
       knownGoals: goalDocs.slice(0, CHAT_KNOWN_ITEMS).map((g) => g.title),
     };
@@ -156,7 +161,7 @@ export const reply = internalAction({
         const a = await loadAttachment(ctx, f, supportsImages);
         if (a) files.push(a);
       }
-      const coach = assembleCoachContext(data.data, files, supportsImages);
+      const coach = assembleCoachContext(data.data, files, supportsImages, await loadEntryImages(ctx, data.entryImages, supportsImages));
       const r = await runAiJob(ctx, chatJob, { contextBlock: coach.contextBlock, history: data.history, images: coach.images });
       kept = await ctx.runMutation(internal.jobs.chat.saveReply, { threadId, text: r.value, sources: r.path === "ai" ? coach.sources : [] });
       replyText = r.value;

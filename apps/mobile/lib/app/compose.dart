@@ -16,6 +16,7 @@ import '../stores/coach_store.dart';
 import '../stores/connection_store.dart';
 import '../stores/context_store.dart';
 import '../stores/dashboard_store.dart';
+import '../stores/entries_store.dart';
 import '../stores/goals_store.dart';
 import '../stores/import_store.dart';
 import '../stores/plan_store.dart';
@@ -50,6 +51,7 @@ Future<AppDeps> compose() async {
   final ReviewStore reviews = ReviewStore(client: client);
   final PlanStore plans = PlanStore(client: client);
   final GoalsStore goals = GoalsStore(client: client, outbox: outbox);
+  final EntriesStore entries = EntriesStore(client: client, isConnected: () => connection.connected);
   final ContextStore context = ContextStore(client: client, outbox: outbox);
   final ImportStore imports = ImportStore(client: client);
   final AiModelStore aiModel = AiModelStore(client: client);
@@ -71,6 +73,7 @@ Future<AppDeps> compose() async {
   // Live subscriptions: opened once, they survive a change of server address.
   sessions.start();
   goals.start();
+  entries.start();
   context.start();
   about.start();
   aiModel.start();
@@ -85,6 +88,7 @@ Future<AppDeps> compose() async {
     plans: plans,
     dashboard: dashboard,
     goals: goals,
+    entries: entries,
     context: context,
     coach: coach,
     imports: imports,

@@ -31,6 +31,9 @@ abstract class ConvexClient {
   Stream<List<Session>> watchSessionsSince(int since);
   Stream<List<Goal>> watchGoals();
   Stream<List<ContextItem>> watchContext();
+
+  /// Notes, newest first by their time (`at`). The server allows 1 to 200.
+  Stream<List<LogEntry>> watchEntries({int limit = 50});
   /// The stored plan for [activity] (null: Gym) and [focus]; a null focus asks
   /// for the advised focus.
   Stream<Stored<Plan>> watchNextPlan({String? activity, String? focus});
@@ -71,6 +74,20 @@ abstract class ConvexClient {
   });
   Future<void> updateGoal(String goalId, GoalPatch patch);
   Future<void> removeGoal(String goalId);
+
+  /// Saves a note (create or change). Every id in [fileIds] must be uploaded
+  /// already. A file left out of a changed note is deleted by the server.
+  /// Sending the same [entryId] again is safe.
+  Future<void> saveEntry({
+    required String entryId,
+    required String text,
+    required List<String> fileIds,
+    required int at,
+    required int createdAt,
+  });
+
+  /// Deletes the note and its files.
+  Future<void> removeEntry(String entryId);
   Future<void> createContext({
     required String itemId,
     required String text,
@@ -222,6 +239,32 @@ class DartvexConvexClient implements ConvexClient {
   @override
   Stream<List<Goal>> watchGoals() =>
       _watch('queries/goals:list', const <String, dynamic>{}, decodeGoals);
+
+  @override
+  Stream<List<LogEntry>> watchEntries({int limit = 50}) =>
+      _watch('queries/entries:recent', <String, dynamic>{'limit': limit}, decodeEntries);
+
+  @override
+  Future<void> saveEntry({
+    required String entryId,
+    required String text,
+    required List<String> fileIds,
+    required int at,
+    required int createdAt,
+  }) =>
+      _mutate('commands/entries:save', <String, dynamic>{
+        'entry': <String, dynamic>{
+          'entryId': entryId,
+          'text': text,
+          'fileIds': fileIds,
+          'at': at,
+          'createdAt': createdAt,
+        },
+      });
+
+  @override
+  Future<void> removeEntry(String entryId) =>
+      _mutate('commands/entries:remove', <String, dynamic>{'entryId': entryId});
 
   @override
   Stream<List<ContextItem>> watchContext() =>

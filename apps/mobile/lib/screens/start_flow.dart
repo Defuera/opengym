@@ -11,7 +11,7 @@ import 'session_screen.dart';
 
 Route<void> _route(Widget screen) => MaterialPageRoute<void>(builder: (BuildContext c) => screen);
 
-SessionScreen _session(AppDeps d) => SessionScreen(store: d.store, deps: d);
+SessionScreen _session(AppDeps d) => SessionScreen(store: d.store, deps: d, rebuild: rebuildFor(d));
 
 /// A stored proposal: the prepared session of [activity] + [focus]. An open
 /// session is resumed; offline (or with no focus) it starts from the local
@@ -53,11 +53,17 @@ void openProposal(NavigatorState nav, AppDeps d, StartProposal p, {String? reque
     return;
   }
   _beginProposal(d, p);
-  final ProposalRebuild? rebuild = requestId == null
-      ? null
-      : ProposalRebuild(plans: d.plans, requestId: requestId, onProposal: (StartProposal n) => _replaceProposal(d, n));
-  nav.push(_route(SessionScreen(store: d.store, deps: d, rebuild: rebuild)));
+  nav.push(_route(SessionScreen(store: d.store, deps: d, rebuild: rebuildFor(d, requestId: requestId))));
 }
+
+/// The feedback loop of the open session. With [requestId] the coach gets the
+/// plan it made before; without it the feedback is the note of a new request.
+ProposalRebuild rebuildFor(AppDeps d, {String? requestId}) => ProposalRebuild(
+      plans: d.plans,
+      requestId: requestId,
+      activity: () => d.store.active?.type ?? gymType,
+      onProposal: (StartProposal n) => _replaceProposal(d, n),
+    );
 
 void _beginProposal(AppDeps d, StartProposal p) {
   final Plan? plan = p.plan;

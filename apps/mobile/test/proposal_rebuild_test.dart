@@ -180,4 +180,23 @@ void main() {
     // The session screen itself overflows by 6 px at this width without the feedback row (checked on a bare SessionScreen), so only the position is asserted.
     t.takeException();
   });
+
+  testWidgets('a session reopened from Home still takes feedback: it goes as the note of a new request',
+      (WidgetTester t) async {
+    final (FakeConvexClient fake, AppDeps _) = await _openProposal(t);
+    Navigator.of(t.element(find.byType(SessionScreen))).pop();
+    await t.pumpAndSettle();
+    expect(find.byType(SessionScreen), findsNothing);
+    await t.tap(find.textContaining('Resume'));
+    await t.pumpAndSettle();
+    expect(_field, findsOneWidget);
+    await _type(t, 'I have dumbbells');
+    await t.tap(_rebuild);
+    await t.pump();
+    expect(fake.startNames.last, 'Gym');
+    expect(fake.startFeedback.last, (null, null));
+    fake.answerStart(StartRequest(requestId: fake.lastStartId, status: 'ready', proposal: _proposal('Goblet squat')));
+    await t.pumpAndSettle();
+    expect(find.text('Goblet squat'), findsWidgets);
+  });
 }

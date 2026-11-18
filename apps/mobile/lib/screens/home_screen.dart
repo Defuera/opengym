@@ -21,6 +21,7 @@ import 'home_summary.dart';
 import 'import_screen.dart';
 import 'session_recap_screen.dart';
 import 'session_screen.dart';
+import 'start_flow.dart';
 import 'settings_screen.dart';
 import 'plus_sheet.dart';
 import 'threads_screen.dart';
@@ -60,7 +61,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _resume() {
     widget.deps.store.resume();
-    _push(SessionScreen(store: widget.deps.store, deps: widget.deps));
+    _push(SessionScreen(store: widget.deps.store, deps: widget.deps, rebuild: rebuildFor(widget.deps)));
   }
 
   String get _statusText {

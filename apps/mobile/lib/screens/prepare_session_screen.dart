@@ -6,6 +6,7 @@ import '../theme.dart';
 import '../widgets/og_icon_button.dart';
 import '../widgets/preparing_card.dart';
 import 'session_screen.dart';
+import 'start_flow.dart';
 
 /// Asks the server for the stored plan of the activity + focus (at most a few
 /// seconds), then opens the session.
@@ -63,7 +64,7 @@ class _PrepareSessionScreenState extends State<PrepareSessionScreen> {
     }
     Navigator.of(context).pushReplacement(
       MaterialPageRoute<void>(
-        builder: (BuildContext c) => SessionScreen(store: d.store, deps: d),
+        builder: (BuildContext c) => SessionScreen(store: d.store, deps: d, rebuild: rebuildFor(d)),
       ),
     );
   }

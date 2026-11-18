@@ -11,10 +11,16 @@ import 'start_run.dart';
 class ProposalRebuild extends ChangeNotifier {
   ProposalRebuild({
     required PlanStore plans,
-    required String requestId,
+    String? requestId,
+    required this.activity,
     required this.onProposal,
   })  : _plans = plans,
         _requestId = requestId;
+
+  /// The activity of the shown session. Without a known request (the app was
+  /// restarted, or the session did not come from the coach) the feedback goes
+  /// as the note of a new request for this activity.
+  final String Function() activity;
 
   final PlanStore _plans;
 
@@ -22,7 +28,7 @@ class ProposalRebuild extends ChangeNotifier {
   /// example the session was already started): the rebuild then counts as failed.
   final bool Function(StartProposal) onProposal;
 
-  String _requestId;
+  String? _requestId;
   StartRun? _run;
   bool _failed = false;
   bool _disposed = false;
@@ -37,7 +43,10 @@ class ProposalRebuild extends ChangeNotifier {
     if (_run != null) {
       return;
     }
-    final StartRun run = _plans.requestRebuild(feedback: feedback, previousRequestId: _requestId);
+    final String? prev = _requestId;
+    final StartRun run = prev != null
+        ? _plans.requestRebuild(feedback: feedback, previousRequestId: prev)
+        : _plans.requestStart(name: activity(), text: feedback.length > 200 ? feedback.substring(0, 200) : feedback);
     _run = run;
     _failed = false;
     notifyListeners();

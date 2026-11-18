@@ -117,9 +117,21 @@ class Plan {
       createdAt: intOf(j['createdAt']),
       source: str(j['source'], 'rules'),
       rationale: str(j['rationale']),
-      exercises: asList(j['exercises'])
-          .map((Object? e) => PlanExercise.fromJson(asMap(e)))
-          .toList(),
+      exercises: _readable(asList(j['exercises'])),
     );
+  }
+
+  /// An exercise this build cannot read (a newer shape from the server) is
+  /// left out; the rest of the plan is kept.
+  static List<PlanExercise> _readable(List<Object?> raw) {
+    final List<PlanExercise> out = <PlanExercise>[];
+    for (final Object? e in raw) {
+      try {
+        out.add(PlanExercise.fromJson(asMap(e)));
+      } catch (_) {
+        // skip
+      }
+    }
+    return out;
   }
 }

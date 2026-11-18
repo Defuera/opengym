@@ -2,7 +2,7 @@ import type { Doc } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
 import { IMPORT_DELETE_BATCH } from "./constants";
 import { markFactsChanged } from "./factsChanged";
-import { sessionBySessionId } from "./db";
+import { sessionRowBySessionId } from "./db";
 
 type Fields<T extends "sessions" | "goals" | "context"> = Omit<Doc<T>, "_id" | "_creationTime">;
 
@@ -12,10 +12,15 @@ export interface ImportItems {
   context?: Fields<"context">[];
 }
 
-/** Writes already validated import items. Sessions are upserts by sessionId (same as a normal save). */
+/**
+ * Writes already validated import items. Sessions are upserts by sessionId (same as a normal save). The lookup is the RAW one:
+ * a row marked as deleted (ADR-020) is not brought back and not duplicated (two rows with one sessionId would break `.unique()`),
+ * so an import item for it is skipped.
+ */
 export async function writeImportItems(ctx: MutationCtx, items: ImportItems): Promise<number> {
   for (const s of items.sessions ?? []) {
-    const old = await sessionBySessionId(ctx, s.sessionId);
+    const old = await sessionRowBySessionId(ctx, s.sessionId);
+    if (old?.deletedAt !== undefined) continue;
     if (old) await ctx.db.replace(old._id, s);
     else await ctx.db.insert("sessions", s);
   }
@@ -25,7 +30,7 @@ export async function writeImportItems(ctx: MutationCtx, items: ImportItems): Pr
 }
 
 /**
- * Deletes up to IMPORT_DELETE_BATCH documents tagged with importId. When nothing is left it deletes
+ * Deletes up to IMPORT_DELETE_BATCH documents tagged with importId (marked rows too: removing an import erases its rows at once). When nothing is left it deletes
  * the job row and signals a rebuild, and returns true. Returns false when another pass is needed.
  */
 export async function purgeImportStep(ctx: MutationCtx, importId: string): Promise<boolean> {

@@ -19,3 +19,8 @@ export const START_REQUEST_MAX_TEXT = 200;
 export const START_REQUEST_MAX_NAME = 40;
 /** Old start requests removed per command call. */
 export const START_REQUEST_PURGE_BATCH = 50;
+
+/** A session or note marked as deleted is erased for good after this long (ADR-020). */
+export const DELETE_AFTER_MS = 72 * 3_600_000;
+/** Rows erased per purge pass; a full pass schedules the next one. */
+export const PURGE_BATCH = 50;

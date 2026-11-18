@@ -34,3 +34,4 @@ This directory holds the Architecture Decision Records (ADRs) for Gym Days (Open
 | [017](017-log-entries.md) | Log Entries Are Free Notes With Attachments | Proposed |
 | [018](018-log-by-text.md) | Log an Activity as One Text; the AI Fills the Structure | Proposed |
 | [019](019-trackers-through-the-phone-health-store.md) | Trackers Through the Phone's Health Store | Proposed |
+| [020](020-delete-marks-then-purges.md) | Delete Marks the Row, a Cron Erases It After 72 Hours | Accepted |

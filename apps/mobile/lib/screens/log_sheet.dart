@@ -30,6 +30,7 @@ class LogSheet extends StatefulWidget {
 
 class _LogSheetState extends State<LogSheet> {
   TextEditingController get _text => widget.controller;
+  bool _more = false;
 
   @override
   void dispose() {
@@ -66,7 +67,10 @@ class _LogSheetState extends State<LogSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final List<LogActivity> items = logActivities(widget.deps.store.sessions);
+    final List<LogActivity> all = logActivities(widget.deps.store.sessions);
+    final (List<LogActivity> shown, List<LogActivity> rest) =
+        splitCurrent<LogActivity>(all, (LogActivity a) => usedRecently(a.last.when));
+    final List<LogActivity> items = _more ? <LogActivity>[...shown, ...rest] : shown;
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -81,7 +85,7 @@ class _LogSheetState extends State<LogSheet> {
         Text(
           items.isEmpty
               ? 'Record what you did.'
-              : 'Record what you did. Most often first, from your log.',
+              : 'Record what you did.',
           style: OG.muted(),
         ),
         const SizedBox(height: 14),
@@ -94,6 +98,11 @@ class _LogSheetState extends State<LogSheet> {
                 ProposalRow(title: a.name, subtitle: a.lastLine(), onTap: () => _log(a.name)),
                 const SizedBox(height: 10),
               ],
+              if (!_more && rest.isNotEmpty)
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: SheetLink(label: 'More from your log', onTap: () => setState(() => _more = true)),
+                ),
             ],
           ),
         ),

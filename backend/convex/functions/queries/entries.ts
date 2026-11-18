@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { query } from "../_generated/server";
 import { requireToken } from "../lib/auth";
+import { liveEntryDocs } from "../lib/db";
 import { fileByFileId, fileMeta } from "../lib/files";
 
 /** Newest first by `at` (default 50, at most 200). Each item holds its files with a URL; a missing file is left out. */
@@ -9,7 +10,7 @@ export const recent = query({
   handler: async (ctx, { token, limit }) => {
     requireToken(token);
     const take = Math.max(1, Math.min(Math.floor(limit ?? 50), 200));
-    const docs = await ctx.db.query("entries").withIndex("by_at").order("desc").take(take);
+    const docs = await liveEntryDocs(ctx, { order: "desc", limit: take });
     return Promise.all(
       docs.map(async (d) => {
         const files = [];

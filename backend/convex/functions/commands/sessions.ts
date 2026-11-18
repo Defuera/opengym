@@ -1,8 +1,8 @@
 import { ConvexError, v } from "convex/values";
 import { internal } from "../_generated/api";
-import { mutation } from "../_generated/server";
+import { internalMutation, mutation } from "../_generated/server";
 import { requireToken } from "../lib/auth";
-import { sessionBySessionId, stableJson, withoutSystemFields } from "../lib/db";
+import { sessionRowBySessionId, stableJson, withoutSystemFields } from "../lib/db";
 import { markFactsChanged, scheduleReview } from "../lib/factsChanged";
 import { parseOrThrow } from "../lib/validate";
 import { LogTextInputSchema, SessionSchema } from "../model/schema";
@@ -30,7 +30,8 @@ export const save = mutation({
     const session = normalizeSession({ ...clean, type: clean.type ?? (clean.kind === "gym" ? GYM_TYPE : "") });
     const { sessionId, ...rest } = session;
     parseOrThrow(SessionSchema, { id: sessionId, ...rest }, "session");
-    const old = await sessionBySessionId(ctx, sessionId);
+    const old = await sessionRowBySessionId(ctx, sessionId);
+    if (old?.deletedAt !== undefined) return sessionId; // marked as deleted (ADR-020): a late resend must not bring it back
     if (old && stableJson(withoutSystemFields({ ...old, parse: undefined })) === stableJson(session)) return sessionId; // resend, nothing changed
     if (old) await ctx.db.replace(old._id, session);
     else await ctx.db.insert("sessions", session);
@@ -52,7 +53,7 @@ export const logText = mutation({
     requireToken(token);
     if (!sessionId || sessionId.length > 100) throw new ConvexError("sessionId: must be 1 to 100 characters");
     const valid = parseOrThrow(LogTextInputSchema, input, "log");
-    if (await sessionBySessionId(ctx, sessionId)) return sessionId; // resend
+    if (await sessionRowBySessionId(ctx, sessionId)) return sessionId; // resend, or marked as deleted (ADR-020): a late resend must not bring it back
     await ctx.db.insert("sessions", {
       sessionId,
       kind: "activity",
@@ -70,16 +71,31 @@ export const logText = mutation({
   },
 });
 
-/** Delete one session by its client-made id. No error if it is already gone. */
+/**
+ * Delete one session by its client-made id (ADR-020): it only MARKS the row (`deletedAt` = now). Nothing else goes now, not the
+ * review: jobs/purge erases both DELETE_AFTER_MS later, and `restoreSession` undoes the mark before that. Every read leaves a
+ * marked row out. Idempotent: a second call keeps the first time. Returns true when this call marked it, false when the session
+ * is unknown or was already marked (gone for the app either way).
+ */
 export const remove = mutation({
   args: { token: v.string(), sessionId: v.string() },
   handler: async (ctx, { token, sessionId }) => {
     requireToken(token);
-    const old = await sessionBySessionId(ctx, sessionId);
-    if (!old) return false;
-    await ctx.db.delete(old._id);
-    const review = await ctx.db.query("reviews").withIndex("by_sessionId", (q) => q.eq("sessionId", sessionId)).unique();
-    if (review) await ctx.db.delete(review._id);
+    const old = await sessionRowBySessionId(ctx, sessionId);
+    if (!old || old.deletedAt !== undefined) return false;
+    await ctx.db.patch(old._id, { deletedAt: Date.now() });
+    await markFactsChanged(ctx);
+    return true;
+  },
+});
+
+/** Operator tool (`npx convex run`): clears the mark of a session, if it is not erased yet. Returns true when it brought one back. */
+export const restoreSession = internalMutation({
+  args: { sessionId: v.string() },
+  handler: async (ctx, { sessionId }) => {
+    const old = await sessionRowBySessionId(ctx, sessionId);
+    if (!old || old.deletedAt === undefined) return false;
+    await ctx.db.patch(old._id, { deletedAt: undefined });
     await markFactsChanged(ctx);
     return true;
   },

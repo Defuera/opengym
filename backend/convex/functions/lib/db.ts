@@ -62,15 +62,50 @@ export function toEntry(d: Doc<"entries">): Entry {
   return { id: d.entryId, text: d.text, fileIds: d.fileIds, at: d.at, createdAt: d.createdAt };
 }
 
-export const entryByEntryId = (ctx: Reader, entryId: string) =>
+/**
+ * The row of an entry, MARKED OR NOT. Only code that must see a marked row uses this: commands/entries (save, remove, restore)
+ * and jobs/purge. Every read for a user, a job or the coach uses `entryByEntryId`.
+ */
+export const entryRowByEntryId = (ctx: Reader, entryId: string) =>
   ctx.db.query("entries").withIndex("by_entryId", (q) => q.eq("entryId", entryId)).unique();
+
+/** The live entry (not marked as deleted, ADR-020), or null. */
+export async function entryByEntryId(ctx: Reader, entryId: string): Promise<Doc<"entries"> | null> {
+  const d = await entryRowByEntryId(ctx, entryId);
+  return d && d.deletedAt === undefined ? d : null;
+}
+
+/**
+ * Live entries by `at` (ADR-020: rows marked as deleted are left out BEFORE the limit, so `limit` stays the count of live rows).
+ * `from` and `to` bound `at` (both inclusive). The one way to list entries.
+ */
+export function liveEntryDocs(ctx: Reader, o: { order: "asc" | "desc"; from?: number; to?: number; limit?: number }): Promise<Doc<"entries">[]> {
+  const q = ctx.db
+    .query("entries")
+    .withIndex("by_at", (r) => (o.from !== undefined ? (o.to !== undefined ? r.gte("at", o.from).lte("at", o.to) : r.gte("at", o.from)) : o.to !== undefined ? r.lte("at", o.to) : r))
+    .order(o.order)
+    .filter((f) => f.eq(f.field("deletedAt"), undefined));
+  return o.limit === undefined ? q.collect() : q.take(o.limit);
+}
 
 type Reader = { db: DatabaseReader };
 
-/** The FULL history, oldest first. Code that computes numbers or applies limits reads this. */
+/**
+ * Live sessions by `endedAt` (ADR-020: rows marked as deleted are left out BEFORE the limit, so `limit` stays the count of
+ * live rows). `after` keeps only sessions that ended after it. The one way to list sessions.
+ */
+export function liveSessionDocs(ctx: Reader, o: { order: "asc" | "desc"; after?: number; limit?: number }): Promise<Doc<"sessions">[]> {
+  const q = ctx.db
+    .query("sessions")
+    .withIndex("by_endedAt", (r) => (o.after !== undefined ? r.gt("endedAt", o.after) : r))
+    .order(o.order)
+    .filter((f) => f.eq(f.field("deletedAt"), undefined));
+  return o.limit === undefined ? q.collect() : q.take(o.limit);
+}
+
+/** The FULL live history, oldest first. Code that computes numbers or applies limits reads this. */
 export async function allSessions(ctx: Reader): Promise<Session[]> {
-  const docs = await ctx.db.query("sessions").withIndex("by_endedAt").order("asc").collect();
-  return docs.map(toSession);
+  return (await liveSessionDocs(ctx, { order: "asc" })).map(toSession);
 }
 
 export async function allGoals(ctx: Reader): Promise<Goal[]> {
@@ -83,8 +118,18 @@ export async function allContext(ctx: Reader): Promise<ContextItem[]> {
   return docs.map(toContextItem);
 }
 
-export const sessionBySessionId = (ctx: Reader, sessionId: string) =>
+/**
+ * The row of a session, MARKED OR NOT. Only code that must see a marked row uses this: commands/sessions (save, logText,
+ * remove, restore), lib/importWrite and jobs/purge. Every read for a user, a job or the coach uses `sessionBySessionId`.
+ */
+export const sessionRowBySessionId = (ctx: Reader, sessionId: string) =>
   ctx.db.query("sessions").withIndex("by_sessionId", (q) => q.eq("sessionId", sessionId)).unique();
+
+/** The live session (not marked as deleted, ADR-020), or null. */
+export async function sessionBySessionId(ctx: Reader, sessionId: string): Promise<Doc<"sessions"> | null> {
+  const d = await sessionRowBySessionId(ctx, sessionId);
+  return d && d.deletedAt === undefined ? d : null;
+}
 
 export const goalByGoalId = (ctx: Reader, goalId: string) =>
   ctx.db.query("goals").withIndex("by_goalId", (q) => q.eq("goalId", goalId)).unique();

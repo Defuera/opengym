@@ -46,6 +46,7 @@ class _StartSheetState extends State<StartSheet> {
   StartDraft get _draft => widget.draft;
   StartRun? _run;
   String _typed = '';
+  bool _more = false;
 
   @override
   void dispose() {
@@ -161,15 +162,18 @@ class _StartSheetState extends State<StartSheet> {
 
   Widget _types() {
     // A log type that is itself named "Other" is left out: "Other" here is the free text.
-    final List<StartType> types = startTypes(widget.deps.store.sessions)
+    final List<StartType> all = startTypes(widget.deps.store.sessions)
         .where((StartType x) => activityKey(x.name) != 'other')
         .toList();
+    final (List<StartType> shown, List<StartType> rest) =
+        splitCurrent<StartType>(all, (StartType x) => usedRecently(x.lastWhen));
+    final List<StartType> types = _more ? <StartType>[...shown, ...rest] : shown;
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
         Text(
-          types.isEmpty ? 'Nothing in your log yet.' : 'What are you doing? Most used first.',
+          types.isEmpty ? 'Nothing in your log yet.' : 'What are you doing?',
           style: OG.muted(),
         ),
         const SizedBox(height: 14),
@@ -183,6 +187,13 @@ class _StartSheetState extends State<StartSheet> {
                   title: types[i].name,
                   primary: i == 0,
                   onTap: () => _draft.pick(types[i].name),
+                ),
+                const SizedBox(height: 10),
+              ],
+              if (!_more && rest.isNotEmpty) ...<Widget>[
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: SheetLink(label: 'More from your log', onTap: () => setState(() => _more = true)),
                 ),
                 const SizedBox(height: 10),
               ],

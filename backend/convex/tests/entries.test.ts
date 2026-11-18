@@ -83,15 +83,15 @@ describe("entries", () => {
     expect(await t.run((c) => c.storage.get(dropped))).toBeNull();
   });
 
-  it("remove deletes the entry and its files, and says false when unknown", async () => {
+  it("remove only marks the entry (files stay, see softDelete.test.ts) and says false when unknown or marked", async () => {
     await upload("f1");
     await save(entry("e1", { fileIds: ["f1"] }));
-    const storageId = (await fileRows())[0]!.storageId;
     expect(await t.mutation(api.commands.entries.remove, { token: TOKEN, entryId: "e1" })).toBe(true);
-    expect(await entryRows()).toHaveLength(0);
-    expect(await fileRows()).toHaveLength(0);
-    expect(await t.run((c) => c.storage.get(storageId))).toBeNull();
+    expect(await recent()).toHaveLength(0);
+    expect(await entryRows()).toHaveLength(1);
+    expect(await fileRows()).toHaveLength(1);
     expect(await t.mutation(api.commands.entries.remove, { token: TOKEN, entryId: "e1" })).toBe(false);
+    expect(await t.mutation(api.commands.entries.remove, { token: TOKEN, entryId: "nope" })).toBe(false);
   });
 
   it("lists newest first by `at`, with a limit", async () => {

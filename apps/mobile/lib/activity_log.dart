@@ -1,6 +1,23 @@
 import 'models.dart';
 import 'planner.dart';
 
+/// An activity counts as current when it was done in the last [recentDays]
+/// days. The Start and Log lists show the current ones; the rest is under "More".
+const int recentDays = 60;
+
+bool usedRecently(int lastWhen, {int? nowMs}) =>
+    lastWhen >= (nowMs ?? DateTime.now().millisecondsSinceEpoch) - recentDays * dayMs;
+
+/// Splits [all] into the rows shown at once and the rows under "More". With no
+/// current row, everything is shown.
+(List<T>, List<T>) splitCurrent<T>(List<T> all, bool Function(T) current) {
+  final List<T> now = all.where(current).toList();
+  if (now.isEmpty) {
+    return (all, <T>[]);
+  }
+  return (now, all.where((T x) => !current(x)).toList());
+}
+
 /// One time/distance activity from the log, for the Log sheet.
 class LogActivity {
   const LogActivity({required this.name, required this.count, required this.last});
@@ -47,7 +64,10 @@ List<LogActivity> logActivities(List<Session> sessions) {
 
 /// One activity type of the log, for step 1 of the Start tab.
 class StartType {
-  const StartType({required this.name, required this.hasSets});
+  const StartType({required this.name, required this.hasSets, this.lastWhen = 0});
+
+  /// The time of the latest session of this type.
+  final int lastWhen;
 
   /// The most recent spelling in the log.
   final String name;
@@ -74,7 +94,7 @@ List<StartType> startTypes(List<Session> sessions, {int? nowMs}) {
   for (final List<Session> g in byKey.values) {
     final Session last = g.reduce((Session a, Session b) => b.when >= a.when ? b : a);
     final int recent = g.where((Session s) => s.when >= from).length;
-    rows.add((StartType(name: last.type.trim(), hasSets: last.kind == 'gym'), recent, g.length, last.when));
+    rows.add((StartType(name: last.type.trim(), hasSets: last.kind == 'gym', lastWhen: last.when), recent, g.length, last.when));
   }
   rows.sort(((StartType, int, int, int) a, (StartType, int, int, int) b) {
     if (a.$2 != b.$2) {

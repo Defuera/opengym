@@ -170,12 +170,13 @@ void main() {
       await t.tap(find.byKey(const ValueKey<String>('entry-delete')));
       await t.pumpAndSettle();
       expect(find.text('Delete this note?'), findsOneWidget);
+      expect(find.textContaining('erased for good after 72 hours'), findsOneWidget);
       await t.tap(find.text('Keep it'));
       await t.pumpAndSettle();
       expect(fake.serverEntries, hasLength(1));
       await t.tap(find.byKey(const ValueKey<String>('entry-delete')));
       await t.pumpAndSettle();
-      await t.tap(find.text('Delete note and its files'));
+      await t.tap(find.text('Delete note'));
       await t.pumpAndSettle();
       expect(fake.serverEntries, isEmpty);
       expect(fake.serverFiles, isEmpty);

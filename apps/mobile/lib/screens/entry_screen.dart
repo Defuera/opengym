@@ -30,8 +30,9 @@ class EntryScreen extends StatelessWidget {
     final String? c = await showChoiceSheet(
       context,
       title: 'Delete this note?',
+      message: 'It is removed from your log now and erased for good after 72 hours, with its files.',
       choices: const <SheetChoice>[
-        SheetChoice(value: 'delete', label: 'Delete note and its files'),
+        SheetChoice(value: 'delete', label: 'Delete note'),
         SheetChoice(value: 'keep', label: 'Keep it', variant: OgVariant.dashed),
       ],
     );

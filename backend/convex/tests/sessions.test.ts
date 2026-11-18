@@ -86,12 +86,12 @@ describe("sessions", () => {
     expect(await t.run((ctx) => ctx.db.query("reviews").collect())).toHaveLength(1);
   });
 
-  it("removing a session drops its review", async () => {
+  it("removing a session hides its review; the review row goes with the purge (see softDelete.test.ts)", async () => {
     await t.mutation(api.commands.sessions.save, { token: TOKEN, session: pushSession("p1", 5_000_000) });
     await settle(t);
     await t.mutation(api.commands.sessions.remove, { token: TOKEN, sessionId: "p1" });
     await settle(t);
-    expect(await t.run((ctx) => ctx.db.query("reviews").collect())).toHaveLength(0);
+    expect(await t.run((ctx) => ctx.db.query("reviews").collect())).toHaveLength(1);
     expect(await t.query(api.queries.reviews.get, { token: TOKEN, sessionId: "p1" })).toEqual({ review: null, stored: false });
   });
 });

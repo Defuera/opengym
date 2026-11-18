@@ -1,19 +1,20 @@
 import { v } from "convex/values";
 import { query } from "../_generated/server";
 import { requireToken } from "../lib/auth";
-import { allSessions } from "../lib/db";
+import { allSessions, sessionBySessionId } from "../lib/db";
 import { finalizeReview } from "../model/proposals";
 import { rulesReview } from "../model/rules/review";
 
 /**
  * The review of one session. Never calls the AI.
  * Stored review: `stored: true`. No stored review yet: the rules review computed here (`stored: false`,
- * source "rules"). `review` is null when the session does not exist.
+ * source "rules"). `review` is null when the session does not exist or is marked as deleted.
  */
 export const get = query({
   args: { token: v.string(), sessionId: v.string() },
   handler: async (ctx, { token, sessionId }) => {
     requireToken(token);
+    if (!(await sessionBySessionId(ctx, sessionId))) return { review: null, stored: false }; // gone, or marked as deleted (ADR-020)
     const doc = await ctx.db.query("reviews").withIndex("by_sessionId", (q) => q.eq("sessionId", sessionId)).unique();
     if (doc) return { review: { sessionId, source: doc.source, summary: doc.summary, changes: doc.changes }, stored: true };
     const sessions = await allSessions(ctx);

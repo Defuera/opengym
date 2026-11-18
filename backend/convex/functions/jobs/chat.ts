@@ -2,7 +2,7 @@ import { v } from "convex/values";
 import { internal } from "../_generated/api";
 import { internalAction, internalMutation, internalQuery } from "../_generated/server";
 import { providerFor, runAiJob } from "../lib/ai";
-import { toContextItem, toGoal, toSession, messageByMessageId, threadByThreadId } from "../lib/db";
+import { liveSessionDocs, toContextItem, toGoal, toSession, messageByMessageId, threadByThreadId } from "../lib/db";
 import { activeLimits } from "../lib/limitsDb";
 import { markFactsChanged } from "../lib/factsChanged";
 import { coachEntries, entryImageFiles, loadEntryImages } from "../lib/entriesDb";
@@ -42,7 +42,7 @@ export const input = internalQuery({
     const threads = await ctx.db.query("threads").withIndex("by_updatedAt").order("desc").take(40);
     const otherThreads = threads.filter((t) => t.threadId !== threadId && t.summary.trim()).slice(0, CHAT_OTHER_THREADS).map((t) => ({ title: t.title, summary: t.summary }));
 
-    const sessions = (await ctx.db.query("sessions").withIndex("by_endedAt").order("desc").take(CHAT_RECENT_SESSIONS)).reverse().map(toSession);
+    const sessions = (await liveSessionDocs(ctx, { order: "desc", limit: CHAT_RECENT_SESSIONS })).reverse().map(toSession);
     const goalDocs = await ctx.db.query("goals").withIndex("by_createdAt").order("desc").take(200);
     const goals = goalDocs.filter((g) => g.status === "active").slice(0, CHAT_GOALS).reverse().map(toGoal);
     const contextDocs = await ctx.db.query("context").withIndex("by_createdAt").order("desc").take(200);

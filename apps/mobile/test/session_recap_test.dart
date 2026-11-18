@@ -155,6 +155,7 @@ void main() {
       await t.tap(_key('recap-delete'));
       await t.pumpAndSettle();
       expect(find.text('Delete this session?'), findsOneWidget);
+      expect(find.text('It is removed from your log now and erased for good after 72 hours.'), findsOneWidget);
       await t.tap(find.text('Keep it'));
       await t.pumpAndSettle();
       expect(d.store.sessionById('a1'), isNotNull);
@@ -165,6 +166,42 @@ void main() {
       expect(d.store.sessionById('a1'), isNull);
       await _outbox(t);
       expect(d.outbox.ops.map((o) => o.type).toList(), contains(OutboxOp.sessionRemove));
+    });
+  });
+
+  group('delete', () {
+    testWidgets('confirm: the recap closes, Home no longer lists it, the server gets remove, no save is queued',
+        (WidgetTester t) async {
+      _tall(t);
+      final FakeConvexClient fake = FakeConvexClient();
+      final AppDeps d = await testDeps(fake, sessions: <Session>[_run]);
+      d.store.onSessionRemoved = (String id) => d.outbox.removeSession(id);
+      await t.pumpWidget(MaterialApp(home: HomeScreen(deps: d)));
+      await t.pump();
+      await t.tap(find.text('Run'));
+      await t.pumpAndSettle();
+      await t.tap(_key('recap-delete'));
+      await t.pumpAndSettle();
+      await t.tap(find.text('Delete session'));
+      await t.pumpAndSettle();
+      await _outbox(t);
+      expect(_key('recap-activity'), findsNothing);
+      expect(find.byType(SessionRecapScreen), findsNothing);
+      expect(find.text('Run'), findsNothing);
+      expect(d.store.sessionById('a1'), isNull);
+      expect(fake.calls, contains('removeSession:a1'));
+      expect(d.outbox.ops.where((o) => o.type == OutboxOp.sessionSave), isEmpty);
+    });
+
+    testWidgets('closing the sheet without a choice keeps the session', (WidgetTester t) async {
+      final (FakeConvexClient fake, AppDeps d) = await _open(t, _run);
+      await t.tap(_key('recap-delete'));
+      await t.pumpAndSettle();
+      await t.tap(find.byKey(const ValueKey<String>('og-sheet-close')));
+      await t.pumpAndSettle();
+      expect(find.text('Delete this session?'), findsNothing);
+      expect(d.store.sessionById('a1'), isNotNull);
+      expect(fake.calls, isNot(contains('removeSession:a1')));
     });
   });
 

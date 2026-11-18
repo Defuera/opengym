@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { query } from "../_generated/server";
 import { requireToken } from "../lib/auth";
-import { sessionBySessionId, toSession } from "../lib/db";
+import { liveSessionDocs, sessionBySessionId, toSession } from "../lib/db";
 import { loadForSession } from "../model/rules/load";
 import { normalizeSession } from "../model/sessionShape";
 
@@ -13,7 +13,7 @@ export const recent = query({
   args: { token: v.string(), limit: v.optional(v.number()) },
   handler: async (ctx, { token, limit }) => {
     requireToken(token);
-    const docs = await ctx.db.query("sessions").withIndex("by_endedAt").order("desc").take(Math.min(limit ?? 20, 200));
+    const docs = await liveSessionDocs(ctx, { order: "desc", limit: Math.min(limit ?? 20, 200) });
     return docs.map(normalizeSession);
   },
 });
@@ -23,14 +23,14 @@ export const since = query({
   args: { token: v.string(), since: v.number() },
   handler: async (ctx, { token, since }) => {
     requireToken(token);
-    const docs = await ctx.db.query("sessions").withIndex("by_endedAt", (q) => q.gt("endedAt", since)).order("asc").collect();
+    const docs = await liveSessionDocs(ctx, { order: "asc", after: since });
     return docs.map(normalizeSession);
   },
 });
 
 /**
  * What one session loaded, for the body figure on its recap: muscle key -> level 0..3, every muscle key present.
- * Same level rule as the "About me" load (the busiest muscle of this session is the top). Null when the session does not exist.
+ * Same level rule as the "About me" load (the busiest muscle of this session is the top). Null when the session does not exist or is marked as deleted.
  */
 export const load = query({
   args: { token: v.string(), sessionId: v.string() },

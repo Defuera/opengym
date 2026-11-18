@@ -47,6 +47,8 @@ export const sessionFields = {
   importId: v.optional(v.string()),
   /** Set by commands/sessions:logText: "pending" until the parse_log job has read the note, then "done" or "failed" (ADR-018). */
   parse: v.optional(parseState),
+  /** Set by commands/sessions:remove (ADR-020). A marked row is invisible to every read; jobs/purge erases it after DELETE_AFTER_MS. */
+  deletedAt: v.optional(v.number()),
 };
 
 /** A fact: a user goal. Client-made `goalId` makes writes idempotent. */
@@ -111,6 +113,8 @@ export const entryFields = {
   fileIds: v.array(v.string()),
   at: v.number(),
   createdAt: v.number(),
+  /** Set by commands/entries:remove (ADR-020). Same rule as `sessions.deletedAt`. */
+  deletedAt: v.optional(v.number()),
 };
 
 export default defineSchema({
@@ -118,7 +122,8 @@ export default defineSchema({
   sessions: defineTable(sessionFields)
     .index("by_sessionId", ["sessionId"])
     .index("by_endedAt", ["endedAt"])
-    .index("by_importId", ["importId"]),
+    .index("by_importId", ["importId"])
+    .index("by_deletedAt", ["deletedAt"]),
   goals: defineTable(goalFields)
     .index("by_goalId", ["goalId"])
     .index("by_createdAt", ["createdAt"])
@@ -127,7 +132,7 @@ export default defineSchema({
     .index("by_itemId", ["itemId"])
     .index("by_createdAt", ["createdAt"])
     .index("by_importId", ["importId"]),
-  entries: defineTable(entryFields).index("by_entryId", ["entryId"]).index("by_at", ["at"]),
+  entries: defineTable(entryFields).index("by_entryId", ["entryId"]).index("by_at", ["at"]).index("by_deletedAt", ["deletedAt"]),
   limits: defineTable(limitFields).index("by_limitId", ["limitId"]),
   records: defineTable(recordFields).index("by_recordId", ["recordId"]).index("by_limitId", ["limitId"]),
   checkins: defineTable(checkinFields)

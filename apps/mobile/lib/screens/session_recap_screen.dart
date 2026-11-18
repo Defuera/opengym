@@ -53,6 +53,7 @@ class _SessionRecapScreenState extends State<SessionRecapScreen> {
     final String? c = await showChoiceSheet(
       context,
       title: 'Delete this session?',
+      message: 'It is removed from your log now and erased for good after 72 hours.',
       choices: const <SheetChoice>[
         SheetChoice(value: 'delete', label: 'Delete session'),
         SheetChoice(value: 'keep', label: 'Keep it', variant: OgVariant.dashed),

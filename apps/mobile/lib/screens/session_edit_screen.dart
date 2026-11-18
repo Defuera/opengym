@@ -42,7 +42,7 @@ class _SessionEditScreenState extends State<SessionEditScreen> {
   late final int _span = (_orig.endedAt ?? _orig.startedAt) - _orig.startedAt;
   late final TextEditingController _focus = TextEditingController(text: _orig.focus ?? '');
   late final TextEditingController _note = TextEditingController(text: _orig.note ?? '');
-  late final TextEditingController _minutes = TextEditingController(text: '${_origMinutes()}');
+  late final TextEditingController _minutes = TextEditingController(text: _origMinutes()?.toString() ?? '');
   late final TextEditingController _km =
       TextEditingController(text: _orig.distanceKm == null ? '' : fmtKg(_orig.distanceKm!));
   final Map<Exercise, int> _sel = <Exercise, int>{};
@@ -50,7 +50,15 @@ class _SessionEditScreenState extends State<SessionEditScreen> {
   bool get _gym => _orig.kind == 'gym';
   bool get _timed => hasRealTimes(_orig);
 
-  int _origMinutes() => _gym ? sessionMinutes(_orig) : (_orig.minutes ?? sessionMinutes(_orig));
+  /// The length in minutes, or null when the session has none (a text log
+  /// with no duration). A session does not need one.
+  int? _origMinutes() {
+    final int? span = _span > 0 ? sessionMinutes(_orig) : null;
+    return _gym ? span : (_orig.minutes ?? span);
+  }
+
+  /// True when the minutes field holds text that is not a valid number.
+  bool get _minBad => _minutes.text.trim().isNotEmpty && _min == null;
 
   @override
   void dispose() {
@@ -73,11 +81,12 @@ class _SessionEditScreenState extends State<SessionEditScreen> {
     final int? m = _min;
     int span = _span;
     if (_gym && _timed) {
-      if (m != null && m != _origMinutes()) {
-        span = m * 60000;
+      if (m != _origMinutes()) {
+        span = (m ?? 0) * 60000;
       }
-    } else if (!_gym && m != null) {
-      span = _span + (m - _origMinutes()) * 60000;
+    } else if (!_gym) {
+      final int? o = _origMinutes();
+      span = m == null ? 0 : (o == null ? m * 60000 : _span + (m - o) * 60000);
     }
     final int start = _start.millisecondsSinceEpoch;
     final double? km = double.tryParse(_km.text.trim().replaceAll(',', '.'));
@@ -89,7 +98,7 @@ class _SessionEditScreenState extends State<SessionEditScreen> {
       startedAt: start,
       endedAt: start + (span < 0 ? 0 : span),
       exercises: _work.exercises,
-      minutes: _gym ? _orig.minutes : (m ?? _orig.minutes),
+      minutes: _gym ? _orig.minutes : m,
       distanceKm: _gym ? _orig.distanceKm : ((km == null || km <= 0) ? null : km),
       note: n.isEmpty ? null : n,
       source: _orig.source,
@@ -102,9 +111,9 @@ class _SessionEditScreenState extends State<SessionEditScreen> {
 
   bool get _valid {
     if (_gym) {
-      return _work.exercises.isNotEmpty && (!_timed || _min != null);
+      return _work.exercises.isNotEmpty && !_minBad;
     }
-    return _min != null;
+    return !_minBad;
   }
 
   void _save() {
@@ -231,7 +240,7 @@ class _SessionEditScreenState extends State<SessionEditScreen> {
                     if (_gym && _timed || !_gym) ...<Widget>[
                       const SizedBox(height: 18),
                       LabeledField(
-                        label: 'Minutes',
+                        label: 'Minutes (optional)',
                         controller: _minutes,
                         keyboardType: TextInputType.number,
                         onChanged: (String _) => setState(() {}),

@@ -2,22 +2,23 @@ import 'package:flutter/material.dart';
 
 import 'og_button.dart';
 
-/// Square 52px icon button (close, back).
+/// Square icon button (close, back). 52 px by default; [size] makes it smaller.
 class OgIconButton extends StatelessWidget {
-  const OgIconButton({super.key, required this.icon, required this.onPressed});
+  const OgIconButton({super.key, required this.icon, required this.onPressed, this.size = 52});
 
   final IconData icon;
   final VoidCallback? onPressed;
+  final double size;
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 52,
+      width: size,
       child: OgButton(
-        minHeight: 52,
+        minHeight: size,
         padding: EdgeInsets.zero,
         onPressed: onPressed,
-        child: Icon(icon, size: 26),
+        child: Icon(icon, size: size < 52 ? 22 : 26),
       ),
     );
   }

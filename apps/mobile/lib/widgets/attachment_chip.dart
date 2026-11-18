@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../theme.dart';
 
-/// File name pill with a remove button.
+/// File name pill with a file icon and a remove button.
 class AttachmentChip extends StatelessWidget {
   const AttachmentChip({super.key, required this.name, this.onRemove});
 
@@ -12,8 +12,8 @@ class AttachmentChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 44,
-      padding: const EdgeInsets.only(left: 14),
+      height: 40,
+      padding: const EdgeInsets.only(left: 12),
       decoration: BoxDecoration(
         color: OG.soft,
         borderRadius: BorderRadius.circular(999),
@@ -22,10 +22,10 @@ class AttachmentChip extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
-          const Icon(Icons.attach_file, size: 18),
+          const Icon(Icons.insert_drive_file_outlined, size: 18),
           const SizedBox(width: 4),
           ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 160),
+            constraints: const BoxConstraints(maxWidth: 150),
             child: Text(
               name,
               maxLines: 1,
@@ -39,7 +39,7 @@ class AttachmentChip extends StatelessWidget {
               onTap: onRemove,
               child: const SizedBox(
                 width: 44,
-                height: 44,
+                height: 40,
                 child: Icon(Icons.close, size: 18),
               ),
             )

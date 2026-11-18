@@ -1,31 +1,30 @@
 import 'package:flutter/material.dart';
 
 import '../theme.dart';
-import 'attachment_chip.dart';
-import 'og_button.dart';
+import 'attachment_strip.dart';
 
-/// Chat input: attachment chips, a text field, attach file / photo, send.
+/// Chat input, full width. Above the field: what is attached (only when
+/// something is). The field grows from 1 to 5 lines. Under the text, inside
+/// the same frame: "+" at the left (opens the attach sheet) and send at the right.
 class ComposerBar extends StatelessWidget {
   const ComposerBar({
     super.key,
     required this.controller,
     this.focusNode,
     required this.onSend,
-    required this.onAttachFile,
-    required this.onAttachPhoto,
-    this.attachmentNames = const <String>[],
+    required this.onAttach,
+    this.attachments = const <StripItem>[],
     this.onRemoveAttachment,
     this.sending = false,
     this.offlineNote,
-    this.hint = 'Tell the coach something, or ask',
+    this.hint = 'Message',
   });
 
   final TextEditingController controller;
   final FocusNode? focusNode;
   final VoidCallback onSend;
-  final VoidCallback onAttachFile;
-  final VoidCallback onAttachPhoto;
-  final List<String> attachmentNames;
+  final VoidCallback onAttach;
+  final List<StripItem> attachments;
   final ValueChanged<int>? onRemoveAttachment;
   final bool sending;
 
@@ -35,22 +34,6 @@ class ComposerBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final OutlineInputBorder border = OutlineInputBorder(
-      borderRadius: BorderRadius.circular(16),
-      borderSide: const BorderSide(color: OG.ink, width: OG.borderWidth),
-    );
-    final List<Widget> chips = <Widget>[];
-    for (int i = 0; i < attachmentNames.length; i++) {
-      chips.add(AttachmentChip(
-        name: attachmentNames[i],
-        onRemove: () {
-          final ValueChanged<int>? cb = onRemoveAttachment;
-          if (cb != null) {
-            cb(i);
-          }
-        },
-      ));
-    }
     final String? offline = offlineNote;
     final bool off = offline != null;
     return Container(
@@ -67,61 +50,67 @@ class ComposerBar extends StatelessWidget {
             Text(offline, style: OG.body(size: 14, weight: FontWeight.w600)),
             const SizedBox(height: 8),
           ],
-          if (chips.isNotEmpty) ...<Widget>[
-            Wrap(spacing: 6, runSpacing: 6, children: chips),
-            const SizedBox(height: 8),
+          if (attachments.isNotEmpty) ...<Widget>[
+            AttachmentStrip(
+              items: attachments,
+              onRemove: (int i) => onRemoveAttachment?.call(i),
+            ),
+            const SizedBox(height: 6),
           ],
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: <Widget>[
-              _Square(icon: Icons.attach_file, onTap: onAttachFile),
-              const SizedBox(width: 8),
-              _Square(icon: Icons.photo_camera_outlined, onTap: onAttachPhoto),
-              const SizedBox(width: 8),
-              Expanded(
-                child: TextField(
+          Container(
+            decoration: BoxDecoration(
+              color: OG.ground,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: OG.ink, width: OG.borderWidth),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                TextField(
                   controller: controller,
                   focusNode: focusNode,
                   enabled: !off,
                   minLines: 1,
-                  maxLines: 4,
+                  maxLines: 5,
                   textCapitalization: TextCapitalization.sentences,
                   style: OG.body(),
                   decoration: InputDecoration(
                     hintText: off ? 'Offline' : hint,
                     hintStyle: OG.muted(),
-                    filled: true,
-                    fillColor: OG.ground,
                     isDense: true,
-                    contentPadding:
-                        const EdgeInsets.symmetric(horizontal: 14, vertical: 15),
-                    border: border,
-                    enabledBorder: border,
-                    focusedBorder: border,
+                    contentPadding: const EdgeInsets.fromLTRB(14, 12, 14, 4),
+                    border: InputBorder.none,
+                    enabledBorder: InputBorder.none,
+                    disabledBorder: InputBorder.none,
+                    focusedBorder: InputBorder.none,
                   ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              SizedBox(
-                width: 56,
-                child: OgButton(
-                  variant: OgVariant.accent,
-                  minHeight: 52,
-                  padding: EdgeInsets.zero,
-                  onPressed: (sending || off) ? null : onSend,
-                  child: sending
-                      ? const SizedBox(
-                          width: 22,
-                          height: 22,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 3,
-                            color: OG.white,
-                          ),
-                        )
-                      : const Icon(Icons.arrow_upward, size: 26),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(4, 0, 4, 2),
+                  child: Row(
+                    children: <Widget>[
+                      _RoundTap(
+                        key: const ValueKey<String>('composer-plus'),
+                        icon: Icons.add,
+                        onTap: off ? null : onAttach,
+                      ),
+                      const Spacer(),
+                      ListenableBuilder(
+                        listenable: controller,
+                        builder: (BuildContext c, Widget? w) {
+                          final bool ready =
+                              controller.text.trim().isNotEmpty || attachments.isNotEmpty;
+                          return _SendTap(
+                            sending: sending,
+                            onTap: (sending || off || !ready) ? null : onSend,
+                          );
+                        },
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ],
       ),
@@ -129,22 +118,74 @@ class ComposerBar extends StatelessWidget {
   }
 }
 
-class _Square extends StatelessWidget {
-  const _Square({required this.icon, required this.onTap});
+/// 36 px to look, 44 px to tap.
+class _RoundTap extends StatelessWidget {
+  const _RoundTap({super.key, required this.icon, required this.onTap});
 
   final IconData icon;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: 48,
-      child: OgButton(
-        minHeight: 52,
-        padding: EdgeInsets.zero,
-        shadow: false,
-        onPressed: onTap,
-        child: Icon(icon, size: 24),
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: SizedBox(
+        width: 44,
+        height: 44,
+        child: Center(
+          child: Opacity(
+            opacity: onTap == null ? 0.35 : 1,
+            child: Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: OG.card,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: OG.ink, width: OG.borderWidth),
+              ),
+              child: Icon(icon, size: 22),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SendTap extends StatelessWidget {
+  const _SendTap({required this.sending, required this.onTap});
+
+  final bool sending;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final bool on = onTap != null;
+    return GestureDetector(
+      key: const ValueKey<String>('composer-send'),
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: SizedBox(
+        width: 44,
+        height: 44,
+        child: Center(
+          child: Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: on || sending ? OG.accent : OG.soft,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: on || sending ? OG.ink : OG.mute, width: OG.borderWidth),
+            ),
+            child: sending
+                ? const Padding(
+                    padding: EdgeInsets.all(8),
+                    child: CircularProgressIndicator(strokeWidth: 3, color: OG.white),
+                  )
+                : Icon(Icons.arrow_upward, size: 22, color: on ? OG.white : OG.mute),
+          ),
+        ),
       ),
     );
   }

@@ -15,6 +15,7 @@ class ChatBubble extends StatefulWidget {
     required this.mine,
     this.sources = const <String>[],
     this.attachments = const <String>[],
+    this.media = const <Widget>[],
     this.copyable = true,
   });
 
@@ -22,6 +23,9 @@ class ChatBubble extends StatefulWidget {
   final bool mine;
   final List<String> sources;
   final List<String> attachments;
+
+  /// Thumbnails or file chips of what was sent. They replace the "Attached" line.
+  final List<Widget> media;
   final bool copyable;
 
   @override
@@ -56,10 +60,13 @@ class _ChatBubbleState extends State<ChatBubble> {
     final List<String> sources = widget.sources;
     final List<String> attachments = widget.attachments;
     final Color fg = mine ? OG.white : OG.ink;
-    final List<Widget> body = <Widget>[
-      Text(text, style: OG.body(color: fg)),
-    ];
-    if (attachments.isNotEmpty) {
+    final List<Widget> body = <Widget>[];
+    if (widget.media.isNotEmpty) {
+      body.add(Wrap(spacing: 6, runSpacing: 6, children: widget.media));
+      body.add(const SizedBox(height: 8));
+    }
+    body.add(Text(text, style: OG.body(color: fg)));
+    if (attachments.isNotEmpty && widget.media.isEmpty) {
       body.add(const SizedBox(height: 6));
       body.add(Text(
         'Attached: ${attachments.join(', ')}',
@@ -78,7 +85,7 @@ class _ChatBubbleState extends State<ChatBubble> {
       alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
       child: ConstrainedBox(
         constraints: BoxConstraints(
-          maxWidth: MediaQuery.of(context).size.width * 0.82,
+          maxWidth: MediaQuery.of(context).size.width * 0.86,
         ),
         child: GestureDetector(
           onLongPress: widget.copyable ? _copy : null,

@@ -35,6 +35,7 @@ Future<(FakeConvexClient, AppDeps)> _open(WidgetTester t, {bool withThread = fal
 
 Future<void> _type(WidgetTester t, String text) async {
   await t.enterText(find.byType(TextField), text);
+  await t.pump();
   await t.tap(find.byIcon(Icons.arrow_upward));
   await t.pumpAndSettle();
 }
@@ -86,7 +87,7 @@ void main() {
     final (FakeConvexClient fake, AppDeps deps) = await _open(t);
     await _type(t, 'hello coach');
     final String id = deps.coach.currentId!;
-    await t.tap(find.byKey(const ValueKey<String>('chat-rename')));
+    await t.tap(find.byKey(const ValueKey<String>('chat-title')));
     await t.pumpAndSettle();
     expect(find.text('Rename chat'), findsOneWidget);
     await t.enterText(find.byType(TextField).last, 'My legs');

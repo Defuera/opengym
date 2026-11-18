@@ -33,6 +33,7 @@ Future<AppDeps> testDeps(
   bool connected = true,
   List<Session> sessions = const <Session>[],
   TrackerSource? tracker,
+  Pickers? pickers,
 }) async {
   final InMemorySessionRepository repo = InMemorySessionRepository();
   final AppStore store = AppStore(repo);
@@ -65,7 +66,7 @@ Future<AppDeps> testDeps(
     coach: CoachStore(client: fake, isConnected: () => connected),
     imports: ImportStore(client: fake),
     reviews: ReviewStore(client: fake),
-    pickers: NoPickers(),
+    pickers: pickers ?? NoPickers(),
     about: AboutStore(repo: aboutRepo),
     aiModel: AiModelStore(client: fake)..start(),
     tracker: tracker ?? FakeTrackerSource(),

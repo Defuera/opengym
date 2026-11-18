@@ -5,15 +5,17 @@ import '../models.dart';
 import '../data/upload_item.dart';
 import '../stores/coach_store.dart';
 import '../theme.dart';
+import '../widgets/attach_sheet.dart';
+import '../widgets/attachment_strip.dart';
 import '../widgets/chat_bubble.dart';
-import '../widgets/chip_strip.dart';
-import '../widgets/choice_sheet.dart';
 import '../widgets/composer_bar.dart';
 import '../widgets/note_box.dart';
 import '../widgets/og_button.dart';
 import '../widgets/og_icon_button.dart';
 import '../widgets/saved_chips.dart';
 import '../widgets/text_sheet.dart';
+import 'chat_file_thumb.dart';
+import 'chat_threads_sheet.dart';
 
 class ChatScreen extends StatefulWidget {
   const ChatScreen({super.key, required this.deps});
@@ -50,41 +52,22 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
-  Future<void> _attachFile() async {
-    try {
-      final List<UploadItem> files = await widget.deps.pickers.pickFiles();
-      for (final UploadItem f in files) {
-        _coach.addAttachment(f);
-      }
-      if (!mounted) {
-        return;
-      }
-      setState(() => _pickError = null);
-    } catch (_) {
-      if (!mounted) {
-        return;
-      }
-      setState(() => _pickError = 'Could not open the file picker.');
-    }
-  }
-
-  Future<void> _attachPhoto() async {
-    final String? src = await showChoiceSheet(
-      context,
-      title: 'Attach a photo',
-      choices: const <SheetChoice>[
-        SheetChoice(value: 'camera', label: 'Take a photo'),
-        SheetChoice(value: 'gallery', label: 'Choose from library'),
-      ],
-    );
-    if (src == null) {
+  Future<void> _attach() async {
+    final AttachChoice? choice = await showAttachSheet(context);
+    if (choice == null) {
       return;
     }
     try {
-      final UploadItem? p =
-          await widget.deps.pickers.pickPhoto(camera: src == 'camera');
-      if (p != null) {
-        _coach.addAttachment(p);
+      if (choice == AttachChoice.file) {
+        for (final UploadItem f in await widget.deps.pickers.pickFiles()) {
+          _coach.addAttachment(f);
+        }
+      } else {
+        final UploadItem? p =
+            await widget.deps.pickers.pickPhoto(camera: choice == AttachChoice.camera);
+        if (p != null) {
+          _coach.addAttachment(p);
+        }
       }
       if (!mounted) {
         return;
@@ -94,12 +77,11 @@ class _ChatScreenState extends State<ChatScreen> {
       if (!mounted) {
         return;
       }
-      setState(() => _pickError = 'Could not open the camera or library.');
+      setState(() => _pickError = choice == AttachChoice.file
+          ? 'Could not open the file picker.'
+          : 'Could not open the camera or library.');
     }
   }
-
-  /// A new chat opens at once, without a name.
-  Future<void> _newThread() => _coach.startNewChat();
 
   Future<void> _rename(Thread t) async {
     final String? title = await showTextSheet(
@@ -114,15 +96,19 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
+  bool _showHint(CoachStore c) => c.messages.isEmpty && !c.loadingMessages && !c.sending && c.retryReason == null;
+
   List<Widget> _items(CoachStore c) {
     final List<Widget> items = <Widget>[];
     for (final Message m in c.messages) {
-      final int n = m.fileIds.length;
       items.add(ChatBubble(
         text: m.text,
         mine: m.mine,
         sources: m.sources,
-        attachments: n == 0 ? const <String>[] : <String>['$n file${n == 1 ? '' : 's'}'],
+        media: <Widget>[
+          for (final String id in m.fileIds)
+            ChatFileThumb(key: ValueKey<String>('file-$id'), coach: c, fileId: id),
+        ],
       ));
       items.add(const SizedBox(height: 12));
     }
@@ -149,12 +135,6 @@ class _ChatScreenState extends State<ChatScreen> {
       ));
       items.add(const SizedBox(height: 12));
     }
-    if (c.messages.isEmpty && !c.loadingMessages && !c.sending) {
-      items.add(const NoteBox(
-        title: 'Say anything about your training.',
-        message: 'Questions, goals, or what you did today. Statements are fine.',
-      ));
-    }
     return items.reversed.toList();
   }
 
@@ -164,49 +144,56 @@ class _ChatScreenState extends State<ChatScreen> {
       listenable: Listenable.merge(<Listenable>[_coach, widget.deps.connection]),
       builder: (BuildContext context, Widget? child) {
         final CoachStore c = _coach;
-        final int sel = c.threads.indexWhere((Thread t) => t.id == c.currentId);
         // A send problem is shown with its retry action, not twice.
         final String err = c.retryReason != null ? (_pickError ?? '') : (c.error ?? _pickError ?? '');
         return Scaffold(
           body: SafeArea(
             child: Column(
               children: <Widget>[
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
+                GestureDetector(
+                  // A tap on the empty part of the header closes the keyboard too.
+                  behavior: HitTestBehavior.translucent,
+                  onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+                  child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 6),
                   child: Row(
                     children: <Widget>[
                       OgIconButton(
                         icon: Icons.chevron_left,
+                        size: 44,
                         onPressed: () => Navigator.of(context).pop(),
                       ),
-                      const SizedBox(width: 12),
+                      const SizedBox(width: 10),
                       Expanded(
-                        child: GestureDetector(
-                          key: const ValueKey<String>('chat-title'),
-                          behavior: HitTestBehavior.opaque,
-                          onTap: c.currentThread == null ? null : () => _rename(c.currentThread!),
-                          child: Text(
-                            c.currentThread?.title ?? (c.isDraft ? (c.draftTitle ?? 'New chat') : 'Coach'),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: OG.display(32),
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: GestureDetector(
+                            key: const ValueKey<String>('chat-title'),
+                            behavior: HitTestBehavior.opaque,
+                            onTap: c.currentThread == null ? null : () => _rename(c.currentThread!),
+                            child: Text(
+                              c.currentThread?.title ?? (c.isDraft ? (c.draftTitle ?? 'New chat') : 'Coach'),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: OG.display(24),
+                            ),
                           ),
                         ),
                       ),
-                      if (c.currentThread != null)
-                        OgIconButton(
-                          key: const ValueKey<String>('chat-rename'),
-                          icon: Icons.edit_outlined,
-                          onPressed: () => _rename(c.currentThread!),
+                      const SizedBox(width: 10),
+                      OgIconButton(
+                        key: const ValueKey<String>('chat-threads'),
+                        icon: Icons.forum_outlined,
+                        size: 44,
+                        onPressed: () => showChatThreadsSheet(
+                          context,
+                          coach: c,
+                          canStartNew: widget.deps.connection.connected,
                         ),
+                      ),
                     ],
                   ),
-                ),
-                ChipStrip(
-                  labels: c.threads.map((Thread t) => t.title).toList(),
-                  selectedIndex: sel,
-                  onSelect: (int i) => c.openThread(c.threads[i].id),
-                  onAdd: _newThread,
+                  ),
                 ),
                 if (err.isNotEmpty)
                   Padding(
@@ -219,12 +206,25 @@ class _ChatScreenState extends State<ChatScreen> {
                     key: const ValueKey<String>('chat-messages'),
                     behavior: HitTestBehavior.translucent,
                     onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
-                    child: ListView(
-                      reverse: true,
-                      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-                      padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
-                      children: _items(c),
-                    ),
+                    child: _showHint(c)
+                        ? Center(
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 40),
+                              child: Text(
+                                'Ask anything about your training, or say what you did.',
+                                key: const ValueKey<String>('chat-hint'),
+                                textAlign: TextAlign.center,
+                                style: OG.muted(size: 16),
+                              ),
+                            ),
+                          )
+                        : ListView(
+                            reverse: true,
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+                            padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+                            children: _items(c),
+                          ),
                   ),
                 ),
                 ComposerBar(
@@ -234,10 +234,12 @@ class _ChatScreenState extends State<ChatScreen> {
                   offlineNote: widget.deps.connection.connected
                       ? null
                       : 'Offline. Chat needs a connection to send.',
-                  attachmentNames: c.attachments.map((UploadItem u) => u.name).toList(),
+                  attachments: <StripItem>[
+                    for (final UploadItem u in c.attachments)
+                      StripItem(name: u.name, image: imageForUpload(u)),
+                  ],
                   onRemoveAttachment: c.removeAttachment,
-                  onAttachFile: _attachFile,
-                  onAttachPhoto: _attachPhoto,
+                  onAttach: _attach,
                   onSend: _send,
                 ),
               ],

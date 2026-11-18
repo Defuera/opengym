@@ -95,6 +95,25 @@ class CoachStore extends ChangeNotifier {
 
   List<UploadItem> get attachments => <UploadItem>[for (final _Attachment p in _pending) p.item];
 
+  final Map<String, Future<FileLink?>> _links = <String, Future<FileLink?>>{};
+
+  /// Meta and address of a sent file, looked up once. Null when it is not found.
+  Future<FileLink?> fileLink(String fileId) {
+    return _links.putIfAbsent(fileId, () async {
+      try {
+        return await _client.fileLink(fileId);
+      } catch (_) {
+        _links.remove(fileId); // try again next time
+        return null;
+      }
+    });
+  }
+
+  final Map<String, UploadItem> _sentFiles = <String, UploadItem>{};
+
+  /// The local file behind a message this device sent, else null.
+  UploadItem? localFile(String fileId) => _sentFiles[fileId];
+
   Thread? get currentThread {
     for (final Thread t in threads) {
       if (t.id == currentId) {
@@ -365,6 +384,9 @@ class CoachStore extends ChangeNotifier {
         notifyListeners();
         return false;
       }
+    }
+    for (final _Attachment f in out.files) {
+      _sentFiles[f.fileId] = f.item;
     }
     _pending.clear();
     _outgoing.add(out);

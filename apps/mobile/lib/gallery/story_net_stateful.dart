@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../widgets/attachment_strip.dart';
 import '../widgets/chip_strip.dart';
 import '../widgets/composer_bar.dart';
 import '../widgets/labeled_field.dart';
@@ -57,10 +58,9 @@ class _ComposerDemoState extends State<ComposerDemo> {
     return ComposerBar(
       controller: _c,
       sending: _sending,
-      attachmentNames: _files,
+      attachments: <StripItem>[for (final String f in _files) StripItem(name: f)],
       onRemoveAttachment: (int i) => setState(() => _files.removeAt(i)),
-      onAttachFile: () => setState(() => _files.add('file ${_files.length + 1}.txt')),
-      onAttachPhoto: () => setState(() => _files.add('photo ${_files.length + 1}.jpg')),
+      onAttach: () => setState(() => _files.add('file ${_files.length + 1}.txt')),
       onSend: () => setState(() => _sending = !_sending),
     );
   }

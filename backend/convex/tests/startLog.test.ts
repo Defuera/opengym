@@ -1,8 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api, internal } from "../functions/_generated/api";
 import { START_REQUEST_TTL_MS } from "../functions/lib/constants";
-import { buildInterpretInput, bestMatchingActivity } from "../functions/model/ai/jobs/inputs";
-import { fallbackProposal, interpretRequestJob, nameFromText } from "../functions/model/ai/jobs/interpretRequest";
+import { buildSessionJob } from "../functions/model/ai/jobs/buildSession";
+import { coachPicture } from "../functions/model/ai/jobs/coachPicture";
+import { fallbackProposal, nameFromText } from "../functions/model/startFallback";
 import { planSessionJob } from "../functions/model/ai/jobs/planSession";
 import { buildPlanInput } from "../functions/model/ai/jobs/inputs";
 import { rulesPredictions } from "../functions/model/rules/predictions";
@@ -240,7 +241,7 @@ describe("start request", () => {
     await request("r1", "something else entirely"); // same id: the first text stays
     await settle(t);
     expect(await t.run((c) => c.db.query("startRequests").collect())).toHaveLength(1);
-    expect(calls.filter((c) => c.job === "interpret_request")).toHaveLength(1);
+    expect(calls.filter((c) => c.job === "build_session")).toHaveLength(1);
     expect((await t.run((c) => c.db.query("startRequests").first()))!.text).toBe("home");
     const done = await getRequest("r1");
     await request("r1", "home"); // a resend after it is ready does not reset it
@@ -252,7 +253,7 @@ describe("start request", () => {
     const calls = stubOpenAi(() => JSON.stringify({ kind: "gym", type: "Home", plan: { rationale: "r", exercises: [] } }));
     await request("r1", "home workout");
     await settle(t);
-    expect(calls.filter((c) => c.job === "interpret_request")).toHaveLength(2);
+    expect(calls.filter((c) => c.job === "build_session")).toHaveLength(2);
     expect((await getRequest("r1"))!.status).toBe("ready");
   });
 
@@ -278,15 +279,16 @@ describe("start request", () => {
   it("AI path: the proposal is stored with a plan in the plans:next shape; the name reuses the log's spelling; minutes and focus are kept", async () => {
     await save(setsSession("h", NOW - DAY, "Home", "Quick", [{ name: "Push-up", sets: [{ reps: 10, kg: 0, max: false }] }]));
     const calls = stubOpenAi((job) =>
-      job === "interpret_request"
+      job === "build_session"
         ? JSON.stringify({ kind: "gym", type: "HOME", focus: "Short", minutes: 15, reason: "Fits 15 min", plan: { rationale: "Short home session", exercises: [{ name: "Push-up", sets: [{ reps: 10, kg: 0, max: false }] }, { name: "Squat", sets: [{ reps: 15, kg: 0, max: false }] }] } })
         : "{}",
     );
     await request("r1", "quick home session, 15 min");
     await settle(t);
-    const input = calls.find((c) => c.job === "interpret_request")!.input;
-    expect(input).toMatchObject({ request: "quick home session, 15 min", bestMatch: "Home", knownActivities: [{ type: "Home", kind: "gym", foci: ["Quick"] }] });
-    expect(input.recentLogOfBestMatch).toHaveLength(1);
+    const input = calls.find((c) => c.job === "build_session")!.input;
+    expect(input).toMatchObject({ activity: null, request: "quick home session, 15 min", noteForToday: null });
+    expect(input.exercisesTheUserKnows[0]).toMatchObject({ name: "Push-up" });
+    expect(input.recentSessions).toHaveLength(1);
     const r = await getRequest("r1");
     expect(r).toMatchObject({
       status: "ready",
@@ -300,7 +302,7 @@ describe("start request", () => {
     await t.mutation(api.commands.limits.save, { token: TOKEN, limit: { limitId: "k", part: "left_knee", title: "Left knee", status: "active", rules: [{ kind: "avoid", text: "No jumps", exercises: ["Squat jump"] }] } });
     await save(setsSession("h", NOW - DAY, "Home", undefined, [{ name: "Goblet squat", sets: [{ reps: 10, kg: 10, max: false }] }]));
     stubOpenAi((job) =>
-      job === "interpret_request"
+      job === "build_session"
         ? JSON.stringify({ kind: "gym", type: "Home", minutes: 10, plan: { rationale: "r", exercises: [{ name: "Goblet squat", sets: Array.from({ length: 6 }, () => ({ reps: 10, kg: 100, max: false })) }, { name: "Push-up", sets: Array.from({ length: 6 }, () => ({ reps: 10, kg: 0, max: false })) }] } })
         : "{}",
     );
@@ -313,32 +315,57 @@ describe("start request", () => {
 
   it("a plan with an avoided exercise is retried, then the fallback is stored (ready, empty plan)", async () => {
     await t.mutation(api.commands.limits.save, { token: TOKEN, limit: { limitId: "k", part: "left_knee", title: "Left knee", status: "active", rules: [{ kind: "avoid", text: "No jumps", exercises: ["Squat jump"] }] } });
-    const calls = stubOpenAi((job) => (job === "interpret_request" ? JSON.stringify({ kind: "gym", type: "Home", plan: { rationale: "r", exercises: [{ name: "Squat jump", sets: [{ reps: 10, kg: 0, max: false }] }] } }) : "{}"));
+    const calls = stubOpenAi((job) => (job === "build_session" ? JSON.stringify({ kind: "gym", type: "Home", plan: { rationale: "r", exercises: [{ name: "Squat jump", sets: [{ reps: 10, kg: 0, max: false }] }] } }) : "{}"));
     await request("r1", "home");
     await settle(t);
-    expect(calls.filter((c) => c.job === "interpret_request")).toHaveLength(2);
+    expect(calls.filter((c) => c.job === "build_session")).toHaveLength(2);
     expect(await getRequest("r1")).toMatchObject({ status: "ready", proposal: { type: "Home", plan: { source: "rules", exercises: [] } } });
   });
 
-  it("an activity (time or distance) proposal has no plan; a session with sets without a plan is invalid and falls back", async () => {
-    stubOpenAi((job) => (job === "interpret_request" ? JSON.stringify({ kind: "activity", type: "Run", minutes: 30, plan: { rationale: "ignored", exercises: [] } }) : "{}"));
+  it("a proposal that is not a session with exercises is invalid: retried, then the fallback", async () => {
+    const calls = stubOpenAi((job) => (job === "build_session" ? JSON.stringify({ kind: "activity", type: "Run", minutes: 30 }) : "{}"));
     await request("r1", "run 30 min");
     await settle(t);
-    const r = await getRequest("r1");
-    expect(r).toMatchObject({ status: "ready", proposal: { kind: "activity", type: "Run", minutes: 30 } });
-    expect(r!.proposal!.plan).toBeUndefined();
+    expect(calls.filter((c) => c.job === "build_session")).toHaveLength(2);
+    expect(await getRequest("r1")).toMatchObject({ status: "ready", proposal: { kind: "gym", type: "Run 30 min", plan: { source: "rules", exercises: [] } } });
     vi.unstubAllGlobals();
-    stubOpenAi((job) => (job === "interpret_request" ? JSON.stringify({ kind: "gym", type: "Home" }) : "{}"));
+    stubOpenAi((job) => (job === "build_session" ? JSON.stringify({ kind: "gym", type: "Home" }) : "{}"));
     await request("r2", "home");
     await settle(t);
     expect(await getRequest("r2")).toMatchObject({ status: "ready", proposal: { kind: "gym", type: "Home", plan: { source: "rules", exercises: [] } } });
   });
 
+  it("a time exercise from the coach is kept in a session of kind gym", async () => {
+    stubOpenAi((job) => (job === "build_session" ? JSON.stringify({ kind: "gym", type: "Run", minutes: 30, plan: { rationale: "r", exercises: [{ name: "Easy run", measure: "time", sets: [{ minutes: 30 }] }] } }) : "{}"));
+    await request("r1", "run 30 min");
+    await settle(t);
+    const r = await getRequest("r1");
+    expect(r).toMatchObject({ status: "ready", proposal: { kind: "gym", type: "Run", plan: { source: "ai", exercises: [{ name: "Easy run", measure: "time" }] } } });
+  });
+
+  it("the coach's name is trimmed; a name that is empty or over 40 falls back to the text", async () => {
+    const plan = { rationale: "r", exercises: [{ name: "Squat", sets: [{ reps: 10, kg: 0, max: false }] }] };
+    stubOpenAi((job) => (job === "build_session" ? JSON.stringify({ kind: "gym", type: "  Hotel gym  ", plan }) : "{}"));
+    await request("r1", "something long");
+    await settle(t);
+    expect((await getRequest("r1"))!.proposal!.type).toBe("Hotel gym");
+    vi.unstubAllGlobals();
+    stubOpenAi((job) => (job === "build_session" ? JSON.stringify({ kind: "gym", type: " ", plan }) : "{}"));
+    await request("r2", "hotel gym, 30 min");
+    await settle(t);
+    expect((await getRequest("r2"))!.proposal!.type).toBe("Hotel gym");
+    vi.unstubAllGlobals();
+    stubOpenAi((job) => (job === "build_session" ? JSON.stringify({ kind: "gym", type: "a".repeat(41), plan }) : "{}"));
+    await request("r3", "boxing, 30 min");
+    await settle(t);
+    expect(await getRequest("r3")).toMatchObject({ proposal: { type: "Boxing", plan: { source: "rules" } } });
+  });
+
   it("AI failure (garbage, a provider error): retried once, then ready with the fallback; never stuck pending", async () => {
-    const calls = stubOpenAi((job) => (job === "interpret_request" ? "this is not json" : "{}"));
+    const calls = stubOpenAi((job) => (job === "build_session" ? "this is not json" : "{}"));
     await request("r1", "boxing, 30 min");
     await settle(t);
-    expect(calls.filter((c) => c.job === "interpret_request")).toHaveLength(2);
+    expect(calls.filter((c) => c.job === "build_session")).toHaveLength(2);
     expect(await getRequest("r1")).toMatchObject({ status: "ready", proposal: { kind: "gym", type: "Boxing", plan: { source: "rules", exercises: [] } } });
     vi.unstubAllGlobals();
     vi.stubEnv("AI_PROVIDER", "openai");
@@ -436,26 +463,14 @@ describe("start request with a name", () => {
   });
 
   it("old text-only request: unchanged input and no name stored", async () => {
-    const calls = stubOpenAi((job) => (job === "interpret_request" ? JSON.stringify({ kind: "gym", type: "Boxing", plan: plan("Jab") }) : "{}"));
+    const calls = stubOpenAi((job) => (job === "build_session" ? JSON.stringify({ kind: "gym", type: "Boxing", plan: plan("Jab") }) : "{}"));
     await request("o1", "boxing, 30 min");
     await settle(t);
-    const input = calls.find((c) => c.job === "interpret_request")!.input;
+    const input = calls.find((c) => c.job === "build_session")!.input;
     expect(input).toMatchObject({ request: "boxing, 30 min" });
     expect(input.name).toBeUndefined();
     expect((await t.run((c) => c.db.query("startRequests").first()))!.name).toBeUndefined();
     expect(await getRequest("o1")).toMatchObject({ proposal: { type: "Boxing" } });
-  });
-});
-
-describe("interpret input", () => {
-  it("best match by activity name inside the text, else by shared words; recent sessions of that activity only", () => {
-    const log = [model("1", 9, "Home", "Quick"), model("2", 5, "Gym", "Upper"), model("3", 1, "Home", "Long")];
-    const input = buildInterpretInput("quick home session, 15 min", log, [], [], [], NOW);
-    expect(input.bestMatch).toBe("Home");
-    expect(input.sessions.map((s) => s.id)).toEqual(["1", "3"]);
-    expect(input.known.map((k) => k.type).sort()).toEqual(["Gym", "Home"]);
-    expect(bestMatchingActivity("something new", input.known)).toBeNull();
-    expect(buildInterpretInput("something new", log, [], [], [], NOW)).toMatchObject({ sessions: [], rules: { exercises: [] } });
   });
 });
 
@@ -487,10 +502,13 @@ describe("start request with a fixed name and a note (the coach decides the focu
     expect(fallbackProposal({ text: "", known: [], name: "Home" })).toMatchObject({ type: "Home", plan: { exercises: [] } });
   });
 
-  it("the name prompt makes the coach decide the focus and fill the time", () => {
-    const base = { text: "", known: [], sessions: [], goals: [], lately: [], now: NOW, context: [], limits: [], rules: { rationale: "", exercises: [] } };
-    const sys = JSON.stringify(interpretRequestJob.build({ ...base, name: "Gym" }).system);
-    for (const part of ["Decide the focus for today", "lastSessionsOfAnyKind", "Do not repeat what was trained today or yesterday", "wins over everything else", "about two minutes per set", "plan about 60 minutes", "bodyweight exercises only"]) expect(sys).toContain(part);
-    expect(JSON.stringify(interpretRequestJob.build(base).system)).not.toContain("Decide the focus for today");
+  it("the prompt has the one naming sentence and the input carries activity and request", () => {
+    const picture = coachPicture([], [], [], [], [], NOW);
+    const named = buildSessionJob.build({ name: "Gym", note: "x", picture, limits: [] });
+    const free = buildSessionJob.build({ name: null, note: "", request: "quick home session", picture, limits: [] });
+    expect(free.system).toContain("when activity is null, name it from the request (one to three words), and reuse a name from the person's log when the request means the same activity.");
+    expect(free.system).toBe(named.system);
+    expect(JSON.parse(free.messages[0]!.content.split("INPUT_JSON:\n")[1]!)).toMatchObject({ activity: null, request: "quick home session", noteForToday: null });
+    expect(JSON.parse(named.messages[0]!.content.split("INPUT_JSON:\n")[1]!)).not.toHaveProperty("request");
   });
 });

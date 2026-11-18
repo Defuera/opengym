@@ -4,20 +4,20 @@ import 'package:flutter/widgets.dart';
 enum StartStep { types, other, details }
 
 /// What the Start tab holds between tab switches: the step, the chosen type,
-/// the note for today and the name typed under "Other". Owned by the plus
+/// the note for today and the text typed under "Other". Owned by the plus
 /// sheet; the Start tab only reads it.
 class StartDraft extends ChangeNotifier {
   /// The optional note for today (max 200).
   final TextEditingController note = TextEditingController();
 
-  /// The name typed under "Other" (max 40).
-  final TextEditingController otherName = TextEditingController();
+  /// What the user wants to do, typed under "Other" (max 200).
+  final TextEditingController otherText = TextEditingController();
   StartStep _step = StartStep.types;
   String _type = '';
 
   StartStep get step => _step;
 
-  /// The type of step 2 (a name from the log, or the one typed under "Other").
+  /// The type of step 2 (a name from the log).
   String get type => _type;
 
   void openOther() {
@@ -41,7 +41,7 @@ class StartDraft extends ChangeNotifier {
   @override
   void dispose() {
     note.dispose();
-    otherName.dispose();
+    otherText.dispose();
     super.dispose();
   }
 }

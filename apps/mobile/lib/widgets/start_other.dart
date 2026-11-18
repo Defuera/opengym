@@ -4,22 +4,20 @@ import 'labeled_field.dart';
 import 'og_button.dart';
 import 'start_details.dart';
 
-/// "Other" in the Start tab: a name (1..40) and the shape of the activity.
-/// "Sets and reps" goes on to step 2; "Time or distance" opens the Log form.
-/// Both stay off while the name is empty.
+/// "Other" in the Start tab: one free text (max 200) that says what the user
+/// wants to do, and "Start". The coach names the activity and builds the
+/// session. "Start" stays off while the text is empty.
 class StartOther extends StatelessWidget {
   const StartOther({
     super.key,
-    required this.name,
+    required this.text,
     required this.onBack,
-    required this.onSets,
-    required this.onTime,
+    required this.onStart,
   });
 
-  final TextEditingController name;
+  final TextEditingController text;
   final VoidCallback onBack;
-  final VoidCallback onSets;
-  final VoidCallback onTime;
+  final VoidCallback onStart;
 
   @override
   Widget build(BuildContext context) {
@@ -32,35 +30,25 @@ class StartOther extends StatelessWidget {
         Flexible(
           child: SingleChildScrollView(
             child: LabeledField(
-              label: 'Name',
-              controller: name,
-              hint: 'Wing SUP',
-              maxLength: 40,
+              label: 'What do you want to do?',
+              controller: text,
+              hint: 'quick home session, 15 min',
+              maxLength: 200,
+              minLines: 2,
+              maxLines: 4,
               autocorrect: true,
-              helper: 'It appears in your list next time.',
+              keyboardType: TextInputType.multiline,
             ),
           ),
         ),
         const SizedBox(height: 14),
         ValueListenableBuilder<TextEditingValue>(
-          valueListenable: name,
+          valueListenable: text,
           builder: (BuildContext context, TextEditingValue v, Widget? child) {
-            final bool ok = v.text.trim().isNotEmpty;
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: <Widget>[
-                OgButton(
-                  variant: OgVariant.accent,
-                  onPressed: ok ? onSets : null,
-                  child: const Text('Sets and reps'),
-                ),
-                const SizedBox(height: 10),
-                OgButton(
-                  variant: OgVariant.plain,
-                  onPressed: ok ? onTime : null,
-                  child: const Text('Time or distance'),
-                ),
-              ],
+            return OgButton(
+              variant: OgVariant.accent,
+              onPressed: v.text.trim().isEmpty ? null : onStart,
+              child: const Text('Start'),
             );
           },
         ),

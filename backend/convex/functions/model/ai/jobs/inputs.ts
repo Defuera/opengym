@@ -6,7 +6,6 @@ import { rulesPlan } from "../../rules/planner";
 import { rulesReview } from "../../rules/review";
 import type { DashboardInput } from "./buildDashboard";
 import type { PlanInput } from "./planSession";
-import type { InterpretInput } from "./interpretRequest";
 import type { ReviewInput } from "./reviewSession";
 import type { KnownActivity } from "./shared";
 
@@ -56,32 +55,6 @@ function activityFoci(all: Session[], key: string): string[] {
   const seen = new Map<string, string>();
   for (const s of all) if (s.kind === "activity" && activityKey(s.type) === key && s.focus) seen.set(activityKey(s.focus), s.focus.trim());
   return [...seen.values()];
-}
-
-export const INTERPRET_RECENT = 6;
-
-/** The log activity a typed text most likely means: its name is inside the text (longest first), else most words in common. null when none. */
-export function bestMatchingActivity(text: string, known: KnownActivity[]): KnownActivity | null {
-  const t = activityKey(text);
-  const words = new Set(t.split(/[^a-z0-9]+/).filter((w) => w.length > 1));
-  let best: { a: KnownActivity; score: number } | null = null;
-  for (const a of known) {
-    const k = activityKey(a.type);
-    const overlap = k.split(/[^a-z0-9]+/).filter((w) => words.has(w)).length;
-    const score = (k !== "" && t.includes(k) ? 100 + k.length : 0) + overlap;
-    if (score > 0 && (!best || score > best.score)) best = { a, score };
-  }
-  return best?.a ?? null;
-}
-
-/** Interpret a typed start request. `limits` must be the non-cleared limits. The log is the full history, oldest first. */
-export function buildInterpretInput(text: string, all: Session[], goals: Goal[], context: ContextItem[], limits: Limit[], now: number, name?: string): InterpretInput {
-  const known = knownActivities(all, now);
-  // With a fixed name the match is by that name only (the wish does not pick another activity).
-  const match = name ? (known.find((a) => activityKey(a.type) === activityKey(name)) ?? null) : bestMatchingActivity(text, known);
-  const recent = match ? lastN(all.filter((s) => activityKey(s.type) === activityKey(match.type)), INTERPRET_RECENT) : [];
-  const rules: PlanDraft = match && match.kind === "gym" ? dropAvoided(rulesPlan(all, match.type), limits) : { rationale: "No matching session logged yet. Start empty and add what you do.", exercises: [] };
-  return { text, ...(name ? { name } : {}), known, ...(match ? { bestMatch: match.type } : {}), sessions: recent, lately: lastN(all, PLAN_RECENT_ANY), now, goals, context, limits, rules };
 }
 
 export function buildDashboardInput(all: Session[], goals: Goal[], context: ContextItem[], days: 7 | 30): DashboardInput {

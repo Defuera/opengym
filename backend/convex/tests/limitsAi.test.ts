@@ -4,8 +4,8 @@ import { buildDashboardJob } from "../functions/model/ai/jobs/buildDashboard";
 import { chatJob } from "../functions/model/ai/jobs/chat";
 import { extractFromChatJob } from "../functions/model/ai/jobs/extractFromChat";
 import { buildPlanInput, buildReviewInput } from "../functions/model/ai/jobs/inputs";
-import { buildInterpretInput } from "../functions/model/ai/jobs/inputs";
-import { interpretRequestJob } from "../functions/model/ai/jobs/interpretRequest";
+import { buildSessionJob } from "../functions/model/ai/jobs/buildSession";
+import { coachPicture } from "../functions/model/ai/jobs/coachPicture";
 import { planSessionJob } from "../functions/model/ai/jobs/planSession";
 import { reviewSessionJob } from "../functions/model/ai/jobs/reviewSession";
 import { summariseThreadJob } from "../functions/model/ai/jobs/summariseThread";
@@ -36,7 +36,7 @@ describe("prompts carry limits and never records", () => {
     return {
       plan: planSessionJob.build(plan),
       review: reviewSessionJob.build(review),
-      interpret: interpretRequestJob.build(buildInterpretInput("legs at home, 20 min", log, [], [], limits, 6_000_000)),
+      session: buildSessionJob.build({ name: null, note: "", request: "legs at home, 20 min", picture: coachPicture(log, [], [], limits, [], 6_000_000), limits }),
       chat: chatJob.build({ contextBlock: coach.contextBlock, history: [{ role: "user", content: "hi" }] }),
       dashboard: buildDashboardJob.build({ days: 7, sessions: log, goals: [], context: [] }),
       extract: extractFromChatJob.build({ text: "hi", existingContext: [], existingGoals: [] }),
@@ -50,17 +50,17 @@ describe("prompts carry limits and never records", () => {
     for (const [name, p] of Object.entries(prompts([limit, cleared]))) expect(whole(p), name).not.toContain(MARKER);
   });
 
-  it("plan, review, interpret and chat get non-cleared limits as {part,title,status,rules:[{kind,text}]} and the one-sentence rule", () => {
+  it("plan, review, session and chat get non-cleared limits as {part,title,status,rules:[{kind,text}]} and the one-sentence rule", () => {
     const p = prompts([limit, cleared]);
     const expected = [{ part: "left_knee", title: "Left knee", status: "active", rules: [{ kind: "avoid", text: "No deep squats" }, { kind: "do", text: "Leg press, short range" }] }];
-    for (const name of ["plan", "review", "interpret"] as const) {
+    for (const name of ["plan", "review", "session"] as const) {
       const data = JSON.parse(p[name].messages[0]!.content.split("INPUT_JSON:\n")[1]!);
       expect(data.limits, name).toEqual(expected);
-      expect(p[name].system, name).toContain(LIMITS_RULE);
+      if (name !== "session") expect(p[name].system, name).toContain(LIMITS_RULE);
     }
     expect(p.chat.system).toContain(LIMITS_RULE);
     expect(p.chat.system).toContain('"part":"left_knee"');
-    for (const name of ["plan", "review", "interpret", "chat"] as const) expect(whole(p[name]), name).not.toContain("CLEARED-RULE");
+    for (const name of ["plan", "review", "session", "chat"] as const) expect(whole(p[name]), name).not.toContain("CLEARED-RULE");
   });
 });
 

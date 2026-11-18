@@ -48,10 +48,10 @@ export class MockProvider implements AiProvider {
     switch (job) {
       case "plan_session":
         return JSON.stringify({ rationale: "Mock plan: keeps your usual exercises.", exercises: d.suggestedStart?.exercises ?? [] });
-      case "interpret_request": {
+      case "build_session": {
         const first = String(d.request ?? "").split(",")[0]!.trim();
-        const type = String(d.name ?? d.bestMatch ?? (first ? first.charAt(0).toUpperCase() + first.slice(1) : "Gym")).slice(0, 40);
-        return JSON.stringify({ kind: "gym", type, reason: "Mock proposal", plan: { rationale: "Mock plan: keeps your usual exercises.", exercises: d.suggestedStart?.exercises ?? [] } });
+        const type = String(d.activity ?? (first ? first.charAt(0).toUpperCase() + first.slice(1) : "Gym")).slice(0, 40);
+        return JSON.stringify({ kind: "gym", type, reason: "Mock proposal", plan: { rationale: "Mock plan: a simple bodyweight session.", exercises: [{ name: "Push-up", sets: [{ reps: 10, kg: 0, max: false }] }, { name: "Squat", sets: [{ reps: 15, kg: 0, max: false }] }] } });
       }
       case "build_dashboard": {
         const goals: Data[] = (d.goals ?? []).filter((g: Data) => g.status === "active");

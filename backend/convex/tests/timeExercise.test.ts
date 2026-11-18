@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { coachPicture } from "../functions/model/ai/jobs/coachPicture";
 import { logForPrompt } from "../functions/model/ai/jobs/shared";
-import { interpretRequestJob } from "../functions/model/ai/jobs/interpretRequest";
 import { buildSessionJob } from "../functions/model/ai/jobs/buildSession";
 import { planSessionJob } from "../functions/model/ai/jobs/planSession";
 import { finalizeStartProposal } from "../functions/model/proposals";
@@ -130,7 +129,7 @@ describe("time exercise in prompts", () => {
     const plan = planSessionJob.build({ activity: "Gym", sessions: [], goals: [], context: [], limits: [], rules: { rationale: "", exercises: [] } } as never);
     expect(plan.system).toContain('"measure": "time"');
     expect(plan.system).toContain("use measure time with minutes, not reps");
-    expect(buildSessionJob.build({ name: "Gym", note: "", picture: coachPicture([], [], [], [], [], 0), limits: [] } as never).system).toContain("use measure time with minutes, not reps");
-    expect(interpretRequestJob.build({ text: "bike", known: [], sessions: [], lately: [], goals: [], context: [], limits: [], now: 0 } as never).system).toContain('"measure": "time"');
+    expect(buildSessionJob.build({ name: null, note: "", request: "bike", picture: coachPicture([], [], [], [], [], 0), limits: [] } as never).system).toContain("use measure time with minutes, not reps");
+    expect(buildSessionJob.build({ name: null, note: "", request: "bike", picture: coachPicture([], [], [], [], [], 0), limits: [] } as never).system).toContain('"measure": "time"');
   });
 });

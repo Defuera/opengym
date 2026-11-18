@@ -192,15 +192,9 @@ void main() {
   });
 
   testWidgets('a type with sets and no past session starts empty when the request fails', (WidgetTester t) async {
-    final (FakeConvexClient fake, AppDeps d) = await openHome(t, sessions: <Session>[]);
+    final (FakeConvexClient fake, AppDeps d) = await openHome(t, sessions: <Session>[setsSession('Hotel gym', 'Upper', 5, <String>[])]);
     await openStart(t);
-    await openOther(t);
-    await t.enterText(find.widgetWithText(TextField, 'Wing SUP'), 'Hotel gym');
-    await t.pump();
-    await t.tap(find.text('Sets and reps'));
-    await t.pumpAndSettle();
-    await t.tap(find.text('Start'));
-    await t.pump();
+    await pickAndStart(t, 'Hotel gym');
     fake.answerStart(StartRequest(requestId: fake.lastStartId, status: 'failed'));
     await t.pumpAndSettle();
     expect(d.store.active!.type, 'Hotel gym');
@@ -245,60 +239,84 @@ void main() {
   });
 
   group('Other', () {
-    testWidgets('asks for a name and a shape; both buttons wait for a name; the name is limited to 40',
+    const String hint = 'quick home session, 15 min';
+    Finder field() => find.widgetWithText(TextField, hint);
+    Finder start() => find.ancestor(of: find.text('Start'), matching: find.byType(OgButton));
+
+    testWidgets('one text field and Start; no name and no shape buttons; Start waits for text',
         (WidgetTester t) async {
       await openHome(t);
       await openStart(t);
       await openOther(t);
-      Finder button(String l) => find.ancestor(of: find.text(l), matching: find.byType(OgButton));
-      expect(t.widget<OgButton>(button('Sets and reps')).onPressed, isNull);
-      expect(t.widget<OgButton>(button('Time or distance')).onPressed, isNull);
-      await t.enterText(find.widgetWithText(TextField, 'Wing SUP'), '   ');
+      expect(find.text('What do you want to do?'), findsOneWidget);
+      expect(find.byType(TextField), findsOneWidget);
+      expect(find.text('Sets and reps'), findsNothing);
+      expect(find.text('Time or distance'), findsNothing);
+      expect(find.text('Name'), findsNothing);
+      expect(t.widget<OgButton>(start()).onPressed, isNull);
+      await t.enterText(field(), '   ');
       await t.pump();
-      expect(t.widget<OgButton>(button('Sets and reps')).onPressed, isNull);
-      await t.enterText(find.widgetWithText(TextField, 'Wing SUP'), 'y' * 60);
+      expect(t.widget<OgButton>(start()).onPressed, isNull);
+      await t.enterText(field(), 'y' * 300);
       await t.pump();
-      expect(t.widget<OgButton>(button('Sets and reps')).onPressed, isNotNull);
-      expect(t.widget<TextField>(find.widgetWithText(TextField, 'y' * 40)).controller!.text.length, 40);
+      expect(t.widget<OgButton>(start()).onPressed, isNotNull);
+      expect(t.widget<TextField>(find.widgetWithText(TextField, 'y' * 200)).controller!.text.length, 200);
       await t.tap(find.byTooltip('Back'));
       await t.pumpAndSettle();
       expect(inSheet(find.text('Home')), findsOneWidget);
     });
 
-    testWidgets('Sets and reps goes to step 2 with that name and sends it', (WidgetTester t) async {
-      final (FakeConvexClient fake, AppDeps _) = await openHome(t);
+    testWidgets('Start sends the text and no name, shows Preparing, opens the proposal', (WidgetTester t) async {
+      final (FakeConvexClient fake, AppDeps d) = await openHome(t);
       await openStart(t);
       await openOther(t);
-      await t.enterText(find.widgetWithText(TextField, 'Wing SUP'), '  Hotel gym ');
+      await t.enterText(field(), '  i want a quick home session ');
       await t.pump();
-      await t.tap(find.text('Sets and reps'));
-      await t.pumpAndSettle();
-      expect(find.text('Hotel gym'), findsOneWidget);
-      await t.enterText(find.widgetWithText(TextField, noteHint), '30 min');
       await t.tap(find.text('Start'));
       await t.pump();
-      expect(fake.startNames.single, 'Hotel gym');
-      expect(fake.startSent.single.$2, '30 min');
+      expect(find.text('Preparing…'), findsOneWidget);
+      expect(fake.startNames.single, isNull);
+      expect(fake.startSent.single.$2, 'i want a quick home session');
+      fake.answerStart(StartRequest(requestId: fake.lastStartId, status: 'ready', proposal: _legs));
+      await t.pumpAndSettle();
+      expect(find.byType(SessionScreen), findsOneWidget);
+      expect(d.store.active!.exercises.single.name, 'Squat');
+      expect(find.byType(OtherActivityScreen), findsNothing);
     });
 
-    testWidgets('Time or distance opens the Log form with the typed name', (WidgetTester t) async {
-      final (FakeConvexClient fake, AppDeps _) = await openHome(t);
+    testWidgets('offline: no request, an empty session named from the text before the first comma',
+        (WidgetTester t) async {
+      final (FakeConvexClient fake, AppDeps d) = await openHome(t, connected: false);
       await openStart(t);
       await openOther(t);
-      await t.enterText(find.widgetWithText(TextField, 'Wing SUP'), 'Wing SUP');
+      await t.enterText(field(), 'hotel gym, 30 min');
       await t.pump();
-      await t.tap(find.text('Time or distance'));
+      await t.tap(find.text('Start'));
       await t.pumpAndSettle();
-      expect(find.byType(OtherActivityScreen), findsOneWidget);
-      expect(find.text('Wing SUP'), findsOneWidget);
       expect(fake.startSent, isEmpty);
+      expect(d.store.active!.type, 'Hotel gym');
+      expect(d.store.active!.exercises, isEmpty);
     });
 
-    testWidgets('the typed name survives a switch to the Log tab', (WidgetTester t) async {
+    testWidgets('a failed request opens an empty session named from the text', (WidgetTester t) async {
+      final (FakeConvexClient fake, AppDeps d) = await openHome(t);
+      await openStart(t);
+      await openOther(t);
+      await t.enterText(field(), 'wing sup, easy');
+      await t.pump();
+      await t.tap(find.text('Start'));
+      await t.pump();
+      fake.answerStart(StartRequest(requestId: fake.lastStartId, status: 'failed'));
+      await t.pumpAndSettle();
+      expect(d.store.active!.type, 'Wing sup');
+      expect(d.store.active!.exercises, isEmpty);
+    });
+
+    testWidgets('the typed text survives a switch to the Log tab', (WidgetTester t) async {
       await openHome(t);
       await openStart(t);
       await openOther(t);
-      await t.enterText(find.widgetWithText(TextField, 'Wing SUP'), 'hotel gym');
+      await t.enterText(field(), 'hotel gym');
       await t.tap(inSheet(find.text('Log')));
       await t.pumpAndSettle();
       await t.tap(inSheet(find.text('Start session')));

@@ -6,13 +6,14 @@ import { START_REQUEST_MAX_NAME, START_REQUEST_MAX_TEXT, START_REQUEST_PURGE_BAT
 import { startRequestById } from "../lib/db";
 
 /**
- * A typed "Start session" request (ADR-016). Idempotent by the client-made `requestId`: a resend changes nothing and
- * schedules nothing. Stores `{requestId, text?, name?, status: "pending"}` and schedules the interpret_request job
+ * A "Start session" request (ADR-016). Idempotent by the client-made `requestId`: a resend changes nothing and
+ * schedules nothing. Stores `{requestId, text?, name?, status: "pending"}` and schedules the build_session job
  * (jobs/startRequest:build). This is not a fact: the AI only proposes; the app saves a session after the user starts it.
  * `name` (optional, 1..40) is the fixed session name: the proposal type is always this name. `text` (optional, max 200)
- * is the wish. At least one of the two is required, so an old client that sends only `text` keeps working.
- * The Start tab sends `name` (the activity the user chose) and the optional note as `text`: the coach then decides the
- * focus and the plan. The old "today" mode (`mode`, `hintType`, `hintFocus`) is gone. Requests older than one day are removed here.
+ * is the note for today, or, with no name, the request. At least one of the two is required.
+ * The Start tab sends `name` (the activity the user chose) and the optional note as `text`; "Other" sends only `text`
+ * (what the user wants to do) and the coach names the activity. In both cases the coach decides the focus and the plan.
+ * The old "today" mode (`mode`, `hintType`, `hintFocus`) is gone. Requests older than one day are removed here.
  * Returns the requestId.
  */
 export const request = mutation({

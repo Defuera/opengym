@@ -76,22 +76,41 @@ class _StartSheetState extends State<StartSheet> {
     openLogForm(widget.nav, widget.deps, name);
   }
 
+  /// Step 2: the chosen type, with the optional note.
   Future<void> _start() async {
     final String t = _draft.type;
-    if (t.isEmpty || _run != null) {
+    final String note = _draft.note.text.trim();
+    if (t.isNotEmpty) {
+      await _request(name: t, text: note.isEmpty ? null : note, fallback: t, rules: true);
+    }
+  }
+
+  /// "Other": the free text alone; the coach names the activity.
+  Future<void> _startOther() async {
+    final String text = _draft.otherText.text.trim();
+    if (text.isNotEmpty) {
+      await _request(text: text, fallback: activityNameFromText(text));
+    }
+  }
+
+  /// Sends one start request and opens the proposal. Offline or on failure the
+  /// session of [fallback] opens: with [rules] the plain-code plan of that
+  /// activity, otherwise an empty session.
+  Future<void> _request({String? name, String? text, required String fallback, bool rules = false}) async {
+    if (_run != null) {
       return;
     }
+    void plain() => rules ? _rules(fallback) : _empty(fallback);
     // A request is not a fact and never waits in the outbox: offline, go on.
     if (!widget.deps.connection.connected) {
-      _rules(t);
+      plain();
       return;
     }
-    final String note = _draft.note.text.trim();
-    final StartRun run = widget.deps.plans.requestStart(name: t, text: note.isEmpty ? null : note);
+    final StartRun run = widget.deps.plans.requestStart(name: name, text: text);
     FocusManager.instance.primaryFocus?.unfocus();
     setState(() {
       _run = run;
-      _typed = t;
+      _typed = fallback;
     });
     widget.onPreparing(true);
     final StartProposal? p = await run.result;
@@ -99,7 +118,7 @@ class _StartSheetState extends State<StartSheet> {
       return;
     }
     if (p == null) {
-      _rules(t);
+      plain();
       return;
     }
     widget.nav.pop();
@@ -136,10 +155,9 @@ class _StartSheetState extends State<StartSheet> {
             );
           case StartStep.other:
             return StartOther(
-              name: _draft.otherName,
+              text: _draft.otherText,
               onBack: _draft.back,
-              onSets: () => _draft.pick(_draft.otherName.text.trim()),
-              onTime: () => _log(_draft.otherName.text),
+              onStart: _startOther,
             );
           case StartStep.types:
             return _types();

@@ -28,7 +28,6 @@ import type * as jobs_models from "../jobs/models.js";
 import type * as jobs_parseGoal from "../jobs/parseGoal.js";
 import type * as jobs_pdfText from "../jobs/pdfText.js";
 import type * as jobs_plans from "../jobs/plans.js";
-import type * as jobs_promptLab from "../jobs/promptLab.js";
 import type * as jobs_rebuild from "../jobs/rebuild.js";
 import type * as jobs_reviews from "../jobs/reviews.js";
 import type * as jobs_startRequest from "../jobs/startRequest.js";
@@ -52,7 +51,6 @@ import type * as model_ai_jobs_coachPicture from "../model/ai/jobs/coachPicture.
 import type * as model_ai_jobs_extractFromChat from "../model/ai/jobs/extractFromChat.js";
 import type * as model_ai_jobs_importData from "../model/ai/jobs/importData.js";
 import type * as model_ai_jobs_inputs from "../model/ai/jobs/inputs.js";
-import type * as model_ai_jobs_interpretRequest from "../model/ai/jobs/interpretRequest.js";
 import type * as model_ai_jobs_parseGoal from "../model/ai/jobs/parseGoal.js";
 import type * as model_ai_jobs_planSession from "../model/ai/jobs/planSession.js";
 import type * as model_ai_jobs_reviewSession from "../model/ai/jobs/reviewSession.js";
@@ -96,6 +94,7 @@ import type * as model_schema_session from "../model/schema/session.js";
 import type * as model_schema_structuredImport from "../model/schema/structuredImport.js";
 import type * as model_schema_thread from "../model/schema/thread.js";
 import type * as model_sessionShape from "../model/sessionShape.js";
+import type * as model_startFallback from "../model/startFallback.js";
 import type * as model_structuredImport from "../model/structuredImport.js";
 import type * as model_threadTitle from "../model/threadTitle.js";
 import type * as queries_aboutMe from "../queries/aboutMe.js";
@@ -140,7 +139,6 @@ declare const fullApi: ApiFromModules<{
   "jobs/parseGoal": typeof jobs_parseGoal;
   "jobs/pdfText": typeof jobs_pdfText;
   "jobs/plans": typeof jobs_plans;
-  "jobs/promptLab": typeof jobs_promptLab;
   "jobs/rebuild": typeof jobs_rebuild;
   "jobs/reviews": typeof jobs_reviews;
   "jobs/startRequest": typeof jobs_startRequest;
@@ -164,7 +162,6 @@ declare const fullApi: ApiFromModules<{
   "model/ai/jobs/extractFromChat": typeof model_ai_jobs_extractFromChat;
   "model/ai/jobs/importData": typeof model_ai_jobs_importData;
   "model/ai/jobs/inputs": typeof model_ai_jobs_inputs;
-  "model/ai/jobs/interpretRequest": typeof model_ai_jobs_interpretRequest;
   "model/ai/jobs/parseGoal": typeof model_ai_jobs_parseGoal;
   "model/ai/jobs/planSession": typeof model_ai_jobs_planSession;
   "model/ai/jobs/reviewSession": typeof model_ai_jobs_reviewSession;
@@ -208,6 +205,7 @@ declare const fullApi: ApiFromModules<{
   "model/schema/structuredImport": typeof model_schema_structuredImport;
   "model/schema/thread": typeof model_schema_thread;
   "model/sessionShape": typeof model_sessionShape;
+  "model/startFallback": typeof model_startFallback;
   "model/structuredImport": typeof model_structuredImport;
   "model/threadTitle": typeof model_threadTitle;
   "queries/aboutMe": typeof queries_aboutMe;

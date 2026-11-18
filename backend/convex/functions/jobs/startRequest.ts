@@ -8,9 +8,12 @@ import { activeLimits } from "../lib/limitsDb";
 import { startDraft } from "../lib/validators";
 import { buildSessionJob } from "../model/ai/jobs/buildSession";
 import { coachPicture } from "../model/ai/jobs/coachPicture";
-import { buildInterpretInput } from "../model/ai/jobs/inputs";
-import { fallbackProposal, interpretRequestJob } from "../model/ai/jobs/interpretRequest";
+import { knownActivities } from "../model/ai/jobs/inputs";
+import { dropAvoided } from "../model/rules/limits";
+import { rulesPlan } from "../model/rules/planner";
 import { finalizeStartProposal } from "../model/proposals";
+import { fallbackProposal, nameFromText } from "../model/startFallback";
+import { activityKey } from "../model/sessionShape";
 
 /** The AI budget for one request. The app gives up after 20 s and opens an empty session itself. */
 const BUDGET_MS = 25_000;
@@ -23,10 +26,19 @@ export const input = internalQuery({
     if (!doc || doc.status !== "pending") return null;
     const [sessions, goals, context, limits] = [await allSessions(ctx), await allGoals(ctx), await allContext(ctx), await activeLimits(ctx)];
     const now = Date.now();
-    const old = buildInterpretInput(doc.text ?? "", sessions, goals, context, limits, now, doc.name);
-    // The user chose the activity (the two-step start): the coach builds the session from the full picture of the user.
-    const next = doc.name ? { name: doc.name, note: doc.text ?? "", picture: coachPicture(sessions, [...goals].sort((x, y) => x.createdAt - y.createdAt), context, limits, await coachEntries(ctx, now), now), limits } : null;
-    return { old, next, entryImages: next ? await entryImageFiles(ctx, now) : [] };
+    const known = knownActivities(sessions, now);
+    // The plain rules plan of the named activity (the user's last session of it), for the fallback.
+    const match = doc.name ? known.find((a) => activityKey(a.type) === activityKey(doc.name!)) : undefined;
+    const rules = match?.kind === "gym" ? dropAvoided(rulesPlan(sessions, match.type), limits) : null;
+    // The coach builds the session from the full picture of the user. A fixed name is the activity; with no name the coach names it from the text.
+    const job = {
+      name: doc.name ?? null,
+      note: doc.name ? (doc.text ?? "") : "",
+      ...(doc.name ? {} : { request: doc.text ?? "" }),
+      picture: coachPicture(sessions, [...goals].sort((x, y) => x.createdAt - y.createdAt), context, limits, await coachEntries(ctx, now), now),
+      limits,
+    };
+    return { job, known, text: doc.text ?? "", name: doc.name ?? null, rules, entryImages: await entryImageFiles(ctx, now) };
   },
 });
 
@@ -45,9 +57,11 @@ export const save = internalMutation({
       return;
     }
     const sessions = await allSessions(ctx);
-    // A given name is fixed: the AI must not rename the session (finalizeStartProposal keeps the log's spelling).
+    // A given name is fixed: the AI must not rename the session. With no name the type is the coach's name, cut to 40
+    // (finalizeStartProposal keeps the log's spelling).
+    const type = doc.name ?? (proposal.type.trim().slice(0, 40).trim() || nameFromText(doc.text ?? ""));
     const checked = finalizeStartProposal(
-      doc.name ? { ...proposal, type: doc.name } : proposal,
+      { ...proposal, type },
       sessions,
       await activeLimits(ctx),
     );
@@ -65,7 +79,7 @@ export const save = internalMutation({
   },
 });
 
-/** interpret_request job: input query -> AI pipeline (one retry, then the code fallback) -> save. Any unexpected error marks the request failed. */
+/** build_session job: input query -> AI pipeline (one retry, then the code fallback) -> save. Any unexpected error marks the request failed. */
 export const build = internalAction({
   args: { requestId: v.string() },
   handler: async (ctx, { requestId }): Promise<void> => {
@@ -73,11 +87,11 @@ export const build = internalAction({
       const input = await ctx.runQuery(internal.jobs.startRequest.input, { requestId });
       if (!input) return;
       // Photos of the entries of the last day go with the request when the provider takes images.
-      const images = input.next && input.entryImages.length > 0 ? await loadEntryImages(ctx, input.entryImages, !!(await providerFor(ctx))?.supportsImages) : [];
-      const r = input.next ? await runAiJob(ctx, buildSessionJob, { ...input.next, ...(images.length > 0 ? { images } : {}) }, { timeoutMs: BUDGET_MS }) : await runAiJob(ctx, interpretRequestJob, input.old, { timeoutMs: BUDGET_MS });
-      // Plain-code fallback: the named activity with the rules plan from the log, or an empty plan when the log has none.
-      const plain = fallbackProposal(input.old);
-      const proposal = r.path === "ai" ? r.value : input.next && input.old.rules.exercises.length > 0 ? { ...plain, plan: input.old.rules } : plain;
+      const images = input.entryImages.length > 0 ? await loadEntryImages(ctx, input.entryImages, !!(await providerFor(ctx))?.supportsImages) : [];
+      const r = await runAiJob(ctx, buildSessionJob, { ...input.job, ...(images.length > 0 ? { images } : {}) }, { timeoutMs: BUDGET_MS });
+      // Plain-code fallback: the activity with the rules plan from the log, or an empty plan when the log has none.
+      const plain = fallbackProposal(input);
+      const proposal = r.path === "ai" ? r.value : input.rules && input.rules.exercises.length > 0 ? { ...plain, plan: input.rules } : plain;
       await ctx.runMutation(internal.jobs.startRequest.save, { requestId, source: r.path === "ai" ? "ai" : "rules", proposal });
     } catch (e) {
       console.error(`[start] request failed: ${(e as Error).message}`);

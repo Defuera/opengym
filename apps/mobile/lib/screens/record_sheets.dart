@@ -28,7 +28,11 @@ bool isIsoDate(String s) {
 /// Add a record: a title, an optional date and the pasted text. The text is
 /// kept word for word.
 Future<RecordDraft?> showRecordSheet(BuildContext context) {
-  return showOgSheet<RecordDraft>(context, (BuildContext c) => const _RecordForm());
+  return showOgSheet<RecordDraft>(
+    context,
+    (BuildContext c) => const _RecordForm(),
+    title: 'Add a record',
+  );
 }
 
 class _RecordForm extends StatefulWidget {
@@ -77,8 +81,6 @@ class _RecordFormState extends State<_RecordForm> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
-        Text('Add a record', style: OG.display(24)),
-        const SizedBox(height: 14),
         LabeledField(label: 'Title', controller: _title, hint: 'Scan report'),
         const SizedBox(height: 12),
         LabeledField(
@@ -91,7 +93,8 @@ class _RecordFormState extends State<_RecordForm> {
         LabeledField(label: 'Text, pasted', controller: _text, maxLines: 8),
         if (_error != null) ...<Widget>[
           const SizedBox(height: 8),
-          Text(_error!, style: OG.body(size: 14, weight: FontWeight.w600, color: const Color(0xFFE5482D))),
+          Text(_error!,
+              style: OG.body(size: 14, weight: FontWeight.w600, color: const Color(0xFFE5482D))),
         ],
         const SizedBox(height: 14),
         OgButton(variant: OgVariant.accent, onPressed: _save, child: const Text('Save record')),
@@ -107,7 +110,6 @@ Future<String?> showRecordView(BuildContext context, LimitRecord r) {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
-        Text(r.title, style: OG.display(24)),
         if (r.date != null) Text(r.date!, style: OG.muted(size: 14, weight: FontWeight.w600)),
         const SizedBox(height: 12),
         SelectableText(r.text, style: OG.body(size: 15)),
@@ -118,7 +120,7 @@ Future<String?> showRecordView(BuildContext context, LimitRecord r) {
         ),
       ],
     );
-  });
+  }, title: r.title);
 }
 
 /// A topic and a text for one preference note.
@@ -130,7 +132,11 @@ class NoteDraft {
 }
 
 Future<NoteDraft?> showNoteSheet(BuildContext context) {
-  return showOgSheet<NoteDraft>(context, (BuildContext c) => const _NoteForm());
+  return showOgSheet<NoteDraft>(
+    context,
+    (BuildContext c) => const _NoteForm(),
+    title: 'Add a preference',
+  );
 }
 
 class _NoteForm extends StatefulWidget {
@@ -166,8 +172,6 @@ class _NoteFormState extends State<_NoteForm> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
-        Text('Add a preference', style: OG.display(24)),
-        const SizedBox(height: 14),
         LabeledField(label: 'Topic', controller: _topic, hint: 'Warm-up'),
         const SizedBox(height: 12),
         LabeledField(label: 'What the coach should know', controller: _text, maxLines: 3),

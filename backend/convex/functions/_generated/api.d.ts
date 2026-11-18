@@ -24,6 +24,7 @@ import type * as jobs_importFiles from "../jobs/importFiles.js";
 import type * as jobs_imports from "../jobs/imports.js";
 import type * as jobs_migrations from "../jobs/migrations.js";
 import type * as jobs_models from "../jobs/models.js";
+import type * as jobs_parseGoal from "../jobs/parseGoal.js";
 import type * as jobs_pdfText from "../jobs/pdfText.js";
 import type * as jobs_plans from "../jobs/plans.js";
 import type * as jobs_predictions from "../jobs/predictions.js";
@@ -48,6 +49,7 @@ import type * as model_ai_jobs_extractFromChat from "../model/ai/jobs/extractFro
 import type * as model_ai_jobs_importData from "../model/ai/jobs/importData.js";
 import type * as model_ai_jobs_inputs from "../model/ai/jobs/inputs.js";
 import type * as model_ai_jobs_interpretRequest from "../model/ai/jobs/interpretRequest.js";
+import type * as model_ai_jobs_parseGoal from "../model/ai/jobs/parseGoal.js";
 import type * as model_ai_jobs_planSession from "../model/ai/jobs/planSession.js";
 import type * as model_ai_jobs_predictActivity from "../model/ai/jobs/predictActivity.js";
 import type * as model_ai_jobs_reviewSession from "../model/ai/jobs/reviewSession.js";
@@ -128,6 +130,7 @@ declare const fullApi: ApiFromModules<{
   "jobs/imports": typeof jobs_imports;
   "jobs/migrations": typeof jobs_migrations;
   "jobs/models": typeof jobs_models;
+  "jobs/parseGoal": typeof jobs_parseGoal;
   "jobs/pdfText": typeof jobs_pdfText;
   "jobs/plans": typeof jobs_plans;
   "jobs/predictions": typeof jobs_predictions;
@@ -152,6 +155,7 @@ declare const fullApi: ApiFromModules<{
   "model/ai/jobs/importData": typeof model_ai_jobs_importData;
   "model/ai/jobs/inputs": typeof model_ai_jobs_inputs;
   "model/ai/jobs/interpretRequest": typeof model_ai_jobs_interpretRequest;
+  "model/ai/jobs/parseGoal": typeof model_ai_jobs_parseGoal;
   "model/ai/jobs/planSession": typeof model_ai_jobs_planSession;
   "model/ai/jobs/predictActivity": typeof model_ai_jobs_predictActivity;
   "model/ai/jobs/reviewSession": typeof model_ai_jobs_reviewSession;

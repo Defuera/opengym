@@ -1,11 +1,14 @@
 import { z } from "zod";
 import { IdSchema, ItemSourceSchema, MsSchema } from "./common";
 
-export const GoalKindSchema = z.enum(["strength", "consistency", "work_around", "custom"]);
+/** Longest goal title. The goal is one free text the user typed; the app field enforces the same limit. */
+export const GOAL_TITLE_MAX = 120;
+
+export const GoalKindSchema = z.enum(["strength", "consistency", "custom"]);
 
 export const GoalSchema = z.object({
   id: IdSchema,
-  title: z.string().min(1).max(80),
+  title: z.string().min(1).max(GOAL_TITLE_MAX),
   kind: GoalKindSchema,
   exercise: z.string().optional(),
   targetKg: z.number().optional(),
@@ -18,7 +21,7 @@ export const GoalSchema = z.object({
 });
 
 export const GoalInputSchema = z.object({
-  title: z.string().min(1).max(80),
+  title: z.string().min(1).max(GOAL_TITLE_MAX),
   kind: GoalKindSchema,
   exercise: z.string().min(1).max(60).optional(),
   targetKg: z.number().min(0).max(1000).optional(),

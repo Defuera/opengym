@@ -41,16 +41,112 @@ void main() {
     expect(find.text('padel'), findsOneWidget);
   });
 
-  testWidgets('Start sheet lists stored proposals; a tap opens the stored plan', (WidgetTester t) async {
-    final (FakeConvexClient fake0, AppDeps d) = await openHome(t);
+  const String wishHint = 'Short on time, go easy, left hand is sore…';
+  const String startToday = "Start today's session";
+
+  testWidgets('the Start tab has one Today card, a wish field and the button; no list, no pencil',
+      (WidgetTester t) async {
+    await openHome(t);
     await openStart(t);
+    expect(find.text('Today'), findsOneWidget);
     expect(find.text('Gym · Upper'), findsOneWidget);
-    expect(find.text('Home · Quick'), findsOneWidget);
     expect(find.text('Last upper session was 13 Nov'), findsOneWidget);
+    expect(find.text('Home · Quick'), findsNothing);
+    expect(find.byIcon(Icons.edit_outlined), findsNothing);
+    expect(find.byIcon(Icons.chevron_right), findsOneWidget); // only the "New kind" row
+    expect(find.text('Anything for today? (optional)'), findsOneWidget);
+    expect(find.widgetWithText(TextField, wishHint), findsOneWidget);
+    expect(find.text(startToday), findsOneWidget);
     expect(find.text('New kind of session'), findsOneWidget);
-    expect(find.byType(TextField), findsNothing);
     expect(find.text('Start empty, without a plan ›'), findsOneWidget);
-    await t.tap(find.text('Gym · Upper'));
+  });
+
+  testWidgets('the Today card shows a short line when there is no pick', (WidgetTester t) async {
+    final (FakeConvexClient fake, AppDeps _) = await openHome(t, sessions: <Session>[]);
+    fake.predictions.set(const Stored<List<Prediction>>(<Prediction>[], stored: true, source: 'rules'));
+    await openStart(t);
+    expect(find.text('The coach picks a session for today.'), findsOneWidget);
+    expect(find.text('Gym · Upper'), findsNothing);
+  });
+
+  testWidgets('the wish is limited to 200 and survives a tab switch', (WidgetTester t) async {
+    await openHome(t);
+    await openStart(t);
+    await t.enterText(find.widgetWithText(TextField, wishHint), 'w' * 300);
+    await t.pump();
+    expect(t.widget<TextField>(find.widgetWithText(TextField, 'w' * 200)).controller!.text.length, 200);
+    await t.enterText(find.widgetWithText(TextField, 'w' * 200), 'go easy');
+    await t.tap(inSheet(find.text('Log')));
+    await t.pumpAndSettle();
+    await t.tap(inSheet(find.text('Start session')));
+    await t.pumpAndSettle();
+    expect(find.text('go easy'), findsOneWidget);
+  });
+
+  testWidgets('the button sends mode today with the wish and the shown pick, then opens the proposal',
+      (WidgetTester t) async {
+    final (FakeConvexClient fake, AppDeps d) = await openHome(t);
+    await openStart(t);
+    await t.enterText(find.widgetWithText(TextField, wishHint), '  quick session ');
+    await t.tap(find.text(startToday));
+    await t.pump();
+    expect(find.text('Preparing…'), findsOneWidget);
+    expect(find.text("The coach shapes today's session. It opens when ready."), findsOneWidget);
+    expect(find.text('Start empty now'), findsOneWidget);
+    expect(fake.startToday.single, (true, 'Gym', 'Upper'));
+    expect(fake.startSent.single.$2, 'quick session');
+    expect(fake.startNames.single, isNull);
+    fake.answerStart(StartRequest(
+      requestId: fake.lastStartId,
+      status: 'ready',
+      proposal: const StartProposal(
+        kind: 'gym',
+        type: 'Gym',
+        focus: 'Legs',
+        plan: Plan(
+          id: 'x',
+          focus: 'Legs',
+          createdAt: 1,
+          source: 'ai',
+          rationale: 'Legs are due',
+          exercises: <PlanExercise>[
+            PlanExercise(name: 'Squat', sets: <PlanSet>[PlanSet(reps: 8, kg: 60)]),
+          ],
+        ),
+      ),
+    ));
+    await t.pumpAndSettle();
+    expect(find.byType(SessionScreen), findsOneWidget);
+    expect(d.store.active!.focus, 'Legs');
+    expect(d.store.active!.exercises.single.name, 'Squat');
+  });
+
+  testWidgets('keyboard-safe: the Start tab button stays above the keyboard', (WidgetTester t) async {
+    t.view.physicalSize = const Size(390 * 3, 844 * 3);
+    t.view.devicePixelRatio = 3;
+    t.view.viewInsets = const FakeViewPadding(bottom: 300 * 3);
+    addTearDown(t.view.reset);
+    await openHome(t);
+    await openStart(t);
+    expect(t.getRect(find.text(startToday)).bottom, lessThanOrEqualTo(844 - 300));
+    expect(t.takeException(), isNull);
+  });
+
+  testWidgets('without a wish the request carries no text', (WidgetTester t) async {
+    final (FakeConvexClient fake, AppDeps _) = await openHome(t);
+    await openStart(t);
+    await t.tap(find.text(startToday));
+    await t.pump();
+    expect(fake.startToday.single.$1, isTrue);
+    expect(fake.startSent.single.$2, isNull);
+  });
+
+  testWidgets('today failed: the shown pick opens as its stored plan', (WidgetTester t) async {
+    final (FakeConvexClient fake, AppDeps d) = await openHome(t);
+    await openStart(t);
+    await t.tap(find.text(startToday));
+    await t.pump();
+    fake.answerStart(StartRequest(requestId: fake.lastStartId, status: 'failed'));
     await t.pumpAndSettle();
     expect(find.byType(SessionScreen), findsOneWidget);
     expect(d.store.active!.type, 'Gym');
@@ -58,27 +154,53 @@ void main() {
     expect(d.store.active!.exercises.single.name, 'Stored row');
   });
 
-  testWidgets('a proposal of another activity opens that activity', (WidgetTester t) async {
-    final (FakeConvexClient fake, AppDeps d) = await openHome(t);
-    fake.plans[FakeConvexClient.planKey(activity: 'Home', focus: 'Quick')] = Live<Stored<Plan>>(
-        const Stored<Plan>(
-            Plan(
-              id: 'h',
-              focus: 'Quick',
-              createdAt: 1,
-              source: 'ai',
-              rationale: '',
-              exercises: <PlanExercise>[
-                PlanExercise(name: 'Burpee', sets: <PlanSet>[PlanSet(reps: 10, kg: 0)]),
-              ],
-            ),
-            stored: true));
+  testWidgets('today, no answer in 20 s: the shown pick opens', (WidgetTester t) async {
+    final (FakeConvexClient _, AppDeps d) = await openHome(t);
     await openStart(t);
-    await t.tap(find.text('Home · Quick'));
+    await t.tap(find.text(startToday));
+    await t.pump();
+    await t.pump(const Duration(seconds: 21));
     await t.pumpAndSettle();
+    expect(d.store.active!.type, 'Gym');
+    expect(d.store.active!.exercises.single.name, 'Stored row');
+  });
+
+  testWidgets('today, no pick and a failed request: an empty session', (WidgetTester t) async {
+    final (FakeConvexClient fake, AppDeps d) = await openHome(t, sessions: <Session>[]);
+    fake.predictions.set(const Stored<List<Prediction>>(<Prediction>[], stored: true, source: 'rules'));
+    await openStart(t);
+    await t.tap(find.text(startToday));
+    await t.pump();
+    expect(fake.startToday.single, (true, null, null));
+    fake.answerStart(StartRequest(requestId: fake.lastStartId, status: 'failed'));
+    await t.pumpAndSettle();
+    expect(d.store.active!.exercises, isEmpty);
+  });
+
+  testWidgets('today offline: no request, the local pick opens from the log', (WidgetTester t) async {
+    final (FakeConvexClient fake, AppDeps d) = await openHome(t, connected: false);
+    await openStart(t);
+    await t.tap(find.text(startToday));
+    await t.pumpAndSettle();
+    expect(fake.startSent, isEmpty);
     expect(d.store.active!.type, 'Home');
-    expect(d.store.active!.exercises.single.name, 'Burpee');
-    expect(find.text('Home'), findsWidgets);
+    expect(d.store.active!.exercises.map((Exercise e) => e.name), <String>['Press-up', 'Squat']);
+  });
+
+  testWidgets('Start empty now in today mode opens an empty Gym session; a late answer opens nothing',
+      (WidgetTester t) async {
+    final (FakeConvexClient fake, AppDeps d) = await openHome(t);
+    await openStart(t);
+    await t.tap(find.text(startToday));
+    await t.pump();
+    await t.tap(find.text('Start empty now'));
+    await t.pumpAndSettle();
+    expect(d.store.active!.type, 'Gym');
+    expect(d.store.active!.exercises, isEmpty);
+    fake.answerStart(StartRequest(
+        requestId: fake.lastStartId, status: 'ready', proposal: const StartProposal(kind: 'gym', type: 'Late')));
+    await t.pumpAndSettle();
+    expect(d.store.active!.type, isNot('Late'));
   });
 
   testWidgets('Something new, ready: opens the prepared session under the proposed name',
@@ -195,16 +317,6 @@ void main() {
     expect(d.outbox.length, 0);
   });
 
-  testWidgets('offline, a proposal starts from the local plan (own last session)', (WidgetTester t) async {
-    final (FakeConvexClient _, AppDeps d) = await openHome(t, connected: false);
-    await openStart(t);
-    // Local proposals come from the log: Home is the most often.
-    await t.tap(find.text('Home · Quick'));
-    await t.pumpAndSettle();
-    expect(d.store.active!.type, 'Home');
-    expect(d.store.active!.exercises.map((Exercise e) => e.name), <String>['Press-up', 'Squat']);
-  });
-
   testWidgets('Start empty, without a plan: an empty Gym session', (WidgetTester t) async {
     final (FakeConvexClient _, AppDeps d) = await openHome(t);
     await openStart(t);
@@ -280,27 +392,6 @@ void main() {
       expect(fake.startSent, isEmpty);
       expect(d.store.active!.type, 'Beach');
       expect(d.store.active!.exercises, isEmpty);
-    });
-
-    testWidgets('the pencil on a proposal opens the form locked to that activity; the row still opens at once',
-        (WidgetTester t) async {
-      final (FakeConvexClient fake, AppDeps _) = await openHome(t);
-      await openStart(t);
-      await openForm(t);
-      await t.enterText(find.widgetWithText(TextField, '15 minutes, no equipment, easy on the knee'), 'old wish');
-      await t.tap(find.byTooltip('Back'));
-      await t.pumpAndSettle();
-      expect(find.byTooltip('Ask for a custom session'), findsNWidgets(2));
-      await t.tap(find.byTooltip('Ask for a custom session').first);
-      await t.pumpAndSettle();
-      final TextField name = t.widget<TextField>(find.widgetWithText(TextField, 'Gym'));
-      expect(name.readOnly, isTrue);
-      expect(find.text('old wish'), findsNothing);
-      await t.enterText(find.widgetWithText(TextField, '15 minutes, no equipment, easy on the knee'), 'only 20 minutes, no bench');
-      await t.tap(find.text('Prepare session'));
-      await t.pump();
-      expect(fake.startNames.single, 'Gym');
-      expect(fake.startSent.single.$2, 'only 20 minutes, no bench');
     });
 
     testWidgets('typed values and the open form survive a tab switch', (WidgetTester t) async {

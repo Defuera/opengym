@@ -82,8 +82,17 @@ export function bestMatchingActivity(text: string, known: KnownActivity[]): Know
 }
 
 /** Interpret a typed start request. `limits` must be the non-cleared limits. The log is the full history, oldest first. */
-export function buildInterpretInput(text: string, all: Session[], goals: Goal[], context: ContextItem[], limits: Limit[], now: number, name?: string): InterpretInput {
+export function buildInterpretInput(text: string, all: Session[], goals: Goal[], context: ContextItem[], limits: Limit[], now: number, name?: string, today?: { mode: "today"; hint?: { type: string; focus?: string } }): InterpretInput {
   const known = knownActivities(all, now);
+  if (today) {
+    // "Today" mode: the hinted activity is the match; the rules plan is for its hinted focus (else any focus).
+    const hint = today.hint;
+    const m = hint ? (known.find((a) => activityKey(a.type) === activityKey(hint.type)) ?? null) : null;
+    const rec = m ? lastN(all.filter((s) => activityKey(s.type) === activityKey(m.type)), INTERPRET_RECENT) : [];
+    const plan = !m || m.kind !== "gym" ? null : dropAvoided(rulesPlan(all, m.type, hint?.focus), limits);
+    const rulesToday: PlanDraft = plan && plan.exercises.length > 0 ? plan : m && m.kind === "gym" ? dropAvoided(rulesPlan(all, m.type), limits) : { rationale: "No matching session logged yet. Start empty and add what you do.", exercises: [] };
+    return { text, mode: "today", ...(hint ? { hint } : {}), known, ...(m ? { bestMatch: m.type } : {}), sessions: rec, lately: lastN(all, PLAN_RECENT_ANY), now, goals, context, limits, rules: rulesToday };
+  }
   // With a fixed name the match is by that name only (the wish does not pick another activity).
   const match = name ? (known.find((a) => activityKey(a.type) === activityKey(name)) ?? null) : bestMatchingActivity(text, known);
   const recent = match ? lastN(all.filter((s) => activityKey(s.type) === activityKey(match.type)), INTERPRET_RECENT) : [];

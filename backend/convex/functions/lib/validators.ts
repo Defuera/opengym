@@ -2,7 +2,7 @@ import { v } from "convex/values";
 
 export const itemSource = v.union(v.literal("user"), v.literal("ai"), v.literal("import"));
 export const proposalSource = v.union(v.literal("ai"), v.literal("rules"));
-export const goalKind = v.union(v.literal("strength"), v.literal("consistency"), v.literal("work_around"), v.literal("custom"));
+export const goalKind = v.union(v.literal("strength"), v.literal("consistency"), v.literal("custom"));
 export const goalStatus = v.union(v.literal("active"), v.literal("done"));
 export const dashboardDays = v.union(v.literal(7), v.literal(30));
 

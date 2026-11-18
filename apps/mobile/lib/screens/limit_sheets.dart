@@ -20,7 +20,11 @@ class LimitDraft {
 /// Add a limit: pick the part, name it, set its status. [initialPart] comes
 /// from a tap on the figure.
 Future<LimitDraft?> showAddLimitSheet(BuildContext context, {String? initialPart}) {
-  return showOgSheet<LimitDraft>(context, (BuildContext c) => _AddLimit(initialPart: initialPart));
+  return showOgSheet<LimitDraft>(
+    context,
+    (BuildContext c) => _AddLimit(initialPart: initialPart),
+    title: 'Add a limit',
+  );
 }
 
 class _AddLimit extends StatefulWidget {
@@ -70,8 +74,6 @@ class _AddLimitState extends State<_AddLimit> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
-        Text('Add a limit', style: OG.display(24)),
-        const SizedBox(height: 14),
         Text('Body part', style: OG.muted(size: 14, weight: FontWeight.w600)),
         const SizedBox(height: 6),
         Wrap(
@@ -127,6 +129,7 @@ Future<RuleEdit?> showRuleSheet(
   return showOgSheet<RuleEdit>(
     context,
     (BuildContext c) => _RuleForm(exercises: exercises, initial: initial),
+    title: initial != null ? 'Change rule' : 'Add a rule',
   );
 }
 
@@ -173,8 +176,6 @@ class _RuleFormState extends State<_RuleForm> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
-        Text(editing ? 'Change rule' : 'Add a rule', style: OG.display(24)),
-        const SizedBox(height: 14),
         SegmentedToggle(
           labels: <String>[for (final String k in ruleKinds) ruleKindLabel(k)],
           selectedIndex: _kind,
@@ -198,12 +199,16 @@ class _RuleFormState extends State<_RuleForm> {
               OgChip(
                 label: e,
                 selected: _picked.contains(e),
-                onTap: () => setState(() => _picked.contains(e) ? _picked.remove(e) : _picked.add(e)),
+                onTap: () =>
+                    setState(() => _picked.contains(e) ? _picked.remove(e) : _picked.add(e)),
               ),
           ],
         ),
         const SizedBox(height: 14),
-        OgButton(variant: OgVariant.accent, onPressed: _save, child: Text(editing ? 'Save rule' : 'Add rule')),
+        OgButton(
+            variant: OgVariant.accent,
+            onPressed: _save,
+            child: Text(editing ? 'Save rule' : 'Add rule')),
         if (editing) ...<Widget>[
           const SizedBox(height: 8),
           OgButton(

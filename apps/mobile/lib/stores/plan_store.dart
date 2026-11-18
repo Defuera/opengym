@@ -69,8 +69,23 @@ class PlanStore extends ChangeNotifier {
 
   /// Sends a start request (a fixed [name] and an optional wish [text]) and
   /// watches it. The request is not a fact: it never goes to the outbox. See [StartRun].
-  StartRun requestStart({String? name, String? text}) =>
-      StartRun(client: _client, name: name, text: text, budget: startBudget);
+  /// With [today] the coach picks the session: [text] is the wish and the hint is the pick shown.
+  StartRun requestStart({
+    String? name,
+    String? text,
+    bool today = false,
+    String? hintType,
+    String? hintFocus,
+  }) =>
+      StartRun(
+        client: _client,
+        name: name,
+        text: text,
+        today: today,
+        hintType: hintType,
+        hintFocus: hintFocus,
+        budget: startBudget,
+      );
 
   /// Plan exercises as fresh, not-yet-done session exercises.
   List<Exercise> exercisesFor(Plan plan) {

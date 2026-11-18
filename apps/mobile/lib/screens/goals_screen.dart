@@ -24,17 +24,20 @@ class GoalsScreen extends StatefulWidget {
 
 class _GoalsScreenState extends State<GoalsScreen> {
   Future<void> _add() async {
-    final GoalDraft? d = await showGoalForm(context);
-    if (d == null) {
+    final String? text = await showGoalForm(context);
+    if (text == null) {
       return;
     }
-    await widget.deps.goals.add(
-      title: d.title,
-      kind: d.kind,
-      exercise: d.exercise,
-      targetKg: d.targetKg,
-      sessionsPerWeek: d.sessionsPerWeek,
-    );
+    // Saved as typed; the backend reads the structure from the text a moment later.
+    await widget.deps.goals.add(title: text, kind: 'custom');
+  }
+
+  Future<void> _edit(Goal g) async {
+    final String? text = await showGoalForm(context, initialText: g.title);
+    if (text == null || text == g.title) {
+      return;
+    }
+    await widget.deps.goals.retitle(g, text);
   }
 
   String _detail(Goal g) {
@@ -66,6 +69,7 @@ class _GoalsScreenState extends State<GoalsScreen> {
             done: g.done,
             onToggleDone: () => goals.markDone(g),
             onDelete: () => goals.remove(g),
+            onTap: () => _edit(g),
           ));
           rows.add(const SizedBox(height: 10));
         }

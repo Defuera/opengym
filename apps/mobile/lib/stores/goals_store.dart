@@ -81,6 +81,13 @@ class GoalsStore extends ChangeNotifier {
     return true;
   }
 
+  /// Changes the goal text. The backend clears the old structure and reads the new text.
+  Future<bool> retitle(Goal goal, String title) async {
+    error = null;
+    await _outbox.updateGoal(goal.id, GoalPatch(title: title));
+    return true;
+  }
+
   Future<bool> remove(Goal goal) async {
     error = null;
     await _outbox.removeGoal(goal.id);

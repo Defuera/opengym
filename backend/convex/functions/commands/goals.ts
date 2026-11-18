@@ -1,4 +1,5 @@
 import { ConvexError, v } from "convex/values";
+import { internal } from "../_generated/api";
 import { mutation } from "../_generated/server";
 import { requireToken } from "../lib/auth";
 import { goalByGoalId } from "../lib/db";
@@ -25,6 +26,8 @@ export const create = mutation({
     if (await goalByGoalId(ctx, goalId)) return goalId;
     await ctx.db.insert("goals", { goalId, ...valid, status: "active", source: "user", createdAt: Date.now() });
     await markFactsChanged(ctx);
+    // The goal is stored as typed. The AI reads its structure a moment later (parse_goal); nothing waits for it.
+    await ctx.scheduler.runAfter(0, internal.jobs.parseGoal.run, { goalId, text: valid.title });
     return goalId;
   },
 });
@@ -46,8 +49,11 @@ export const update = mutation({
     const valid = parseOrThrow(GoalPatchSchema, patch, "goal");
     const old = await goalByGoalId(ctx, goalId);
     if (!old) throw new ConvexError(`goal not found: ${goalId}`);
-    await ctx.db.patch(old._id, valid);
+    // A new title makes the old structure stale: it is cleared (unless sent now) and read again from the new text.
+    const retitled = valid.title !== undefined && valid.title !== old.title;
+    await ctx.db.patch(old._id, retitled ? { kind: "custom", exercise: undefined, targetKg: undefined, sessionsPerWeek: undefined, ...valid } : valid);
     await markFactsChanged(ctx);
+    if (retitled) await ctx.scheduler.runAfter(0, internal.jobs.parseGoal.run, { goalId, text: valid.title! });
     return goalId;
   },
 });

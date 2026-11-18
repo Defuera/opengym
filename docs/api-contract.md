@@ -45,7 +45,7 @@ PlanExercise { name, sets: PlanSet[], note?: string (<=120) }
 Plan       { id, type: string /* the activity this plan is for, as the log spells it */, focus? /* the focus, when it has one */, createdAt, source: "ai" | "rules", rationale: string (<=200),
              exercises: PlanExercise[] }
 
-Goal       { id, title 1..80, kind: "strength" | "consistency" | "work_around" | "custom",
+Goal       { id, title 1..120, kind: "strength" | "consistency" | "custom",
              exercise?: string, targetKg?: number, sessionsPerWeek?: int,
              status: "active" | "done", source: "user" | "ai" | "import",
              threadId?: string, importId?: string, createdAt }
@@ -93,7 +93,7 @@ goal).
 | GET | `/v1/sessions/:id/review` | – | `{ review: Review | null }` |
 | GET | `/v1/start` | – | `{ predictions: Prediction[] }` most likely first |
 | GET | `/v1/plans/next?focus=Upper` (Convex: `queries/plans:next { activity?: string (default "Gym"), focus?, type? (legacy name of focus) }`; no focus = the advised focus of that activity) | – | `{ plan: Plan, stored: boolean }` the stored plan, else the rules plan computed now: the user's own last session of that activity and focus, or an EMPTY plan (no starter template). Never calls the AI. |
-| POST | Convex only: `commands/start:request { token, requestId, name?: 1..40, text?: 0..200 }` (at least one of `name`, `text`; a text-only request from an old client works as before) | – | the requestId. Idempotent by requestId. Stores `{requestId, text?, name?, status: "pending"}` and schedules `interpret_request`. Requests older than one day are removed. |
+| POST | Convex only: `commands/start:request { token, requestId, name?: 1..40, text?: 0..200, mode?: "today", hintType?: 1..40, hintFocus?: 0..40 }` (at least one of `name`, `text`; a text-only request from an old client works as before. With `mode: "today"` the coach picks the one session for today: `text` is the optional wish, `name` must be absent, the hint is the pick the app showed) | – | the requestId. Idempotent by requestId. Stores `{requestId, text?, name?, mode?, hintType?, hintFocus?, status: "pending"}` and schedules `interpret_request`. Requests older than one day are removed. |
 | GET | Convex only: `queries/start:request { token, requestId }` | – | `StartRequest` or `null` |
 | GET | `/v1/dashboard?days=7` | – | `{ dashboard: Dashboard }` |
 | GET | `/v1/goals` | – | `{ goals: Goal[] }` |
@@ -129,10 +129,11 @@ plans and the dashboard layout; they are regenerated in the background.
 |---|---|---|
 | `plan_session` | Plan for a session with sets for one activity (and focus) from log, goals, active context (equipment and preferences), limits | the user's last session of that activity and focus with its last sets; an EMPTY plan if there is none |
 | `predict_activity` | Prediction[] (names checked against the log by activityKey; max 2 per activity, 6 in all) | the log's activities ranked by recent use; a session with sets gets the focus done longest ago, plus a second item when the log has a second focus; empty for an empty log |
-| `interpret_request` | StartRequest proposal for a typed text: activity (a known name is reused by activityKey), focus, minutes, reason, plan | status `ready` with `{kind: "gym", type: <name as typed, else the text before the first comma>, plan: empty}`. With a `name`, the proposal `type` is always that name (the log's spelling when the key matches); the job gets `name` and `wish` (the text) as separate inputs |
+| `interpret_request` | StartRequest proposal for a typed text: activity (a known name is reused by activityKey), focus, minutes, reason, plan | status `ready` with `{kind: "gym", type: <name as typed, else the text before the first comma>, plan: empty}`. With a `name`, the proposal `type` is always that name (the log's spelling when the key matches); the job gets `name` and `wish` (the text) as separate inputs. In `today` mode the job gets `wish` and `suggestedToday` (the hint) and may change the pick; the fallback is the hint with the rules plan for it |
 | `build_dashboard` | ordered module specs | sessions, active days, top set of most-trained exercise, one goal_progress per active goal, recent_sessions |
 | `chat` | reply text + sources | fixed "AI is not configured" reply; message still stored |
 | `extract_from_chat` | new Goal[] / ContextItem[] from a user message | none extracted |
+| `parse_goal` | Structure of the user's own goal text: `{kind, exercise? (a name of the log), targetKg?, sessionsPerWeek?}`. Scheduled by `commands/goals:create`, and by `goals:update` when the title changes (the old structure is cleared first). Patches only those fields, and only while the goal exists and its title is still the text read. Never changes title or status. Derived structure, not a new fact (ADR-002) | kind stays `custom`; a number before `kg` and a number before "times/sessions a week" are read when present |
 | `title_thread` | Thread.title (<=40 chars, no quotes, no trailing period), first message only, never over a user title | first words of the first message |
 | `summarise_thread` | Thread.summary (<=400 chars) | last user message truncated |
 | `review_session` | Review | set counts and top sets vs previous session of the same activity and focus |

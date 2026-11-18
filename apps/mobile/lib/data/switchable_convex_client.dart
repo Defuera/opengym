@@ -112,8 +112,22 @@ class SwitchableConvexClient implements ConvexClient {
       _proxy((ConvexClient c) => c.watchStartRequest(requestId));
 
   @override
-  Future<void> requestStart({required String requestId, String? name, String? text}) =>
-      _call((ConvexClient c) => c.requestStart(requestId: requestId, name: name, text: text));
+  Future<void> requestStart({
+    required String requestId,
+    String? name,
+    String? text,
+    bool today = false,
+    String? hintType,
+    String? hintFocus,
+  }) =>
+      _call((ConvexClient c) => c.requestStart(
+            requestId: requestId,
+            name: name,
+            text: text,
+            today: today,
+            hintType: hintType,
+            hintFocus: hintFocus,
+          ));
 
   @override
   Stream<Stored<List<Prediction>>> watchPredictions() =>

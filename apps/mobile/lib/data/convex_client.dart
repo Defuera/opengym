@@ -126,7 +126,18 @@ abstract class ConvexClient {
   /// Asks the coach to interpret a typed "something new" start. NOT a fact:
   /// the app never queues it in the outbox. The answer arrives through
   /// [watchStartRequest]. Sending the same [requestId] again changes nothing.
-  Future<void> requestStart({required String requestId, String? name, String? text});
+  ///
+  /// With [today] the coach picks the one session for today: [text] is the
+  /// optional wish, there is no [name], and [hintType] / [hintFocus] are the
+  /// pick the user saw.
+  Future<void> requestStart({
+    required String requestId,
+    String? name,
+    String? text,
+    bool today = false,
+    String? hintType,
+    String? hintFocus,
+  });
 
   /// The state of one start request; null while the server has none.
   Stream<StartRequest?> watchStartRequest(String requestId);
@@ -239,11 +250,21 @@ class DartvexConvexClient implements ConvexClient {
       );
 
   @override
-  Future<void> requestStart({required String requestId, String? name, String? text}) =>
+  Future<void> requestStart({
+    required String requestId,
+    String? name,
+    String? text,
+    bool today = false,
+    String? hintType,
+    String? hintFocus,
+  }) =>
       _mutate('commands/start:request', <String, dynamic>{
         'requestId': requestId,
         if (name != null) 'name': name,
         if (text != null) 'text': text,
+        if (today) 'mode': 'today',
+        if (today && hintType != null) 'hintType': hintType,
+        if (today && hintType != null && hintFocus != null) 'hintFocus': hintFocus,
       });
 
   @override

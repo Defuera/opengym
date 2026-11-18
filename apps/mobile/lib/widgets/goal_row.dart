@@ -11,6 +11,7 @@ class GoalRow extends StatelessWidget {
     required this.done,
     required this.onToggleDone,
     required this.onDelete,
+    this.onTap,
   });
 
   final String title;
@@ -18,6 +19,9 @@ class GoalRow extends StatelessWidget {
   final bool done;
   final VoidCallback onToggleDone;
   final VoidCallback onDelete;
+
+  /// Tap on the text: edit the goal.
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -41,25 +45,27 @@ class GoalRow extends StatelessWidget {
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(color: OG.ink, width: 2),
                   ),
-                  child: done
-                      ? const Icon(Icons.check, size: 22, color: OG.white)
-                      : null,
+                  child: done ? const Icon(Icons.check, size: 22, color: OG.white) : null,
                 ),
               ),
             ),
           ),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Text(
-                  title,
-                  style: OG.body(size: 18, weight: FontWeight.w700).copyWith(
-                    decoration: done ? TextDecoration.lineThrough : null,
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: onTap,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(
+                    title,
+                    style: OG.body(size: 18, weight: FontWeight.w700).copyWith(
+                          decoration: done ? TextDecoration.lineThrough : null,
+                        ),
                   ),
-                ),
-                if (detail.isNotEmpty) Text(detail, style: OG.muted(size: 14)),
-              ],
+                  if (detail.isNotEmpty) Text(detail, style: OG.muted(size: 14)),
+                ],
+              ),
             ),
           ),
           GestureDetector(

@@ -485,3 +485,62 @@ describe("interpret input", () => {
     expect(buildInterpretInput("something new", log, [], [], [], NOW)).toMatchObject({ sessions: [], rules: { exercises: [] } });
   });
 });
+
+describe("start request in today mode", () => {
+  const plan = (n: string) => ({ rationale: "r", exercises: [{ name: n, sets: [{ reps: 10, kg: 0, max: false }] }] });
+  const today = (requestId: string, extra: Record<string, unknown> = {}) => t.mutation(api.commands.start.request, { token: TOKEN, requestId, mode: "today", ...extra } as never);
+  const seed = () => save(setsSession("h", NOW - 3 * DAY, "Gym", "Legs", [{ name: "Squat", sets: [{ reps: 5, kg: 100, max: false }] }]));
+
+  it("validates: no name, wish max 200, hint 1..40, hint only with today; the wish is optional", async () => {
+    await expect(today("t1", { name: "Home" })).rejects.toThrow(/name/);
+    await expect(today("t2", { text: "x".repeat(201) })).rejects.toThrow(/text/);
+    await expect(today("t3", { hintType: "x".repeat(41) })).rejects.toThrow(/hintType/);
+    await expect(today("t4", { hintType: " " })).rejects.toThrow(/hintType/);
+    await expect(today("t5", { hintFocus: "Legs" })).rejects.toThrow(/hintType/);
+    await expect(requestNamed("t6", "Home")).resolves.toBe("t6");
+    await expect(t.mutation(api.commands.start.request, { token: TOKEN, requestId: "t7", text: "x", hintType: "Gym" } as never)).rejects.toThrow(/mode today/);
+    await today("t8");
+    await today("t9", { text: " easy ", hintType: " Gym ", hintFocus: "Legs" });
+    expect(await t.run((c) => c.db.query("startRequests").collect())).toHaveLength(3);
+    expect(await t.run((c) => c.db.query("startRequests").withIndex("by_requestId", (q) => q.eq("requestId", "t9")).first())).toMatchObject({ mode: "today", text: "easy", hintType: "Gym", hintFocus: "Legs", status: "pending" });
+    await settle(t);
+  });
+
+  it("the job input has the wish and suggestedToday; the AI may change the type; no name is forced", async () => {
+    await seed();
+    const calls = stubOpenAi((job) => (job === "interpret_request" ? JSON.stringify({ kind: "gym", type: "Gym", focus: "Upper", plan: plan("Bench press") }) : "{}"));
+    await today("t1", { text: "left hand is sore", hintType: "Gym", hintFocus: "Legs" });
+    await settle(t);
+    const input = calls.find((c) => c.job === "interpret_request")!.input;
+    expect(input).toMatchObject({ wish: "left hand is sore", suggestedToday: { type: "Gym", focus: "Legs" } });
+    expect(input.request).toBeUndefined();
+    expect(input.recentLogOfBestMatch).toBeDefined();
+    expect(await getRequest("t1")).toMatchObject({ status: "ready", proposal: { type: "Gym", focus: "Upper", plan: { source: "ai" } } });
+  });
+
+  it("buildInterpretInput: recent sessions of the hinted activity, rules plan for the hinted focus", () => {
+    const log = [model("1", 9, "Home"), model("2", 5, "Gym", "Legs"), model("3", 1, "Home")];
+    const i = buildInterpretInput("", log, [], [], [], NOW, undefined, { mode: "today", hint: { type: "gym", focus: "Legs" } });
+    expect(i).toMatchObject({ mode: "today", bestMatch: "Gym", hint: { type: "gym", focus: "Legs" } });
+    expect(i.sessions.map((s) => s.id)).toEqual(["2"]);
+  });
+
+  it("the fallback uses the hint with the rules plan, not an empty plan", async () => {
+    await seed();
+    stubOpenAi(() => "not json");
+    await today("f1", { hintType: "gym", hintFocus: "Legs" });
+    await settle(t);
+    const r = await getRequest("f1");
+    expect(r).toMatchObject({ status: "ready", proposal: { kind: "gym", type: "Gym", focus: "Legs", plan: { source: "rules" } } });
+    expect(r!.proposal!.plan).toBeDefined();
+    expect(fallbackProposal({ text: "", known: [], mode: "today", hint: { type: "Home" } })).toMatchObject({ type: "Home", plan: { exercises: [] } });
+  });
+
+  it("the interpret prompt branches: today differs from the name and typed branches", () => {
+    const base = { text: "", known: [], sessions: [], goals: [], lately: [], now: NOW, context: [], limits: [], rules: { rationale: "", exercises: [] } };
+    const sys = (x: object) => JSON.stringify(interpretRequestJob.build({ ...base, ...x }).system);
+    expect(sys({ mode: "today" })).toContain("does not want to choose");
+    expect(sys({ name: "Home" })).not.toContain("does not want to choose");
+    expect(sys({})).not.toContain("does not want to choose");
+  });
+});

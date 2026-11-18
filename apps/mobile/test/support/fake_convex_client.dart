@@ -197,6 +197,9 @@ class FakeConvexClient implements ConvexClient {
   /// Start requests the app sent, in order: id and text.
   final List<(String, String?)> startSent = <(String, String?)>[];
   final List<String?> startNames = <String?>[];
+
+  /// Today-mode requests: (today, hintType, hintFocus), parallel to [startSent].
+  final List<(bool, String?, String?)> startToday = <(bool, String?, String?)>[];
   final Map<String, Live<StartRequest?>> startRequests = <String, Live<StartRequest?>>{};
 
   String get lastStartId => startSent.last.$1;
@@ -206,10 +209,18 @@ class FakeConvexClient implements ConvexClient {
       startRequests.putIfAbsent(lastStartId, () => Live<StartRequest?>()).set(r);
 
   @override
-  Future<void> requestStart({required String requestId, String? name, String? text}) async {
+  Future<void> requestStart({
+    required String requestId,
+    String? name,
+    String? text,
+    bool today = false,
+    String? hintType,
+    String? hintFocus,
+  }) async {
     _command('requestStart:$requestId');
     startSent.add((requestId, text));
     startNames.add(name);
+    startToday.add((today, hintType, hintFocus));
     startRequests.putIfAbsent(requestId, () => Live<StartRequest?>());
   }
 

@@ -1,11 +1,7 @@
 import 'json_util.dart';
 
-const List<String> goalKinds = <String>[
-  'strength',
-  'consistency',
-  'work_around',
-  'custom',
-];
+/// Longest goal text. Same limit as the backend (GOAL_TITLE_MAX).
+const int goalTitleMax = 120;
 
 class Goal {
   const Goal({
@@ -25,7 +21,7 @@ class Goal {
   final String id;
   final String title;
 
-  /// strength | consistency | work_around | custom
+  /// strength | consistency | custom
   final String kind;
   final String? exercise;
   final double? targetKg;

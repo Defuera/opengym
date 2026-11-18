@@ -33,7 +33,7 @@ describe("goals", () => {
   it("validates input and reports a missing goal", async () => {
     const ok = { token: TOKEN, goalId: "g", title: "x", kind: "custom" as const };
     await expect(t.mutation(api.commands.goals.create, { ...ok, title: "" })).rejects.toThrow(/title/);
-    await expect(t.mutation(api.commands.goals.create, { ...ok, title: "x".repeat(81) })).rejects.toThrow(/title/);
+    await expect(t.mutation(api.commands.goals.create, { ...ok, title: "x".repeat(121) })).rejects.toThrow(/title/);
     await expect(t.mutation(api.commands.goals.create, { ...ok, sessionsPerWeek: 15 })).rejects.toThrow(/sessionsPerWeek/);
     await expect(t.mutation(api.commands.goals.create, { ...ok, targetKg: 1001 })).rejects.toThrow(/targetKg/);
     await expect(t.mutation(api.commands.goals.update, { token: TOKEN, goalId: "nope", status: "done" })).rejects.toThrow(/not found/);

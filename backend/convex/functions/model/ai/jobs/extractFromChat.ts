@@ -26,7 +26,7 @@ export const extractFromChatJob: JobDef<ExtractInput, ExtractOutput> = {
     system: systemPrompt(
       "extract_from_chat",
       "From the user's message, extract (a) context notes: things the planner should remember, such as a body part that felt tight after an exercise, equipment limits, schedule limits; keep them as the user's own words, short, with a one-word topic (for example 'ankle'); (b) goals: only explicit wishes ('I want to bench 80 kg', 'train 3 times a week'). Extract nothing that was not said. Return empty lists when nothing qualifies. Do not add advice or medical interpretation.",
-      `{"goals": [{"title": string (max 80), "kind": "strength" | "consistency" | "work_around" | "custom", "exercise"?: string, "targetKg"?: number, "sessionsPerWeek"?: int}], "context": [{"text": string (max 300), "topic": string (max 30)}]}`,
+      `{"goals": [{"title": string (max 80), "kind": "strength" | "consistency" | "custom", "exercise"?: string, "targetKg"?: number, "sessionsPerWeek"?: int}], "context": [{"text": string (max 300), "topic": string (max 30)}]}`,
     ),
     messages: [{ role: "user", content: dataPrompt("Extract from this message.", { message: i.text, alreadyKnownContext: i.existingContext, alreadyKnownGoals: i.existingGoals }) }],
   }),

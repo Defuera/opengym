@@ -12,18 +12,12 @@ class ProposalRow extends StatelessWidget {
     required this.onTap,
     this.subtitle = '',
     this.primary = false,
-    this.onAsk,
-    this.askLabel = 'Ask for a custom session',
   });
 
   final String title;
   final String subtitle;
   final bool primary;
   final VoidCallback? onTap;
-
-  /// A small secondary action before the chevron (a pencil). Null hides it.
-  final VoidCallback? onAsk;
-  final String askLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -63,19 +57,6 @@ class ProposalRow extends StatelessWidget {
                 ],
               ),
             ),
-            if (onAsk != null)
-              Tooltip(
-                message: askLabel,
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: onAsk,
-                  child: SizedBox(
-                    width: 44,
-                    height: 44,
-                    child: Icon(Icons.edit_outlined, size: 22, color: fg),
-                  ),
-                ),
-              ),
             const SizedBox(width: 4),
             Icon(Icons.chevron_right, size: 28, color: fg),
           ],

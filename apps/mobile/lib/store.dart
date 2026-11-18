@@ -18,6 +18,9 @@ class AppStore extends ChangeNotifier {
   /// gym session or logged activity). Compose wires this to the outbox.
   void Function(String id)? onSessionSaved;
 
+  /// Called with the session id after a finished session was changed locally.
+  void Function(String id)? onSessionEdited;
+
   /// Called with the session id after a session was removed locally.
   void Function(String id)? onSessionRemoved;
 
@@ -117,10 +120,12 @@ class AppStore extends ChangeNotifier {
     return active?.exercises.any((Exercise e) => e.sets.any((SetEntry s) => s.done)) ?? false;
   }
 
-  void finish() {
+  /// Ends the open session. Returns the id of the saved session, or null when
+  /// nothing was saved (no done set).
+  String? finish() {
     final Session? a = active;
     if (a == null) {
-      return;
+      return null;
     }
     final List<Exercise> kept = <Exercise>[];
     for (final Exercise e in a.exercises) {
@@ -152,6 +157,7 @@ class AppStore extends ChangeNotifier {
     _select(0);
     _commit();
     _announce(savedId);
+    return savedId;
   }
 
   void _announce(String? id) {
@@ -207,6 +213,23 @@ class AppStore extends ChangeNotifier {
 
   static bool _sameFacts(Session a, Session b) =>
       jsonEncode(a.toContractJson()) == jsonEncode(b.toContractJson());
+
+  /// Replaces a finished session by its corrected copy (same id) and tells the
+  /// outbox. The open session, timers and rest clocks are not touched. An
+  /// unknown id changes nothing.
+  void updateSession(Session s) {
+    final int i = sessions.indexWhere((Session x) => x.id == s.id);
+    if (i < 0) {
+      return;
+    }
+    sessions[i] = s;
+    sessions.sort((Session a, Session b) => a.when.compareTo(b.when));
+    _commit();
+    final void Function(String id)? cb = onSessionEdited;
+    if (cb != null) {
+      cb(s.id);
+    }
+  }
 
   /// Removes a finished session from the log and tells the outbox.
   void removeSession(String id) {

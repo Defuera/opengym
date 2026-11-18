@@ -15,6 +15,7 @@ class HomeSummary extends StatelessWidget {
     required this.period,
     this.entries = const <LogEntry>[],
     this.onOpenEntry,
+    this.onOpenSession,
   });
 
   final List<Session> sessions;
@@ -23,11 +24,17 @@ class HomeSummary extends StatelessWidget {
   /// Notes. They join the recent list, by time.
   final List<LogEntry> entries;
   final ValueChanged<LogEntry>? onOpenEntry;
+  final ValueChanged<Session>? onOpenSession;
 
   @override
   Widget build(BuildContext context) {
     if (sessions.isEmpty && entries.isNotEmpty) {
-      return HomeRecent(sessions: sessions, entries: entries, onOpenEntry: onOpenEntry);
+      return HomeRecent(
+        sessions: sessions,
+        entries: entries,
+        onOpenEntry: onOpenEntry,
+        onOpenSession: onOpenSession,
+      );
     }
     if (sessions.isEmpty) {
       return const NoteBox(
@@ -68,7 +75,12 @@ class HomeSummary extends StatelessWidget {
           style: OG.muted(),
         ),
         const SizedBox(height: 18),
-        HomeRecent(sessions: sessions, entries: entries, onOpenEntry: onOpenEntry),
+        HomeRecent(
+        sessions: sessions,
+        entries: entries,
+        onOpenEntry: onOpenEntry,
+        onOpenSession: onOpenSession,
+      ),
       ],
     );
   }

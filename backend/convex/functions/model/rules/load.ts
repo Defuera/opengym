@@ -15,22 +15,29 @@ const SECONDARY_WEIGHT = 0.5;
 /** A time exercise loads its muscles by minutes: about one set per 4 minutes. */
 export const MINUTES_PER_LOAD_SET = 4;
 
+/** Adds the weighted sets of one session to [out]. */
+function addSession(out: Record<MuscleKey, number>, s: Session): void {
+  if (s.kind === "gym") {
+    for (const e of s.exercises) {
+      const x = musclesFor(e.name);
+      const n = repEntries(e).length + totalMinutes(e) / MINUTES_PER_LOAD_SET;
+      for (const k of x.primary) out[k] += n;
+      for (const k of x.secondary) out[k] += n * SECONDARY_WEIGHT;
+    }
+  } else {
+    const a = ACTIVITY_SETS[s.type.toLowerCase()];
+    if (a) for (const k of a.muscles) out[k] += a.sets;
+  }
+}
+
+const emptySets = () => Object.fromEntries(MUSCLE_KEYS.map((k) => [k, 0])) as Record<MuscleKey, number>;
+
 /** Weighted sets per muscle for the sessions that ended in [from, to]. */
 export function setsPerMuscle(sessions: Session[], from: number, to: number): Record<MuscleKey, number> {
-  const out = Object.fromEntries(MUSCLE_KEYS.map((k) => [k, 0])) as Record<MuscleKey, number>;
+  const out = emptySets();
   for (const s of sessions) {
     if (s.endedAt < from || s.endedAt > to) continue;
-    if (s.kind === "gym") {
-      for (const e of s.exercises) {
-        const x = musclesFor(e.name);
-        const n = repEntries(e).length + totalMinutes(e) / MINUTES_PER_LOAD_SET;
-        for (const k of x.primary) out[k] += n;
-        for (const k of x.secondary) out[k] += n * SECONDARY_WEIGHT;
-      }
-    } else {
-      const a = ACTIVITY_SETS[s.type.toLowerCase()];
-      if (a) for (const k of a.muscles) out[k] += a.sets;
-    }
+    addSession(out, s);
   }
   return out;
 }
@@ -48,3 +55,10 @@ export function loadLevels(sets: Record<MuscleKey, number>): LoadMap {
 
 /** Load levels for the last `days` days up to `now`. */
 export const loadForDays = (sessions: Session[], days: number, now: number): LoadMap => loadLevels(setsPerMuscle(sessions, now - days * DAY_MS, now));
+
+/** Load levels of one session alone, by the same rule as the period load. Every muscle key is present. */
+export function loadForSession(session: Session): LoadMap {
+  const out = emptySets();
+  addSession(out, session);
+  return loadLevels(out);
+}

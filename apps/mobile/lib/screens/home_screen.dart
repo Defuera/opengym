@@ -19,6 +19,7 @@ import 'goals_screen.dart';
 import 'home_recent.dart';
 import 'home_summary.dart';
 import 'import_screen.dart';
+import 'session_recap_screen.dart';
 import 'session_screen.dart';
 import 'settings_screen.dart';
 import 'plus_sheet.dart';
@@ -59,7 +60,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _resume() {
     widget.deps.store.resume();
-    _push(SessionScreen(store: widget.deps.store));
+    _push(SessionScreen(store: widget.deps.store, deps: widget.deps));
   }
 
   String get _statusText {
@@ -84,6 +85,10 @@ class _HomeScreenState extends State<HomeScreen> {
     _push(EntryScreen(deps: widget.deps, entryId: e.id));
   }
 
+  void _openSession(Session s) {
+    _push(SessionRecapScreen(deps: widget.deps, sessionId: s.id));
+  }
+
   /// The server draws the dashboard, but it does not know the notes. With
   /// notes present, the app draws the recent list itself, from the sessions
   /// and the notes by time, in place of the server's list.
@@ -94,9 +99,16 @@ class _HomeScreenState extends State<HomeScreen> {
     if (d.connection.connected && dash != null && dash.modules.isNotEmpty) {
       return DashboardView(
         dashboard: dash,
-        recent: notes.isEmpty
+        // The server list has no session ids, so the app draws the list when it
+        // holds sessions or notes: every row can open.
+        recent: (notes.isEmpty && d.store.sessions.isEmpty)
             ? null
-            : HomeRecent(sessions: d.store.sessions, entries: notes, onOpenEntry: _openEntry),
+            : HomeRecent(
+                sessions: d.store.sessions,
+                entries: notes,
+                onOpenEntry: _openEntry,
+                onOpenSession: _openSession,
+              ),
       );
     }
     return HomeSummary(
@@ -104,6 +116,7 @@ class _HomeScreenState extends State<HomeScreen> {
       period: _period,
       entries: notes,
       onOpenEntry: _openEntry,
+      onOpenSession: _openSession,
     );
   }
 

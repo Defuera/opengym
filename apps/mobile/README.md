@@ -97,6 +97,24 @@ End-to-end check against a deployment: see `tool/convex_trial.dart`.
   note by `at`, a session by its end. On the server dashboard the app list
   replaces the server `recent_sessions` module when notes exist. A tap opens
   `screens/entry_screen.dart` (full text, photos, files, Edit, Delete).
+- Session recap and edit: a tap on a finished session (Home "Recent", and the end
+  of Finish session) opens `screens/session_recap_screen.dart`: activity, focus,
+  date, start and duration (hidden for `source` "import", its times are not
+  real), every exercise with all its sets (`widgets/recap_exercise_card.dart`,
+  words in `session_text.dart`), the note, the coach review of that session
+  (its own `ReviewStore`, the card without a close button) and the body figure
+  coloured by what that session loaded (`SessionLoadStore`, query
+  `queries/sessions:load`; no figure offline). Edit opens
+  `screens/session_edit_screen.dart`: sets, add and remove a set or an exercise
+  (the exercise picker), note, focus, date, start time and duration; an activity
+  session edits minutes, distance, note and date. It reuses `SetList` and
+  `TimeList` through `session_edit_parts.dart` and starts no timer, rest clock
+  or active session. Save calls `AppStore.updateSession` (same id; `kind`,
+  `source`, `importId` unchanged), which sends the session through the outbox
+  like a new one (`onSessionEdited`: no review card on Home, no limit question).
+  Leaving with changes asks first. Delete asks in a sheet, then
+  `AppStore.removeSession`. Home draws its own Recent list whenever there are
+  sessions or notes, because the server list has no session ids.
 - Composition: `lib/app/compose.dart` is the only place that picks real
   implementations; `lib/app/deps.dart` bundles them for the screens.
 - Widgets: `lib/widgets/` are standalone. They import only Flutter, `theme.dart`

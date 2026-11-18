@@ -1,6 +1,8 @@
 import { v } from "convex/values";
 import { query } from "../_generated/server";
 import { requireToken } from "../lib/auth";
+import { sessionBySessionId, toSession } from "../lib/db";
+import { loadForSession } from "../model/rules/load";
 import { normalizeSession } from "../model/sessionShape";
 
 /**
@@ -23,5 +25,18 @@ export const since = query({
     requireToken(token);
     const docs = await ctx.db.query("sessions").withIndex("by_endedAt", (q) => q.gt("endedAt", since)).order("asc").collect();
     return docs.map(normalizeSession);
+  },
+});
+
+/**
+ * What one session loaded, for the body figure on its recap: muscle key -> level 0..3, every muscle key present.
+ * Same level rule as the "About me" load (the busiest muscle of this session is the top). Null when the session does not exist.
+ */
+export const load = query({
+  args: { token: v.string(), sessionId: v.string() },
+  handler: async (ctx, { token, sessionId }) => {
+    requireToken(token);
+    const doc = await sessionBySessionId(ctx, sessionId);
+    return doc ? loadForSession(toSession(doc)) : null;
   },
 });

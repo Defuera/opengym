@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../app/deps.dart';
 import '../models.dart';
 import '../planner.dart';
 import '../store.dart';
@@ -11,17 +12,29 @@ import '../widgets/exercise_picker.dart';
 import '../widgets/og_button.dart';
 import '../widgets/og_icon_button.dart';
 import 'session_parts.dart';
+import 'session_recap_screen.dart';
 
 class SessionScreen extends StatelessWidget {
   const SessionScreen({
     super.key,
     required this.store,
+    this.deps,
   });
 
   final AppStore store;
 
-  void _leave(BuildContext context) {
-    Navigator.of(context).popUntil((Route<dynamic> r) => r.isFirst);
+  /// With [deps], finishing a session ends on its recap. Without, on Home.
+  final AppDeps? deps;
+
+  void _leave(BuildContext context, {String? recapId}) {
+    final NavigatorState nav = Navigator.of(context);
+    nav.popUntil((Route<dynamic> r) => r.isFirst);
+    final AppDeps? d = deps;
+    if (recapId != null && d != null) {
+      nav.push(MaterialPageRoute<void>(
+        builder: (BuildContext c) => SessionRecapScreen(deps: d, sessionId: recapId),
+      ));
+    }
   }
 
   Future<void> _close(BuildContext context) async {
@@ -42,15 +55,16 @@ class SessionScreen extends StatelessWidget {
         ),
       ],
     );
+    String? saved;
     if (choice == 'finish') {
-      store.finish();
+      saved = store.finish();
     } else if (choice == 'discard') {
       store.discard();
     } else {
       return;
     }
     if (context.mounted) {
-      _leave(context);
+      _leave(context, recapId: saved);
     }
   }
 
@@ -166,8 +180,7 @@ class SessionScreen extends StatelessWidget {
       label: 'Finish session',
       icon: Icons.check,
       onPressed: () {
-        store.finish();
-        _leave(context);
+        _leave(context, recapId: store.finish());
       },
     );
   }

@@ -1,3 +1,4 @@
+import '../data/convex_client.dart';
 import '../data/pickers.dart';
 import '../data/outbox.dart';
 import '../store.dart';
@@ -16,6 +17,7 @@ import '../stores/review_store.dart';
 /// Everything the screens need, created once in compose.dart.
 class AppDeps {
   const AppDeps({
+    required this.client,
     required this.store,
     required this.connection,
     required this.outbox,
@@ -32,6 +34,8 @@ class AppDeps {
     required this.aiModel,
   });
 
+  /// The gateway, for screens that follow one record (the session recap).
+  final ConvexClient client;
   final AppStore store;
   final ConnectionStore connection;
   final Outbox outbox;

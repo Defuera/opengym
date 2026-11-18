@@ -45,6 +45,7 @@ Future<AppDeps> testDeps(
   );
   final AboutRepository aboutRepo = InMemoryAboutRepository();
   return AppDeps(
+    client: fake,
     store: store,
     connection: connection,
     outbox: outbox,

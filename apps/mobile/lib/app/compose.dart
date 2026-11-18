@@ -67,6 +67,13 @@ Future<AppDeps> compose() async {
       reviews.watch(id);
     }
   };
+  // A corrected past session: same id, same save path. No review card, no question.
+  store.onSessionEdited = (String id) {
+    final session = store.sessionById(id);
+    if (session != null) {
+      unawaited(outbox.saveSession(session));
+    }
+  };
   store.onSessionRemoved = (String id) => unawaited(outbox.removeSession(id));
   imports.onUndone = store.removeImported;
 
@@ -82,6 +89,7 @@ Future<AppDeps> compose() async {
   dashboard.select(7);
 
   final AppDeps deps = AppDeps(
+    client: client,
     store: store,
     connection: connection,
     outbox: outbox,

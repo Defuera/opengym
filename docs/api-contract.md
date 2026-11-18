@@ -183,6 +183,14 @@ A log entry is a free note with a time and any number of attached files. It has 
 
 Upload uses `commands/files:generateUploadUrl` and `commands/files:register`, as for chat.
 
+**Session recap.**
+
+| Function | Args | Returns |
+|---|---|---|
+| query `queries/sessions:load` | `{ token, sessionId }` | What one session loaded, for the body figure on its recap: `Record<muscleKey, 0 \| 1 \| 2 \| 3>` with every muscle key present, or `null` when the session is unknown. It uses the exercise-to-muscle table and the same level rule as the "About me" load (the busiest muscle of this session is the top: share >= 0.6 is 3, >= 0.25 is 2, above 0 is 1; a time exercise counts one set per 4 minutes). The code is shared (`model/rules/load.ts`, `loadForSession`). Additive: no stored row changes |
+
+A past session is corrected with the same `commands/sessions:save` (an idempotent upsert by `sessionId`): the app sends the full session again with its `sessionId`, `kind`, `source` and `importId` unchanged. A changed session schedules a new review. `commands/sessions:remove` deletes it.
+
 Coach: `coachPicture` (the `build_session` input) has a field `logEntriesFromTheUser`: the entries of the last 7 days, oldest first, at most 20, each `{ date, time, text, attachments: number }`. The chat context lists the same entries. The image files of entries of the last 24 hours (at most 4, newest first) go with the `build_session` request and the chat request when the provider takes images; DeepSeek has no image input, so no image is sent there.
 
 ## Coach model (Convex backend)

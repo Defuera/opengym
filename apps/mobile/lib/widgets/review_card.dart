@@ -9,12 +9,15 @@ class ReviewCard extends StatelessWidget {
     super.key,
     required this.summary,
     required this.changes,
-    required this.onDismiss,
+    this.onDismiss,
+    this.title = 'Last session',
   });
 
   final String summary;
   final List<String> changes;
-  final VoidCallback onDismiss;
+  /// Null hides the close button (the card is part of a screen, not a banner).
+  final VoidCallback? onDismiss;
+  final String title;
 
   @override
   Widget build(BuildContext context) {
@@ -39,15 +42,17 @@ class ReviewCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
-                Text('Last session', style: OG.muted(size: 14, weight: FontWeight.w600)),
+                Text(title, style: OG.muted(size: 14, weight: FontWeight.w600)),
                 const SizedBox(height: 4),
                 Text(summary, style: OG.body(weight: FontWeight.w600)),
                 ...lines,
               ],
             ),
           ),
-          const SizedBox(width: 8),
-          OgIconButton(icon: Icons.close, onPressed: onDismiss),
+          if (onDismiss != null) ...<Widget>[
+            const SizedBox(width: 8),
+            OgIconButton(icon: Icons.close, onPressed: onDismiss!),
+          ],
         ],
       ),
     );

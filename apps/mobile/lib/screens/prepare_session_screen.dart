@@ -63,7 +63,7 @@ class _PrepareSessionScreenState extends State<PrepareSessionScreen> {
     }
     Navigator.of(context).pushReplacement(
       MaterialPageRoute<void>(
-        builder: (BuildContext c) => SessionScreen(store: d.store),
+        builder: (BuildContext c) => SessionScreen(store: d.store, deps: d),
       ),
     );
   }

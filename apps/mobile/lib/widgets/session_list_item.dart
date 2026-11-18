@@ -10,7 +10,11 @@ class SessionListItem extends StatelessWidget {
     required this.subtitle,
     required this.trailing,
     this.tag,
+    this.onTap,
   });
+
+  /// Opens the session. Null: the row is not tappable.
+  final VoidCallback? onTap;
 
   /// The focus of the session ("Upper", "Easy"), shown as a small tag.
   final String? tag;
@@ -21,7 +25,7 @@ class SessionListItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    final Widget row = Container(
       decoration: ogBox(shadow: false),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       child: Row(
@@ -61,5 +65,8 @@ class SessionListItem extends StatelessWidget {
         ],
       ),
     );
+    return onTap == null
+        ? row
+        : GestureDetector(behavior: HitTestBehavior.opaque, onTap: onTap, child: row);
   }
 }

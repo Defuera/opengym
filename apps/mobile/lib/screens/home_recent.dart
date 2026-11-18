@@ -44,12 +44,16 @@ class HomeRecent extends StatelessWidget {
     required this.sessions,
     required this.entries,
     this.onOpenEntry,
+    this.onOpenSession,
     this.title = 'Recent',
   });
 
   final List<Session> sessions;
   final List<LogEntry> entries;
   final ValueChanged<LogEntry>? onOpenEntry;
+
+  /// Opens the recap of a finished session.
+  final ValueChanged<Session>? onOpenSession;
   final String title;
 
   @override
@@ -93,6 +97,7 @@ class HomeRecent extends StatelessWidget {
       title: s.type,
       tag: s.focus,
       subtitle: whenLabel(s.endedAt ?? s.startedAt),
+      onTap: onOpenSession == null ? null : () => onOpenSession!(s),
       trailing: gym ? _gymTrailing(n, timed) : _activityTrailing(s),
     );
   }

@@ -51,6 +51,18 @@ List<Message> decodeMessages(Object? v) => _list(v, decodeMessage);
 
 AiSettings decodeAiSettings(Object? v) => AiSettings.fromJson(asMap(normalize(v)));
 
+/// The answer of `queries/sessions:load`: muscle key -> level, or null.
+Map<String, int>? decodeSessionLoad(Object? v) {
+  if (v == null) {
+    return null;
+  }
+  final Map<String, dynamic> m = asMap(normalize(v));
+  return <String, int>{
+    for (final MapEntry<String, dynamic> e in m.entries)
+      if (e.value is num) e.key: (e.value as num).toInt(),
+  };
+}
+
 AboutMe decodeAboutMe(Object? v) => AboutMe.fromJson(normalize(v));
 List<AskItem> decodeAskAfter(Object? v) => _list(v, (Object? e) => AskItem.fromJson(normalize(e)));
 

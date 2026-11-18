@@ -10,7 +10,7 @@ import 'session_screen.dart';
 
 Route<void> _route(Widget screen) => MaterialPageRoute<void>(builder: (BuildContext c) => screen);
 
-SessionScreen _session(AppDeps d) => SessionScreen(store: d.store);
+SessionScreen _session(AppDeps d) => SessionScreen(store: d.store, deps: d);
 
 /// A stored proposal: the prepared session of [activity] + [focus]. An open
 /// session is resumed; offline (or with no focus) it starts from the local

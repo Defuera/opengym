@@ -43,6 +43,9 @@ abstract class ConvexClient {
 
   /// The value is null while the session is not on the server.
   Stream<Stored<Review?>> watchReview(String sessionId);
+
+  /// What one session loaded: muscle key -> level 0..3 (`queries/sessions:load`). Null: no such session.
+  Stream<Map<String, int>?> watchSessionLoad(String sessionId);
   Stream<List<ImportJob>> watchImports();
 
   /// Limits (with rules, records, check-ins), body load and focus parts.
@@ -306,6 +309,10 @@ class DartvexConvexClient implements ConvexClient {
   @override
   Stream<Stored<Review?>> watchReview(String sessionId) =>
       _watch('queries/reviews:get', <String, dynamic>{'sessionId': sessionId}, decodeReview);
+
+  @override
+  Stream<Map<String, int>?> watchSessionLoad(String sessionId) =>
+      _watch('queries/sessions:load', <String, dynamic>{'sessionId': sessionId}, decodeSessionLoad);
 
   @override
   Stream<List<ImportJob>> watchImports() =>

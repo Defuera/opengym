@@ -150,6 +150,10 @@ class SwitchableConvexClient implements ConvexClient {
       _proxy((ConvexClient c) => c.watchReview(sessionId));
 
   @override
+  Stream<Map<String, int>?> watchSessionLoad(String sessionId) =>
+      _proxy((ConvexClient c) => c.watchSessionLoad(sessionId));
+
+  @override
   Stream<List<ImportJob>> watchImports() => _proxy((ConvexClient c) => c.watchImports());
 
   @override

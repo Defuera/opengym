@@ -24,6 +24,7 @@ Future<(FakeConvexClient, AppDeps, FakePickers)> _openForm(WidgetTester t,
   final AppDeps base = await testDeps(fake, connected: connected);
   final FakePickers pickers = FakePickers();
   final AppDeps d = AppDeps(
+    client: base.client,
     store: base.store,
     connection: base.connection,
     outbox: base.outbox,

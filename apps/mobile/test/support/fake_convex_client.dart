@@ -85,6 +85,7 @@ class FakeConvexClient implements ConvexClient {
   final Live<List<ImportJob>> _imports = Live<List<ImportJob>>(<ImportJob>[]);
   final Map<String, Live<Stored<Plan>>> plans = <String, Live<Stored<Plan>>>{};
   final Map<int, Live<Stored<Dashboard>>> dashboards = <int, Live<Stored<Dashboard>>>{};
+  final Map<String, Live<Map<String, int>?>> loads = <String, Live<Map<String, int>?>>{};
   final Map<String, Live<Stored<Review?>>> reviews = <String, Live<Stored<Review?>>>{};
   final StreamController<ConvexLink> link = StreamController<ConvexLink>.broadcast(sync: true);
   ConvexLink linkNow = ConvexLink.connected;
@@ -285,6 +286,10 @@ class FakeConvexClient implements ConvexClient {
   @override
   Stream<Stored<Review?>> watchReview(String sessionId) =>
       reviews.putIfAbsent(sessionId, () => Live<Stored<Review?>>()).stream();
+
+  @override
+  Stream<Map<String, int>?> watchSessionLoad(String sessionId) =>
+      loads.putIfAbsent(sessionId, () => Live<Map<String, int>?>()).stream();
 
   @override
   Stream<List<ImportJob>> watchImports() => _imports.stream();

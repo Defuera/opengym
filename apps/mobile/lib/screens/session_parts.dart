@@ -4,6 +4,7 @@ import '../models.dart';
 import '../planner.dart';
 import '../store.dart';
 import '../stores/exercise_art_store.dart';
+import '../widgets/choice_sheet.dart';
 import '../widgets/exercise_anim.dart';
 import '../widgets/exercise_card.dart';
 import '../widgets/exercise_carousel.dart';
@@ -35,7 +36,12 @@ class ExerciseStrip extends StatelessWidget {
         progressLabel: '$done / ${e.sets.length}',
         state: i == store.curEx ? ItemState.current : (fin ? ItemState.finished : ItemState.idle),
         onTap: () => store.pickExercise(i),
-        onDiscard: () => store.discardExercise(i),
+        onDiscard: () async {
+          final bool ok = await confirmDelete(context, title: 'Remove this exercise?', label: 'Remove exercise');
+          if (ok && context.mounted) {
+            store.discardExercise(i);
+          }
+        },
       ));
     }
     return ExerciseCarousel(

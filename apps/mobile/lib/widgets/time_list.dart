@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../theme.dart';
+import 'choice_sheet.dart';
 import 'set_check.dart';
 import 'set_editor_card.dart';
 import 'set_row.dart';
@@ -86,7 +87,12 @@ class TimeList extends StatelessWidget {
       items.add(Dismissible(
         key: ObjectKey(x.id),
         direction: DismissDirection.endToStart,
-        confirmDismiss: (DismissDirection d) async => entries.length > 1,
+        confirmDismiss: (DismissDirection d) async {
+          if (entries.length <= 1) {
+            return false;
+          }
+          return confirmDelete(context, title: 'Delete this entry?', label: 'Delete entry');
+        },
         onDismissed: (DismissDirection d) => onRemove(i),
         background: Container(
           color: OG.soft,

@@ -53,3 +53,23 @@ Future<String?> showChoiceSheet(
     title: title,
   );
 }
+
+/// The one confirm step before any delete. Returns true only when the user
+/// taps the delete button; closing the sheet or tapping "Keep it" returns false.
+Future<bool> confirmDelete(
+  BuildContext context, {
+  required String title,
+  required String label,
+  String? message,
+}) async {
+  final String? c = await showChoiceSheet(
+    context,
+    title: title,
+    message: message,
+    choices: <SheetChoice>[
+      SheetChoice(value: 'delete', label: label, key: const ValueKey<String>('confirm-delete')),
+      const SheetChoice(value: 'keep', label: 'Keep it', variant: OgVariant.dashed),
+    ],
+  );
+  return c == 'delete';
+}

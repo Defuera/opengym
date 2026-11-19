@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../theme.dart';
+import 'choice_sheet.dart';
 import 'set_editor_card.dart';
 import 'set_row.dart';
 
@@ -121,7 +122,12 @@ class _SetListState extends State<SetList> {
       items.add(Dismissible(
         key: ObjectKey(x.id),
         direction: DismissDirection.endToStart,
-        confirmDismiss: (DismissDirection d) async => widget.sets.length > 1,
+        confirmDismiss: (DismissDirection d) async {
+          if (widget.sets.length <= 1) {
+            return false;
+          }
+          return confirmDelete(context, title: 'Delete this set?', label: 'Delete set');
+        },
         onDismissed: (DismissDirection d) => widget.onRemove(i),
         background: Container(
           color: OG.soft,

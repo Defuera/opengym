@@ -6,6 +6,7 @@ import '../planner.dart';
 import '../stores/connection_store.dart';
 import '../stores/goals_store.dart';
 import '../theme.dart';
+import '../widgets/choice_sheet.dart';
 import '../widgets/cta_button.dart';
 import '../widgets/goal_row.dart';
 import '../widgets/note_box.dart';
@@ -40,6 +41,13 @@ class _GoalsScreenState extends State<GoalsScreen> {
     await widget.deps.goals.retitle(g, text);
   }
 
+  Future<void> _delete(Goal g) async {
+    final bool ok = await confirmDelete(context, title: 'Delete this goal?', label: 'Delete goal');
+    if (ok && mounted) {
+      await widget.deps.goals.remove(g);
+    }
+  }
+
   String _detail(Goal g) {
     final List<String> parts = <String>[goalKindLabel(g.kind)];
     if (g.exercise != null) {
@@ -68,7 +76,7 @@ class _GoalsScreenState extends State<GoalsScreen> {
             detail: _detail(g),
             done: g.done,
             onToggleDone: () => goals.markDone(g),
-            onDelete: () => goals.remove(g),
+            onDelete: () => _delete(g),
             onTap: () => _edit(g),
           ));
           rows.add(const SizedBox(height: 10));

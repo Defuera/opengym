@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:opengym/widgets/exercise_card.dart';
 import 'package:opengym/widgets/exercise_carousel.dart';
 import 'package:opengym/widgets/set_list.dart';
+import 'package:opengym/widgets/time_list.dart';
 
 Widget _wrap(Widget child) => MaterialApp(
       home: Scaffold(body: SingleChildScrollView(child: child)),
@@ -75,7 +76,56 @@ void main() {
     await t.pumpWidget(_list(sets: _data(), onRemove: removed.add));
     await t.drag(_rich('6 × 70 kg'), const Offset(-400, 0));
     await t.pumpAndSettle();
+    expect(find.text('Delete this set?'), findsOneWidget);
+    expect(removed, isEmpty);
+    await t.tap(find.byKey(const ValueKey<String>('confirm-delete')));
+    await t.pumpAndSettle();
     expect(removed, <int>[2]);
+  });
+
+  testWidgets('swipe left, then Keep it or closing the sheet keeps the row', (WidgetTester t) async {
+    final List<int> removed = <int>[];
+    await t.pumpWidget(_list(sets: _data(), onRemove: removed.add));
+    await t.drag(_rich('6 × 70 kg'), const Offset(-400, 0));
+    await t.pumpAndSettle();
+    await t.tap(find.text('Keep it'));
+    await t.pumpAndSettle();
+    expect(removed, isEmpty);
+    expect(_rich('6 × 70 kg'), findsOneWidget);
+    await t.drag(_rich('6 × 70 kg'), const Offset(-400, 0));
+    await t.pumpAndSettle();
+    await t.tap(find.byKey(const ValueKey<String>('og-sheet-close')));
+    await t.pumpAndSettle();
+    expect(removed, isEmpty);
+    expect(_rich('6 × 70 kg'), findsOneWidget);
+  });
+
+  testWidgets('time list: swipe asks "Delete this entry?", both outcomes', (WidgetTester t) async {
+    final List<int> removed = <int>[];
+    await t.pumpWidget(_wrap(TimeList(
+      entries: const <TimeRowData>[
+        TimeRowData(id: 'a', minutes: 10),
+        TimeRowData(id: 'b', minutes: 20),
+        TimeRowData(id: 'c', minutes: 30),
+      ],
+      selected: 2,
+      onSelect: (int _) {},
+      onAdd: () {},
+      onRemove: removed.add,
+      onMinutesChanged: (double _) {},
+      onDistanceChanged: (double? _) {},
+    )));
+    await t.drag(find.text('10 min'), const Offset(-400, 0));
+    await t.pumpAndSettle();
+    expect(find.text('Delete this entry?'), findsOneWidget);
+    await t.tap(find.text('Keep it'));
+    await t.pumpAndSettle();
+    expect(removed, isEmpty);
+    await t.drag(find.text('10 min'), const Offset(-400, 0));
+    await t.pumpAndSettle();
+    await t.tap(find.byKey(const ValueKey<String>('confirm-delete')));
+    await t.pumpAndSettle();
+    expect(removed, <int>[0]);
   });
 
   testWidgets('the only set cannot be swiped away', (WidgetTester t) async {

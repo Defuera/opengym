@@ -183,6 +183,17 @@ class _SessionScreenState extends State<SessionScreen> {
     } else if (choice == 'finish') {
       saved = store.finish();
     } else if (choice == 'discard') {
+      if (!context.mounted) {
+        return;
+      }
+      final bool ok = await confirmDelete(
+        context,
+        title: 'Discard this session?',
+        label: 'Discard session',
+      );
+      if (!ok) {
+        return;
+      }
       store.discard();
     } else {
       return;

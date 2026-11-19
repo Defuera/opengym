@@ -83,7 +83,33 @@ void main() {
     await t.ensureVisible(find.text('Remove rule'));
     await t.tap(find.text('Remove rule'));
     await t.pumpAndSettle();
+    expect(find.text('Delete this rule?'), findsOneWidget);
+    expect(_knee(repo).rules.length, 3);
+    await t.tap(find.byKey(const ValueKey<String>('confirm-delete')));
+    await t.pumpAndSettle();
     expect(_knee(repo).rules.length, 2);
+  });
+
+  testWidgets('Keep it keeps the rule and the record', (WidgetTester t) async {
+    final InMemoryAboutRepository repo = await _open(t);
+    final int rules = _knee(repo).rules.length;
+    await t.tap(find.text(_knee(repo).rules.first.text));
+    await t.pumpAndSettle();
+    await t.ensureVisible(find.text('Remove rule'));
+    await t.tap(find.text('Remove rule'));
+    await t.pumpAndSettle();
+    await t.tap(find.text('Keep it'));
+    await t.pumpAndSettle();
+    expect(_knee(repo).rules.length, rules);
+
+    await t.tap(find.text('Scan report · 12 Oct 2026'));
+    await t.pumpAndSettle();
+    await t.tap(find.text('Remove record'));
+    await t.pumpAndSettle();
+    expect(find.text('Delete this record?'), findsOneWidget);
+    await t.tap(find.text('Keep it'));
+    await t.pumpAndSettle();
+    expect(_knee(repo).records.length, 1);
   });
 
   testWidgets('add a record word for word, read it in full, remove it', (WidgetTester t) async {
@@ -108,6 +134,10 @@ void main() {
     await t.pumpAndSettle();
     expect(find.text('Remove record'), findsOneWidget);
     await t.tap(find.text('Remove record'));
+    await t.pumpAndSettle();
+    expect(find.text('Delete this record?'), findsOneWidget);
+    expect(_knee(repo).records.length, 2);
+    await t.tap(find.byKey(const ValueKey<String>('confirm-delete')));
     await t.pumpAndSettle();
     expect(_knee(repo).records.length, 1);
   });

@@ -276,11 +276,26 @@ void main() {
     testWidgets('remove an exercise, save', (WidgetTester t) async {
       final (FakeConvexClient _, AppDeps d) = await _open(t, _gym(), openEdit: true);
       await t.tap(_key('edit-remove-e2'));
-      await t.pump();
+      await t.pumpAndSettle();
+      expect(find.text('Remove this exercise?'), findsOneWidget);
+      await t.tap(find.byKey(const ValueKey<String>('confirm-delete')));
+      await t.pumpAndSettle();
       await t.tap(find.text('Save'));
       await t.pumpAndSettle();
       await _outbox(t);
       expect(d.store.sessionById('s1')!.exercises.map((Exercise e) => e.name), <String>['Bench press']);
+    });
+
+    testWidgets('Keep it keeps the exercise', (WidgetTester t) async {
+      final (FakeConvexClient _, AppDeps d) = await _open(t, _gym(), openEdit: true);
+      await t.tap(_key('edit-remove-e2'));
+      await t.pumpAndSettle();
+      await t.tap(find.text('Keep it'));
+      await t.pumpAndSettle();
+      await t.tap(find.text('Save'));
+      await t.pumpAndSettle();
+      await _outbox(t);
+      expect(d.store.sessionById('s1')!.exercises.length, 2);
     });
 
     testWidgets('add and remove a set', (WidgetTester t) async {
@@ -290,6 +305,9 @@ void main() {
       expect(find.text('Set 3'), findsOneWidget);
       // swipe the second row away (the third is the open editor)
       await t.drag(find.text('6½ × 70 kg', findRichText: true), const Offset(-600, 0));
+      await t.pumpAndSettle();
+      expect(find.text('Delete this set?'), findsOneWidget);
+      await t.tap(find.byKey(const ValueKey<String>('confirm-delete')));
       await t.pumpAndSettle();
       await t.tap(find.text('Save'));
       await t.pumpAndSettle();

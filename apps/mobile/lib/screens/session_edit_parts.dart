@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models.dart';
 import '../planner.dart';
 import '../theme.dart';
+import '../widgets/choice_sheet.dart';
 import '../widgets/og_icon_button.dart';
 import '../widgets/set_list.dart';
 import '../widgets/time_list.dart';
@@ -105,7 +106,16 @@ class ExerciseEditor extends StatelessWidget {
               OgIconButton(
                 key: ValueKey<String>('edit-remove-${exercise.id}'),
                 icon: Icons.delete_outline,
-                onPressed: onRemove,
+                onPressed: () async {
+                  final bool ok = await confirmDelete(
+                    context,
+                    title: 'Remove this exercise?',
+                    label: 'Remove exercise',
+                  );
+                  if (ok && context.mounted) {
+                    onRemove();
+                  }
+                },
               ),
             ],
           ),

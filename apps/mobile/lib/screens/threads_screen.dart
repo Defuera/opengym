@@ -4,6 +4,7 @@ import '../app/deps.dart';
 import '../models.dart';
 import '../stores/coach_store.dart';
 import '../theme.dart';
+import '../widgets/choice_sheet.dart';
 import '../widgets/cta_button.dart';
 import '../widgets/note_box.dart';
 import '../widgets/og_button.dart';
@@ -76,6 +77,13 @@ class _ThreadsScreenState extends State<ThreadsScreen> {
     );
   }
 
+  Future<void> _delete(Thread t) async {
+    final bool ok = await confirmDelete(context, title: 'Delete this chat?', label: 'Delete chat');
+    if (ok && mounted) {
+      await _coach.deleteThread(t.id);
+    }
+  }
+
   Future<void> _rename(Thread t) async {
     final String? title = await showTextSheet(
       context,
@@ -106,7 +114,7 @@ class _ThreadsScreenState extends State<ThreadsScreen> {
                     : t.lastMessage,
             onTap: () => _open(t.id),
             onRename: () => _rename(t),
-            onDelete: () => coach.deleteThread(t.id),
+            onDelete: () => _delete(t),
           ));
           rows.add(const SizedBox(height: 12));
         }

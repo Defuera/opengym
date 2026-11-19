@@ -37,11 +37,15 @@ class LimitDetailScreen extends StatelessWidget {
       exercises: exercises,
       initial: index == null ? null : l.rules[index],
     );
-    if (r == null) {
+    if (r == null || !context.mounted) {
       return;
     }
     final List<LimitRule> rules = List<LimitRule>.from(l.rules);
     if (r.remove) {
+      final bool ok = await confirmDelete(context, title: 'Delete this rule?', label: 'Delete rule');
+      if (!ok || !context.mounted) {
+        return;
+      }
       rules.removeAt(index!);
     } else if (index == null) {
       if (rules.length >= 12) {
@@ -64,20 +68,24 @@ class LimitDetailScreen extends StatelessWidget {
   Future<void> _openRecord(BuildContext context, LimitRecord r) async {
     final String? res = await showRecordView(context, r);
     if (res == 'remove') {
+      if (!context.mounted) {
+        return;
+      }
+      final bool ok = await confirmDelete(context, title: 'Delete this record?', label: 'Delete record');
+      if (!ok) {
+        return;
+      }
       await about.removeRecord(r.id);
     }
   }
 
   Future<void> _delete(BuildContext context, Limit l) async {
-    final String? c = await showChoiceSheet(
+    final bool ok = await confirmDelete(
       context,
       title: 'Delete this limit?',
-      choices: const <SheetChoice>[
-        SheetChoice(value: 'delete', label: 'Delete limit, rules and records'),
-        SheetChoice(value: 'keep', label: 'Keep it', variant: OgVariant.dashed),
-      ],
+      label: 'Delete limit, rules and records',
     );
-    if (c == 'delete') {
+    if (ok) {
       await about.removeLimit(l.id);
       if (context.mounted) {
         Navigator.of(context).pop();

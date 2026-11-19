@@ -51,16 +51,13 @@ class _SessionRecapScreenState extends State<SessionRecapScreen> {
   }
 
   Future<void> _delete() async {
-    final String? c = await showChoiceSheet(
+    final bool ok = await confirmDelete(
       context,
       title: 'Delete this session?',
+      label: 'Delete session',
       message: 'It is removed from your log now and erased for good after 72 hours.',
-      choices: const <SheetChoice>[
-        SheetChoice(value: 'delete', label: 'Delete session'),
-        SheetChoice(value: 'keep', label: 'Keep it', variant: OgVariant.dashed),
-      ],
     );
-    if (c != 'delete') {
+    if (!ok) {
       return;
     }
     widget.deps.store.removeSession(widget.sessionId);

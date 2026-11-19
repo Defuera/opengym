@@ -114,8 +114,27 @@ void main() {
 
     await t.tap(find.byKey(const ValueKey<String>('pref-remove-n1')));
     await t.pumpAndSettle();
+    expect(find.text('Delete this note?'), findsOneWidget);
+    expect(notes.items.length, 2);
+    await t.tap(find.byKey(const ValueKey<String>('confirm-delete')));
+    await t.pumpAndSettle();
     expect(notes.items.length, 1);
     expect(find.text('Rowing 2.5 min, then wrist work.'), findsNothing);
+  });
+
+  testWidgets('preferences: Keep it and closing the sheet keep the note', (WidgetTester t) async {
+    final (InMemoryAboutRepository _, AboutStore _, ContextStore notes) = await _open(t);
+    await t.tap(find.byKey(const ValueKey<String>('pref-remove-n1')));
+    await t.pumpAndSettle();
+    await t.tap(find.text('Keep it'));
+    await t.pumpAndSettle();
+    expect(notes.items.length, 1);
+    await t.tap(find.byKey(const ValueKey<String>('pref-remove-n1')));
+    await t.pumpAndSettle();
+    await t.tap(find.byKey(const ValueKey<String>('og-sheet-close')));
+    await t.pumpAndSettle();
+    expect(find.text('Delete this note?'), findsNothing);
+    expect(notes.items.length, 1);
   });
 
   testWidgets('Close goes back', (WidgetTester t) async {

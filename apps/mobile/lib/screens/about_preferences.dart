@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models.dart';
 import '../stores/context_store.dart';
 import '../theme.dart';
+import '../widgets/choice_sheet.dart';
 import '../widgets/note_box.dart';
 import '../widgets/section_header.dart';
 import 'record_sheets.dart';
@@ -45,7 +46,7 @@ class AboutPreferences extends StatelessWidget {
                   children: <Widget>[
                     for (int i = 0; i < items.length; i++) ...<Widget>[
                       if (i > 0) const Divider(height: 1, thickness: 1.5, color: OG.soft),
-                      _row(items[i]),
+                      _row(context, items[i]),
                     ],
                   ],
                 ),
@@ -56,7 +57,14 @@ class AboutPreferences extends StatelessWidget {
     );
   }
 
-  Widget _row(ContextItem c) {
+  Future<void> _remove(BuildContext context, ContextItem c) async {
+    final bool ok = await confirmDelete(context, title: 'Delete this note?', label: 'Delete note');
+    if (ok && context.mounted) {
+      await notes.remove(c);
+    }
+  }
+
+  Widget _row(BuildContext context, ContextItem c) {
     final Color color = c.active ? OG.ink : OG.mute;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
@@ -89,7 +97,7 @@ class AboutPreferences extends StatelessWidget {
             key: ValueKey<String>('pref-remove-${c.id}'),
             tooltip: 'Remove',
             icon: const Icon(Icons.close, size: 20),
-            onPressed: () => notes.remove(c),
+            onPressed: () => _remove(context, c),
           ),
         ],
       ),

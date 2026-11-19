@@ -27,16 +27,13 @@ class EntryScreen extends StatelessWidget {
   }
 
   Future<void> _delete(BuildContext context) async {
-    final String? c = await showChoiceSheet(
+    final bool sure = await confirmDelete(
       context,
       title: 'Delete this note?',
+      label: 'Delete note',
       message: 'It is removed from your log now and erased for good after 72 hours, with its files.',
-      choices: const <SheetChoice>[
-        SheetChoice(value: 'delete', label: 'Delete note'),
-        SheetChoice(value: 'keep', label: 'Keep it', variant: OgVariant.dashed),
-      ],
     );
-    if (c != 'delete') {
+    if (!sure) {
       return;
     }
     final bool ok = await deps.entries.remove(entryId);

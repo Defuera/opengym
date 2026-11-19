@@ -44,6 +44,7 @@ Each part has its own dependencies. There is no root `package.json`.
 - Every AI job follows this pipeline: prompt, provider, JSON, zod validation, one retry, plain code fallback. Keep the plan safety limits (ADR-004).
 - AI prompts carry no wording safeguards while the owner is the only user (ADR-022, which supersedes ADR-010 for AI output for now). Do not add such rules back without the owner. The user may store his own records word for word; a record never goes to an AI provider (ADR-015).
 - Keep files small and modular. Keep Flutter widgets standalone: `lib/widgets` imports only Flutter, `theme.dart` and other widgets.
+- Every delete in the app asks first: a confirm sheet (`confirmDelete` in `lib/widgets/choice_sheet.dart`) before anything is deleted or discarded (owner's rule, 2026-11-19). Removing a file from an unsent draft is not a delete.
 - Access data only through repositories. They are interfaces, so the store can change later.
 - `docs/api-contract.md` is the contract between backend and app. Change it only together with both sides.
 - Write prose in short sentences, active voice, plain words. Name a rule by what it says, not by a code alone.

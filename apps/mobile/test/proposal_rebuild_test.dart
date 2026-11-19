@@ -243,8 +243,55 @@ void main() {
     expect(find.text('Discard session'), findsOneWidget);
     await t.tap(find.text('Discard session'));
     await t.pumpAndSettle();
+    expect(find.text('Discard this session?'), findsOneWidget);
+    expect(d.store.active, isNotNull);
+    await t.tap(find.byKey(const ValueKey<String>('confirm-delete')));
+    await t.pumpAndSettle();
     expect(d.store.active, isNull);
     expect(find.byType(SessionScreen), findsNothing);
+  });
+
+  testWidgets('Discard asks first: Keep it and closing the sheet keep the session', (WidgetTester t) async {
+    final (FakeConvexClient _, AppDeps d) = await _openProposal(t);
+    await t.tap(find.byIcon(Icons.arrow_back));
+    await t.pumpAndSettle();
+    await t.tap(find.text('Discard session'));
+    await t.pumpAndSettle();
+    await t.tap(find.text('Keep it'));
+    await t.pumpAndSettle();
+    expect(d.store.active, isNotNull);
+    expect(find.byType(SessionScreen), findsOneWidget);
+    await t.tap(find.byIcon(Icons.arrow_back));
+    await t.pumpAndSettle();
+    await t.tap(find.text('Discard session'));
+    await t.pumpAndSettle();
+    await t.tap(find.byKey(const ValueKey<String>('og-sheet-close')));
+    await t.pumpAndSettle();
+    expect(d.store.active, isNotNull);
+    expect(find.byType(SessionScreen), findsOneWidget);
+  });
+
+  testWidgets('the cross on an exercise chip asks first', (WidgetTester t) async {
+    final (FakeConvexClient _, AppDeps d) = await _openProposal(t);
+    d.store.addExercise('Bench');
+    await t.pump();
+    expect(d.store.active!.exercises.length, 2);
+    await t.tap(find.byIcon(Icons.close).first);
+    await t.pumpAndSettle();
+    expect(find.text('Remove this exercise?'), findsOneWidget);
+    await t.tap(find.text('Keep it'));
+    await t.pumpAndSettle();
+    expect(d.store.active!.exercises.length, 2);
+    await t.tap(find.byIcon(Icons.close).first);
+    await t.pumpAndSettle();
+    await t.tap(find.byKey(const ValueKey<String>('og-sheet-close')));
+    await t.pumpAndSettle();
+    expect(d.store.active!.exercises.length, 2);
+    await t.tap(find.byIcon(Icons.close).first);
+    await t.pumpAndSettle();
+    await t.tap(find.byKey(const ValueKey<String>('confirm-delete')));
+    await t.pumpAndSettle();
+    expect(d.store.active!.exercises.length, 1);
   });
 
   testWidgets('Finish and save ends the session when a set is done', (WidgetTester t) async {

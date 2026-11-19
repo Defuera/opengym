@@ -113,6 +113,27 @@ void main() {
     expect(fake.serverThreads['old']!.titleSource, 'user');
   });
 
+  testWidgets('delete a thread from the list asks first', (WidgetTester t) async {
+    final (FakeConvexClient fake, _) = await _open(t, withThread: true);
+    final Finder del = find.byIcon(Icons.delete_outline);
+    await t.tap(del);
+    await t.pumpAndSettle();
+    expect(find.text('Delete this chat?'), findsOneWidget);
+    await t.tap(find.text('Keep it'));
+    await t.pumpAndSettle();
+    expect(fake.serverThreads.containsKey('old'), isTrue);
+    await t.tap(del);
+    await t.pumpAndSettle();
+    await t.tap(find.byKey(const ValueKey<String>('og-sheet-close')));
+    await t.pumpAndSettle();
+    expect(fake.serverThreads.containsKey('old'), isTrue);
+    await t.tap(del);
+    await t.pumpAndSettle();
+    await t.tap(find.byKey(const ValueKey<String>('confirm-delete')));
+    await t.pumpAndSettle();
+    expect(fake.serverThreads.containsKey('old'), isFalse);
+  });
+
   testWidgets('a tap on the messages closes the keyboard; sending keeps it open', (WidgetTester t) async {
     await _open(t);
     EditableText field() => t.widget<EditableText>(find.byType(EditableText));

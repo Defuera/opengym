@@ -45,7 +45,7 @@ class ProposalFeedback extends StatelessWidget {
               controller: controller,
               hint:
                   'Change something? For example: no water bottles, I have dumbbells',
-              maxLength: 300,
+              maxLength: 1000,
               maxLines: 4,
               minLines: 2,
               autocorrect: true,

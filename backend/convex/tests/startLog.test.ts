@@ -223,14 +223,14 @@ describe("start request", () => {
     await settle(t);
   });
 
-  it("validates text 1..200 and the token", async () => {
+  it("validates text 1..2000 and the token", async () => {
     await expect(request("r", "")).rejects.toThrow(/text/);
     await expect(request("r", "   ")).rejects.toThrow(/text/);
-    await expect(request("r", "x".repeat(201))).rejects.toThrow(/text/);
+    await expect(request("r", "x".repeat(2001))).rejects.toThrow(/text/);
     await expect(request("", "ok")).rejects.toThrow(/requestId/);
     await expect(t.mutation(api.commands.start.request, { token: "bad", requestId: "r", text: "ok" })).rejects.toThrow();
     await expect(t.query(api.queries.start.request, { token: "bad", requestId: "r" })).rejects.toThrow();
-    await request("ok", "x".repeat(200));
+    await request("ok", "x".repeat(2000));
     await settle(t);
   });
 
@@ -455,7 +455,7 @@ describe("start request with a name", () => {
     await expect(requestNamed("v1")).rejects.toThrow(/text/);
     await expect(requestNamed("v2", "  ")).rejects.toThrow(/name/);
     await expect(requestNamed("v3", "x".repeat(41))).rejects.toThrow(/name/);
-    await expect(requestNamed("v4", "Home", "x".repeat(201))).rejects.toThrow(/text/);
+    await expect(requestNamed("v4", "Home", "x".repeat(2001))).rejects.toThrow(/text/);
     await requestNamed("v5", "x".repeat(40));
     await requestNamed("v6", undefined, "home");
     expect(await t.run((c) => c.db.query("startRequests").collect())).toHaveLength(2);

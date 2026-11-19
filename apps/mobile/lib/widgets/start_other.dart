@@ -4,7 +4,7 @@ import 'labeled_field.dart';
 import 'og_button.dart';
 import 'start_details.dart';
 
-/// "Other" in the Start tab: one free text (max 200) that says what the user
+/// "Other" in the Start tab: one free text (max 2000) that says what the user
 /// wants to do, and "Start". The coach names the activity and builds the
 /// session. "Start" stays off while the text is empty.
 class StartOther extends StatelessWidget {
@@ -33,7 +33,7 @@ class StartOther extends StatelessWidget {
               label: 'What do you want to do?',
               controller: text,
               hint: 'quick home session, 15 min',
-              maxLength: 200,
+              maxLength: 2000,
               minLines: 2,
               maxLines: 4,
               autocorrect: true,

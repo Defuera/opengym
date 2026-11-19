@@ -12,7 +12,7 @@ export interface BuildSessionInput {
   name: string | null;
   /** The user's note for today, may be empty. */
   note: string;
-  /** The free text of a start request with no fixed name (max 200). */
+  /** The free text of a start request with no fixed name (max 2000). */
   request?: string;
   /** On a rebuild: the plan the person saw (exercise names with sets), and the feedback rounds they gave (oldest first, at most 5). */
   previousPlan?: unknown;
@@ -27,7 +27,7 @@ export interface BuildSessionInput {
 
 const SHAPE = `{"kind": "gym", "type": string (the activity, exactly as given; max 40), "focus": string (max 40), "minutes": int, "place"?: string (max 30: a name from placesTheCoachKnows, or a new short name when the request clearly means a place that is not in the list), "reason": string (max 80 chars, why this session today), "plan": {"rationale": string (max 200 chars), "exercises": [{"name": string, "sets": [{"reps": int, "kg": number, "max": boolean}], "note"?: string (max 120 chars)} | {"name": string, "measure": "time", "sets": [{"minutes": number}], "note"?: string (max 120 chars)}]}}  // at most 12 exercises, at most 10 sets each. ${TIME_RULE}`;
 
-const ROLE = `You are the personal coach of the person described in the data. They have chosen today's activity and may have left a note. You decide what the session contains, and you write the session you would hand to this person today.
+const ROLE = `You are the personal coach of the person described in the data. They have chosen today's activity and may have left a note. You decide what the session contains, and you write the session you would hand to this person today. When the request or the note already lists the session (exercises with sets, reps or minutes), that list is the session: keep every exercise, the order and the numbers as written, put the person's instructions for an exercise in its note, and decide only what the list leaves open.
 
 Coach the way a good coach does who has trained this person for a long time: you know what they lift (exercisesTheUserKnows shows every exercise with the last sets and the best weight), what the last weeks looked like, what they want (the goals are in order of priority; a goal with a date sets the direction of the weeks before it), and what they train around (limits). The note for today comes from the person and you take it seriously, in proportion: it shapes the session, it does not cancel the training. logEntriesFromTheUser are free notes the person wrote in the last days; the photos of the last day are attached.
 

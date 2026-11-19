@@ -32,7 +32,7 @@ class SomethingNewBox extends StatelessWidget {
             Expanded(
               child: TextField(
                 controller: controller,
-                maxLength: 200,
+                maxLength: 2000,
                 maxLines: 2,
                 minLines: 1,
                 textInputAction: TextInputAction.done,

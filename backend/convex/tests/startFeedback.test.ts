@@ -35,14 +35,14 @@ describe("commands/start:request with feedback", () => {
     await settle(t);
   });
 
-  it("feedback is 1..300 after trim; previousRequestId 1..100", async () => {
+  it("feedback is 1..1000 after trim; previousRequestId 1..100", async () => {
     await first("a");
-    await expect(again("b", "   ", "a")).rejects.toThrow(/feedback must be 1\.\.300/);
-    await expect(again("b", "x".repeat(301), "a")).rejects.toThrow(/feedback must be 1\.\.300/);
+    await expect(again("b", "   ", "a")).rejects.toThrow(/feedback must be 1\.\.1000/);
+    await expect(again("b", "x".repeat(1001), "a")).rejects.toThrow(/feedback must be 1\.\.1000/);
     await expect(again("b", "ok", " ")).rejects.toThrow(/previousRequestId/);
     await expect(again("b", "ok", "p".repeat(101))).rejects.toThrow(/previousRequestId/);
-    await again("c", `  ${"x".repeat(300)} `, "a");
-    expect((await row("c"))!.feedback).toEqual(["x".repeat(300)]);
+    await again("c", `  ${"x".repeat(1000)} `, "a");
+    expect((await row("c"))!.feedback).toEqual(["x".repeat(1000)]);
     await settle(t);
   });
 

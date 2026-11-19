@@ -35,7 +35,7 @@ class StartDetails extends StatelessWidget {
               label: 'Anything for today? (optional)',
               controller: note,
               hint: 'Short on time, go easy, left hand is sore…',
-              maxLength: 200,
+              maxLength: 2000,
               minLines: 2,
               maxLines: 4,
               autocorrect: true,

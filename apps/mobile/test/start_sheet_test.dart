@@ -92,14 +92,14 @@ void main() {
     expect(find.text('Anything for today? (optional)'), findsNothing);
   });
 
-  testWidgets('the note is limited to 200 and survives a switch to the Log tab', (WidgetTester t) async {
+  testWidgets('the note is limited to 2000 and survives a switch to the Log tab', (WidgetTester t) async {
     await openHome(t);
     await openStart(t);
     await pickType(t, 'Gym');
-    await t.enterText(find.widgetWithText(TextField, noteHint), 'w' * 300);
+    await t.enterText(find.widgetWithText(TextField, noteHint), 'w' * 2300);
     await t.pump();
-    expect(t.widget<TextField>(find.widgetWithText(TextField, 'w' * 200)).controller!.text.length, 200);
-    await t.enterText(find.widgetWithText(TextField, 'w' * 200), 'go easy');
+    expect(t.widget<TextField>(find.widgetWithText(TextField, 'w' * 2000)).controller!.text.length, 2000);
+    await t.enterText(find.widgetWithText(TextField, 'w' * 2000), 'go easy');
     await t.tap(inSheet(find.text('Log')));
     await t.pumpAndSettle();
     await t.tap(inSheet(find.text('Start session')));
@@ -260,10 +260,10 @@ void main() {
       await t.enterText(field(), '   ');
       await t.pump();
       expect(t.widget<OgButton>(start()).onPressed, isNull);
-      await t.enterText(field(), 'y' * 300);
+      await t.enterText(field(), 'y' * 2300);
       await t.pump();
       expect(t.widget<OgButton>(start()).onPressed, isNotNull);
-      expect(t.widget<TextField>(find.widgetWithText(TextField, 'y' * 200)).controller!.text.length, 200);
+      expect(t.widget<TextField>(find.widgetWithText(TextField, 'y' * 2000)).controller!.text.length, 2000);
       await t.tap(find.byTooltip('Back'));
       await t.pumpAndSettle();
       expect(inSheet(find.text('Home')), findsOneWidget);

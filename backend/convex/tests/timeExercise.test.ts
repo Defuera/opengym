@@ -82,6 +82,12 @@ describe("time exercise in rules", () => {
     expect(bikeFirst.exercises[0]!.sets).toEqual([{ minutes: 10 }]);
   });
 
+  it("a hold shorter than one minute stays when it fits", () => {
+    const holds = { name: "Wall Sit", measure: "time" as const, sets: [{ minutes: 0.5 }, { minutes: 0.5 }, { minutes: 0.5 }] };
+    const fitted = fitPlanToMinutes({ rationale: "r", exercises: [{ name: "Leg Press", sets: [{ reps: 10, kg: 50, max: false }] }, holds] }, 20);
+    expect(fitted.exercises[1]).toEqual(holds);
+  });
+
   it("load counts minutes: one set per 4 minutes", () => {
     const l = setsPerMuscle([session("a", 5000, [{ name: "Stationary bike", measure: "time", sets: [{ minutes: 20 }] }])], 0, 10_000);
     expect(l.quads).toBe(5);

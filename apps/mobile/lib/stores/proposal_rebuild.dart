@@ -46,7 +46,7 @@ class ProposalRebuild extends ChangeNotifier {
     final String? prev = _requestId;
     final StartRun run = prev != null
         ? _plans.requestRebuild(feedback: feedback, previousRequestId: prev)
-        : _plans.requestStart(name: activity(), text: feedback.length > 200 ? feedback.substring(0, 200) : feedback);
+        : _plans.requestStart(name: activity(), text: feedback.length > 2000 ? feedback.substring(0, 2000) : feedback);
     _run = run;
     _failed = false;
     notifyListeners();

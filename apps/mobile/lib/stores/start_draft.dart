@@ -7,10 +7,10 @@ enum StartStep { types, other, details }
 /// the note for today and the text typed under "Other". Owned by the plus
 /// sheet; the Start tab only reads it.
 class StartDraft extends ChangeNotifier {
-  /// The optional note for today (max 200).
+  /// The optional note for today (max 2000).
   final TextEditingController note = TextEditingController();
 
-  /// What the user wants to do, typed under "Other" (max 200).
+  /// What the user wants to do, typed under "Other" (max 2000).
   final TextEditingController otherText = TextEditingController();
   StartStep _step = StartStep.types;
   String _type = '';

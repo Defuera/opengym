@@ -79,8 +79,9 @@ export function fitPlanToMinutes(draft: PlanDraft, minutes: number): PlanDraft {
     if (e.measure === "time") {
       const sets: PlanTimeSet[] = [];
       for (const x of e.sets) {
-        const m = Math.min(x.minutes, Math.floor(left));
-        if (m < 1) break;
+        // An entry that fits keeps its length (a 30 s hold is 0.5); only one that does not fit is shortened to whole minutes.
+        const m = x.minutes <= left ? x.minutes : Math.floor(left);
+        if (m <= 0) break;
         sets.push({ ...x, minutes: m });
         left -= m;
       }

@@ -17,10 +17,11 @@ class StartRun {
     String? text,
     String? feedback,
     String? previousRequestId,
+    List<Map<String, dynamic>>? previousPlan,
     required Duration budget,
   }) : requestId = newId() {
     _timer = Timer(budget, () => _finish(null));
-    _start(client, name, text, feedback, previousRequestId);
+    _start(client, name, text, feedback, previousRequestId, previousPlan);
   }
 
   final String requestId;
@@ -37,6 +38,7 @@ class StartRun {
     String? text,
     String? feedback,
     String? previousRequestId,
+    List<Map<String, dynamic>>? previousPlan,
   ) async {
     try {
       // Listen first, so an answer cannot be missed.
@@ -55,6 +57,7 @@ class StartRun {
         text: text,
         feedback: feedback,
         previousRequestId: previousRequestId,
+        previousPlan: previousPlan,
       );
     } catch (_) {
       _finish(null);

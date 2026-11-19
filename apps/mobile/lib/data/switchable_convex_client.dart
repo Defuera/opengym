@@ -147,6 +147,7 @@ class SwitchableConvexClient implements ConvexClient {
     String? text,
     String? feedback,
     String? previousRequestId,
+    List<Map<String, dynamic>>? previousPlan,
   }) =>
       _call((ConvexClient c) => c.requestStart(
             requestId: requestId,
@@ -154,7 +155,54 @@ class SwitchableConvexClient implements ConvexClient {
             text: text,
             feedback: feedback,
             previousRequestId: previousRequestId,
+            previousPlan: previousPlan,
           ));
+
+  @override
+  Stream<List<Program>> watchPrograms() => _proxy((ConvexClient c) => c.watchPrograms());
+
+  @override
+  Stream<Proposal?> watchProposal(String proposalId) => _proxy((ConvexClient c) => c.watchProposal(proposalId));
+
+  @override
+  Stream<List<Proposal>> watchOpenProposals() => _proxy((ConvexClient c) => c.watchOpenProposals());
+
+  @override
+  Future<void> requestProposal({
+    required String proposalId,
+    String kind = 'program',
+    String? targetId,
+    String? text,
+    String? feedback,
+    String? previousProposalId,
+  }) =>
+      _call((ConvexClient c) => c.requestProposal(
+            proposalId: proposalId,
+            kind: kind,
+            targetId: targetId,
+            text: text,
+            feedback: feedback,
+            previousProposalId: previousProposalId,
+          ));
+
+  @override
+  Future<String> acceptProposal(String proposalId) {
+    final ConvexClient? c = _inner;
+    if (c == null) {
+      return Future<String>.error(const ConvexCallException.notConfigured());
+    }
+    return c.acceptProposal(proposalId);
+  }
+
+  @override
+  Future<void> declineProposal(String proposalId) => _call((ConvexClient c) => c.declineProposal(proposalId));
+
+  @override
+  Future<void> setProgramStatus(String programId, String status) =>
+      _call((ConvexClient c) => c.setProgramStatus(programId, status));
+
+  @override
+  Future<void> removeProgram(String programId) => _call((ConvexClient c) => c.removeProgram(programId));
 
   @override
   Stream<Stored<Dashboard>> watchDashboard(int days) =>

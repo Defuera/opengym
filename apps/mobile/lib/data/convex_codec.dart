@@ -89,6 +89,22 @@ Stored<Plan> decodePlan(Object? v) {
   return Stored<Plan>(p, stored: m['stored'] == true, source: p.source);
 }
 
+Program decodeProgram(Object? v) => Program.fromJson(asMap(normalize(v)));
+List<Program> decodePrograms(Object? v) => _list(v, decodeProgram);
+
+/// The answer of `queries/proposals:get`: null, or the proposal.
+Proposal? decodeProposal(Object? v) => v is Map ? Proposal.fromJson(asMap(normalize(v))) : null;
+List<Proposal> decodeProposals(Object? v) => _list(v, (Object? e) => Proposal.fromJson(asMap(normalize(e))));
+
+/// The answer of `commands/proposals:accept`: `{ programId }`.
+String decodeAccepted(Object? v) {
+  final String id = str(asMap(normalize(v))['programId']);
+  if (id.isEmpty) {
+    throw const ConvexCallException('The server sent an answer the app does not understand.');
+  }
+  return id;
+}
+
 /// The answer of `queries/start:request`: null, or the request state.
 StartRequest? decodeStartRequest(Object? v) {
   return v is Map ? StartRequest.fromJson(asMap(normalize(v))) : null;

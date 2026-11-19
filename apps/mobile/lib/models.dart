@@ -3,6 +3,7 @@
 library;
 
 import 'models/activity.dart';
+import 'models/program.dart';
 
 export 'models/about.dart';
 export 'models/ai_settings.dart';
@@ -16,6 +17,7 @@ export 'models/goal.dart';
 export 'models/misc.dart';
 export 'models/place.dart';
 export 'models/plan.dart';
+export 'models/program.dart';
 
 /// One entry of an exercise. An entry of an exercise with sets holds [reps]
 /// and [kg]. An entry of a time exercise holds [minutes] and, optionally,
@@ -217,6 +219,7 @@ class Session {
     this.planNote,
     this.parse,
     this.placeId,
+    this.program,
   }) : exercises = exercises ?? <Exercise>[];
 
   String id;
@@ -252,6 +255,9 @@ class Session {
 
   /// Where the session happened (a place id), or null.
   String? placeId;
+
+  /// The program, week and slot this session was started from, or null.
+  ProgramLink? program;
 
   /// The text of this session is still being read.
   bool get parsePending => parse == 'pending';
@@ -294,7 +300,18 @@ class Session {
     if (placeId != null) {
       m['placeId'] = placeId;
     }
+    _putProgram(m);
     return m;
+  }
+
+  void _putProgram(Map<String, dynamic> m) {
+    final ProgramLink? p = program;
+    if (p != null) {
+      m['programId'] = p.programId;
+      m['programWeek'] = p.week;
+      m['programSlot'] = p.slot;
+      m['programKey'] = p.key;
+    }
   }
 
   /// API shape (see docs/api-contract.md). Sets are {reps, kg, max, at}. `parse` is not part of it: the server owns it.
@@ -331,6 +348,7 @@ class Session {
     if (placeId != null) {
       m['placeId'] = placeId;
     }
+    _putProgram(m);
     return m;
   }
 
@@ -373,6 +391,19 @@ class Session {
           ? j['parse'] as String
           : null,
       placeId: j['placeId'] is String && (j['placeId'] as String).isNotEmpty ? j['placeId'] as String : null,
+      program: _readProgram(j),
     );
   }
+}
+
+/// The program link of a stored or server session, or null when any part is missing.
+ProgramLink? _readProgram(Map<String, dynamic> j) {
+  final Object? id = j['programId'];
+  final Object? week = j['programWeek'];
+  final Object? slot = j['programSlot'];
+  final Object? key = j['programKey'];
+  if (id is String && id.isNotEmpty && week is num && slot is num && key is String) {
+    return ProgramLink(programId: id, week: week.toInt(), slot: slot.toInt(), key: key);
+  }
+  return null;
 }

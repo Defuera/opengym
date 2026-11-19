@@ -109,6 +109,7 @@ class AppStore extends ChangeNotifier {
     List<Exercise>? prepared,
     String? rationale,
     String? placeId,
+    ProgramLink? program,
   }) {
     // An open session with no done set holds nothing the user logged: a new
     // start replaces it. With a done set it is resumed, so work is never lost.
@@ -123,6 +124,7 @@ class AppStore extends ChangeNotifier {
         exercises: prepared ?? planFor(sessions, name, focus),
         planNote: (rationale == null || rationale.isEmpty) ? null : rationale,
         placeId: placeId,
+        program: program,
       );
       _select(0);
       _commit();
@@ -229,8 +231,14 @@ class AppStore extends ChangeNotifier {
     return changed;
   }
 
-  static bool _sameFacts(Session a, Session b) =>
-      a.parse == b.parse && jsonEncode(a.toContractJson()) == jsonEncode(b.toContractJson());
+  /// The program link is left out: the server may not echo it, and the local copy keeps it.
+  static bool _sameFacts(Session a, Session b) => a.parse == b.parse && _facts(a) == _facts(b);
+
+  static String _facts(Session s) {
+    final Map<String, dynamic> m = s.toContractJson();
+    m.removeWhere((String k, Object? _) => k.startsWith('program'));
+    return jsonEncode(m);
+  }
 
   /// Sets the place of the open session. It is saved with the session.
   void setActivePlace(String? placeId) {

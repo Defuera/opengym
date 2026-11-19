@@ -35,6 +35,18 @@ class Live<T> {
   void error(Object e) => _changes.addError(e);
 }
 
+/// One `requestProposal` call as the fake saw it.
+class ProposalSent {
+  const ProposalSent(this.proposalId, this.kind, this.targetId, this.text, this.feedback, this.previousProposalId);
+
+  final String proposalId;
+  final String kind;
+  final String? targetId;
+  final String? text;
+  final String? feedback;
+  final String? previousProposalId;
+}
+
 /// In-memory stand-in for the backend. Holds "server" state, pushes it like a
 /// live query, and logs every command in [calls].
 class FakeConvexClient implements ConvexClient {
@@ -301,6 +313,9 @@ class FakeConvexClient implements ConvexClient {
   /// Feedback and previous request id of each start request ([null] when none).
   final List<(String?, String?)> startFeedback = <(String?, String?)>[];
 
+  /// The `previousPlan` of each start request (null when none).
+  final List<List<Map<String, dynamic>>?> startPreviousPlans = <List<Map<String, dynamic>>?>[];
+
   final Map<String, Live<StartRequest?>> startRequests = <String, Live<StartRequest?>>{};
 
   String get lastStartId => startSent.last.$1;
@@ -316,13 +331,82 @@ class FakeConvexClient implements ConvexClient {
     String? text,
     String? feedback,
     String? previousRequestId,
+    List<Map<String, dynamic>>? previousPlan,
   }) async {
     _command('requestStart:$requestId');
     startSent.add((requestId, text));
     startNames.add(name);
     startFeedback.add((feedback, previousRequestId));
+    startPreviousPlans.add(previousPlan);
     startRequests.putIfAbsent(requestId, () => Live<StartRequest?>());
   }
+
+  // ---------- programs and proposals ----------
+
+  final Live<List<Program>> programs = Live<List<Program>>(<Program>[]);
+
+  /// When set, [watchPrograms] fails with it.
+  Object? programsError;
+  final Live<List<Proposal>> openProposals = Live<List<Proposal>>(<Proposal>[]);
+  final Map<String, Live<Proposal?>> proposals = <String, Live<Proposal?>>{};
+
+  /// Proposal requests the app sent, in order.
+  final List<ProposalSent> proposalsSent = <ProposalSent>[];
+
+  /// What [acceptProposal] answers, and the error it throws instead when set.
+  String acceptedProgramId = 'prog-1';
+  ConvexCallException? acceptError;
+
+  String get lastProposalId => proposalsSent.last.proposalId;
+
+  /// The server answers the last proposal request (or the one with [id]).
+  void answerProposal(Proposal p, {String? id}) =>
+      proposals.putIfAbsent(id ?? lastProposalId, () => Live<Proposal?>()).set(p);
+
+  @override
+  Stream<List<Program>> watchPrograms() =>
+      programsError == null ? programs.stream() : Stream<List<Program>>.error(programsError!);
+
+  @override
+  Stream<Proposal?> watchProposal(String proposalId) =>
+      proposals.putIfAbsent(proposalId, () => Live<Proposal?>()).stream();
+
+  @override
+  Stream<List<Proposal>> watchOpenProposals() => openProposals.stream();
+
+  @override
+  Future<void> requestProposal({
+    required String proposalId,
+    String kind = 'program',
+    String? targetId,
+    String? text,
+    String? feedback,
+    String? previousProposalId,
+  }) async {
+    _command('requestProposal:$proposalId');
+    proposalsSent.add(ProposalSent(proposalId, kind, targetId, text, feedback, previousProposalId));
+    proposals.putIfAbsent(proposalId, () => Live<Proposal?>());
+  }
+
+  @override
+  Future<String> acceptProposal(String proposalId) async {
+    _command('acceptProposal:$proposalId');
+    final ConvexCallException? e = acceptError;
+    if (e != null) {
+      throw e;
+    }
+    return acceptedProgramId;
+  }
+
+  @override
+  Future<void> declineProposal(String proposalId) async => _command('declineProposal:$proposalId');
+
+  @override
+  Future<void> setProgramStatus(String programId, String status) async =>
+      _command('setProgramStatus:$programId:$status');
+
+  @override
+  Future<void> removeProgram(String programId) async => _command('removeProgram:$programId');
 
   @override
   Stream<StartRequest?> watchStartRequest(String requestId) =>

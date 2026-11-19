@@ -22,6 +22,8 @@ import { sessionFields } from "../schema";
  * (the user's edit is final: a parse_log result that arrives later is dropped).
  * `placeId` (ADR-021) is stored as given, even for an unknown place (the app may be ahead offline). A save WITHOUT it (an old app
  * build) keeps the stored one; only `setPlace` clears it.
+ * The program link (`programId`, `programWeek`, `programSlot`, `programKey`, all optional) says which program session this is. The app
+ * writes it when it starts a session from `queries/programs:list` `next`. Stored as given; a save without `programId` keeps the stored link.
  */
 export const save = mutation({
   args: { token: v.string(), session: v.object({ ...sessionFields, type: v.optional(v.string()) }) },
@@ -33,7 +35,10 @@ export const save = mutation({
     const { sessionId, ...rest } = first;
     parseOrThrow(SessionSchema, { id: sessionId, ...rest }, "session");
     const old = await sessionRowBySessionId(ctx, sessionId);
-    const session = first.placeId === undefined && old?.placeId !== undefined ? { ...first, placeId: old.placeId } : first;
+    const withPlace = first.placeId === undefined && old?.placeId !== undefined ? { ...first, placeId: old.placeId } : first;
+    // The program link (like the place): an old app build does not send it, so a save without it keeps the stored one.
+    const keepsLink = withPlace.programId === undefined && old?.programId !== undefined;
+    const session = keepsLink ? { ...withPlace, programId: old.programId, ...(old.programWeek !== undefined ? { programWeek: old.programWeek } : {}), ...(old.programSlot !== undefined ? { programSlot: old.programSlot } : {}), ...(old.programKey !== undefined ? { programKey: old.programKey } : {}) } : withPlace;
     if (old?.deletedAt !== undefined) return sessionId; // marked as deleted (ADR-020): a late resend must not bring it back
     if (old && stableJson(withoutSystemFields({ ...old, parse: undefined })) === stableJson(session)) return sessionId; // resend, nothing changed
     if (old) await ctx.db.replace(old._id, session);

@@ -9,10 +9,12 @@ import '../stores/start_run.dart';
 import '../theme.dart';
 import '../widgets/new_kind_row.dart';
 import '../widgets/preparing_card.dart';
+import '../widgets/program_row.dart';
 import '../widgets/proposal_row.dart';
 import '../widgets/sheet_link.dart';
 import '../widgets/start_details.dart';
 import '../widgets/start_other.dart';
+import 'program_text.dart';
 import 'start_flow.dart';
 
 /// The Start tab: step 1 lists the activity types of the log, step 2 takes an
@@ -137,7 +139,7 @@ class _StartSheetState extends State<StartSheet> {
       );
     }
     return ListenableBuilder(
-      listenable: Listenable.merge(<Listenable>[widget.deps.store, _draft]),
+      listenable: Listenable.merge(<Listenable>[widget.deps.store, widget.deps.programs, _draft]),
       builder: (BuildContext context, Widget? child) {
         switch (_draft.step) {
           case StartStep.details:
@@ -159,6 +161,27 @@ class _StartSheetState extends State<StartSheet> {
       },
     );
   }
+
+  /// A tap on a program row: the next session of the program starts. With the
+  /// week done, the program opens instead.
+  void _program(Program p) {
+    _run?.cancel();
+    widget.nav.pop();
+    if (p.now?.next == null) {
+      openProgram(widget.nav, widget.deps, p.programId);
+    } else {
+      openProgramSession(widget.nav, widget.deps, p);
+    }
+  }
+
+  void _openProgram(Program p) {
+    _run?.cancel();
+    widget.nav.pop();
+    openProgram(widget.nav, widget.deps, p.programId);
+  }
+
+  /// The programs that run now: one compact row each.
+  List<Program> _running() => widget.deps.programs.active.where((Program p) => p.now?.running ?? false).toList();
 
   Widget _types() {
     // A log type that is itself named "Other" is left out: "Other" here is the free text.
@@ -182,6 +205,17 @@ class _StartSheetState extends State<StartSheet> {
             shrinkWrap: true,
             padding: const EdgeInsets.only(bottom: 4),
             children: <Widget>[
+              for (final Program p in _running()) ...<Widget>[
+                ProgramRow(
+                  key: ValueKey<String>('program-row-${p.programId}'),
+                  title: p.title,
+                  subtitle: programStartLine(p),
+                  onTap: () => _program(p),
+                  onOpen: () => _openProgram(p),
+                  openKey: ValueKey<String>('program-open-${p.programId}'),
+                ),
+                const SizedBox(height: 10),
+              ],
               for (int i = 0; i < types.length; i++) ...<Widget>[
                 ProposalRow(
                   title: types[i].name,

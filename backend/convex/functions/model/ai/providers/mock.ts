@@ -36,6 +36,30 @@ function extract(text: string) {
   return { goals, context };
 }
 
+/** The fixed valid answer of build_program: two weeks, one phase, sessions A and Bike (a week is A, Bike, A). */
+export const MOCK_PROGRAM = {
+  title: "Mock program",
+  purpose: "A small fixed program for tests and offline runs.",
+  startsOn: "2026-11-23",
+  endsOn: "2026-12-06",
+  week: ["A", "Bike", "A"],
+  phases: [
+    {
+      title: "Base",
+      weekFrom: 1,
+      weekTo: 2,
+      note: "",
+      sessions: [
+        { key: "A", title: "Session A", activity: "Gym", exercises: [{ name: "Squat", sets: [{ reps: 8, kg: 40, max: false }, { reps: 8, kg: 40, max: false }] }, { name: "Push-up", sets: [{ reps: 10, kg: 0, max: false }] }] },
+        { key: "Bike", title: "Easy bike", activity: "Cycling", exercises: [{ name: "Bike", measure: "time", sets: [{ minutes: 30 }] }] },
+      ],
+    },
+  ],
+  rules: ["Stop a set when the knee hurts."],
+  tests: ["Squat 10 reps at 40 kg without pain"],
+  reason: "Mock proposal",
+};
+
 /**
  * Deterministic canned answers per job; needs no network or key.
  */
@@ -69,6 +93,8 @@ export class MockProvider implements AiProvider {
         const type = String(d.activity ?? (first ? first.charAt(0).toUpperCase() + first.slice(1) : "Gym")).slice(0, 40);
         return JSON.stringify({ kind: "gym", type, reason: "Mock proposal", plan: { rationale: "Mock plan: a simple bodyweight session.", exercises: [{ name: "Push-up", sets: [{ reps: 10, kg: 0, max: false }] }, { name: "Squat", sets: [{ reps: 15, kg: 0, max: false }] }] } });
       }
+      case "build_program":
+        return JSON.stringify(MOCK_PROGRAM);
       case "build_dashboard": {
         const goals: Data[] = (d.goals ?? []).filter((g: Data) => g.status === "active");
         return JSON.stringify({

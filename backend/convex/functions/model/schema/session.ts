@@ -55,6 +55,11 @@ export const SessionSchema = z
     importId: z.string().optional(),
     /** Where the session happened (ADR-021). Not known when absent. */
     placeId: z.string().min(1).max(100).optional(),
+    /** The program this session belongs to and where in it (written by the app). */
+    programId: z.string().min(1).max(100).optional(),
+    programWeek: z.number().int().min(1).optional(),
+    programSlot: z.number().int().min(1).optional(),
+    programKey: z.string().min(1).max(12).optional(),
   })
   .refine((s) => s.type.trim().length > 0, { message: "type must not be blank", path: ["type"] })
   .refine((s) => s.kind === "gym" || s.exercises.length === 0, {

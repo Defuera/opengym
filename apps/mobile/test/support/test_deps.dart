@@ -24,6 +24,7 @@ import 'package:opengym/stores/goals_store.dart';
 import 'package:opengym/stores/import_store.dart';
 import 'package:opengym/stores/places_store.dart';
 import 'package:opengym/stores/plan_store.dart';
+import 'package:opengym/stores/program_store.dart';
 import 'package:opengym/stores/review_store.dart';
 
 import 'fake_convex_client.dart';
@@ -76,5 +77,6 @@ Future<AppDeps> testDeps(
     tracker: tracker ?? FakeTrackerSource(),
     places: PlacesStore(client: fake)..start(),
     art: ExerciseArtStore(client: fake, isConnected: () => connected),
+    programs: ProgramStore(client: fake)..start(),
   );
 }

@@ -14,7 +14,11 @@ class ProposalFeedback extends StatelessWidget {
     required this.failed,
     required this.online,
     required this.onRebuild,
+    this.hint = 'Change something? For example: no water bottles, I have dumbbells',
   });
+
+  /// The grey text of the empty box.
+  final String hint;
 
   final TextEditingController controller;
   final bool failed;
@@ -43,8 +47,7 @@ class ProposalFeedback extends StatelessWidget {
           children: <Widget>[
             LabeledField(
               controller: controller,
-              hint:
-                  'Change something? For example: no water bottles, I have dumbbells',
+              hint: hint,
               maxLength: 1000,
               maxLines: 4,
               minLines: 2,

@@ -82,6 +82,7 @@ void main() {
         tracker: base.tracker,
         places: base.places,
         art: ExerciseArtStore(client: fake, isConnected: () => true, imageFor: (String u) => MemoryImage(png)),
+        programs: base.programs,
       );
       d.store.begin(
         activity: 'Gym',

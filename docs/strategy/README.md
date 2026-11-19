@@ -38,3 +38,5 @@ This directory holds the Architecture Decision Records (ADRs) for Gym Days (Open
 | [021](021-places-the-coach-learns.md) | Places and Their Equipment Are Learned by the Coach | Accepted |
 | [022](022-no-wording-safeguards-while-one-owner-tests.md) | No Wording Safeguards on the Coach While One Owner Tests | Accepted |
 | [023](023-exercise-animation-from-two-key-poses.md) | Exercise Animation From Two Key Poses, Redrawn From Open Photos | Accepted (details Proposed) |
+| [024](024-program-is-a-plan-for-a-period.md) | A Program Is the Person's Plan for a Period | Accepted (details Proposed) |
+| [025](025-one-proposal-block.md) | One Proposal Block for What the Coach Offers | Accepted (details Proposed) |

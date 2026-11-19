@@ -41,14 +41,26 @@ class PlanStore extends ChangeNotifier {
   StartRun requestStart({String? name, String? text}) =>
       StartRun(client: _client, name: name, text: text, budget: startBudget);
 
+  /// Feedback on a session that did not come from a start request: the
+  /// coach gets the [name] of the activity and the [previousPlan] as it is on the phone.
+  StartRun requestFeedbackOnPlan({
+    required String name,
+    required String feedback,
+    required List<Map<String, dynamic>> previousPlan,
+  }) =>
+      StartRun(client: _client, name: name, feedback: feedback, previousPlan: previousPlan, budget: startBudget);
+
   /// Asks the coach to rebuild the proposal of [previousRequestId] with the
   /// person's [feedback]. Same rules as [requestStart].
   StartRun requestRebuild({required String feedback, required String previousRequestId}) => StartRun(
       client: _client, feedback: feedback, previousRequestId: previousRequestId, budget: startBudget);
 
+  /// The exercises of [plan] as fresh, not-yet-done session exercises.
+  List<Exercise> exercisesFor(Plan plan) => exercisesOf(plan.exercises);
+
   /// Plan exercises as fresh, not-yet-done session exercises.
-  List<Exercise> exercisesFor(Plan plan) {
-    return plan.exercises.map((PlanExercise pe) {
+  List<Exercise> exercisesOf(List<PlanExercise> list) {
+    return list.map((PlanExercise pe) {
       return Exercise(
         id: newId(),
         name: pe.name,

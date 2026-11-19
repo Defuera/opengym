@@ -43,6 +43,7 @@ Future<(FakeConvexClient, AppDeps, FakePickers)> _openForm(WidgetTester t,
     tracker: base.tracker,
     places: base.places,
     art: base.art,
+    programs: base.programs,
   );
   await t.pumpWidget(MaterialApp(home: HomeScreen(deps: d)));
   await t.pump();

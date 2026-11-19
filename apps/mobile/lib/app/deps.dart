@@ -16,6 +16,8 @@ import '../stores/goals_store.dart';
 import '../stores/import_store.dart';
 import '../stores/places_store.dart';
 import '../stores/plan_store.dart';
+import '../stores/program_store.dart';
+import '../stores/proposal_run.dart';
 import '../stores/review_store.dart';
 
 /// Everything the screens need, created once in compose.dart.
@@ -40,6 +42,7 @@ class AppDeps {
     required this.tracker,
     required this.places,
     required this.art,
+    required this.programs,
   });
 
   /// The gateway, for screens that follow one record (the session recap).
@@ -70,4 +73,11 @@ class AppDeps {
 
   /// Exercise pictures (read only; the server makes them).
   final ExerciseArtStore art;
+
+  /// The programs of the person (live, read only).
+  final ProgramStore programs;
+
+  /// A new run of one proposal of the coach: a new program, or with
+  /// [targetId] a change of that program.
+  ProposalRun newProposal({String? targetId}) => ProposalRun(client: client, targetId: targetId);
 }

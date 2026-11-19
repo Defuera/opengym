@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../app/deps.dart';
 import '../models.dart';
 import '../stores/about_store.dart';
 import '../stores/context_store.dart';
@@ -9,12 +10,17 @@ import '../widgets/footnote.dart';
 import '../widgets/limit_card.dart';
 import '../widgets/note_box.dart';
 import '../widgets/og_icon_button.dart';
+import '../widgets/new_kind_row.dart';
 import '../widgets/part_card.dart';
+import '../widgets/program_row.dart';
 import '../widgets/section_header.dart';
 import '../widgets/segmented_toggle.dart';
 import 'about_preferences.dart';
 import 'limit_detail_screen.dart';
 import 'limit_sheets.dart';
+import 'program_new_screen.dart';
+import 'program_screen.dart';
+import 'program_text.dart';
 
 /// "About me": what the coach knows. The body figure, the limits and the
 /// preferences (coach notes).
@@ -24,7 +30,11 @@ class AboutMeScreen extends StatefulWidget {
     required this.about,
     required this.notes,
     this.exercises = const <String>[],
+    this.deps,
   });
+
+  /// With the app deps the screen lists the programs and starts a new one.
+  final AppDeps? deps;
 
   final AboutStore about;
   final ContextStore notes;
@@ -97,6 +107,41 @@ class _AboutMeScreenState extends State<AboutMeScreen> {
       text: muscle == null ? 'No limit here.' : loadWords(data.loadFor(_days)[muscle] ?? 0),
       actionLabel: 'Add a limit here',
       onAction: () => _addLimit(part: key),
+    );
+  }
+
+  /// The programs of the person (any status) and the row for a new one.
+  Widget _programs(AppDeps d) {
+    return ListenableBuilder(
+      listenable: d.programs,
+      builder: (BuildContext context, Widget? child) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            const SectionHeader(title: 'Programs'),
+            for (final Program p in d.programs.programs) ...<Widget>[
+              ProgramRow(
+                key: ValueKey<String>('program-item-${p.programId}'),
+                title: p.title,
+                subtitle: programShortLine(p),
+                onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(
+                  builder: (BuildContext c) => ProgramScreen(deps: d, programId: p.programId),
+                )),
+              ),
+              const SizedBox(height: 10),
+            ],
+            KeyedSubtree(
+              key: const ValueKey<String>('program-new'),
+              child: NewKindRow(
+                label: 'New program',
+                onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(
+                  builder: (BuildContext c) => ProgramNewScreen(deps: d),
+                )),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -173,6 +218,7 @@ class _AboutMeScreenState extends State<AboutMeScreen> {
                   ),
                   const SizedBox(height: 10),
                 ],
+                if (widget.deps != null) _programs(widget.deps!),
                 AboutPreferences(notes: widget.notes),
                 const Footnote('The coach uses everything on this screen. It never changes your log.'),
               ],

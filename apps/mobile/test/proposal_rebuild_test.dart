@@ -197,7 +197,7 @@ void main() {
     t.takeException(); // the screen behind overflows by 6 px under a 300 px keyboard; only the position matters
   });
 
-  testWidgets('a session reopened from Home still takes feedback: it goes as the note of a new request',
+  testWidgets('a session reopened from Home still takes feedback: it goes with the plan as it is on the phone',
       (WidgetTester t) async {
     final (FakeConvexClient fake, AppDeps _) = await _openProposal(t);
     await t.tap(find.byIcon(Icons.arrow_back));
@@ -209,7 +209,16 @@ void main() {
     await t.pumpAndSettle();
     await _send(t, 'I have dumbbells');
     expect(fake.startNames.last, 'Gym');
-    expect(fake.startFeedback.last, (null, null));
+    expect(fake.startSent.last.$2, isNull);
+    expect(fake.startFeedback.last, ('I have dumbbells', null));
+    expect(fake.startPreviousPlans.last, <Map<String, dynamic>>[
+      <String, dynamic>{
+        'name': 'Squat',
+        'sets': <Map<String, dynamic>>[
+          <String, dynamic>{'reps': 8, 'kg': 60.0, 'max': false},
+        ],
+      },
+    ]);
     fake.answerStart(StartRequest(requestId: fake.lastStartId, status: 'ready', proposal: _proposal('Goblet squat')));
     await t.pumpAndSettle();
     expect(find.text('Goblet squat'), findsWidgets);

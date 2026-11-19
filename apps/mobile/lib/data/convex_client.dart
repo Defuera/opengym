@@ -51,6 +51,15 @@ abstract class ConvexClient {
   /// The places the coach knows, sorted by name (`queries/places:list`).
   Stream<List<Place>> watchPlaces();
 
+  /// Every program that is not deleted, newest first (`queries/programs:list`).
+  Stream<List<Program>> watchPrograms();
+
+  /// One proposal of the coach (`queries/proposals:get`); null while the server has none.
+  Stream<Proposal?> watchProposal(String proposalId);
+
+  /// The proposals that wait for the person's answer, newest first (`queries/proposals:open`).
+  Stream<List<Proposal>> watchOpenProposals();
+
   /// The art state of each name, same order (`queries/exerciseArt:get`).
   Stream<List<ExerciseArt>> watchExerciseArt(List<String> names);
 
@@ -93,6 +102,32 @@ abstract class ConvexClient {
 
   Future<void> saveSession(Session session);
   Future<void> removeSession(String sessionId);
+
+  /// Asks the coach for a proposal of [kind] (`program`). NOT a fact: the app
+  /// never queues it in the outbox. Either [text] (a new ask) or [feedback]
+  /// with [previousProposalId] (a rebuild). With [targetId] the proposal
+  /// changes that program. The answer arrives through [watchProposal].
+  /// Sending the same [proposalId] again changes nothing.
+  Future<void> requestProposal({
+    required String proposalId,
+    String kind = 'program',
+    String? targetId,
+    String? text,
+    String? feedback,
+    String? previousProposalId,
+  });
+
+  /// The person agrees. Returns the id of the program that was made or changed.
+  Future<String> acceptProposal(String proposalId);
+
+  /// The person says no, or gives up waiting.
+  Future<void> declineProposal(String proposalId);
+
+  /// [status] is `active`, `paused` or `done`.
+  Future<void> setProgramStatus(String programId, String status);
+
+  /// Deletes the program (the server marks it and erases it later).
+  Future<void> removeProgram(String programId);
 
   /// Sets the place of one session, or clears it with null. Idempotent.
   Future<void> setSessionPlace({required String sessionId, required String? placeId});
@@ -205,12 +240,17 @@ abstract class ConvexClient {
   /// With [feedback] and [previousRequestId] (both or neither) the coach
   /// rebuilds the proposal of that earlier request so the feedback holds; the
   /// server takes the name and the text from the earlier request.
+  ///
+  /// With [feedback], [previousPlan] (the compact copy of the session as it is
+  /// on the phone: names with sets, no notes) and [name], the coach rebuilds
+  /// a session that did not come from a start request.
   Future<void> requestStart({
     required String requestId,
     String? name,
     String? text,
     String? feedback,
     String? previousRequestId,
+    List<Map<String, dynamic>>? previousPlan,
   });
 
   /// The state of one start request; null while the server has none.
@@ -368,6 +408,7 @@ class DartvexConvexClient implements ConvexClient {
     String? text,
     String? feedback,
     String? previousRequestId,
+    List<Map<String, dynamic>>? previousPlan,
   }) =>
       _mutate('commands/start:request', <String, dynamic>{
         'requestId': requestId,
@@ -375,7 +416,56 @@ class DartvexConvexClient implements ConvexClient {
         if (text != null) 'text': text,
         if (feedback != null) 'feedback': feedback,
         if (previousRequestId != null) 'previousRequestId': previousRequestId,
+        if (previousPlan != null) 'previousPlan': previousPlan,
       });
+
+  @override
+  Stream<List<Program>> watchPrograms() =>
+      _watch('queries/programs:list', const <String, dynamic>{}, decodePrograms);
+
+  @override
+  Stream<Proposal?> watchProposal(String proposalId) =>
+      _watch('queries/proposals:get', <String, dynamic>{'proposalId': proposalId}, decodeProposal);
+
+  @override
+  Stream<List<Proposal>> watchOpenProposals() =>
+      _watch('queries/proposals:open', const <String, dynamic>{}, decodeProposals);
+
+  @override
+  Future<void> requestProposal({
+    required String proposalId,
+    String kind = 'program',
+    String? targetId,
+    String? text,
+    String? feedback,
+    String? previousProposalId,
+  }) =>
+      _mutate('commands/proposals:request', <String, dynamic>{
+        'proposalId': proposalId,
+        'kind': kind,
+        if (targetId != null) 'targetId': targetId,
+        if (text != null) 'text': text,
+        if (feedback != null) 'feedback': feedback,
+        if (previousProposalId != null) 'previousProposalId': previousProposalId,
+      });
+
+  @override
+  Future<String> acceptProposal(String proposalId) async {
+    final Object? v = await _mutateValue('commands/proposals:accept', <String, dynamic>{'proposalId': proposalId});
+    return decodeAccepted(v);
+  }
+
+  @override
+  Future<void> declineProposal(String proposalId) =>
+      _mutate('commands/proposals:decline', <String, dynamic>{'proposalId': proposalId});
+
+  @override
+  Future<void> setProgramStatus(String programId, String status) =>
+      _mutate('commands/programs:setStatus', <String, dynamic>{'programId': programId, 'status': status});
+
+  @override
+  Future<void> removeProgram(String programId) =>
+      _mutate('commands/programs:remove', <String, dynamic>{'programId': programId});
 
   @override
   Stream<Stored<Dashboard>> watchDashboard(int days) =>

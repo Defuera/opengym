@@ -146,6 +146,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             onPressed: () => _push(AboutMeScreen(
                               about: d.about,
                               notes: d.context,
+                              deps: d,
                               exercises: AboutStore.knownExercises(<String>[
                                 for (final Session s in d.store.sessions)
                                   for (final Exercise e in s.exercises) e.name,

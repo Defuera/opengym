@@ -32,3 +32,18 @@ export const PURGE_BATCH = 50;
 export const EXERCISE_ART_DAILY_MAX = 40;
 /** A failed art row is tried again by the next request when it is older than this. */
 export const EXERCISE_ART_RETRY_MS = 86_400_000;
+
+/** A proposal (a coach proposal the person must agree to) is removed after this long, whatever its status. */
+export const PROPOSAL_TTL_MS = 7 * 86_400_000;
+/** Old proposals removed per command call. */
+export const PROPOSAL_PURGE_BATCH = 50;
+/** Longest ask text of a proposal; the longest feedback; how many feedback rounds a rebuild keeps (oldest dropped). */
+export const PROPOSAL_TEXT_MAX = 8000;
+export const PROPOSAL_FEEDBACK_MAX = 1000;
+export const PROPOSAL_FEEDBACK_KEEP = 5;
+/** `queries/proposals:open` returns at most this many. */
+export const PROPOSAL_OPEN_MAX = 5;
+/** A program lasts at most this many weeks. */
+export const PROGRAM_MAX_WEEKS = 26;
+/** The AI budget to write one program (a long pasted program can take two minutes). */
+export const PROGRAM_BUILD_BUDGET_MS = 300_000;

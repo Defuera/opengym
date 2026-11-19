@@ -1,6 +1,7 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 import { placeChangeFields, placeFields } from "./lib/placeFields";
+import { programFields, proposalFields } from "./lib/programFields";
 import { previousPlan, startProposal, startStatus, dashboardDays, feeling, limitRule, limitStatus, fileKind, threadStatus, goalKind, goalStatus, importCounts, importStatus, itemSource, moduleSpec, parseState, planExercise, prediction, proposalSource } from "./lib/validators";
 
 /** One logged set. `reps` = completed reps; `failed` = one more rep was tried and not completed. */
@@ -52,6 +53,11 @@ export const sessionFields = {
   deletedAt: v.optional(v.number()),
   /** Where the session happened (ADR-021). Set by the app, by commands/sessions:setPlace or by jobs/places:seed. Absent = not known. */
   placeId: v.optional(v.string()),
+  /** The program this session belongs to, and where in it (written by the app, from `queries/programs:list` `next`). Absent on every other session. */
+  programId: v.optional(v.string()),
+  programWeek: v.optional(v.number()),
+  programSlot: v.optional(v.number()),
+  programKey: v.optional(v.string()),
 };
 
 /** A fact: a user goal. Client-made `goalId` makes writes idempotent. */
@@ -153,6 +159,10 @@ export default defineSchema({
   places: defineTable(placeFields).index("by_placeId", ["placeId"]),
   // Trace of every change of a place text (ADR-021), so a wrong line can be traced and undone. Never read by the app.
   placeChanges: defineTable(placeChangeFields).index("by_placeId", ["placeId"]),
+  // A program the person agreed to (see lib/programFields.ts). Written only by commands/proposals:accept and commands/programs.
+  programs: defineTable(programFields).index("by_programId", ["programId"]).index("by_deletedAt", ["deletedAt"]),
+  // A coach proposal waiting for the person (a new or changed program). Not a fact. Written by commands/proposals and jobs/programs. Removed after 7 days.
+  proposals: defineTable(proposalFields).index("by_proposalId", ["proposalId"]).index("by_createdAt", ["createdAt"]),
   limits: defineTable(limitFields).index("by_limitId", ["limitId"]),
   records: defineTable(recordFields).index("by_recordId", ["recordId"]).index("by_limitId", ["limitId"]),
   checkins: defineTable(checkinFields)

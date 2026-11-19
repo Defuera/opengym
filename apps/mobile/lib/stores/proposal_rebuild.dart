@@ -14,6 +14,7 @@ class ProposalRebuild extends ChangeNotifier {
     String? requestId,
     required this.activity,
     required this.onProposal,
+    this.exercises,
   })  : _plans = plans,
         _requestId = requestId;
 
@@ -21,6 +22,11 @@ class ProposalRebuild extends ChangeNotifier {
   /// restarted, or the session did not come from the coach) the feedback goes
   /// as the note of a new request for this activity.
   final String Function() activity;
+
+  /// The exercises of the shown session. Without a request id they go to the
+  /// coach as the plan to change (`previousPlan`). Null or empty: the feedback
+  /// is the note of a new request.
+  final List<Exercise> Function()? exercises;
 
   final PlanStore _plans;
 
@@ -44,9 +50,15 @@ class ProposalRebuild extends ChangeNotifier {
       return;
     }
     final String? prev = _requestId;
-    final StartRun run = prev != null
-        ? _plans.requestRebuild(feedback: feedback, previousRequestId: prev)
-        : _plans.requestStart(name: activity(), text: feedback.length > 2000 ? feedback.substring(0, 2000) : feedback);
+    final List<Map<String, dynamic>> plan = compactPlan(exercises?.call() ?? <Exercise>[]);
+    final StartRun run;
+    if (prev != null) {
+      run = _plans.requestRebuild(feedback: feedback, previousRequestId: prev);
+    } else if (plan.isNotEmpty) {
+      run = _plans.requestFeedbackOnPlan(name: activity(), feedback: feedback, previousPlan: plan);
+    } else {
+      run = _plans.requestStart(name: activity(), text: feedback.length > 2000 ? feedback.substring(0, 2000) : feedback);
+    }
     _run = run;
     _failed = false;
     notifyListeners();
@@ -76,4 +88,27 @@ class ProposalRebuild extends ChangeNotifier {
     _run?.cancel();
     super.dispose();
   }
+}
+
+/// The session as the compact plan the server takes (`previousPlan`): exercise
+/// names with their sets, no notes. An exercise with no set is left out.
+List<Map<String, dynamic>> compactPlan(List<Exercise> list) {
+  final List<Map<String, dynamic>> out = <Map<String, dynamic>>[];
+  for (final Exercise e in list) {
+    if (e.sets.isEmpty) {
+      continue;
+    }
+    out.add(<String, dynamic>{
+      'name': e.name,
+      if (e.isTime) 'measure': measureTime,
+      'sets': <Map<String, dynamic>>[
+        for (final SetEntry s in e.sets)
+          if (e.isTime)
+            <String, dynamic>{'minutes': s.minutes ?? 0, if (s.distanceKm != null) 'distanceKm': s.distanceKm}
+          else
+            <String, dynamic>{'reps': s.reps, 'kg': s.kg, 'max': s.isMax},
+      ],
+    });
+  }
+  return out;
 }

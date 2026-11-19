@@ -26,6 +26,7 @@ import '../stores/import_store.dart';
 import '../stores/exercise_art_store.dart';
 import '../stores/places_store.dart';
 import '../stores/plan_store.dart';
+import '../stores/program_store.dart';
 import '../stores/review_store.dart';
 import 'deps.dart';
 
@@ -66,6 +67,7 @@ Future<AppDeps> compose() async {
   final AiModelStore aiModel = AiModelStore(client: client);
   final PlacesStore places = PlacesStore(client: client);
   final ExerciseArtStore art = ExerciseArtStore(client: client, isConnected: () => connection.connected);
+  final ProgramStore programs = ProgramStore(client: client);
   final AboutStore about = AboutStore(repo: ConvexAboutRepository(client: client, outbox: outbox));
 
   // A finished session goes to the outbox on disk first, then to the server.
@@ -105,6 +107,7 @@ Future<AppDeps> compose() async {
   about.start();
   aiModel.start();
   places.start();
+  programs.start();
   coach.start();
   imports.watchPast();
   dashboard.select(7);
@@ -129,6 +132,7 @@ Future<AppDeps> compose() async {
     tracker: HealthTrackerSource(),
     places: places,
     art: art,
+    programs: programs,
   );
 
   // Do not wait for the network: the app opens straight away.

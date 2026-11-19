@@ -5,6 +5,7 @@ import '../models.dart';
 import '../stores/proposal_rebuild.dart';
 import 'log_text_screen.dart';
 import 'prepare_session_screen.dart';
+import 'program_screen.dart';
 import 'session_screen.dart';
 
 /// How a start choice opens a session. [nav] is the navigator under the sheet.
@@ -62,10 +63,35 @@ ProposalRebuild rebuildFor(AppDeps d, {String? requestId}) => ProposalRebuild(
       plans: d.plans,
       requestId: requestId,
       activity: () => d.store.active?.type ?? gymType,
+      exercises: () => d.store.active?.exercises ?? <Exercise>[],
       onProposal: (StartProposal n) => _replaceProposal(d, n),
     );
 
-void _beginProposal(AppDeps d, StartProposal p) {
+/// The Program screen of the program [programId].
+void openProgram(NavigatorState nav, AppDeps d, String programId) {
+  nav.push(_route(ProgramScreen(deps: d, programId: programId)));
+}
+
+/// The next session of [program], built by the server as written: opens the
+/// session screen. An open session is resumed as for any start. A program with
+/// no next session does nothing.
+void openProgramSession(NavigatorState nav, AppDeps d, Program program) {
+  final ProgramNow? now = program.now;
+  final ProgramNext? next = now?.next;
+  if (now == null || next == null) {
+    return;
+  }
+  d.store.begin(
+    activity: next.activity,
+    focus: next.title,
+    prepared: d.plans.exercisesOf(next.exercises),
+    rationale: '${program.title} · week ${now.week} · ${next.title}',
+    program: ProgramLink(programId: program.programId, week: now.week, slot: next.slot, key: next.key),
+  );
+  nav.push(_route(_session(d)));
+}
+
+void _beginProposal(AppDeps d, StartProposal p, {ProgramLink? program}) {
   final Plan? plan = p.plan;
   final String rationale = (plan?.rationale ?? '').isEmpty ? p.reason : plan!.rationale;
   d.store.begin(
@@ -74,6 +100,7 @@ void _beginProposal(AppDeps d, StartProposal p) {
     prepared: plan == null ? <Exercise>[] : d.plans.exercisesFor(plan),
     rationale: rationale,
     placeId: p.place?.id,
+    program: program,
   );
   final PlaceRef? place = p.place;
   if (place != null) {
@@ -89,7 +116,8 @@ bool _replaceProposal(AppDeps d, StartProposal p) {
   }
   // A rebuilt proposal with no place keeps the place the person has now.
   final String? keep = d.store.active?.placeId;
-  _beginProposal(d, p);
+  // The program link of a program session survives the replace.
+  _beginProposal(d, p, program: d.store.active?.program);
   if (p.place == null) {
     d.store.setActivePlace(keep);
   }

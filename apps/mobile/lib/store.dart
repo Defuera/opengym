@@ -416,7 +416,7 @@ class AppStore extends ChangeNotifier {
     if (s.done) {
       return;
     }
-    countdown.start(s, s.minutes ?? 0, () => _completeEntry(e, s));
+    countdown.start(s, s.minutes ?? 0, () => _completeEntry(e, s), title: e.name);
   }
 
   void _completeEntry(Exercise e, SetEntry s) {

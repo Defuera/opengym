@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
+import '../data/countdown_signal.dart';
+
 /// The countdown of one time entry in a running session. One at a time.
 ///
 /// It is wall-clock based: it keeps the end time and shows `end - now`. The
@@ -16,9 +18,13 @@ class CountdownStore extends ChangeNotifier {
   CountdownStore({
     DateTime Function()? now,
     void Function()? alert,
+    this.signal = const NoCountdownSignal(),
     this.refresh = const Duration(milliseconds: 200),
   })  : _now = now ?? DateTime.now,
         _alert = alert ?? _deviceAlert;
+
+  /// The sound at the end time: a notification planned while the countdown runs.
+  final CountdownSignal signal;
 
   final DateTime Function() _now;
   final void Function() _alert;
@@ -32,6 +38,7 @@ class CountdownStore extends ChangeNotifier {
   Duration _left = Duration.zero;
   bool _paused = false;
   VoidCallback? _onDone;
+  String _title = '';
   Timer? _timer;
   int _shownSeconds = 0;
 
@@ -58,7 +65,7 @@ class CountdownStore extends ChangeNotifier {
 
   /// Starts a countdown for [entry] from [minutes]. A running one is replaced.
   /// [onDone] runs once when the time is up, after the countdown has ended.
-  void start(Object entry, double minutes, VoidCallback onDone) {
+  void start(Object entry, double minutes, VoidCallback onDone, {String title = ''}) {
     _stopTimer();
     _entry = entry;
     _minutes = minutes;
@@ -66,8 +73,10 @@ class CountdownStore extends ChangeNotifier {
     _end = _now().add(_left);
     _paused = false;
     _onDone = onDone;
+    _title = title;
     _shownSeconds = _seconds(_left);
     _timer = Timer.periodic(refresh, (Timer _) => tick());
+    _plan();
     notifyListeners();
   }
 
@@ -78,6 +87,7 @@ class CountdownStore extends ChangeNotifier {
     _left = remaining;
     _paused = true;
     _stopTimer();
+    _unplan();
     notifyListeners();
   }
 
@@ -89,6 +99,7 @@ class CountdownStore extends ChangeNotifier {
     _paused = false;
     _timer = Timer.periodic(refresh, (Timer _) => tick());
     _shownSeconds = _seconds(_left);
+    _plan();
     notifyListeners();
   }
 
@@ -97,6 +108,7 @@ class CountdownStore extends ChangeNotifier {
     if (_entry == null) {
       return;
     }
+    _unplan();
     _clear();
     notifyListeners();
   }
@@ -123,6 +135,14 @@ class CountdownStore extends ChangeNotifier {
     }
   }
 
+  void _plan() {
+    unawaited(signal.schedule(at: _end!, title: _title).catchError((Object _) {}));
+  }
+
+  void _unplan() {
+    unawaited(signal.cancel().catchError((Object _) {}));
+  }
+
   void _clear() {
     _stopTimer();
     _entry = null;
@@ -137,6 +157,8 @@ class CountdownStore extends ChangeNotifier {
     _timer = null;
   }
 
+  // At zero the notification has fired by itself: it is not cancelled.
+
   static int _seconds(Duration d) => (d.inMilliseconds / 1000).ceil();
 
   @override
@@ -148,5 +170,4 @@ class CountdownStore extends ChangeNotifier {
 
 void _deviceAlert() {
   unawaited(HapticFeedback.heavyImpact().catchError((Object _) {}));
-  unawaited(SystemSound.play(SystemSoundType.alert).catchError((Object _) {}));
 }

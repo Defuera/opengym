@@ -5,6 +5,7 @@ import '../data/convex_client.dart';
 import '../data/legacy_outbox_migration.dart';
 import '../data/outbox.dart';
 import '../data/health_tracker_source.dart';
+import '../data/local_countdown_signal.dart';
 import '../data/pickers.dart';
 import '../data/voice_recorder.dart';
 import '../data/session_sync.dart';
@@ -17,6 +18,7 @@ import '../stores/ai_model_store.dart';
 import '../stores/coach_store.dart';
 import '../stores/connection_store.dart';
 import '../stores/context_store.dart';
+import '../stores/countdown_store.dart';
 import '../stores/dashboard_store.dart';
 import '../stores/entries_store.dart';
 import '../stores/goals_store.dart';
@@ -33,7 +35,10 @@ Future<AppDeps> compose() async {
   final SwitchableConvexClient client = SwitchableConvexClient(
     (String url, String token) => DartvexConvexClient.connect(url: url, token: token),
   );
-  final AppStore store = AppStore(SharedPrefsSessionRepository());
+  final AppStore store = AppStore(
+    SharedPrefsSessionRepository(),
+    countdown: CountdownStore(signal: LocalCountdownSignal()),
+  );
   await store.load();
 
   late final ConnectionStore connection;

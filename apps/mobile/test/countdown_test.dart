@@ -10,6 +10,7 @@ import 'package:opengym/stores/countdown_store.dart';
 import 'package:opengym/theme.dart';
 
 import 'support/fake_convex_client.dart';
+import 'support/fake_countdown_signal.dart';
 import 'support/set_taps.dart';
 import 'support/test_deps.dart';
 
@@ -125,6 +126,115 @@ void main() {
       cd.tick();
       expect(done, 1);
       expect(cd.active, isFalse);
+    });
+  });
+
+  group('the sound at the end time', () {
+    late _Clock clock;
+    late FakeCountdownSignal sig;
+    late AppStore store;
+    late SetEntry first;
+
+    setUp(() async {
+      clock = _Clock();
+      sig = FakeCountdownSignal();
+      store = AppStore(
+        InMemorySessionRepository(),
+        countdown: CountdownStore(now: clock.call, alert: () {}, signal: sig),
+      );
+      await store.load();
+      first = SetEntry.time(2);
+      store.begin(prepared: <Exercise>[
+        _bike(sets: <SetEntry>[first, SetEntry.time(3)]),
+      ]);
+    });
+    tearDown(() => store.countdown.cancel());
+
+    test('Start plans it at the end time with the exercise name', () {
+      store.startCountdown(0);
+      expect(sig.at, clock.t.add(const Duration(minutes: 2)));
+      expect(sig.title, 'Stationary bike');
+    });
+
+    test('Pause cancels it, Resume plans it at the new end time', () {
+      store.startCountdown(0);
+      clock.add(const Duration(seconds: 30));
+      store.countdown.pause();
+      expect(sig.at, isNull);
+      clock.add(const Duration(minutes: 10));
+      store.countdown.resume();
+      expect(sig.at, clock.t.add(const Duration(seconds: 90)));
+      expect(sig.title, 'Stationary bike');
+    });
+
+    test('Reset cancels it', () {
+      store.startCountdown(0);
+      store.countdown.cancel();
+      expect(sig.at, isNull);
+    });
+
+    test('entry removed, minutes changed, checked by hand', () {
+      store.startCountdown(0);
+      store.removeSetAt(0);
+      expect(sig.at, isNull);
+      first = store.currentExercise!.sets.first;
+      store.startCountdown(0);
+      store.changeMinutes(1);
+      expect(sig.at, isNull);
+      store.startCountdown(0);
+      store.toggleSet(0);
+      expect(sig.at, isNull);
+    });
+
+    test('session finished or discarded', () {
+      store.startCountdown(0);
+      store.toggleSet(1);
+      store.finish();
+      expect(sig.at, isNull);
+      store.begin(prepared: <Exercise>[_bike()]);
+      store.startCountdown(0);
+      store.discard();
+      expect(sig.at, isNull);
+    });
+
+    test('a second countdown replaces the first plan', () {
+      store.startCountdown(0);
+      clock.add(const Duration(seconds: 10));
+      store.startCountdown(1);
+      expect(sig.at, clock.t.add(const Duration(minutes: 3)));
+      expect(sig.calls.where((String c) => c == 'schedule').length, 2);
+    });
+
+    test('at zero it is not cancelled: it has fired by itself', () {
+      store.startCountdown(0);
+      clock.add(const Duration(minutes: 2));
+      store.countdown.tick();
+      expect(sig.calls, <String>['schedule']);
+      expect(first.done, isTrue);
+    });
+
+    test('permission denied: the countdown still works', () {
+      final FakeCountdownSignal denied = FakeCountdownSignal(granted: false);
+      final CountdownStore cd = CountdownStore(now: clock.call, alert: () {}, signal: denied);
+      int done = 0;
+      cd.start(Object(), 1, () => done++, title: 'Bike');
+      clock.add(const Duration(minutes: 1));
+      cd.tick();
+      expect(denied.at, isNull);
+      expect(done, 1);
+    });
+
+    test('a failing plugin never breaks the countdown', () async {
+      final CountdownStore cd =
+          CountdownStore(now: clock.call, alert: () {}, signal: FakeCountdownSignal(fail: true));
+      int done = 0;
+      cd.start(Object(), 1, () => done++, title: 'Bike');
+      cd.pause();
+      cd.resume();
+      clock.add(const Duration(minutes: 1));
+      cd.tick();
+      await Future<void>.delayed(Duration.zero);
+      expect(done, 1);
     });
   });
 

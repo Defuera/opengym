@@ -6,6 +6,7 @@ import '../theme.dart';
 import '../widgets/choice_sheet.dart';
 import '../widgets/og_icon_button.dart';
 import '../widgets/set_list.dart';
+import '../widgets/time_format.dart';
 import '../widgets/time_list.dart';
 
 /// The sets of one exercise of a past session, edited in place. It reuses the
@@ -79,7 +80,7 @@ class ExerciseEditor extends StatelessWidget {
   void _minutes(double d) {
     final SetEntry? s = _cur;
     if (s != null && s.isTime) {
-      s.minutes = ((s.minutes ?? 0) + d).clamp(1.0, 600.0).toDouble();
+      s.minutes = stepMinutes(s.minutes ?? 0, d);
       onChanged();
     }
   }

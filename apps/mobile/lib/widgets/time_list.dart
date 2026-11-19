@@ -3,9 +3,11 @@ import 'package:flutter/services.dart';
 
 import '../theme.dart';
 import 'choice_sheet.dart';
+import 'og_button.dart';
 import 'set_check.dart';
 import 'set_editor_card.dart';
 import 'set_row.dart';
+import 'time_format.dart';
 
 /// Plain data for one entry of a time exercise, so widgets need no model imports.
 class TimeRowData {
@@ -25,10 +27,15 @@ class TimeRowData {
   final bool done;
 }
 
-String _min(double m) => m == m.truncateToDouble() ? '${m.toInt()}' : m.toStringAsFixed(1);
+/// A countdown time as "m:ss", rounded up to the full second: 90 s is "1:30".
+String countdownLabel(Duration d) {
+  final int total = (d.inMilliseconds / 1000).ceil().clamp(0, 1 << 30);
+  final int s = total % 60;
+  return '${total ~/ 60}:${s < 10 ? '0' : ''}$s';
+}
 
-/// "25 min" or "25 min, 10.9 km".
-String timeLabel(double minutes, String? km) => '${_min(minutes)} min${km == null ? '' : ', $km km'}';
+/// "30 s", "25 min" or "1:30 min", then ", 10.9 km" when there is a distance.
+String timeLabel(double minutes, String? km) => '${formatTimeEntry(minutes)}${km == null ? '' : ', $km km'}';
 
 /// The entries of a time exercise (usually one). Only the [selected] one is an
 /// editor: a minutes stepper and an optional distance field. Swipe a row left
@@ -45,6 +52,12 @@ class TimeList extends StatelessWidget {
     required this.onDistanceChanged,
     this.onToggle,
     this.checkPrefix = 'set-check',
+    this.countdownIndex,
+    this.remaining = Duration.zero,
+    this.paused = false,
+    this.onStart,
+    this.onPauseResume,
+    this.onReset,
   });
 
   final List<TimeRowData> entries;
@@ -61,6 +74,17 @@ class TimeList extends StatelessWidget {
   /// Check keys are `'<checkPrefix>-<index>'`.
   final String checkPrefix;
 
+  /// The entry that has the active countdown, or null. Its row shows
+  /// [remaining]; when it is the selected one its card shows the countdown.
+  final int? countdownIndex;
+  final Duration remaining;
+  final bool paused;
+
+  /// Starts a countdown for the selected entry. Null: no Start button.
+  final VoidCallback? onStart;
+  final VoidCallback? onPauseResume;
+  final VoidCallback? onReset;
+
   @override
   Widget build(BuildContext context) {
     final List<Widget> items = <Widget>[];
@@ -73,13 +97,18 @@ class TimeList extends StatelessWidget {
             key: ValueKey<Object>(x.id),
             number: i + 1,
             title: entries.length > 1 ? 'Round ${i + 1}' : 'Time',
-            minutes: _min(x.minutes),
+            minutes: x.minutes,
             distance: x.distanceKm,
             done: x.done,
             onCheck: onToggle == null ? null : () => onToggle!(i),
             checkKey: ValueKey<String>('$checkPrefix-$i'),
             onMinutesChanged: onMinutesChanged,
             onDistanceChanged: onDistanceChanged,
+            countdown: countdownIndex == i ? remaining : null,
+            paused: paused,
+            onStart: x.done ? null : onStart,
+            onPauseResume: onPauseResume,
+            onReset: onReset,
           ),
         ));
         continue;
@@ -103,6 +132,7 @@ class TimeList extends StatelessWidget {
         child: _TimeRow(
           number: i + 1,
           data: x,
+          remaining: countdownIndex == i ? remaining : null,
           onTap: () => onSelect(i),
           onCheck: onToggle == null ? null : () => onToggle!(i),
           checkKey: ValueKey<String>('$checkPrefix-$i'),
@@ -119,12 +149,16 @@ class _TimeRow extends StatelessWidget {
     required this.number,
     required this.data,
     required this.onTap,
+    this.remaining,
     this.onCheck,
     this.checkKey,
   });
 
   final int number;
   final TimeRowData data;
+
+  /// Time left of this row's countdown; shows in place of the minutes.
+  final Duration? remaining;
   final VoidCallback onTap;
   final VoidCallback? onCheck;
   final Key? checkKey;
@@ -145,7 +179,8 @@ class _TimeRow extends StatelessWidget {
             SetBadge(number: number, done: data.done),
             const SizedBox(width: 14),
             Text(
-              timeLabel(data.minutes, data.distanceKm),
+              remaining != null ? countdownLabel(remaining!) : timeLabel(data.minutes, data.distanceKm),
+              key: remaining != null ? const ValueKey<String>('countdown-row-time') : null,
               style: OG.display(20, color: data.done ? OG.mute : OG.ink),
             ),
             const Spacer(),
@@ -196,11 +231,16 @@ class TimeEditorCard extends StatefulWidget {
     this.done = false,
     this.onCheck,
     this.checkKey,
+    this.countdown,
+    this.paused = false,
+    this.onStart,
+    this.onPauseResume,
+    this.onReset,
   });
 
   final int number;
   final String title;
-  final String minutes;
+  final double minutes;
   final String? distance;
   final ValueChanged<double> onMinutesChanged;
   final ValueChanged<double?> onDistanceChanged;
@@ -209,6 +249,16 @@ class TimeEditorCard extends StatefulWidget {
   /// Tap on the check control; null hides the control.
   final VoidCallback? onCheck;
   final Key? checkKey;
+
+  /// Time left when a countdown is active for this entry; null otherwise.
+  /// While set, the steppers are hidden.
+  final Duration? countdown;
+  final bool paused;
+
+  /// "Start" shows when this is set (and no countdown is active).
+  final VoidCallback? onStart;
+  final VoidCallback? onPauseResume;
+  final VoidCallback? onReset;
 
   @override
   State<TimeEditorCard> createState() => _TimeEditorCardState();
@@ -266,51 +316,109 @@ class _TimeEditorCardState extends State<TimeEditorCard> {
             ],
           ),
           const SizedBox(height: 6),
-          NumberStepper(
-            value: widget.minutes,
-            unit: 'min',
-            onMinus: () => widget.onMinutesChanged(-1),
-            onPlus: () => widget.onMinutesChanged(1),
-            onLongMinus: () => widget.onMinutesChanged(-5),
-            onLongPlus: () => widget.onMinutesChanged(5),
-          ),
-          const SizedBox(height: 12),
-          if (!_showKm)
-            Align(
-              alignment: Alignment.centerLeft,
-              child: GestureDetector(
-                key: const ValueKey<String>('time-add-distance'),
-                behavior: HitTestBehavior.opaque,
-                onTap: () => setState(() => _showKm = true),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 4),
-                  child: Text('Add distance', style: OG.muted(size: 14, weight: FontWeight.w600)),
+          if (widget.countdown != null)
+            ..._countdown(widget.countdown!)
+          else ...<Widget>[
+            NumberStepper(
+              value: timeValue(widget.minutes),
+              unit: timeUnit(widget.minutes).toLowerCase(),
+              onMinus: () => widget.onMinutesChanged(-1),
+              onPlus: () => widget.onMinutesChanged(1),
+              onLongMinus: () => widget.onMinutesChanged(-5),
+              onLongPlus: () => widget.onMinutesChanged(5),
+            ),
+            const SizedBox(height: 12),
+            if (widget.distance == null && isShortTime(widget.minutes))
+              const SizedBox.shrink()
+            else if (!_showKm)
+              Align(
+                alignment: Alignment.centerLeft,
+                child: GestureDetector(
+                  key: const ValueKey<String>('time-add-distance'),
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => setState(() => _showKm = true),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Text('Add distance', style: OG.muted(size: 14, weight: FontWeight.w600)),
+                  ),
+                ),
+              )
+            else
+            TextField(
+              key: const ValueKey<String>('time-distance'),
+              controller: _km,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              inputFormatters: <TextInputFormatter>[
+                FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
+                LengthLimitingTextInputFormatter(7),
+              ],
+              style: OG.body(),
+              onChanged: (String t) => widget.onDistanceChanged(double.tryParse(t.replaceAll(',', '.'))),
+              decoration: InputDecoration(
+                hintText: 'Distance in km (optional)',
+                filled: true,
+                fillColor: OG.card,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                border: idle,
+                enabledBorder: idle,
+                focusedBorder: idle.copyWith(borderSide: const BorderSide(color: OG.accent, width: 3)),
+              ),
+            ),
+            if (widget.onStart != null) ...<Widget>[
+              const SizedBox(height: 12),
+              OgButton(
+                key: const ValueKey<String>('countdown-start'),
+                variant: OgVariant.accent,
+                minHeight: 48,
+                onPressed: widget.onStart,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    const Icon(Icons.play_arrow_rounded, color: OG.white, size: 26),
+                    const SizedBox(width: 6),
+                    Text('Start', style: OG.display(18, color: OG.white)),
+                  ],
                 ),
               ),
-            )
-          else
-          TextField(
-            key: const ValueKey<String>('time-distance'),
-            controller: _km,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            inputFormatters: <TextInputFormatter>[
-              FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
-              LengthLimitingTextInputFormatter(7),
             ],
-            style: OG.body(),
-            onChanged: (String t) => widget.onDistanceChanged(double.tryParse(t.replaceAll(',', '.'))),
-            decoration: InputDecoration(
-              hintText: 'Distance in km (optional)',
-              filled: true,
-              fillColor: OG.card,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-              border: idle,
-              enabledBorder: idle,
-              focusedBorder: idle.copyWith(borderSide: const BorderSide(color: OG.accent, width: 3)),
-            ),
-          ),
+          ],
         ],
       ),
     );
+  }
+
+  List<Widget> _countdown(Duration left) {
+    return <Widget>[
+      const SizedBox(height: 4),
+      Text(
+        countdownLabel(left),
+        key: const ValueKey<String>('countdown-time'),
+        style: OG.display(56, color: widget.paused ? OG.mute : OG.ink),
+      ),
+      const SizedBox(height: 8),
+      OgButton(
+        key: const ValueKey<String>('countdown-toggle'),
+        variant: OgVariant.accent,
+        minHeight: 48,
+        onPressed: widget.onPauseResume,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            Icon(widget.paused ? Icons.play_arrow_rounded : Icons.pause_rounded, color: OG.white, size: 26),
+            const SizedBox(width: 6),
+            Text(widget.paused ? 'Resume' : 'Pause', style: OG.display(18, color: OG.white)),
+          ],
+        ),
+      ),
+      GestureDetector(
+        key: const ValueKey<String>('countdown-reset'),
+        behavior: HitTestBehavior.opaque,
+        onTap: widget.onReset,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+          child: Text('Reset', style: OG.muted(size: 14, weight: FontWeight.w600)),
+        ),
+      ),
+    ];
   }
 }

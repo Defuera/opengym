@@ -6,13 +6,19 @@ import 'package:flutter/foundation.dart';
 import 'data/session_repository.dart';
 import 'models.dart';
 import 'planner.dart';
+import 'stores/countdown_store.dart';
+import 'widgets/time_format.dart';
 
 /// Single app store. Storage is behind [SessionRepository]; the in-progress
 /// session is saved on every change.
 class AppStore extends ChangeNotifier {
-  AppStore(this._repo);
+  AppStore(this._repo, {CountdownStore? countdown}) : countdown = countdown ?? CountdownStore();
 
   final SessionRepository _repo;
+
+  /// The countdown of a time entry in the running session. It lives here so it
+  /// outlasts the session screen; see [startCountdown].
+  final CountdownStore countdown;
 
   /// Called with the session id after a session was saved locally (finished
   /// gym session or logged activity). Compose wires this to the outbox.
@@ -50,6 +56,7 @@ class AppStore extends ChangeNotifier {
   }
 
   void _commit() {
+    _syncCountdown();
     activeAt = DateTime.now().millisecondsSinceEpoch;
     _repo.save(StoredState(
       sessions: sessions,
@@ -378,6 +385,48 @@ class AppStore extends ChangeNotifier {
     _commit();
   }
 
+  // ---------- countdown ----------
+
+  /// Cancels the countdown when its entry is gone, done or changed in minutes.
+  void _syncCountdown() {
+    if (!countdown.active) {
+      return;
+    }
+    for (final Exercise e in active?.exercises ?? <Exercise>[]) {
+      for (final SetEntry s in e.sets) {
+        if (countdown.isFor(s)) {
+          if (s.done || s.minutes != countdown.startMinutes) {
+            countdown.cancel();
+          }
+          return;
+        }
+      }
+    }
+    countdown.cancel();
+  }
+
+  /// Starts the countdown for entry [i] of the current time exercise. At zero
+  /// the entry is completed the way the check mark does it.
+  void startCountdown(int i) {
+    final Exercise? e = currentExercise;
+    if (e == null || !e.isTime || i < 0 || i >= e.sets.length) {
+      return;
+    }
+    final SetEntry s = e.sets[i];
+    if (s.done) {
+      return;
+    }
+    countdown.start(s, s.minutes ?? 0, () => _completeEntry(e, s));
+  }
+
+  void _completeEntry(Exercise e, SetEntry s) {
+    final int i = e.sets.indexOf(s);
+    if (i < 0 || s.done) {
+      return;
+    }
+    _completeIn(e, i, current: identical(e, currentExercise));
+  }
+
   // ---------- sets ----------
 
   void pickSet(int i) {
@@ -396,13 +445,14 @@ class AppStore extends ChangeNotifier {
     _commit();
   }
 
-  /// Time exercise: changes the minutes of the current entry (1 to 600).
+  /// Time exercise: one step of the minus or plus control on the current entry
+  /// ([delta] counts steps, see [stepMinutes]: 5 s up to 2 minutes, else 1 minute).
   void changeMinutes(double delta) {
     final SetEntry? s = currentSet;
     if (s == null || !s.isTime) {
       return;
     }
-    s.minutes = ((s.minutes ?? 0) + delta).clamp(1.0, 600.0).toDouble();
+    s.minutes = stepMinutes(s.minutes ?? 0, delta);
     _commit();
   }
 
@@ -507,6 +557,10 @@ class AppStore extends ChangeNotifier {
     if (e == null || i < 0 || i >= e.sets.length || e.sets[i].done) {
       return;
     }
+    _completeIn(e, i, current: true);
+  }
+
+  void _completeIn(Exercise e, int i, {required bool current}) {
     final SetEntry s = e.sets[i];
     s.done = true;
     s.at = DateTime.now().millisecondsSinceEpoch;
@@ -519,7 +573,9 @@ class AppStore extends ChangeNotifier {
         }
       }
     }
-    curSet = firstOpen(e);
+    if (current) {
+      curSet = firstOpen(e);
+    }
     _commit();
   }
 }

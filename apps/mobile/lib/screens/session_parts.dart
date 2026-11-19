@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models.dart';
 import '../planner.dart';
 import '../store.dart';
+import '../stores/countdown_store.dart';
 import '../stores/exercise_art_store.dart';
 import '../widgets/choice_sheet.dart';
 import '../widgets/exercise_anim.dart';
@@ -73,6 +74,20 @@ class SessionPanel extends StatelessWidget {
       );
     }
     final ImageProvider? image = art?.imageFor(ex.name);
+    return ListenableBuilder(
+      listenable: store.countdown,
+      builder: (BuildContext c, Widget? w) => _panel(ex, image),
+    );
+  }
+
+  Widget _panel(Exercise ex, ImageProvider? image) {
+    final CountdownStore cd = store.countdown;
+    int? cdIndex;
+    for (int i = 0; i < ex.sets.length; i++) {
+      if (cd.isFor(ex.sets[i])) {
+        cdIndex = i;
+      }
+    }
     return ExercisePanel(
       name: ex.name,
       hint: _hint(ex),
@@ -97,6 +112,12 @@ class SessionPanel extends StatelessWidget {
             onDistanceChanged: store.setDistance,
             onToggle: store.toggleSet,
             checkPrefix: 'set-check-${store.curEx}',
+            countdownIndex: cdIndex,
+            remaining: cd.remaining,
+            paused: cd.paused,
+            onStart: () => store.startCountdown(store.curSet),
+            onPauseResume: () => cd.paused ? cd.resume() : cd.pause(),
+            onReset: cd.cancel,
           )
         else
           SetList(

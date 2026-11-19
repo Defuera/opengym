@@ -96,7 +96,7 @@ void main() {
           name: 'Warm-up',
           measure: measureTime,
           fresh: false,
-          sets: <SetEntry>[SetEntry.time(2)]),
+          sets: <SetEntry>[SetEntry.time(10)]),
     ]);
     expect(find.byKey(const ValueKey<String>('time-distance')), findsNothing);
     expect(find.text('Add distance'), findsOneWidget);

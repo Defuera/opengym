@@ -92,7 +92,7 @@ class SetEntry {
     if (min != null) {
       final double? km = distanceKm;
       return <String, dynamic>{
-        'minutes': min.clamp(0.5, 600.0).toDouble(),
+        'minutes': min.clamp(0.0833, 600.0).toDouble(),
         if (km != null && km >= 0) 'distanceKm': km,
         if (at != null) 'at': at,
       };

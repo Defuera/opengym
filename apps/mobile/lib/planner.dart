@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'focus.dart';
 import 'models.dart';
+import 'widgets/time_format.dart';
 
 export 'focus.dart';
 
@@ -123,7 +124,7 @@ List<LoggedExercise> loggedExercises(List<Session> sessions) {
 
 /// A time entry as text: "25 min" or "25 min, 10.9 km".
 String timeText(double minutes, [double? distanceKm]) {
-  final String m = '${fmtKg(minutes)} min';
+  final String m = formatTimeEntry(minutes);
   return distanceKm == null ? m : '$m, ${fmtKg(distanceKm)} km';
 }
 

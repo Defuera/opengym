@@ -39,7 +39,7 @@ class SessionScreen extends StatefulWidget {
   State<SessionScreen> createState() => _SessionScreenState();
 }
 
-class _SessionScreenState extends State<SessionScreen> {
+class _SessionScreenState extends State<SessionScreen> with WidgetsBindingObserver {
   final TextEditingController _feedback = TextEditingController();
   bool _wasBusy = false;
   String _artNames = '';
@@ -51,14 +51,25 @@ class _SessionScreenState extends State<SessionScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     rebuild?.addListener(_onRebuild);
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     rebuild?.removeListener(_onRebuild);
     _feedback.dispose();
     super.dispose();
+  }
+
+  /// After the phone was locked or the app was in the background, the
+  /// countdown checks its end time at once.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      store.countdown.tick();
+    }
   }
 
   /// The typed text is cleared after a rebuild went through, kept after a failure.

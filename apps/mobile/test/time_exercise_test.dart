@@ -342,8 +342,13 @@ void main() {
       Exercise(id: 'b', name: 'Bike', measure: measureTime, sets: <SetEntry>[SetEntry.time(1)]),
     ]);
     store.changeMinutes(-1);
-    expect(store.currentSet!.minutes, 1);
-    store.changeMinutes(1000);
+    expect(store.currentSet!.minutes, 0.9167);
+    for (int i = 0; i < 30; i++) {
+      store.changeMinutes(-1);
+    }
+    expect(store.currentSet!.minutes, 0.0833);
+    store.currentSet!.minutes = 598;
+    store.changeMinutes(5);
     expect(store.currentSet!.minutes, 600);
     store.setDistance(0);
     expect(store.currentSet!.distanceKm, isNull);

@@ -100,7 +100,7 @@ void main() {
     expect(find.text('Next exercise'), findsNothing);
     await tapCurrentCheck(t, store);
     await t.tap(find.text('Next exercise'));
-    await t.pump();
+    await t.pumpAndSettle(); // the new card slides in
     expect(store.curEx, 1);
     expect(find.text('Next exercise'), findsNothing);
     await tapCurrentCheck(t, store);

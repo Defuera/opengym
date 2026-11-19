@@ -319,7 +319,7 @@ void main() {
         home: SessionScreen(store: store),
       ));
       await t.pump();
-      await t.tap(find.text('Add'));
+      await t.tap(find.byKey(const ValueKey<String>('add-exercise')));
       await t.pumpAndSettle();
       expect(find.text('Biceps Curl'), findsOneWidget);
       expect(find.text('Bench press'), findsNothing);

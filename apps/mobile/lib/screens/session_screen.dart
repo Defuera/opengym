@@ -44,6 +44,21 @@ class _SessionScreenState extends State<SessionScreen> with WidgetsBindingObserv
   bool _wasBusy = false;
   String _artNames = '';
 
+  /// Which side the card of the current exercise comes in from: 1 right, -1 left.
+  /// Zero until the person changes the exercise: the first card does not move.
+  double _from = 0;
+  late int _lastEx = store.curEx;
+
+  /// A sideways swipe on the card shows the next or the previous exercise.
+  void _onSwipe(DragEndDetails d) {
+    final double v = d.primaryVelocity ?? 0;
+    final int count = store.active?.exercises.length ?? 0;
+    final int to = store.curEx + (v < -250 ? 1 : (v > 250 ? -1 : 0));
+    if (to != store.curEx && to >= 0 && to < count) {
+      store.pickExercise(to);
+    }
+  }
+
   AppStore get store => widget.store;
   AppDeps? get deps => widget.deps;
   ProposalRebuild? get rebuild => widget.rebuild;
@@ -243,6 +258,11 @@ class _SessionScreenState extends State<SessionScreen> with WidgetsBindingObserv
           return const Scaffold(body: SizedBox.shrink());
         }
         _trackArt(a);
+        if (store.curEx != _lastEx) {
+          _from = store.curEx > _lastEx ? 1 : -1;
+          _lastEx = store.curEx;
+        }
+        final bool still = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
         final bool canChange = rebuild != null && !store.hasDoneSet;
         final bool busy = canChange && rebuild!.busy;
         final bool why = a.focus != null || a.planNote != null || a.exercises.isNotEmpty;
@@ -321,14 +341,29 @@ class _SessionScreenState extends State<SessionScreen> with WidgetsBindingObserv
                     onAdd: () => _addExercise(context),
                   ),
                   Expanded(
-                    child: SingleChildScrollView(
-                      padding: const EdgeInsets.fromLTRB(20, 14, 20, 8),
-                      child: deps == null
-                          ? SessionPanel(store: store)
-                          : ListenableBuilder(
-                              listenable: deps!.art,
-                              builder: (BuildContext c, Widget? w) => SessionPanel(store: store, art: deps!.art),
-                            ),
+                    child: GestureDetector(
+                      key: const ValueKey<String>('panel-swipe'),
+                      behavior: HitTestBehavior.opaque,
+                      onHorizontalDragEnd: _onSwipe,
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.fromLTRB(20, 14, 20, 8),
+                        child: TweenAnimationBuilder<double>(
+                          key: ValueKey<String>('panel-${store.currentExercise?.id}'),
+                          tween: Tween<double>(begin: _from == 0 ? 0 : 1, end: 0),
+                          duration: still ? Duration.zero : const Duration(milliseconds: 180),
+                          curve: Curves.easeOut,
+                          builder: (BuildContext c, double t, Widget? child) => Opacity(
+                            opacity: 1 - t,
+                            child: Transform.translate(offset: Offset(_from * 48 * t, 0), child: child),
+                          ),
+                          child: deps == null
+                              ? SessionPanel(store: store)
+                              : ListenableBuilder(
+                                  listenable: deps!.art,
+                                  builder: (BuildContext c, Widget? w) => SessionPanel(store: store, art: deps!.art),
+                                ),
+                        ),
+                      ),
                     ),
                   ),
                 ],

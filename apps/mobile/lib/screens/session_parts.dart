@@ -45,11 +45,23 @@ class ExerciseStrip extends StatelessWidget {
         },
       ));
     }
-    return ExerciseCarousel(
-      selectedIndex: store.curEx,
-      onReorder: store.moveExercise,
-      footer: AddCard(onTap: onAdd),
-      children: cards,
+    // The add button stays at the right of the strip: it does not scroll away.
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Expanded(
+          child: ExerciseCarousel(
+            selectedIndex: store.curEx,
+            onReorder: store.moveExercise,
+            endPad: 10,
+            children: cards,
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(0, 2, 20, 0),
+          child: AddCard(key: const ValueKey<String>('add-exercise'), onTap: onAdd, label: 'Add exercise', compact: true),
+        ),
+      ],
     );
   }
 }

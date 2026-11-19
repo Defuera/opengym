@@ -14,7 +14,11 @@ class ExerciseCarousel extends StatefulWidget {
     this.itemWidth = 220,
     this.gap = 10,
     this.height = 64,
+    this.endPad = 20,
   });
+
+  /// The space after the last card.
+  final double endPad;
 
   final void Function(int from, int to)? onReorder;
   final Widget? footer;
@@ -94,7 +98,7 @@ class _ExerciseCarouselState extends State<ExerciseCarousel> {
         scrollController: _controller,
         scrollDirection: Axis.horizontal,
         buildDefaultDragHandles: false,
-        padding: const EdgeInsets.fromLTRB(_pad, 2, _pad, 10),
+        padding: EdgeInsets.fromLTRB(_pad, 2, widget.endPad, 10),
         footer: footer,
         proxyDecorator: (Widget child, int index, Animation<double> a) =>
             Material(type: MaterialType.transparency, child: child),

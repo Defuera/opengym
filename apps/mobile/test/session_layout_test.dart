@@ -148,4 +148,33 @@ void main() {
         lessThan(before)); // the title moved with the card
     expect(t.getRect(find.text('Finish session')).bottom, lessThanOrEqualTo(420));
   });
+
+  testWidgets('a swipe on the card shows the next and the previous exercise', (WidgetTester t) async {
+    final AppStore store = await _open(t, exercises: <Exercise>[
+      Exercise(id: 'a', name: 'Curl', fresh: false, sets: <SetEntry>[SetEntry(reps: 8, kg: 10)]),
+      Exercise(id: 'b', name: 'Row', fresh: false, sets: <SetEntry>[SetEntry(reps: 8, kg: 30)]),
+    ]);
+    await t.pumpAndSettle();
+    final Finder title = find.text('Curl').last;
+    await t.fling(title, const Offset(-200, 0), 1000);
+    await t.pumpAndSettle();
+    expect(store.curEx, 1);
+    await t.fling(find.text('Row').last, const Offset(-200, 0), 1000);
+    await t.pumpAndSettle();
+    expect(store.curEx, 1); // no exercise after the last one
+    await t.fling(find.text('Row').last, const Offset(200, 0), 1000);
+    await t.pumpAndSettle();
+    expect(store.curEx, 0);
+  });
+
+  testWidgets('the add button stays in view with many exercises', (WidgetTester t) async {
+    await _open(t, exercises: <Exercise>[
+      for (int i = 0; i < 8; i++)
+        Exercise(id: 'e$i', name: 'Exercise $i', fresh: false, sets: <SetEntry>[SetEntry(reps: 8, kg: 10)]),
+    ]);
+    await t.pumpAndSettle();
+    final Rect r = t.getRect(find.byKey(const ValueKey<String>('add-exercise')));
+    expect(r.right, lessThanOrEqualTo(390));
+    expect(r.left, greaterThan(300));
+  });
 }

@@ -85,10 +85,13 @@ class ExerciseCard extends StatelessWidget {
 
 /// Trailing dashed "Add" card for the carousel.
 class AddCard extends StatelessWidget {
-  const AddCard({super.key, required this.onTap, this.label = 'Add'});
+  const AddCard({super.key, required this.onTap, this.label = 'Add', this.compact = false});
 
   final VoidCallback? onTap;
   final String label;
+
+  /// Only the plus, in a square. For a button that stays beside a strip.
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
@@ -96,16 +99,18 @@ class AddCard extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
       child: SizedBox(
-        width: 84,
+        width: compact ? 46 : 84,
         height: 46,
         child: DashedBox(
           radius: 14,
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: <Widget>[
-              const Icon(Icons.add, size: 20),
-              const SizedBox(width: 4),
-              Text(label, style: OG.body(size: 14, weight: FontWeight.w600)),
+              Icon(Icons.add, size: 20, semanticLabel: compact ? label : null),
+              if (!compact) ...<Widget>[
+                const SizedBox(width: 4),
+                Text(label, style: OG.body(size: 14, weight: FontWeight.w600)),
+              ],
             ],
           ),
         ),

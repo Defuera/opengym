@@ -1,4 +1,4 @@
-import type { DatabaseReader } from "../_generated/server";
+import type { DatabaseReader, DatabaseWriter } from "../_generated/server";
 import type { Doc } from "../_generated/dataModel";
 import type { ContextItem, Entry, Goal, Session } from "../model/schema";
 import { activityKey, normalizeSession } from "../model/sessionShape";
@@ -158,6 +158,12 @@ export function stableJson(value: unknown): string {
 
 export const threadByThreadId = (ctx: Reader, threadId: string) =>
   ctx.db.query("threads").withIndex("by_threadId", (q) => q.eq("threadId", threadId)).unique();
+
+/** Deletes a thread and its messages (commands/threads:remove, commands/programs:remove). Goals and context items it produced stay: they are facts. */
+export async function deleteThreadWithMessages(ctx: { db: DatabaseWriter }, thread: Doc<"threads">): Promise<void> {
+  for (const m of await ctx.db.query("messages").withIndex("by_threadId", (q) => q.eq("threadId", thread.threadId)).collect()) await ctx.db.delete(m._id);
+  await ctx.db.delete(thread._id);
+}
 
 export const messageByMessageId = (ctx: Reader, messageId: string) =>
   ctx.db.query("messages").withIndex("by_messageId", (q) => q.eq("messageId", messageId)).unique();

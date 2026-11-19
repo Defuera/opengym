@@ -162,28 +162,8 @@ class SwitchableConvexClient implements ConvexClient {
   Stream<List<Program>> watchPrograms() => _proxy((ConvexClient c) => c.watchPrograms());
 
   @override
-  Stream<Proposal?> watchProposal(String proposalId) => _proxy((ConvexClient c) => c.watchProposal(proposalId));
-
-  @override
-  Stream<List<Proposal>> watchOpenProposals() => _proxy((ConvexClient c) => c.watchOpenProposals());
-
-  @override
-  Future<void> requestProposal({
-    required String proposalId,
-    String kind = 'program',
-    String? targetId,
-    String? text,
-    String? feedback,
-    String? previousProposalId,
-  }) =>
-      _call((ConvexClient c) => c.requestProposal(
-            proposalId: proposalId,
-            kind: kind,
-            targetId: targetId,
-            text: text,
-            feedback: feedback,
-            previousProposalId: previousProposalId,
-          ));
+  Stream<List<Proposal>> watchThreadProposals(String threadId) =>
+      _proxy((ConvexClient c) => c.watchThreadProposals(threadId));
 
   @override
   Future<String> acceptProposal(String proposalId) {
@@ -337,8 +317,8 @@ class SwitchableConvexClient implements ConvexClient {
   Future<void> removeImport(String importId) => _call((ConvexClient c) => c.removeImport(importId));
 
   @override
-  Future<void> createThread({required String threadId, String? title, String? placeId}) =>
-      _call((ConvexClient c) => c.createThread(threadId: threadId, title: title, placeId: placeId));
+  Future<void> createThread({required String threadId, String? title, String? placeId, ThreadAbout? about}) =>
+      _call((ConvexClient c) => c.createThread(threadId: threadId, title: title, placeId: placeId, about: about));
 
   @override
   Future<void> renameThread({required String threadId, required String title}) =>

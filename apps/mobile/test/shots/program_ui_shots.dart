@@ -1,7 +1,7 @@
 // Visual proof of the Program screens. Not part of the normal suite (the file
 // name has no _test suffix). Run by path:
 //   flutter test test/shots/program_ui_shots.dart
-// It writes 1-proposal.png (the coach proposes a knee program), 2-program.png
+// It writes 2-program.png
 // (the active program in week 2, one slot done), 3-start-sheet.png (the start
 // sheet with the program row) and 4-about-me.png (the Programs section) to the
 // shots folder, at 390 px width, pixel ratio 3.
@@ -17,7 +17,6 @@ import 'package:opengym/data/in_memory_about_repository.dart';
 import 'package:opengym/models.dart';
 import 'package:opengym/screens/about_me_screen.dart';
 import 'package:opengym/screens/home_screen.dart';
-import 'package:opengym/screens/program_new_screen.dart';
 import 'package:opengym/screens/program_screen.dart';
 import 'package:opengym/stores/context_store.dart';
 import 'package:opengym/theme.dart';
@@ -64,22 +63,6 @@ void main() {
     }
   });
   tearDownAll(() => OG.fontFamily = null);
-
-  testWidgets('1: the coach proposes a knee program', (WidgetTester t) async {
-    final GlobalKey key = _view(t, 1500);
-    final FakeConvexClient fake = FakeConvexClient();
-    final AppDeps d = await testDeps(fake);
-    await t.pumpWidget(_app(key, ProgramNewScreen(deps: d)));
-    await t.enterText(find.byType(TextField), 'Prepare my knee for skiing by 19 Dec');
-    await t.pump();
-    await t.tap(find.byKey(const ValueKey<String>('program-propose')));
-    await t.pump();
-    fake.answerProposal(kneeProposal(id: fake.lastProposalId));
-    await t.pump();
-    await t.pump();
-    expect(find.byKey(const ValueKey<String>('proposal-agree')), findsOneWidget);
-    await _save(t, key, '1-proposal');
-  });
 
   testWidgets('2: the Program screen in week 2, one slot done', (WidgetTester t) async {
     final GlobalKey key = _view(t, 1500);

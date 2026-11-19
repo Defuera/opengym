@@ -92,8 +92,10 @@ Stored<Plan> decodePlan(Object? v) {
 Program decodeProgram(Object? v) => Program.fromJson(asMap(normalize(v)));
 List<Program> decodePrograms(Object? v) => _list(v, decodeProgram);
 
-/// The answer of `queries/proposals:get`: null, or the proposal.
+/// One proposal (the shape `queries/proposals:forThread` returns per item): null when it is not a map.
 Proposal? decodeProposal(Object? v) => v is Map ? Proposal.fromJson(asMap(normalize(v))) : null;
+
+/// The answer of `queries/proposals:forThread`: the proposals, oldest first.
 List<Proposal> decodeProposals(Object? v) => _list(v, (Object? e) => Proposal.fromJson(asMap(normalize(e))));
 
 /// The answer of `commands/proposals:accept`: `{ programId }`.

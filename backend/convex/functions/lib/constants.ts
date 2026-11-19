@@ -43,6 +43,8 @@ export const PROPOSAL_FEEDBACK_MAX = 1000;
 export const PROPOSAL_FEEDBACK_KEEP = 5;
 /** `queries/proposals:open` returns at most this many. */
 export const PROPOSAL_OPEN_MAX = 5;
+/** The most proposals queries/proposals:forThread returns. */
+export const PROPOSAL_FOR_THREAD_MAX = 50;
 /** A program lasts at most this many weeks. */
 export const PROGRAM_MAX_WEEKS = 26;
 /** The AI budget to write one program (a long pasted program can take two minutes). */

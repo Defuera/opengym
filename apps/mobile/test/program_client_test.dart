@@ -31,20 +31,19 @@ DartvexConvexClient _client(_Caller c) =>
     DartvexConvexClient(caller: c, token: 't', connectionStates: const Stream<ConvexLink>.empty());
 
 void main() {
-  test('requestProposal sends the contract arguments and leaves out what is not set', () async {
+  test('a thread about a program is created with the contract arguments', () async {
     final _Caller c = _Caller();
-    await _client(c).requestProposal(proposalId: 'p1', text: 'a knee program');
-    await _client(c).requestProposal(proposalId: 'p2', targetId: 'prog', feedback: 'no bike', previousProposalId: 'p1');
-    expect(c.mutations[0], <String, dynamic>{'fn': 'commands/proposals:request', 'token': 't', 'proposalId': 'p1', 'kind': 'program', 'text': 'a knee program'});
-    expect(c.mutations[1], <String, dynamic>{
-      'fn': 'commands/proposals:request',
+    await _client(c).createThread(threadId: 't1', about: const ThreadAbout());
+    await _client(c).createThread(threadId: 't2', about: const ThreadAbout(id: 'prog'));
+    await _client(c).createThread(threadId: 't3');
+    expect(c.mutations[0], <String, dynamic>{
+      'fn': 'commands/threads:create',
       'token': 't',
-      'proposalId': 'p2',
-      'kind': 'program',
-      'targetId': 'prog',
-      'feedback': 'no bike',
-      'previousProposalId': 'p1',
+      'threadId': 't1',
+      'about': <String, dynamic>{'kind': 'program'},
     });
+    expect((c.mutations[1]['about'] as Map<String, dynamic>)['id'], 'prog');
+    expect(c.mutations[2].containsKey('about'), isFalse);
   });
 
   test('accept returns the program id; decline, setStatus and remove use their functions', () async {
@@ -109,12 +108,9 @@ void main() {
     final DartvexConvexClient cl = _client(c);
     final StreamSubscription<List<Program>> a = cl.watchPrograms().listen((_) {});
     expect(c.subscribed, 'queries/programs:list');
-    final StreamSubscription<Proposal?> b = cl.watchProposal('p1').listen((_) {});
-    expect(c.subscribed, 'queries/proposals:get');
-    final StreamSubscription<List<Proposal>> o = cl.watchOpenProposals().listen((_) {});
-    expect(c.subscribed, 'queries/proposals:open');
+    final StreamSubscription<List<Proposal>> b = cl.watchThreadProposals('t1').listen((_) {});
+    expect(c.subscribed, 'queries/proposals:forThread');
     await a.cancel();
     await b.cancel();
-    await o.cancel();
   });
 }

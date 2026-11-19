@@ -62,6 +62,8 @@ export const programFields = {
 /** What a proposal is about. A union of one now; later kinds (a limit, a goal) join it. No `id` = a new thing. */
 export const proposalTarget = v.union(v.object({ kind: v.literal("program"), id: v.optional(v.string()) }));
 export const proposalKind = v.literal("program");
+/** What a thread is about (ADR-026). A union of one now. No `id` = a new program that does not exist yet; it is set when the proposal is agreed. */
+export const threadAbout = v.object({ kind: v.literal("program"), id: v.optional(v.string()) });
 export const proposalApproval = v.union(v.literal("none"), v.literal("explicit"));
 export const proposalOrigin = v.union(v.literal("request"), v.literal("feedback"), v.literal("chat"));
 export const proposalStatus = v.union(v.literal("building"), v.literal("ready"), v.literal("applied"), v.literal("declined"), v.literal("stale"), v.literal("failed"));
@@ -80,6 +82,9 @@ export const proposalFields = {
   source: v.optional(v.union(v.literal("ai"), v.literal("rules"))),
   ask: v.object({ text: v.optional(v.string()), feedback: v.optional(v.array(v.string())), previousProposalId: v.optional(v.string()) }),
   error: v.optional(v.string()),
+  /** The chat thread and the assistant message this proposal came from (origin `chat`, ADR-026). */
+  threadId: v.optional(v.string()),
+  messageId: v.optional(v.string()),
   createdAt: v.number(),
   decidedAt: v.optional(v.number()),
 };

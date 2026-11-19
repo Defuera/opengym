@@ -1,3 +1,4 @@
+import type { ImageInput } from "../provider";
 import type { JobDef } from "../runJob";
 import { JSON_ONLY } from "../promptRules";
 import { limitsForPrompt } from "../../rules/limits";
@@ -20,6 +21,10 @@ export interface BuildProgramInput {
   limits: Limit[];
   /** Every place the person has, with its equipment note ("" = unknown). */
   placesTheCoachKnows: { name: string; equipment: string }[];
+  /** Files of the chat the proposal was made in: the text of documents, the names of images. The images themselves are in `images`. */
+  attachedFiles?: { name: string; text: string }[];
+  attachedImages?: string[];
+  images?: ImageInput[];
   /** The exercises of the log (at most 60): the person's own names, the last sets, the best weight. Never records (ADR-015). */
   exercisesTheUserKnows: { name: string; lastSets: string; bestKg: number }[];
 }
@@ -33,6 +38,8 @@ const ROLE = `You are the personal coach of the person described in the data. Th
 When the request already is a written program, that program is the program: keep its sessions, exercises, order, numbers, rules and tests as written and only give it the structure (phases, weeks, session keys). A session is written out in full for every phase: a later phase repeats the session with that phase's numbers and additions. "week" lists the session keys of one week in order. When the person gives an end date or a number of weeks, startsOn is today unless they name another start. Use the person's own exercise names from exercisesTheUserKnows when the same exercise is meant. kg is 0 when the text gives no weight. Holds in seconds become minutes (30 s = 0.5). A bike or a walk day is a session with one time exercise.
 
 When the request is a wish, write the program a good coach would write for this person: you know what they lift (exercisesTheUserKnows), what they want (the goals are in order of priority), where they train (placesTheCoachKnows) and what they train around (limits; never use a movement a limit marks avoid).
+
+The person may attach files or photos (attachedFiles, attachedImages): a written program may be in them.
 
 When previousProgram and feedbackFromThePerson are present, the person saw that program and asked for a change: rebuild it so that the feedback holds. When currentProgram is present, it is the program the person has now: return the whole program with the change from the request made.`;
 
@@ -59,9 +66,12 @@ export const buildProgramJob: JobDef<BuildProgramInput, ProgramBuild> = {
           limits: limitsForPrompt(i.limits),
           placesTheCoachKnows: i.placesTheCoachKnows,
           exercisesTheUserKnows: i.exercisesTheUserKnows,
+          ...(i.attachedFiles?.length ? { attachedFiles: i.attachedFiles } : {}),
+          ...(i.attachedImages?.length ? { attachedImages: i.attachedImages } : {}),
         })}`,
       },
     ],
+    ...(i.images?.length ? { images: i.images } : {}),
   }),
   // Never used as an answer: jobs/programs:build marks the proposal failed when the path is not "ai".
   fallback: (i) => ({ title: "Program", purpose: "", startsOn: i.today.slice(0, 10), endsOn: i.today.slice(0, 10), week: ["A"], phases: [], rules: [], tests: [], reason: "" }),

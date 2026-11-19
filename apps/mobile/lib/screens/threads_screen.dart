@@ -10,6 +10,7 @@ import '../widgets/note_box.dart';
 import '../widgets/og_button.dart';
 import '../widgets/og_icon_button.dart';
 import '../widgets/text_sheet.dart';
+import '../widgets/show_all_row.dart';
 import '../widgets/thread_card.dart';
 import 'chat_screen.dart';
 
@@ -48,7 +49,7 @@ class _ThreadsScreenState extends State<ThreadsScreen> {
       return;
     }
     _decided = true;
-    if (_coach.threads.isNotEmpty || _coach.error != null || !widget.deps.connection.connected) {
+    if (_coach.visibleThreads.isNotEmpty || _coach.error != null || !widget.deps.connection.connected) {
       return;
     }
     _coach.startNewChat();
@@ -104,9 +105,10 @@ class _ThreadsScreenState extends State<ThreadsScreen> {
       listenable: Listenable.merge(<Listenable>[coach, widget.deps.connection]),
       builder: (BuildContext context, Widget? child) {
         final List<Widget> rows = <Widget>[];
-        for (final Thread t in coach.threads) {
+        for (final Thread t in coach.visibleThreads) {
           rows.add(ThreadCard(
             title: t.title,
+            label: t.about == null ? null : 'Program',
             lastMessage: t.thinking
                 ? 'Coach is thinking…'
                 : t.failed
@@ -149,9 +151,13 @@ class _ThreadsScreenState extends State<ThreadsScreen> {
                         NoteBox(title: 'Chat is not available.', message: err),
                         const SizedBox(height: 18),
                       ],
+                      if (coach.threads.any((Thread t) => t.about != null)) ...<Widget>[
+                        ShowAllRow(value: coach.showAllChats, onChanged: coach.setShowAllChats),
+                        const SizedBox(height: 8),
+                      ],
                       if (coach.loadingThreads && coach.threads.isEmpty)
                         Text('Loading…', style: OG.muted())
-                      else if (coach.threads.isEmpty && err == null)
+                      else if (coach.visibleThreads.isEmpty && err == null)
                         const NoteBox(
                           title: 'No chats yet.',
                           message: 'Start one for a topic, like a lift or a plan.',

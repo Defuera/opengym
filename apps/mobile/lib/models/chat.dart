@@ -1,5 +1,25 @@
 import 'json_util.dart';
 
+/// What a thread is about: today only a program. Without [id] it is a new
+/// program that is still being talked through.
+class ThreadAbout {
+  const ThreadAbout({this.kind = 'program', this.id});
+
+  final String kind;
+  final String? id;
+
+  bool get isProgram => kind == 'program';
+
+  Map<String, dynamic> toJson() => <String, dynamic>{'kind': kind, if (id != null) 'id': id};
+
+  static ThreadAbout? fromJson(Object? v) {
+    if (v is! Map) {
+      return null;
+    }
+    return ThreadAbout(kind: str(v['kind'], 'program'), id: strOrNull(v['id']));
+  }
+}
+
 class Thread {
   const Thread({
     required this.id,
@@ -13,10 +33,14 @@ class Thread {
     this.pending = 0,
     this.titleSource = 'user',
     this.placeId,
+    this.about,
   });
 
   final String id;
   final String title;
+
+  /// What this thread is about (a program), or null for an ordinary chat.
+  final ThreadAbout? about;
 
   /// The place this thread is about, or null.
   final String? placeId;
@@ -55,6 +79,9 @@ class Thread {
     if (placeId != null) {
       m['placeId'] = placeId;
     }
+    if (about != null) {
+      m['about'] = about!.toJson();
+    }
     if (lastMessage != null) {
       m['lastMessage'] = lastMessage;
     }
@@ -77,6 +104,7 @@ class Thread {
       pending: intOf(j['pending']),
       titleSource: str(j['titleSource'], 'user'),
       placeId: strOrNull(j['placeId']),
+      about: ThreadAbout.fromJson(j['about']),
     );
   }
 }
@@ -91,6 +119,7 @@ class Message {
     this.fileIds = const <String>[],
     this.sources = const <String>[],
     this.voice,
+    this.proposalId,
   });
 
   final String id;
@@ -108,6 +137,9 @@ class Message {
   /// Set on a voice message: pending | done | failed. Null on a text message.
   final String? voice;
 
+  /// The proposal the coach made with this message (assistant messages only).
+  final String? proposalId;
+
   bool get mine => role == 'user';
 
   Map<String, dynamic> toJson() {
@@ -120,6 +152,7 @@ class Message {
       'sources': sources,
       'createdAt': createdAt,
       if (voice != null) 'voice': voice,
+      if (proposalId != null) 'proposalId': proposalId,
     };
   }
 
@@ -133,6 +166,7 @@ class Message {
       fileIds: strList(j['fileIds']),
       sources: strList(j['sources']),
       voice: strOrNull(j['voice']),
+      proposalId: strOrNull(j['proposalId']),
     );
   }
 }

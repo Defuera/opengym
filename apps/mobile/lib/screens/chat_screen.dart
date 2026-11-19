@@ -16,7 +16,9 @@ import '../widgets/og_icon_button.dart';
 import '../widgets/saved_chips.dart';
 import '../widgets/text_sheet.dart';
 import 'chat_file_thumb.dart';
+import 'chat_proposal.dart';
 import 'chat_threads_sheet.dart';
+import 'program_screen.dart';
 
 class ChatScreen extends StatefulWidget {
   const ChatScreen({super.key, required this.deps});
@@ -31,6 +33,7 @@ class _ChatScreenState extends State<ChatScreen> {
   final TextEditingController _text = TextEditingController();
   final FocusNode _focus = FocusNode();
   String? _pickError;
+  final Set<String> _deciding = <String>{};
   late final VoiceController _voice;
 
   CoachStore get _coach => widget.deps.coach;
@@ -109,6 +112,32 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
+  Future<void> _agree(Proposal p) async {
+    setState(() => _deciding.add(p.proposalId));
+    final String? programId = await _coach.acceptProposal(p.proposalId);
+    if (!mounted) {
+      return;
+    }
+    setState(() => _deciding.remove(p.proposalId));
+    if (programId != null) {
+      _openProgram(programId);
+    }
+  }
+
+  Future<void> _cancel(Proposal p) async {
+    setState(() => _deciding.add(p.proposalId));
+    await _coach.declineProposal(p.proposalId);
+    if (mounted) {
+      setState(() => _deciding.remove(p.proposalId));
+    }
+  }
+
+  void _openProgram(String id) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(builder: (BuildContext c) => ProgramScreen(deps: widget.deps, programId: id)),
+    );
+  }
+
   bool _showHint(CoachStore c) => c.messages.isEmpty && !c.loadingMessages && !c.sending && c.retryReason == null;
 
   List<Widget> _items(CoachStore c) {
@@ -130,6 +159,22 @@ class _ChatScreenState extends State<ChatScreen> {
         ],
       ));
       items.add(const SizedBox(height: 12));
+      final String? pid = m.proposalId;
+      if (pid != null && !m.mine) {
+        final Proposal? p = c.proposalById(pid);
+        items.add(ChatProposal(
+          proposal: p,
+          live: pid == c.liveProposalId,
+          busy: _deciding.contains(pid),
+          programId: c.currentAbout?.id,
+          onOpenProgram: _openProgram,
+          onAgree: () => p == null ? null : _agree(p),
+          onCancel: () => p == null ? null : _cancel(p),
+        ));
+        if (p != null) {
+          items.add(const SizedBox(height: 12));
+        }
+      }
     }
     if (c.saved.isNotEmpty) {
       items.add(SavedChips(labels: c.saved));
@@ -165,6 +210,7 @@ class _ChatScreenState extends State<ChatScreen> {
       listenable: Listenable.merge(<Listenable>[_coach, widget.deps.connection, _voice]),
       builder: (BuildContext context, Widget? child) {
         final CoachStore c = _coach;
+        final ThreadAbout? about = c.currentAbout;
         // A send problem is shown with its retry action, not twice.
         final String err = c.retryReason != null ? (_pickError ?? '') : (c.error ?? _pickError ?? '');
         return Scaffold(
@@ -232,7 +278,11 @@ class _ChatScreenState extends State<ChatScreen> {
                             child: Padding(
                               padding: const EdgeInsets.symmetric(horizontal: 40),
                               child: Text(
-                                'Ask anything about your training, or say what you did.',
+                                about == null
+                                    ? 'Ask anything about your training, or say what you did.'
+                                    : about.id == null
+                                        ? 'Tell the coach what program you want, or paste one. The coach writes it here for you to agree.'
+                                        : 'Ask about this program, or say what should change. The coach shows the change here for you to agree.',
                                 key: const ValueKey<String>('chat-hint'),
                                 textAlign: TextAlign.center,
                                 style: OG.muted(size: 16),
@@ -249,6 +299,11 @@ class _ChatScreenState extends State<ChatScreen> {
                   ),
                 ),
                 ComposerBar(
+                  hint: about == null
+                      ? 'Message'
+                      : about.id == null
+                          ? 'Paste a program, or say what you want'
+                          : 'Ask, or say what should change',
                   controller: _text,
                   focusNode: _focus,
                   sending: c.sending,

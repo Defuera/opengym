@@ -1,16 +1,18 @@
 import { v } from "convex/values";
 import { internal } from "../_generated/api";
 import { internalAction, internalMutation, internalQuery } from "../_generated/server";
-import { runAiJob } from "../lib/ai";
+import { providerFor, runAiJob } from "../lib/ai";
 import { PROGRAM_BUILD_BUDGET_MS } from "../lib/constants";
+import { loadAttachment } from "../lib/files";
+import { attachmentsForPrompt } from "../model/attachedFiles";
 import { allGoals, allSessions } from "../lib/db";
 import { activeLimits } from "../lib/limitsDb";
 import { allPlaces } from "../lib/placesDb";
+import { threadUserFiles, todayLabel } from "../lib/programChatDb";
 import { programValue } from "../lib/programFields";
 import { programByProgramId, programValueOf, proposalByProposalId } from "../lib/programsDb";
 import { type BuildProgramInput, buildProgramJob } from "../model/ai/jobs/buildProgram";
 import { coachPicture } from "../model/ai/jobs/coachPicture";
-import { localDate } from "../model/program";
 
 /** The most exercises of the log that go to the model. */
 const KNOWN_EXERCISES_MAX = 60;
@@ -29,7 +31,7 @@ export const input = internalQuery({
     const prev = doc.ask.previousProposalId ? await proposalByProposalId(ctx, doc.ask.previousProposalId) : null;
     const program = doc.target.id !== undefined ? await programByProgramId(ctx, doc.target.id) : null;
     return {
-      today: `${localDate(now)} (${new Date(now).toLocaleDateString("en-GB", { weekday: "long", timeZone: process.env.APP_TIMEZONE || "UTC" })})`,
+      today: todayLabel(now),
       request: doc.ask.text ?? "",
       ...(doc.ask.feedback ? { feedbackFromThePerson: doc.ask.feedback, ...(prev?.value ? { previousProgram: prev.value } : {}) } : {}),
       ...(program ? { currentProgram: programValueOf(program) } : {}),
@@ -38,6 +40,15 @@ export const input = internalQuery({
       placesTheCoachKnows: (await allPlaces(ctx)).map((p) => ({ name: p.name, equipment: p.text })),
       exercisesTheUserKnows: picture.exercisesTheUserKnows.slice(0, KNOWN_EXERCISES_MAX).map((e) => ({ name: e.name, lastSets: e.lastSets, bestKg: e.bestKg })),
     };
+  },
+});
+
+/** The files of the thread a proposal came from (newest 6 of the person's messages, not audio); none when it has no thread (ADR-026). */
+export const threadFiles = internalQuery({
+  args: { proposalId: v.string() },
+  handler: async (ctx, { proposalId }) => {
+    const doc = await proposalByProposalId(ctx, proposalId);
+    return doc?.threadId !== undefined ? await threadUserFiles(ctx, doc.threadId) : [];
   },
 });
 
@@ -68,6 +79,17 @@ export const build = internalAction({
     try {
       const job = await ctx.runQuery(internal.jobs.programs.input, { proposalId });
       if (!job) return;
+      // A proposal made in a chat reads the files of that chat (a photo or a text of a program), as the chat reply does.
+      const files = await ctx.runQuery(internal.jobs.programs.threadFiles, { proposalId });
+      if (files.length) {
+        const supportsImages = !!(await providerFor(ctx))?.supportsImages;
+        const loaded = [];
+        for (const f of files) {
+          const a = await loadAttachment(ctx, f, supportsImages);
+          if (a) loaded.push(a);
+        }
+        Object.assign(job, attachmentsForPrompt(loaded, supportsImages));
+      }
       const r = await runAiJob(ctx, buildProgramJob, job, { timeoutMs: PROGRAM_BUILD_BUDGET_MS });
       if (r.path !== "ai") {
         await ctx.runMutation(internal.jobs.programs.save, { proposalId, error: `The coach could not write the program (${r.reason ?? "no answer"}).` });

@@ -37,7 +37,7 @@ export const send = mutation({
     }
     // First user message of a thread the user has not named: name it now by plain code. The coach job may improve it later.
     const first = !(await ctx.db.query("messages").withIndex("by_threadId", (q) => q.eq("threadId", threadId)).filter((q) => q.eq(q.field("role"), "user")).first());
-    const title = thread.titleSource === "auto" && first ? { title: titleFromMessage(valid.text) } : {};
+    const title = thread.titleSource === "auto" && first && !thread.about ? { title: titleFromMessage(valid.text) } : {};
     await ctx.db.insert("messages", { messageId, threadId, role: "user", text: valid.text, fileIds: valid.fileIds ?? [], sources: [], createdAt: now });
     await ctx.db.patch(thread._id, { ...title, status: "thinking", error: undefined, pending: thread.pending + 1, updatedAt: now });
     await ctx.scheduler.runAfter(0, internal.jobs.chat.reply, { threadId, messageId });

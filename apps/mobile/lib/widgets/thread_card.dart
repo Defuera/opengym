@@ -11,6 +11,7 @@ class ThreadCard extends StatelessWidget {
     this.lastMessage,
     this.onDelete,
     this.onRename,
+    this.label,
   });
 
   final String title;
@@ -18,6 +19,9 @@ class ThreadCard extends StatelessWidget {
   final VoidCallback onTap;
   final VoidCallback? onDelete;
   final VoidCallback? onRename;
+
+  /// A small tag next to the title, for example "Program".
+  final String? label;
 
   @override
   Widget build(BuildContext context) {
@@ -37,7 +41,20 @@ class ThreadCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
-                  Text(title, style: OG.body(size: 19, weight: FontWeight.w700)),
+                  Row(
+                    children: <Widget>[
+                      Flexible(child: Text(title, style: OG.body(size: 19, weight: FontWeight.w700))),
+                      if (label != null) ...<Widget>[
+                        const SizedBox(width: 8),
+                        Container(
+                          key: const ValueKey<String>('thread-label'),
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: ogBox(color: OG.done, radius: 8, shadow: false),
+                          child: Text(label!, style: OG.muted(size: 12)),
+                        ),
+                      ],
+                    ],
+                  ),
                   const SizedBox(height: 2),
                   Text(
                     (last == null || last.isEmpty) ? 'No messages yet' : last,

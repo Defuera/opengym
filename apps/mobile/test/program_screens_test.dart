@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:opengym/app/deps.dart';
-import 'package:opengym/data/convex_client.dart';
 import 'package:opengym/data/convex_codec.dart';
 import 'package:opengym/data/in_memory_about_repository.dart';
 import 'package:opengym/models.dart';
 import 'package:opengym/screens/about_me_screen.dart';
-import 'package:opengym/screens/program_new_screen.dart';
+import 'package:opengym/screens/chat_screen.dart';
 import 'package:opengym/screens/program_screen.dart';
 import 'package:opengym/screens/session_screen.dart';
 import 'package:opengym/stores/context_store.dart';
@@ -180,147 +179,6 @@ void main() {
     });
   });
 
-  group('new program screen', () {
-    testWidgets('type, Propose, wait, read, Agree: the Program screen opens', (WidgetTester t) async {
-      final (FakeConvexClient fake, AppDeps d) = await _deps(programs: <Program>[kneeProgram()]);
-      await _openScreen(t, ProgramNewScreen(deps: d));
-      expect(find.text('New program'), findsOneWidget);
-      expect(t.widget<OgButton>(_key('program-propose')).onPressed, isNull);
-      await t.enterText(find.byType(TextField), 'prepare my knee for skiing by 19 Dec');
-      await t.pump();
-      await t.tap(_key('program-propose'));
-      await t.pump();
-      expect(find.text('The coach is writing the program'), findsOneWidget);
-      expect(fake.proposalsSent.single.text, 'prepare my knee for skiing by 19 Dec');
-      expect(fake.proposalsSent.single.kind, 'program');
-      fake.answerProposal(kneeProposal(id: fake.lastProposalId));
-      await t.pump();
-      await t.pump();
-      expect(find.text('Four weeks, three kinds of day, built around the knee.'), findsOneWidget);
-      expect(find.text('Knee for skiing'), findsOneWidget);
-      await t.tap(_key('proposal-agree'));
-      await t.pumpAndSettle();
-      expect(fake.calls, contains('acceptProposal:${fake.lastProposalId}'));
-      expect(find.byType(ProgramScreen), findsOneWidget);
-      expect(find.byType(ProgramNewScreen), findsNothing);
-      expect(find.text('Week 2 of 4 · 1 of 5 sessions'), findsOneWidget);
-    });
-
-    testWidgets('a failed proposal shows the error and keeps the text; Propose works again', (WidgetTester t) async {
-      final (FakeConvexClient fake, AppDeps d) = await _deps();
-      await _openScreen(t, ProgramNewScreen(deps: d));
-      await t.enterText(find.byType(TextField), 'my wish');
-      await t.pump();
-      await t.tap(_key('program-propose'));
-      await t.pump();
-      fake.answerProposal(kneeProposal(status: 'failed', id: fake.lastProposalId, error: 'Could not make a program from that.'));
-      await t.pump();
-      await t.pump();
-      expect(find.text('Could not make a program from that.'), findsOneWidget);
-      expect(find.text('my wish'), findsOneWidget);
-      await t.tap(_key('program-propose'));
-      await t.pump();
-      expect(fake.proposalsSent.length, 2);
-    });
-
-    testWidgets('feedback rebuilds: the proposal stays while busy, then the new one shows', (WidgetTester t) async {
-      final (FakeConvexClient fake, AppDeps d) = await _deps();
-      await _openScreen(t, ProgramNewScreen(deps: d));
-      await t.enterText(find.byType(TextField), 'my wish');
-      await t.pump();
-      await t.tap(_key('program-propose'));
-      await t.pump();
-      final String first = fake.lastProposalId;
-      fake.answerProposal(kneeProposal(id: first));
-      await t.pump();
-      await t.pump();
-      await t.tap(find.text('Change something ›'));
-      await t.pump();
-      await t.enterText(find.byType(TextField), 'only two days a week');
-      await t.pump();
-      await t.tap(find.widgetWithText(OgButton, 'Rebuild'));
-      await t.pump();
-      expect(fake.proposalsSent.last.feedback, 'only two days a week');
-      expect(fake.proposalsSent.last.previousProposalId, first);
-      expect(find.text('The coach is rebuilding the program…'), findsOneWidget);
-      expect(find.text('Knee for skiing'), findsOneWidget);
-      expect(t.widget<OgButton>(_key('proposal-agree')).onPressed, isNull);
-    });
-
-    testWidgets('Cancel on a proposal drops it and leaves the screen', (WidgetTester t) async {
-      final (FakeConvexClient fake, AppDeps d) = await _deps();
-      await _openScreen(t, ProgramNewScreen(deps: d));
-      await t.enterText(find.byType(TextField), 'my wish');
-      await t.pump();
-      await t.tap(_key('program-propose'));
-      await t.pump();
-      fake.answerProposal(kneeProposal(id: fake.lastProposalId));
-      await t.pump();
-      await t.pump();
-      await t.tap(_key('proposal-cancel'));
-      await t.pumpAndSettle();
-      expect(fake.calls, contains('declineProposal:${fake.lastProposalId}'));
-      expect(find.byType(ProgramNewScreen), findsNothing);
-    });
-
-    testWidgets('Cancel while the coach writes stops waiting and keeps the typed text', (WidgetTester t) async {
-      final (FakeConvexClient fake, AppDeps d) = await _deps();
-      await _openScreen(t, ProgramNewScreen(deps: d));
-      await t.enterText(find.byType(TextField), 'my wish');
-      await t.pump();
-      await t.tap(_key('program-propose'));
-      await t.pump();
-      await t.tap(find.widgetWithText(OgButton, 'Cancel'));
-      await t.pump();
-      expect(fake.calls, contains('declineProposal:${fake.lastProposalId}'));
-      expect(find.text('my wish'), findsOneWidget);
-      expect(find.text('The coach is writing the program'), findsNothing);
-    });
-
-    testWidgets('a proposal that waits on the server opens at once', (WidgetTester t) async {
-      final FakeConvexClient fake = FakeConvexClient();
-      fake.openProposals.set(<Proposal>[kneeProposal(id: 'waiting')]);
-      final AppDeps d = await testDeps(fake);
-      await _openScreen(t, ProgramNewScreen(deps: d));
-      await t.pump();
-      expect(find.text('Knee for skiing'), findsOneWidget);
-      expect(_key('proposal-agree'), findsOneWidget);
-      expect(_key('program-propose'), findsNothing);
-    });
-
-    testWidgets('a change of a program: its own question, and the target is sent', (WidgetTester t) async {
-      final (FakeConvexClient fake, AppDeps d) = await _deps(programs: <Program>[kneeProgram()]);
-      fake.openProposals.set(<Proposal>[kneeProposal(id: 'other-target')]); // a proposal for a NEW program: not shown here
-      await _openScreen(t, ProgramNewScreen(deps: d, change: kneeProgram()));
-      await t.pump();
-      expect(find.text('Change program'), findsOneWidget);
-      expect(find.text('What should change?'), findsOneWidget);
-      expect(_key('proposal-agree'), findsNothing);
-      await t.enterText(find.byType(TextField), 'no bike');
-      await t.pump();
-      await t.tap(_key('program-propose'));
-      await t.pump();
-      expect(fake.proposalsSent.single.targetId, 'prog-1');
-    });
-
-    testWidgets('a refused Agree keeps the proposal and shows the reason', (WidgetTester t) async {
-      final (FakeConvexClient fake, AppDeps d) = await _deps();
-      fake.acceptError = const ConvexCallException('A limit rules out Leg extension.', kind: ConvexFailure.rejected);
-      await _openScreen(t, ProgramNewScreen(deps: d));
-      await t.enterText(find.byType(TextField), 'wish');
-      await t.pump();
-      await t.tap(_key('program-propose'));
-      await t.pump();
-      fake.answerProposal(kneeProposal(id: fake.lastProposalId));
-      await t.pump();
-      await t.pump();
-      await t.tap(_key('proposal-agree'));
-      await t.pumpAndSettle();
-      expect(find.text('A limit rules out Leg extension.'), findsOneWidget);
-      expect(find.byType(ProgramNewScreen), findsOneWidget);
-    });
-  });
-
   group('program screen', () {
     testWidgets('shows the status line, the current phase and the slots', (WidgetTester t) async {
       final (FakeConvexClient _, AppDeps d) = await _deps(programs: <Program>[kneeProgram()]);
@@ -329,7 +187,7 @@ void main() {
       expect(find.text('Knee for skiing'), findsOneWidget);
       expect(find.text('Now'), findsOneWidget);
       expect(_key('slot-0'), findsOneWidget);
-      expect(find.text('Ask the coach to change it ›'), findsOneWidget);
+      expect(find.text('Chat about this program ›'), findsOneWidget);
     });
 
     testWidgets('the header line for a program that has not started and one that ended', (WidgetTester t) async {
@@ -382,13 +240,16 @@ void main() {
       expect(find.byType(ProgramScreen), findsNothing);
     });
 
-    testWidgets('Ask the coach to change it opens the proposal flow for this program', (WidgetTester t) async {
+    testWidgets('Chat about this program opens the chat about it', (WidgetTester t) async {
       final (FakeConvexClient _, AppDeps d) = await _deps(programs: <Program>[kneeProgram()]);
+      d.coach.start();
       await _openScreen(t, ProgramScreen(deps: d, programId: 'prog-1'));
+      expect(find.text('Chat about this program ›'), findsOneWidget);
       await t.tap(_key('program-change'));
       await t.pumpAndSettle();
-      expect(find.byType(ProgramNewScreen), findsOneWidget);
-      expect(find.text('What should change?'), findsOneWidget);
+      expect(find.byType(ChatScreen), findsOneWidget);
+      expect(d.coach.currentAbout?.id, 'prog-1');
+      expect(find.text('Ask, or say what should change'), findsOneWidget);
     });
 
     testWidgets('a program that is not on the list says so', (WidgetTester t) async {
@@ -415,8 +276,9 @@ void main() {
       expect(_key('program-new'), findsOneWidget);
     });
 
-    testWidgets('New program opens the proposal screen; a program row opens its screen', (WidgetTester t) async {
-      await open(t, <Program>[kneeProgram()]);
+    testWidgets('New program opens the chat about a new program; a program row opens its screen', (WidgetTester t) async {
+      final AppDeps d = await open(t, <Program>[kneeProgram()]);
+      d.coach.start();
       await t.scrollUntilVisible(_key('program-new'), 200);
       await t.tap(find.byKey(const ValueKey<String>('program-item-prog-1')));
       await t.pumpAndSettle();
@@ -426,7 +288,10 @@ void main() {
       await t.scrollUntilVisible(_key('program-new'), 200);
       await t.tap(_key('program-new'));
       await t.pumpAndSettle();
-      expect(find.byType(ProgramNewScreen), findsOneWidget);
+      expect(find.byType(ChatScreen), findsOneWidget);
+      expect(d.coach.currentAbout, isNotNull);
+      expect(d.coach.currentAbout!.id, isNull);
+      expect(find.text('Paste a program, or say what you want'), findsOneWidget);
     });
 
     testWidgets('without deps there is no Programs section', (WidgetTester t) async {

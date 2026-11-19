@@ -1,5 +1,7 @@
 /** The title of a thread nobody named yet. */
 export const NEW_CHAT_TITLE = "New chat";
+/** The title of a thread about a program that is not agreed yet (ADR-026). */
+export const NEW_PROGRAM_TITLE = "New program";
 export const THREAD_TITLE_MAX = 40;
 
 /** Plain-code title from the first user message: first words, cut at a word boundary, max 40 characters, first letter upper case. */

@@ -35,18 +35,6 @@ class Live<T> {
   void error(Object e) => _changes.addError(e);
 }
 
-/// One `requestProposal` call as the fake saw it.
-class ProposalSent {
-  const ProposalSent(this.proposalId, this.kind, this.targetId, this.text, this.feedback, this.previousProposalId);
-
-  final String proposalId;
-  final String kind;
-  final String? targetId;
-  final String? text;
-  final String? feedback;
-  final String? previousProposalId;
-}
-
 /// In-memory stand-in for the backend. Holds "server" state, pushes it like a
 /// live query, and logs every command in [calls].
 class FakeConvexClient implements ConvexClient {
@@ -147,7 +135,7 @@ class FakeConvexClient implements ConvexClient {
   int _clock = 1000;
 
   /// The coach answers: stores the assistant message, thread goes idle.
-  void coachAnswers(String threadId, String text, {List<String> sources = const <String>[]}) {
+  void coachAnswers(String threadId, String text, {List<String> sources = const <String>[], String? proposalId}) {
     serverChanged(() {
       serverMessages.putIfAbsent(threadId, () => <Message>[]).add(Message(
           id: 'a${++_clock}',
@@ -155,7 +143,8 @@ class FakeConvexClient implements ConvexClient {
           role: 'assistant',
           text: text,
           createdAt: ++_clock,
-          sources: sources));
+          sources: sources,
+          proposalId: proposalId));
       _setThread(threadId, status: 'idle', lastMessage: text);
     });
   }
@@ -179,6 +168,7 @@ class FakeConvexClient implements ConvexClient {
       error: error,
       pending: status == 'thinking' ? 1 : 0,
       placeId: t.placeId,
+      about: t.about,
     );
   }
 
@@ -347,46 +337,24 @@ class FakeConvexClient implements ConvexClient {
 
   /// When set, [watchPrograms] fails with it.
   Object? programsError;
-  final Live<List<Proposal>> openProposals = Live<List<Proposal>>(<Proposal>[]);
-  final Map<String, Live<Proposal?>> proposals = <String, Live<Proposal?>>{};
+  /// The proposals of each thread (oldest first), as the server answers them.
+  final Map<String, Live<List<Proposal>>> threadProposals = <String, Live<List<Proposal>>>{};
 
-  /// Proposal requests the app sent, in order.
-  final List<ProposalSent> proposalsSent = <ProposalSent>[];
+  /// The server's proposals of [threadId] change.
+  void setThreadProposals(String threadId, List<Proposal> list) =>
+      threadProposals.putIfAbsent(threadId, () => Live<List<Proposal>>(<Proposal>[])).set(list);
 
   /// What [acceptProposal] answers, and the error it throws instead when set.
   String acceptedProgramId = 'prog-1';
   ConvexCallException? acceptError;
-
-  String get lastProposalId => proposalsSent.last.proposalId;
-
-  /// The server answers the last proposal request (or the one with [id]).
-  void answerProposal(Proposal p, {String? id}) =>
-      proposals.putIfAbsent(id ?? lastProposalId, () => Live<Proposal?>()).set(p);
 
   @override
   Stream<List<Program>> watchPrograms() =>
       programsError == null ? programs.stream() : Stream<List<Program>>.error(programsError!);
 
   @override
-  Stream<Proposal?> watchProposal(String proposalId) =>
-      proposals.putIfAbsent(proposalId, () => Live<Proposal?>()).stream();
-
-  @override
-  Stream<List<Proposal>> watchOpenProposals() => openProposals.stream();
-
-  @override
-  Future<void> requestProposal({
-    required String proposalId,
-    String kind = 'program',
-    String? targetId,
-    String? text,
-    String? feedback,
-    String? previousProposalId,
-  }) async {
-    _command('requestProposal:$proposalId');
-    proposalsSent.add(ProposalSent(proposalId, kind, targetId, text, feedback, previousProposalId));
-    proposals.putIfAbsent(proposalId, () => Live<Proposal?>());
-  }
+  Stream<List<Proposal>> watchThreadProposals(String threadId) =>
+      threadProposals.putIfAbsent(threadId, () => Live<List<Proposal>>(<Proposal>[])).stream();
 
   @override
   Future<String> acceptProposal(String proposalId) async {
@@ -542,17 +510,18 @@ class FakeConvexClient implements ConvexClient {
       _messages.putIfAbsent(threadId, () => Live<List<Message>>(<Message>[])).stream();
 
   @override
-  Future<void> createThread({required String threadId, String? title, String? placeId}) async {
+  Future<void> createThread({required String threadId, String? title, String? placeId, ThreadAbout? about}) async {
     _command('createThread:$threadId');
     serverThreads.putIfAbsent(
         threadId,
         () => Thread(
               id: threadId,
-              title: title ?? 'New chat',
+              title: title ?? (about == null ? 'New chat' : 'New program'),
               titleSource: title == null ? 'auto' : 'user',
               createdAt: ++_clock,
               updatedAt: _clock,
               placeId: placeId,
+              about: about,
             ));
     _publish();
   }
@@ -590,6 +559,7 @@ class FakeConvexClient implements ConvexClient {
       error: t.error,
       pending: t.pending,
       placeId: t.placeId,
+      about: t.about,
     );
   }
 
@@ -626,7 +596,7 @@ class FakeConvexClient implements ConvexClient {
         fileIds: fileIds));
     if (list.length == 1) {
       final Thread t = serverThreads[threadId]!;
-      if (t.titleSource == 'auto') {
+      if (t.titleSource == 'auto' && t.about == null) {
         final String cut = text.length > 40 ? text.substring(0, 40) : text;
         _replaceThread(t, title: cut[0].toUpperCase() + cut.substring(1), titleSource: 'auto');
       }

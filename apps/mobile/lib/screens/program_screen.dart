@@ -7,7 +7,7 @@ import '../widgets/choice_sheet.dart';
 import '../widgets/og_button.dart';
 import '../widgets/og_icon_button.dart';
 import '../widgets/sheet_link.dart';
-import 'program_new_screen.dart';
+import 'program_chat.dart';
 import 'program_text.dart';
 
 /// One program: its purpose, dates, phases (the current one marked), this
@@ -19,11 +19,7 @@ class ProgramScreen extends StatelessWidget {
   final AppDeps deps;
   final String programId;
 
-  Future<void> _change(BuildContext context, Program p) {
-    return Navigator.of(context).push(
-      MaterialPageRoute<void>(builder: (BuildContext c) => ProgramNewScreen(deps: deps, change: p)),
-    );
-  }
+  Future<void> _change(BuildContext context, Program p) => openProgramChat(context, deps, program: p);
 
   Future<void> _set(BuildContext context, String status) async {
     try {
@@ -121,7 +117,7 @@ class ProgramScreen extends StatelessWidget {
                     alignment: Alignment.centerLeft,
                     child: KeyedSubtree(
                       key: const ValueKey<String>('program-change'),
-                      child: SheetLink(label: 'Ask the coach to change it', onTap: () => _change(context, p)),
+                      child: SheetLink(label: 'Chat about this program', onTap: () => _change(context, p)),
                     ),
                   ),
                   programView(p),

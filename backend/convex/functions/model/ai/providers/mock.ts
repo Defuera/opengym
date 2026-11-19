@@ -110,6 +110,11 @@ export class MockProvider implements AiProvider {
       }
       case "chat":
         return "Mock coach: noted. Keep your next session simple and stick to the plan.";
+      case "chat_program": {
+        // Mock: a last user message that has the word "program" asks for a program; anything else is a plain answer.
+        const last = [...req.messages].reverse().find((m) => m.role === "user" && !m.content.startsWith("That reply was invalid"))?.content ?? "";
+        return JSON.stringify(/\bprogram\b/i.test(last) ? { text: "Mock coach: I will write that program for you now.", proposeProgram: { brief: "Write the program the person asked for." } } : { text: "Mock coach: noted. Tell me when you want a program." });
+      }
       case "extract_from_chat":
         return JSON.stringify(extract(String(d.message ?? "")));
       case "summarise_thread": {

@@ -3,6 +3,7 @@ import { internal } from "../_generated/api";
 import { mutation } from "../_generated/server";
 import { requireToken } from "../lib/auth";
 import { PROPOSAL_FEEDBACK_KEEP, PROPOSAL_FEEDBACK_MAX, PROPOSAL_PURGE_BATCH, PROPOSAL_TEXT_MAX, PROPOSAL_TTL_MS } from "../lib/constants";
+import { threadByThreadId } from "../lib/db";
 import { markFactsChanged } from "../lib/factsChanged";
 import { activeLimits } from "../lib/limitsDb";
 import { programByProgramId, proposalByProposalId } from "../lib/programsDb";
@@ -88,7 +89,8 @@ export const request = mutation({
  * since it was proposed); the reason is thrown as it is. A new program is inserted `active`, rev 1, with the ask text as `sourceText`
  * and tests with fresh ids. A change needs the program to exist with `rev === base`; else this throws "The program changed. Ask again."
  * (a thrown mutation keeps no write, so the row stays `ready`; queries/proposals reports it as `stale`, see lib/programsDb isStale) The change replaces the value and keeps programId, status, createdAt and the done day of a test
- * whose text did not change; rev + 1. Returns { programId }.
+ * whose text did not change; rev + 1. When the proposal came from a chat thread (`threadId`) whose `about.id` is not set, the thread is now about the
+ * program (`about.id`) and an automatic title becomes the program title. Returns { programId }.
  */
 export const accept = mutation({
   args: { token: v.string(), proposalId: v.string() },
@@ -130,6 +132,9 @@ export const accept = mutation({
       });
     }
     await ctx.db.patch(p._id, { status: "applied", decidedAt: now });
+    // A chat about a new program becomes the chat about this program (ADR-026); an unnamed thread takes the program's title.
+    const thread = p.threadId !== undefined ? await threadByThreadId(ctx, p.threadId) : null;
+    if (thread?.about && thread.about.id === undefined) await ctx.db.patch(thread._id, { about: { ...thread.about, id: programId }, ...(thread.titleSource === "auto" ? { title: value.title } : {}) });
     await markFactsChanged(ctx);
     return { programId };
   },

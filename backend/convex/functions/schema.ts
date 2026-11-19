@@ -1,7 +1,7 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 import { placeChangeFields, placeFields } from "./lib/placeFields";
-import { programFields, proposalFields } from "./lib/programFields";
+import { programFields, proposalFields, threadAbout } from "./lib/programFields";
 import { previousPlan, startProposal, startStatus, dashboardDays, feeling, limitRule, limitStatus, fileKind, threadStatus, goalKind, goalStatus, importCounts, importStatus, itemSource, moduleSpec, parseState, planExercise, prediction, proposalSource } from "./lib/validators";
 
 /** One logged set. `reps` = completed reps; `failed` = one more rep was tried and not completed. */
@@ -165,7 +165,7 @@ export default defineSchema({
   // A program the person agreed to (see lib/programFields.ts). Written only by commands/proposals:accept and commands/programs.
   programs: defineTable(programFields).index("by_programId", ["programId"]).index("by_deletedAt", ["deletedAt"]),
   // A coach proposal waiting for the person (a new or changed program). Not a fact. Written by commands/proposals and jobs/programs. Removed after 7 days.
-  proposals: defineTable(proposalFields).index("by_proposalId", ["proposalId"]).index("by_createdAt", ["createdAt"]),
+  proposals: defineTable(proposalFields).index("by_proposalId", ["proposalId"]).index("by_createdAt", ["createdAt"]).index("by_threadId", ["threadId"]),
   limits: defineTable(limitFields).index("by_limitId", ["limitId"]),
   records: defineTable(recordFields).index("by_recordId", ["recordId"]).index("by_limitId", ["limitId"]),
   checkins: defineTable(checkinFields)
@@ -201,6 +201,8 @@ export default defineSchema({
     pending: v.number(),
     /** The place this conversation is about (ADR-021). The coach reads it and learns from the user's messages here. */
     placeId: v.optional(v.string()),
+    /** What this conversation is about (ADR-026). Set when the thread is created, from the thing it is opened from. The app hides such threads from the chat list by default. */
+    about: v.optional(threadAbout),
   })
     .index("by_threadId", ["threadId"])
     .index("by_updatedAt", ["updatedAt"]),
@@ -213,6 +215,8 @@ export default defineSchema({
     sources: v.array(v.string()),
     /** Set only on a voice message (jobs/voice): the transcript is pending, done or failed. The text is empty until done. */
     voice: v.optional(v.union(v.literal("pending"), v.literal("done"), v.literal("failed"))),
+    /** Only on an assistant message: the proposal the coach made with this message (ADR-026). The proposal may be gone after 7 days. */
+    proposalId: v.optional(v.string()),
     createdAt: v.number(),
   })
     .index("by_messageId", ["messageId"])

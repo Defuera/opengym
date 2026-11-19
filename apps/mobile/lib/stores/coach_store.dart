@@ -77,6 +77,16 @@ class CoachStore extends ChangeNotifier {
   /// Set on a draft chat about a place: the place id and the thread title.
   String? draftPlaceId;
   String? draftTitle;
+
+  /// Set on a draft chat about a program (the server names the thread).
+  ThreadAbout? draftAbout;
+
+  /// The chat list shows chats that are about something (a program) too.
+  /// Kept for the run of the app; off at first.
+  bool showAllChats = false;
+
+  /// The proposals of the open chat, oldest first, as the server has them.
+  List<Proposal> proposals = <Proposal>[];
   bool loadingThreads = true;
   bool loadingMessages = false;
 
@@ -94,6 +104,8 @@ class CoachStore extends ChangeNotifier {
 
   StreamSubscription<List<Thread>>? _threadSub;
   StreamSubscription<List<Message>>? _msgSub;
+  StreamSubscription<List<Proposal>>? _propSub;
+  final Completer<void> _threadsLoaded = Completer<void>();
   StreamSubscription<List<Goal>>? _goalSub;
   StreamSubscription<List<ContextItem>>? _ctxSub;
 
@@ -119,6 +131,41 @@ class CoachStore extends ChangeNotifier {
 
   /// The local file behind a message this device sent, else null.
   UploadItem? localFile(String fileId) => _sentFiles[fileId];
+
+  /// What the open chat is about: its thread, or the draft before it exists.
+  ThreadAbout? get currentAbout => isDraft ? draftAbout : currentThread?.about;
+
+  /// The chats the list shows: those that are about something only on request.
+  List<Thread> get visibleThreads =>
+      showAllChats ? threads : <Thread>[for (final Thread t in threads) if (t.about == null) t];
+
+  void setShowAllChats(bool v) {
+    showAllChats = v;
+    notifyListeners();
+  }
+
+  /// The one proposal of the open chat that has live buttons: the newest
+  /// `ready` one. Null when there is none.
+  String? get liveProposalId {
+    for (final Proposal p in proposals.reversed) {
+      if (p.ready) {
+        return p.proposalId;
+      }
+    }
+    return null;
+  }
+
+  Proposal? proposalById(String? id) {
+    if (id == null) {
+      return null;
+    }
+    for (final Proposal p in proposals) {
+      if (p.proposalId == id) {
+        return p;
+      }
+    }
+    return null;
+  }
 
   Thread? get currentThread {
     for (final Thread t in threads) {
@@ -195,10 +242,16 @@ class CoachStore extends ChangeNotifier {
       (List<Thread> list) {
         threads = list;
         loadingThreads = false;
+        if (!_threadsLoaded.isCompleted) {
+          _threadsLoaded.complete();
+        }
         notifyListeners();
       },
       onError: (Object e) {
         loadingThreads = false;
+        if (!_threadsLoaded.isCompleted) {
+          _threadsLoaded.complete();
+        }
         error = e is ConvexCallException ? e.message : 'Could not load threads.';
         notifyListeners();
       },
@@ -219,18 +272,38 @@ class CoachStore extends ChangeNotifier {
   ///
   /// With [placeId] the chat is about that place: the thread is made with the
   /// place and the [title] (for example "About Home").
-  Future<void> startNewChat({String? placeId, String? title}) async {
+  Future<void> startNewChat({String? placeId, String? title, ThreadAbout? about}) async {
     await _msgSub?.cancel();
     _msgSub = null;
+    await _closeProposals();
     currentId = newId();
     isDraft = true;
     draftPlaceId = placeId;
-    draftTitle = placeId == null ? null : title;
+    draftAbout = about;
+    draftTitle = (placeId == null && about == null) ? null : title;
     _server = <Message>[];
     _pending.clear();
     loadingMessages = false;
     error = null;
     notifyListeners();
+  }
+
+  /// Opens the chat about a program. [programId] null: a new program. It
+  /// reuses the thread that is about it (one per program; one without an id
+  /// for a new program, which has no agreed proposal yet), else it opens an
+  /// empty draft. [title] is only what the header shows on a draft.
+  Future<void> openAboutProgram({String? programId, String? title}) async {
+    if (!_threadsLoaded.isCompleted) {
+      await _threadsLoaded.future.timeout(const Duration(seconds: 3), onTimeout: () {});
+    }
+    for (final Thread t in threads) {
+      final ThreadAbout? a = t.about;
+      if (a != null && a.isProgram && a.id == programId) {
+        await openThread(t.id);
+        return;
+      }
+    }
+    await startNewChat(about: ThreadAbout(id: programId), title: title ?? 'New program');
   }
 
   /// Creates a thread and returns its id. The list updates through the
@@ -306,9 +379,11 @@ class CoachStore extends ChangeNotifier {
   /// Subscribe to one thread's messages.
   Future<void> openThread(String id) async {
     await _msgSub?.cancel();
+    await _closeProposals();
     currentId = id;
     isDraft = false;
     draftPlaceId = null;
+    draftAbout = null;
     draftTitle = null;
     _server = <Message>[];
     _pending.clear();
@@ -316,6 +391,9 @@ class CoachStore extends ChangeNotifier {
     error = null;
     notifyListeners();
     _subscribeMessages(id);
+    if (currentThread?.about != null) {
+      _subscribeProposals(id);
+    }
   }
 
   void _subscribeMessages(String id) {
@@ -338,11 +416,75 @@ class CoachStore extends ChangeNotifier {
     );
   }
 
+  void _subscribeProposals(String threadId) {
+    _propSub = _client.watchThreadProposals(threadId).listen(
+      (List<Proposal> list) {
+        if (currentId != threadId) {
+          return;
+        }
+        proposals = list;
+        notifyListeners();
+      },
+      onError: (Object _) {},
+    );
+  }
+
+  Future<void> _closeProposals() async {
+    await _propSub?.cancel();
+    _propSub = null;
+    proposals = <Proposal>[];
+  }
+
+  /// The person agrees with a proposal of this chat. Returns the program id,
+  /// or null with [error] set.
+  Future<String?> acceptProposal(String proposalId) async {
+    if (!connected) {
+      error = chatOfflineMessage;
+      notifyListeners();
+      return null;
+    }
+    try {
+      final String id = await _client.acceptProposal(proposalId);
+      error = null;
+      notifyListeners();
+      return id;
+    } on ConvexCallException catch (e) {
+      error = e.message;
+    } catch (_) {
+      error = 'Could not save the program. Try again.';
+    }
+    notifyListeners();
+    return null;
+  }
+
+  /// The person cancels a proposal of this chat.
+  Future<bool> declineProposal(String proposalId) async {
+    if (!connected) {
+      error = chatOfflineMessage;
+      notifyListeners();
+      return false;
+    }
+    try {
+      await _client.declineProposal(proposalId);
+      error = null;
+      notifyListeners();
+      return true;
+    } on ConvexCallException catch (e) {
+      error = e.message;
+    } catch (_) {
+      error = 'Could not cancel it. Try again.';
+    }
+    notifyListeners();
+    return false;
+  }
+
   Future<void> closeThread() async {
     await _msgSub?.cancel();
     _msgSub = null;
+    await _closeProposals();
     currentId = null;
     isDraft = false;
+    draftAbout = null;
     draftPlaceId = null;
     draftTitle = null;
     _server = <Message>[];
@@ -489,13 +631,23 @@ class CoachStore extends ChangeNotifier {
 
   Future<String?> _createDraft(String id) async {
     try {
-      await _client.createThread(threadId: id, title: draftTitle, placeId: draftPlaceId);
+      final ThreadAbout? about = draftAbout;
+      await _client.createThread(
+        threadId: id,
+        title: about == null ? draftTitle : null, // the server names a chat about a program
+        placeId: draftPlaceId,
+        about: about,
+      );
       isDraft = false;
       draftPlaceId = null;
+      draftAbout = null;
       draftTitle = null;
       error = null;
       loadingMessages = true;
       _subscribeMessages(id);
+      if (about != null) {
+        _subscribeProposals(id);
+      }
       return id;
     } on ConvexCallException catch (e) {
       error = e.message;
@@ -591,6 +743,7 @@ class CoachStore extends ChangeNotifier {
   void dispose() {
     _threadSub?.cancel();
     _msgSub?.cancel();
+    _propSub?.cancel();
     _goalSub?.cancel();
     _ctxSub?.cancel();
     super.dispose();

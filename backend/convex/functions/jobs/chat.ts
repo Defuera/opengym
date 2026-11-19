@@ -5,6 +5,7 @@ import { providerFor, runAiJob } from "../lib/ai";
 import { liveSessionDocs, toContextItem, toGoal, toSession, messageByMessageId, threadByThreadId } from "../lib/db";
 import { activeLimits } from "../lib/limitsDb";
 import { placeByPlaceId } from "../lib/placesDb";
+import { startProgramProposal } from "../lib/programChatDb";
 import { markFactsChanged } from "../lib/factsChanged";
 import { coachEntries, entryImageFiles, loadEntryImages } from "../lib/entriesDb";
 import { fileByFileId, loadAttachment } from "../lib/files";
@@ -50,7 +51,8 @@ export const input = internalQuery({
 
     // The title job runs only for the first user message of a thread the user has not named.
     const userMessages = await ctx.db.query("messages").withIndex("by_threadId", (q) => q.eq("threadId", threadId)).filter((q) => q.eq(q.field("role"), "user")).take(2);
-    const titleJob = thread.titleSource === "auto" && userMessages.length === 1 && userMessages[0]!.messageId === messageId ? { currentTitle: thread.title } : null;
+    // A thread about something (ADR-026) is titled by code, never by this job.
+    const titleJob = !thread.about && thread.titleSource === "auto" && userMessages.length === 1 && userMessages[0]!.messageId === messageId ? { currentTitle: thread.title } : null;
 
     const files = [];
     // The files of this message and of the earlier user messages still in the history (newest 6), so a photo stays visible in later turns.
@@ -65,6 +67,7 @@ export const input = internalQuery({
     const entryImages = await entryImageFiles(ctx, now);
     return {
       title: thread.title,
+      about: thread.about ?? null,
       titleJob,
       text: trigger.text,
       history,
@@ -78,14 +81,19 @@ export const input = internalQuery({
   },
 });
 
-/** Stores the assistant message and ends one pending reply. False if the thread was deleted meanwhile. */
+/**
+ * Stores the assistant message and ends one pending reply. False if the thread was deleted meanwhile.
+ * With `proposeProgram` (only in a thread about a program, ADR-026) the same mutation starts the proposal: see lib/programChatDb startProgramProposal.
+ */
 export const saveReply = internalMutation({
-  args: { threadId: v.string(), text: v.string(), sources: v.array(v.string()) },
-  handler: async (ctx, { threadId, text, sources }): Promise<boolean> => {
+  args: { threadId: v.string(), text: v.string(), sources: v.array(v.string()), proposeProgram: v.optional(v.object({ brief: v.string() })) },
+  handler: async (ctx, { threadId, text, sources, proposeProgram }): Promise<boolean> => {
     const thread = await threadByThreadId(ctx, threadId);
     if (!thread) return false;
     const now = Date.now();
-    await ctx.db.insert("messages", { messageId: crypto.randomUUID(), threadId, role: "assistant", text, fileIds: [], sources, createdAt: now });
+    const messageId = crypto.randomUUID();
+    const messageDocId = await ctx.db.insert("messages", { messageId, threadId, role: "assistant", text, fileIds: [], sources, createdAt: now });
+    if (proposeProgram && thread.about?.kind === "program") await startProgramProposal(ctx, thread, messageDocId, messageId, proposeProgram.brief, now);
     const pending = Math.max(0, thread.pending - 1);
     await ctx.db.patch(thread._id, { pending, status: pending > 0 ? "thinking" : "idle", error: undefined, updatedAt: now, lastMessage: truncate(text, 200) });
     return true;
@@ -156,6 +164,10 @@ export const reply = internalAction({
   handler: async (ctx, { threadId, messageId }): Promise<void> => {
     const data = await ctx.runQuery(internal.jobs.chat.input, { threadId, messageId });
     if (!data) return;
+    if (data.about) {
+      await ctx.runAction(internal.jobs.programChat.reply, { threadId, messageId }); // a thread about a program (ADR-026)
+      return;
+    }
     let kept: boolean;
     let replyText = "";
     try {

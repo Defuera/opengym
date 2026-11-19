@@ -6,13 +6,15 @@ import 'proposal_feedback.dart';
 import 'sheet_link.dart';
 
 /// The shared frame of "the coach proposes": the thing proposed ([child]), one
-/// line of reason, a feedback box behind one tap, and (when [explicit]) the two
-/// buttons Agree and Cancel. It knows nothing about what is proposed.
+/// line of reason, a feedback box behind one tap (only when [feedback] and
+/// [onRebuild] are given; in a chat the feedback is the next message), and
+/// (when [explicit]) the two buttons Agree and Cancel. It knows nothing about
+/// what is proposed.
 class ProposalCard extends StatefulWidget {
   const ProposalCard({
     super.key,
     required this.child,
-    required this.feedback,
+    this.feedback,
     this.reason = '',
     this.explicit = true,
     this.busy = false,
@@ -24,13 +26,13 @@ class ProposalCard extends StatefulWidget {
     this.feedbackHint = 'Change something? Say what.',
     required this.onAgree,
     required this.onCancel,
-    required this.onRebuild,
+    this.onRebuild,
   });
 
   final Widget child;
 
   /// Owned by the caller, so typed text survives a rebuild of the screen.
-  final TextEditingController feedback;
+  final TextEditingController? feedback;
   final String reason;
 
   /// Whether the person must say yes. With false the buttons are not shown.
@@ -48,7 +50,7 @@ class ProposalCard extends StatefulWidget {
   final VoidCallback onCancel;
 
   /// Called with the trimmed feedback.
-  final void Function(String feedback) onRebuild;
+  final void Function(String feedback)? onRebuild;
 
   @override
   State<ProposalCard> createState() => _ProposalCardState();
@@ -60,6 +62,9 @@ class _ProposalCardState extends State<ProposalCard> {
   @override
   Widget build(BuildContext context) {
     final String? error = widget.error;
+    final TextEditingController? feedback = widget.feedback;
+    final void Function(String feedback)? onRebuild = widget.onRebuild;
+    final bool canChange = feedback != null && onRebuild != null;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
@@ -89,18 +94,18 @@ class _ProposalCardState extends State<ProposalCard> {
             padding: const EdgeInsets.only(bottom: 12),
             child: Text(error, style: OG.body(size: 15, weight: FontWeight.w700, color: const Color(0xFFE5482D))),
           ),
-        if (_change)
+        if (canChange && _change)
           ProposalFeedback(
-            controller: widget.feedback,
+            controller: feedback,
             failed: false,
             online: widget.online && !widget.busy,
             hint: widget.feedbackHint,
             onRebuild: (String t) {
               setState(() => _change = false);
-              widget.onRebuild(t);
+              onRebuild(t);
             },
           )
-        else if (!widget.busy)
+        else if (canChange && !widget.busy)
           Align(
             alignment: Alignment.centerLeft,
             child: SheetLink(label: 'Change something', onTap: () => setState(() => _change = true)),

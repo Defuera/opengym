@@ -54,11 +54,8 @@ abstract class ConvexClient {
   /// Every program that is not deleted, newest first (`queries/programs:list`).
   Stream<List<Program>> watchPrograms();
 
-  /// One proposal of the coach (`queries/proposals:get`); null while the server has none.
-  Stream<Proposal?> watchProposal(String proposalId);
-
-  /// The proposals that wait for the person's answer, newest first (`queries/proposals:open`).
-  Stream<List<Proposal>> watchOpenProposals();
+  /// The proposals of one thread, oldest first (`queries/proposals:forThread`).
+  Stream<List<Proposal>> watchThreadProposals(String threadId);
 
   /// The art state of each name, same order (`queries/exerciseArt:get`).
   Stream<List<ExerciseArt>> watchExerciseArt(List<String> names);
@@ -102,20 +99,6 @@ abstract class ConvexClient {
 
   Future<void> saveSession(Session session);
   Future<void> removeSession(String sessionId);
-
-  /// Asks the coach for a proposal of [kind] (`program`). NOT a fact: the app
-  /// never queues it in the outbox. Either [text] (a new ask) or [feedback]
-  /// with [previousProposalId] (a rebuild). With [targetId] the proposal
-  /// changes that program. The answer arrives through [watchProposal].
-  /// Sending the same [proposalId] again changes nothing.
-  Future<void> requestProposal({
-    required String proposalId,
-    String kind = 'program',
-    String? targetId,
-    String? text,
-    String? feedback,
-    String? previousProposalId,
-  });
 
   /// The person agrees. Returns the id of the program that was made or changed.
   Future<String> acceptProposal(String proposalId);
@@ -186,7 +169,7 @@ abstract class ConvexClient {
   /// Without a title the thread starts as "New chat" and is named after the
   /// first message. A given title counts as set by the user. With [placeId]
   /// the thread is about that place.
-  Future<void> createThread({required String threadId, String? title, String? placeId});
+  Future<void> createThread({required String threadId, String? title, String? placeId, ThreadAbout? about});
 
   /// The user names a thread. The backend never replaces that title.
   Future<void> renameThread({required String threadId, required String title});
@@ -424,30 +407,8 @@ class DartvexConvexClient implements ConvexClient {
       _watch('queries/programs:list', const <String, dynamic>{}, decodePrograms);
 
   @override
-  Stream<Proposal?> watchProposal(String proposalId) =>
-      _watch('queries/proposals:get', <String, dynamic>{'proposalId': proposalId}, decodeProposal);
-
-  @override
-  Stream<List<Proposal>> watchOpenProposals() =>
-      _watch('queries/proposals:open', const <String, dynamic>{}, decodeProposals);
-
-  @override
-  Future<void> requestProposal({
-    required String proposalId,
-    String kind = 'program',
-    String? targetId,
-    String? text,
-    String? feedback,
-    String? previousProposalId,
-  }) =>
-      _mutate('commands/proposals:request', <String, dynamic>{
-        'proposalId': proposalId,
-        'kind': kind,
-        if (targetId != null) 'targetId': targetId,
-        if (text != null) 'text': text,
-        if (feedback != null) 'feedback': feedback,
-        if (previousProposalId != null) 'previousProposalId': previousProposalId,
-      });
+  Stream<List<Proposal>> watchThreadProposals(String threadId) =>
+      _watch('queries/proposals:forThread', <String, dynamic>{'threadId': threadId}, decodeProposals);
 
   @override
   Future<String> acceptProposal(String proposalId) async {
@@ -657,11 +618,12 @@ class DartvexConvexClient implements ConvexClient {
       _mutate('commands/limits:checkin', <String, dynamic>{'checkin': checkin.toJson()});
 
   @override
-  Future<void> createThread({required String threadId, String? title, String? placeId}) =>
+  Future<void> createThread({required String threadId, String? title, String? placeId, ThreadAbout? about}) =>
       _mutate('commands/threads:create', <String, dynamic>{
         'threadId': threadId,
         if (title != null) 'title': title,
         if (placeId != null) 'placeId': placeId,
+        if (about != null) 'about': about.toJson(),
       });
 
   @override

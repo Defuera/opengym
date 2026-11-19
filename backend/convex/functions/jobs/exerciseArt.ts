@@ -5,11 +5,14 @@ import { providerFor, runAiJob } from "../lib/ai";
 import { matchExerciseJob } from "../model/ai/jobs/matchExercise";
 import sources from "../model/data/exerciseSources.json";
 import { type SourceExercise, artPrompt, shortlist } from "../model/exerciseArt";
+import { type Shift, jumps, shiftOfPng, shiftSize } from "../model/poseShift";
 import { musclesFor } from "../model/rules/muscles";
 
 const COMMIT = sources.commit;
 const EXERCISES = sources.exercises as SourceExercise[];
 const MATCH_BUDGET_MS = 30_000;
+/** The most pictures drawn for one exercise in one run. */
+const ART_TRIES = 3;
 const photoUrl = (id: string, n: 0 | 1) => `https://raw.githubusercontent.com/yuhonas/free-exercise-db/${COMMIT}/exercises/${id}/${n}.jpg`;
 
 /** The row of a key, or null. */
@@ -23,11 +26,18 @@ export const row = internalQuery({
 
 /** Sets `ready`. Only a pending row is changed. */
 export const saveReady = internalMutation({
-  args: { key: v.string(), storageId: v.id("_storage"), sourceId: v.optional(v.string()), model: v.optional(v.string()) },
-  handler: async (ctx, { key, storageId, sourceId, model }) => {
+  args: {
+    key: v.string(),
+    storageId: v.id("_storage"),
+    sourceId: v.optional(v.string()),
+    model: v.optional(v.string()),
+    shift: v.optional(v.object({ dx: v.number(), dy: v.number() })),
+    tries: v.optional(v.number()),
+  },
+  handler: async (ctx, { key, storageId, sourceId, model, shift, tries }) => {
     const r = await ctx.db.query("exerciseArt").withIndex("by_key", (q) => q.eq("key", key)).first();
     if (!r || r.status !== "pending") return;
-    await ctx.db.patch(r._id, { status: "ready", storageId, ...(sourceId ? { sourceId } : {}), ...(model ? { model } : {}), error: undefined, updatedAt: Date.now() });
+    await ctx.db.patch(r._id, { status: "ready", storageId, ...(sourceId ? { sourceId } : {}), ...(model ? { model } : {}), ...(shift ? { shift } : {}), ...(tries ? { tries } : {}), error: undefined, updatedAt: Date.now() });
   },
 });
 
@@ -91,9 +101,21 @@ export const make = internalAction({
           if (a && b) photos.push(a, b);
         }
         const muscles = match ? match.muscles : musclesFor(art.name).primary.map((m) => m.replace(/_/g, " "));
-        const bytes = await provider.image(artPrompt({ name: art.name, muscles, hasPhotos: photos.length > 0, ...(matched.movement ? { movement: matched.movement } : {}) }), photos);
+        const prompt = artPrompt({ name: art.name, muscles, hasPhotos: photos.length > 0, ...(matched.movement ? { movement: matched.movement } : {}) });
+        // The check: the figure must stay on the same place in both poses. A picture that fails is drawn again, up to ART_TRIES
+        // pictures; the steadiest one is kept. A picture the check cannot read (shift null) is taken as it is.
+        let bytes = await provider.image(prompt, photos);
+        let shift: Shift | null = shiftOfPng(bytes);
+        let tries = 1;
+        while (shift && jumps(shift) && tries < ART_TRIES) {
+          tries++;
+          console.log(`[art] the figure jumps (dx ${shift.dx.toFixed(3)}, dy ${shift.dy.toFixed(3)}); drawing again`);
+          const next = await provider.image(prompt, photos);
+          const nextShift = shiftOfPng(next);
+          if (!nextShift || shiftSize(nextShift) < shiftSize(shift)) [bytes, shift] = [next, nextShift];
+        }
         const storageId = await ctx.storage.store(new Blob([bytes as BlobPart], { type: "image/png" }));
-        await ctx.runMutation(internal.jobs.exerciseArt.saveReady, { key, storageId, ...(match ? { sourceId: match.id } : {}), ...(provider.imageModel ? { model: provider.imageModel } : {}) });
+        await ctx.runMutation(internal.jobs.exerciseArt.saveReady, { key, storageId, ...(match ? { sourceId: match.id } : {}), ...(provider.imageModel ? { model: provider.imageModel } : {}), ...(shift ? { shift } : {}), tries });
       } catch (e) {
         console.error(`[art] failed: ${(e as Error).message.slice(0, 200)}`);
         await fail((e as Error).message || "failed");

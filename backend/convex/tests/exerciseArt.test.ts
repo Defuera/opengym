@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "../functions/_generated/api";
 import { EXERCISE_ART_DAILY_MAX } from "../functions/lib/constants";
@@ -98,7 +99,11 @@ describe("commands/exerciseArt:request", () => {
 });
 
 /** Stubs fetch for the OpenAI chat (match_exercise), the photos and the image calls. */
-function stubAll(opts: { match: (candidates: { id: string }[]) => string | null; photos?: boolean; image?: "ok" | "error" }) {
+const fixture = (name: string) => new Uint8Array(readFileSync(new URL(`./fixtures/${name}`, import.meta.url)));
+const b64 = (bytes: Uint8Array) => Buffer.from(bytes).toString("base64");
+
+function stubAll(opts: { match: (candidates: { id: string }[]) => string | null; photos?: boolean; image?: "ok" | "error"; pictures?: Uint8Array[] }) {
+  let drawn = 0;
   vi.stubEnv("AI_PROVIDER", "openai");
   vi.stubEnv("OPENAI_API_KEY", "test-key");
   vi.stubEnv("OPENAI_MODEL", "test-model");
@@ -118,7 +123,8 @@ function stubAll(opts: { match: (candidates: { id: string }[]) => string | null;
     }
     log.push({ url: u, method: "POST", body: init!.body });
     if (opts.image === "error") return new Response("boom", { status: 500 });
-    return new Response(JSON.stringify({ data: [{ b64_json: btoa("PNGBYTES") }] }), { status: 200 });
+    const picture = opts.pictures?.[Math.min(drawn++, opts.pictures.length - 1)];
+    return new Response(JSON.stringify({ data: [{ b64_json: picture ? b64(picture) : btoa("PNGBYTES") }] }), { status: 200 });
   });
   return log;
 }
@@ -202,6 +208,44 @@ describe("jobs/exerciseArt:make", () => {
     await request(["Barbell Curl"]);
     await settle(t);
     expect(await rows()).toMatchObject([{ status: "ready", model: "mock-image" }]);
+  });
+});
+
+describe("the check that the figure stays in place", () => {
+  const draws = (log: { url: string }[]) => log.filter((l) => l.url.includes("/v1/images/")).length;
+  const storedSize = async () => {
+    const [row] = await rows();
+    return t.run(async (c) => (await c.storage.get(row!.storageId!))!.size);
+  };
+
+  it("draws again when the figure jumps, and keeps the steady picture", async () => {
+    const steady = fixture("art-steady.png");
+    const log = stubAll({ match: () => null, pictures: [fixture("art-jump.png"), steady] });
+    await request(["One-Leg Stand"]);
+    await settle(t);
+    expect(draws(log)).toBe(2);
+    expect(await rows()).toMatchObject([{ status: "ready", tries: 2, shift: { dx: 0, dy: 0 } }]);
+    expect(await storedSize()).toBe(steady.length);
+  });
+
+  it("stops after three pictures and keeps the steadiest", async () => {
+    const small = fixture("art-small-jump.png");
+    const log = stubAll({ match: () => null, pictures: [fixture("art-jump.png"), small, fixture("art-jump.png")] });
+    await request(["One-Leg Stand"]);
+    await settle(t);
+    expect(draws(log)).toBe(3);
+    const [row] = await rows();
+    expect(row).toMatchObject({ status: "ready", tries: 3 });
+    expect(row!.shift!.dx).toBeLessThan(0.08);
+    expect(await storedSize()).toBe(small.length);
+  });
+
+  it("draws once when the figure is steady", async () => {
+    const log = stubAll({ match: () => null, pictures: [fixture("art-steady.png")] });
+    await request(["One-Leg Stand"]);
+    await settle(t);
+    expect(draws(log)).toBe(1);
+    expect(await rows()).toMatchObject([{ status: "ready", tries: 1 }]);
   });
 });
 

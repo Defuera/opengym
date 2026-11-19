@@ -150,6 +150,9 @@ export default defineSchema({
     storageId: v.optional(v.id("_storage")),
     sourceId: v.optional(v.string()),
     model: v.optional(v.string()),
+    // The result of the check that the figure stays in place (model/poseShift.ts), and how many pictures were drawn.
+    shift: v.optional(v.object({ dx: v.number(), dy: v.number() })),
+    tries: v.optional(v.number()),
     error: v.optional(v.string()),
     createdAt: v.number(),
     updatedAt: v.number(),

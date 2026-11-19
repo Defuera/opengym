@@ -10,6 +10,7 @@
 
 import type * as commands_context from "../commands/context.js";
 import type * as commands_entries from "../commands/entries.js";
+import type * as commands_exerciseArt from "../commands/exerciseArt.js";
 import type * as commands_files from "../commands/files.js";
 import type * as commands_goals from "../commands/goals.js";
 import type * as commands_imports from "../commands/imports.js";
@@ -23,6 +24,7 @@ import type * as commands_threads from "../commands/threads.js";
 import type * as crons from "../crons.js";
 import type * as jobs_chat from "../jobs/chat.js";
 import type * as jobs_dashboards from "../jobs/dashboards.js";
+import type * as jobs_exerciseArt from "../jobs/exerciseArt.js";
 import type * as jobs_importFiles from "../jobs/importFiles.js";
 import type * as jobs_imports from "../jobs/imports.js";
 import type * as jobs_migrations from "../jobs/migrations.js";
@@ -42,6 +44,7 @@ import type * as lib_auth from "../lib/auth.js";
 import type * as lib_constants from "../lib/constants.js";
 import type * as lib_db from "../lib/db.js";
 import type * as lib_entriesDb from "../lib/entriesDb.js";
+import type * as lib_exerciseArtDb from "../lib/exerciseArtDb.js";
 import type * as lib_factsChanged from "../lib/factsChanged.js";
 import type * as lib_files from "../lib/files.js";
 import type * as lib_importWrite from "../lib/importWrite.js";
@@ -61,6 +64,7 @@ import type * as model_ai_jobs_extractFromChat from "../model/ai/jobs/extractFro
 import type * as model_ai_jobs_importData from "../model/ai/jobs/importData.js";
 import type * as model_ai_jobs_inputs from "../model/ai/jobs/inputs.js";
 import type * as model_ai_jobs_learnPlace from "../model/ai/jobs/learnPlace.js";
+import type * as model_ai_jobs_matchExercise from "../model/ai/jobs/matchExercise.js";
 import type * as model_ai_jobs_parseGoal from "../model/ai/jobs/parseGoal.js";
 import type * as model_ai_jobs_parseLog from "../model/ai/jobs/parseLog.js";
 import type * as model_ai_jobs_planSession from "../model/ai/jobs/planSession.js";
@@ -80,6 +84,7 @@ import type * as model_ai_runJob from "../model/ai/runJob.js";
 import type * as model_chatInput from "../model/chatInput.js";
 import type * as model_coachContext from "../model/coachContext.js";
 import type * as model_entryContext from "../model/entryContext.js";
+import type * as model_exerciseArt from "../model/exerciseArt.js";
 import type * as model_fileText from "../model/fileText.js";
 import type * as model_importUnits from "../model/importUnits.js";
 import type * as model_logDate from "../model/logDate.js";
@@ -119,6 +124,7 @@ import type * as queries_aboutMe from "../queries/aboutMe.js";
 import type * as queries_context from "../queries/context.js";
 import type * as queries_dashboard from "../queries/dashboard.js";
 import type * as queries_entries from "../queries/entries.js";
+import type * as queries_exerciseArt from "../queries/exerciseArt.js";
 import type * as queries_files from "../queries/files.js";
 import type * as queries_goals from "../queries/goals.js";
 import type * as queries_imports from "../queries/imports.js";
@@ -140,6 +146,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   "commands/context": typeof commands_context;
   "commands/entries": typeof commands_entries;
+  "commands/exerciseArt": typeof commands_exerciseArt;
   "commands/files": typeof commands_files;
   "commands/goals": typeof commands_goals;
   "commands/imports": typeof commands_imports;
@@ -153,6 +160,7 @@ declare const fullApi: ApiFromModules<{
   crons: typeof crons;
   "jobs/chat": typeof jobs_chat;
   "jobs/dashboards": typeof jobs_dashboards;
+  "jobs/exerciseArt": typeof jobs_exerciseArt;
   "jobs/importFiles": typeof jobs_importFiles;
   "jobs/imports": typeof jobs_imports;
   "jobs/migrations": typeof jobs_migrations;
@@ -172,6 +180,7 @@ declare const fullApi: ApiFromModules<{
   "lib/constants": typeof lib_constants;
   "lib/db": typeof lib_db;
   "lib/entriesDb": typeof lib_entriesDb;
+  "lib/exerciseArtDb": typeof lib_exerciseArtDb;
   "lib/factsChanged": typeof lib_factsChanged;
   "lib/files": typeof lib_files;
   "lib/importWrite": typeof lib_importWrite;
@@ -191,6 +200,7 @@ declare const fullApi: ApiFromModules<{
   "model/ai/jobs/importData": typeof model_ai_jobs_importData;
   "model/ai/jobs/inputs": typeof model_ai_jobs_inputs;
   "model/ai/jobs/learnPlace": typeof model_ai_jobs_learnPlace;
+  "model/ai/jobs/matchExercise": typeof model_ai_jobs_matchExercise;
   "model/ai/jobs/parseGoal": typeof model_ai_jobs_parseGoal;
   "model/ai/jobs/parseLog": typeof model_ai_jobs_parseLog;
   "model/ai/jobs/planSession": typeof model_ai_jobs_planSession;
@@ -210,6 +220,7 @@ declare const fullApi: ApiFromModules<{
   "model/chatInput": typeof model_chatInput;
   "model/coachContext": typeof model_coachContext;
   "model/entryContext": typeof model_entryContext;
+  "model/exerciseArt": typeof model_exerciseArt;
   "model/fileText": typeof model_fileText;
   "model/importUnits": typeof model_importUnits;
   "model/logDate": typeof model_logDate;
@@ -249,6 +260,7 @@ declare const fullApi: ApiFromModules<{
   "queries/context": typeof queries_context;
   "queries/dashboard": typeof queries_dashboard;
   "queries/entries": typeof queries_entries;
+  "queries/exerciseArt": typeof queries_exerciseArt;
   "queries/files": typeof queries_files;
   "queries/goals": typeof queries_goals;
   "queries/imports": typeof queries_imports;

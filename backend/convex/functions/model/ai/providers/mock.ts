@@ -1,5 +1,8 @@
 import type { AiProvider, CompleteRequest } from "../provider";
 
+/** The bytes the mock "draws": the 8-byte PNG signature, so tests need no image. */
+export const MOCK_IMAGE = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+
 export const MOCK_TRANSCRIPT = "Mock voice: my left knee felt tight on squats today.";
 
 type Data = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -47,6 +50,12 @@ export class MockProvider implements AiProvider {
   /** A fixed transcript, so tests need no audio. A file named "silence..." gives an empty one. */
   async transcribe(_bytes: Uint8Array, _mime: string, filename: string): Promise<string> {
     return /^silence/i.test(filename) ? "" : MOCK_TRANSCRIPT;
+  }
+
+  readonly imageModel = "mock-image";
+
+  async image(): Promise<Uint8Array> {
+    return MOCK_IMAGE;
   }
 
   async complete(req: CompleteRequest): Promise<string> {
@@ -112,6 +121,12 @@ export class MockProvider implements AiProvider {
         const now = String(d.place?.equipment ?? "");
         if (!/\b(dumbbells?|barbells?|kettlebells?|bands?|rack|bench|machines?|bar|mat|rower|treadmill)\b/i.test(sentence)) return JSON.stringify({ changed: false, equipment: now });
         return JSON.stringify({ changed: true, equipment: (now ? `${now}. ${sentence}` : sentence).slice(0, 1500) });
+      }
+      case "match_exercise": {
+        // Mock: the first candidate whose name equals the exercise name (ignoring case and punctuation), else none.
+        const same = (s: unknown) => String(s).toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+        const hit = (d.candidates ?? []).find((c: Data) => same(c.name) === same(d.exercise));
+        return JSON.stringify({ id: hit ? hit.id : null });
       }
       case "review_session":
         return JSON.stringify({ summary: "Mock review: solid session, repeat it next time.", changes: [] });

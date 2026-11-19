@@ -46,6 +46,9 @@ List<ImportJob> decodeImports(Object? v) => _list(v, decodeImport);
 Place decodePlace(Object? v) => Place.fromJson(asMap(normalize(v)));
 List<Place> decodePlaces(Object? v) => _list(v, decodePlace);
 
+ExerciseArt decodeExerciseArt(Object? v) => ExerciseArt.fromJson(asMap(normalize(v)));
+List<ExerciseArt> decodeExerciseArts(Object? v) => _list(v, decodeExerciseArt);
+
 Thread decodeThread(Object? v) => Thread.fromJson(_doc(v, 'threadId'));
 List<Thread> decodeThreads(Object? v) => _list(v, decodeThread);
 

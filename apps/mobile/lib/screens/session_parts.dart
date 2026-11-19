@@ -3,11 +3,14 @@ import 'package:flutter/material.dart';
 import '../models.dart';
 import '../planner.dart';
 import '../store.dart';
+import '../stores/exercise_art_store.dart';
+import '../widgets/exercise_anim.dart';
 import '../widgets/exercise_card.dart';
 import '../widgets/exercise_carousel.dart';
 import '../widgets/exercise_panel.dart';
 import '../widgets/item_state.dart';
 import '../widgets/note_box.dart';
+import '../widgets/og_sheet.dart';
 import '../widgets/set_list.dart';
 import '../widgets/time_list.dart';
 
@@ -46,9 +49,12 @@ class ExerciseStrip extends StatelessWidget {
 
 /// Maps the current exercise onto the big card (title plus list of sets).
 class SessionPanel extends StatelessWidget {
-  const SessionPanel({super.key, required this.store});
+  const SessionPanel({super.key, required this.store, this.art});
 
   final AppStore store;
+
+  /// The exercise pictures. Null: no picture shows.
+  final ExerciseArtStore? art;
 
   @override
   Widget build(BuildContext context) {
@@ -60,9 +66,11 @@ class SessionPanel extends StatelessWidget {
         centered: true,
       );
     }
+    final ImageProvider? image = art?.imageFor(ex.name);
     return ExercisePanel(
       name: ex.name,
       hint: _hint(ex),
+      trailing: image == null ? null : _ArtThumb(name: ex.name, image: image),
       children: <Widget>[
         if (ex.isTime)
           TimeList(
@@ -120,4 +128,34 @@ String? _hint(Exercise ex) {
     return fresh == null ? note : '$note\n$fresh';
   }
   return fresh;
+}
+
+/// The small picture at the right of the exercise title. A tap opens it large.
+class _ArtThumb extends StatelessWidget {
+  const _ArtThumb({required this.name, required this.image});
+
+  final String name;
+  final ImageProvider image;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      key: const ValueKey<String>('exercise-anim'),
+      behavior: HitTestBehavior.opaque,
+      onTap: () => showOgSheet<void>(
+        context,
+        (BuildContext c) => Padding(
+          padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 320),
+              child: ExerciseAnim(key: const ValueKey<String>('exercise-anim-large'), image: image),
+            ),
+          ),
+        ),
+        title: name,
+      ),
+      child: ExerciseAnim(image: image, size: 72, square: true),
+    );
+  }
 }

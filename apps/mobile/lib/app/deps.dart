@@ -11,6 +11,7 @@ import '../stores/connection_store.dart';
 import '../stores/context_store.dart';
 import '../stores/dashboard_store.dart';
 import '../stores/entries_store.dart';
+import '../stores/exercise_art_store.dart';
 import '../stores/goals_store.dart';
 import '../stores/import_store.dart';
 import '../stores/places_store.dart';
@@ -38,6 +39,7 @@ class AppDeps {
     required this.aiModel,
     required this.tracker,
     required this.places,
+    required this.art,
   });
 
   /// The gateway, for screens that follow one record (the session recap).
@@ -65,4 +67,7 @@ class AppDeps {
 
   /// The places the coach knows (read only).
   final PlacesStore places;
+
+  /// Exercise pictures (read only; the server makes them).
+  final ExerciseArtStore art;
 }

@@ -19,6 +19,7 @@ import 'package:opengym/stores/connection_store.dart';
 import 'package:opengym/stores/context_store.dart';
 import 'package:opengym/stores/dashboard_store.dart';
 import 'package:opengym/stores/entries_store.dart';
+import 'package:opengym/stores/exercise_art_store.dart';
 import 'package:opengym/stores/goals_store.dart';
 import 'package:opengym/stores/import_store.dart';
 import 'package:opengym/stores/places_store.dart';
@@ -74,5 +75,6 @@ Future<AppDeps> testDeps(
     aiModel: AiModelStore(client: fake)..start(),
     tracker: tracker ?? FakeTrackerSource(),
     places: PlacesStore(client: fake)..start(),
+    art: ExerciseArtStore(client: fake, isConnected: () => connected),
   );
 }

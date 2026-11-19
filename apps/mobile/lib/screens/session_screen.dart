@@ -13,6 +13,7 @@ import '../widgets/og_sheet.dart';
 import '../widgets/preparing_card.dart';
 import '../widgets/proposal_feedback.dart';
 import '../widgets/session_meta_row.dart';
+import '../stores/exercise_art_store.dart';
 import '../stores/proposal_rebuild.dart';
 import 'place_mark_view.dart';
 import 'session_parts.dart';
@@ -41,6 +42,7 @@ class SessionScreen extends StatefulWidget {
 class _SessionScreenState extends State<SessionScreen> {
   final TextEditingController _feedback = TextEditingController();
   bool _wasBusy = false;
+  String _artNames = '';
 
   AppStore get store => widget.store;
   AppDeps? get deps => widget.deps;
@@ -70,6 +72,26 @@ class _SessionScreenState extends State<SessionScreen> {
 
   void _minimise(BuildContext context) {
     Navigator.of(context).popUntil((Route<dynamic> r) => r.isFirst);
+  }
+
+  /// Asks for the pictures of the session's exercises when the list changes.
+  /// After the frame, so the store never notifies while the screen builds.
+  void _trackArt(Session a) {
+    final ExerciseArtStore? art = deps?.art;
+    if (art == null) {
+      return;
+    }
+    final List<String> names = <String>[for (final Exercise e in a.exercises) e.name];
+    final String sig = '${deps?.connection.connected}|${names.join('\u0000')}';
+    if (sig == _artNames) {
+      return;
+    }
+    _artNames = sig;
+    WidgetsBinding.instance.addPostFrameCallback((Duration _) {
+      if (mounted) {
+        art.track(names);
+      }
+    });
   }
 
   /// The planned load of the session. Null when offline, not set up, or on any failure.
@@ -198,6 +220,7 @@ class _SessionScreenState extends State<SessionScreen> {
         if (a == null) {
           return const Scaffold(body: SizedBox.shrink());
         }
+        _trackArt(a);
         final bool canChange = rebuild != null && !store.hasDoneSet;
         final bool busy = canChange && rebuild!.busy;
         final bool why = a.focus != null || a.planNote != null || a.exercises.isNotEmpty;
@@ -278,7 +301,12 @@ class _SessionScreenState extends State<SessionScreen> {
                   Expanded(
                     child: SingleChildScrollView(
                       padding: const EdgeInsets.fromLTRB(20, 14, 20, 8),
-                      child: SessionPanel(store: store),
+                      child: deps == null
+                          ? SessionPanel(store: store)
+                          : ListenableBuilder(
+                              listenable: deps!.art,
+                              builder: (BuildContext c, Widget? w) => SessionPanel(store: store, art: deps!.art),
+                            ),
                     ),
                   ),
                 ],

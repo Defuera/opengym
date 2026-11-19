@@ -11,6 +11,7 @@ export 'models/about_parts.dart';
 export 'models/chat.dart';
 export 'models/dashboard.dart';
 export 'models/entry.dart';
+export 'models/exercise_art.dart';
 export 'models/goal.dart';
 export 'models/misc.dart';
 export 'models/place.dart';

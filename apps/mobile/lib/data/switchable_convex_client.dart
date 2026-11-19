@@ -108,6 +108,14 @@ class SwitchableConvexClient implements ConvexClient {
   Stream<List<Place>> watchPlaces() => _proxy((ConvexClient c) => c.watchPlaces());
 
   @override
+  Stream<List<ExerciseArt>> watchExerciseArt(List<String> names) =>
+      _proxy((ConvexClient c) => c.watchExerciseArt(names));
+
+  @override
+  Future<void> requestExerciseArt(List<String> names) =>
+      _call((ConvexClient c) => c.requestExerciseArt(names));
+
+  @override
   Future<void> saveEntry({
     required String entryId,
     required String text,

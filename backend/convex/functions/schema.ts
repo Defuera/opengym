@@ -136,6 +136,20 @@ export default defineSchema({
     .index("by_createdAt", ["createdAt"])
     .index("by_importId", ["importId"]),
   entries: defineTable(entryFields).index("by_entryId", ["entryId"]).index("by_at", ["at"]).index("by_deletedAt", ["deletedAt"]),
+  // Exercise art: one image per exercise name (two key poses side by side). The key is artKey(name).
+  exerciseArt: defineTable({
+    key: v.string(),
+    name: v.string(),
+    status: v.union(v.literal("pending"), v.literal("ready"), v.literal("failed")),
+    storageId: v.optional(v.id("_storage")),
+    sourceId: v.optional(v.string()),
+    model: v.optional(v.string()),
+    error: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_key", ["key"])
+    .index("by_updatedAt", ["updatedAt"]),
   places: defineTable(placeFields).index("by_placeId", ["placeId"]),
   // Trace of every change of a place text (ADR-021), so a wrong line can be traced and undone. Never read by the app.
   placeChanges: defineTable(placeChangeFields).index("by_placeId", ["placeId"]),

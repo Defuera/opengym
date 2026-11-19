@@ -7,6 +7,9 @@ import { createOpenAiProvider } from "./providers/openai";
 /** Speech-to-text model when OPENAI_TRANSCRIBE_MODEL is not set. */
 export const DEFAULT_TRANSCRIBE_MODEL = "gpt-4o-transcribe";
 
+/** Image model when OPENAI_IMAGE_MODEL is not set. */
+export const DEFAULT_IMAGE_MODEL = "gpt-image-2";
+
 export class ConfigError extends Error {}
 
 export const PROVIDER_NAMES = ["anthropic", "openai", "deepseek", "mock", "none"] as const;
@@ -40,7 +43,7 @@ export function createProviderFromEnv(env: Env, fetchImpl?: typeof fetch, modelO
   const model = modelOverride?.trim() || env[keys.model]?.trim();
   const missing = [!apiKey && keys.key, !model && keys.model].filter(Boolean);
   if (missing.length) throw new ConfigError(`AI_PROVIDER=${name} needs ${missing.join(" and ")} in .env (set the model to a current model id from the provider's docs).`);
-  const opts = { apiKey: apiKey!, model: model!, baseUrl: env[keys.base]?.trim() || undefined, fetch: fetchImpl, transcribeModel: env.OPENAI_TRANSCRIBE_MODEL?.trim() || DEFAULT_TRANSCRIBE_MODEL };
+  const opts = { apiKey: apiKey!, model: model!, baseUrl: env[keys.base]?.trim() || undefined, fetch: fetchImpl, transcribeModel: env.OPENAI_TRANSCRIBE_MODEL?.trim() || DEFAULT_TRANSCRIBE_MODEL, imageModel: env.OPENAI_IMAGE_MODEL?.trim() || DEFAULT_IMAGE_MODEL };
   if (name === "anthropic") return new AnthropicProvider(opts);
   if (name === "openai") return createOpenAiProvider(opts);
   return createDeepSeekProvider(opts);

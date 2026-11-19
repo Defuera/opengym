@@ -219,6 +219,22 @@ class FakeConvexClient implements ConvexClient {
   /// When set, the places subscription fails with it (an old server without the function).
   Object? placesError;
 
+  /// The art the server holds, by exercise key. [watchExerciseArt] answers from it.
+  final Live<Map<String, ExerciseArt>> art = Live<Map<String, ExerciseArt>>(<String, ExerciseArt>{});
+
+  @override
+  Stream<List<ExerciseArt>> watchExerciseArt(List<String> names) => art.stream().map(
+        (Map<String, ExerciseArt> m) => <ExerciseArt>[
+          for (final String n in names)
+            m[exerciseArtKey(n)] ?? ExerciseArt(name: n, status: 'none'),
+        ],
+      );
+
+  @override
+  Future<void> requestExerciseArt(List<String> names) async {
+    _command('requestExerciseArt:${names.join('|')}');
+  }
+
   @override
   Stream<List<Place>> watchPlaces() => placesError == null ? places.stream() : Stream<List<Place>>.error(placesError!);
 

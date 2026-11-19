@@ -28,6 +28,10 @@ export interface AiProvider {
   listModels(): Promise<string[]>;
   /** Speech to text. Absent on a provider that cannot do it. Throws ProviderError on a failed request. Returns the text as the provider gave it. */
   transcribe?(bytes: Uint8Array, mime: string, filename: string): Promise<string>;
+  /** Image generation. Absent on a provider that cannot do it. With photos it redraws them (edit); without it draws from the prompt. Throws ProviderError on a failed request. Returns PNG bytes. */
+  image?(prompt: string, photos: { bytes: Uint8Array; mime: string }[]): Promise<Uint8Array>;
+  /** Id of the image model, when the provider has `image`. */
+  readonly imageModel?: string;
 }
 
 export interface HttpProviderOptions {
@@ -38,6 +42,8 @@ export interface HttpProviderOptions {
   fetch?: typeof fetch;
   /** Model for speech to text (OpenAI only). */
   transcribeModel?: string;
+  /** Model for image generation (OpenAI only). */
+  imageModel?: string;
 }
 
 export class ProviderError extends Error {}

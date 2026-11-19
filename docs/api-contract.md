@@ -152,6 +152,7 @@ plans and the dashboard layout; they are regenerated in the background.
 | `summarise_thread` | Thread.summary (<=400 chars) | last user message truncated |
 | `review_session` | Review | set counts and top sets vs previous session of the same activity and focus |
 | `import_data` | Session[] / Goal[] / ContextItem[] from a text chunk or an image | nothing imported; job note says AI is required |
+| `match_exercise` | Picks the public exercise (free-exercise-db, with two photos) that is the same movement on the same kind of equipment as the name the person logged. Input: `{exercise, candidates: [{id, name, equipment}]}` (the shortlist, at most 12, by word overlap). Output: `{id: string \| null, movement?: string (<=400, one sentence: equipment, start position, end position; used in the image prompt when there are no photos)}`. The job runs also with an empty shortlist (for `movement`); `check`: a non-null id must be one of the candidates. Only the exercise name and public list entries go to the provider. Not called when the shortlist is empty. Run by `jobs/exerciseArt:make`. | The id of the first candidate when its name equals the exercise name (ignoring case, punctuation and a plural s); else null. |
 
 Plan safety limits applied in code after validation: at most 12 exercises and
 10 sets each; a planned weight may not exceed 1.25 × the heaviest logged
@@ -174,6 +175,7 @@ Time exercises (a bike, a plank hold, a treadmill) inside a session with sets:
 `AI_PROVIDER=anthropic | openai | deepseek | mock`. One interface:
 `complete({ system, messages, images?, json: boolean, maxTokens }) -> string`.
 Model names come from env (`ANTHROPIC_MODEL`, `OPENAI_MODEL`, `DEEPSEEK_MODEL`).
+Optional methods: `transcribe` (see Voice message) and `image(prompt, photos) -> PNG bytes` (see Exercise art).
 Images are sent to Anthropic and OpenAI; DeepSeek has no image input, so image
 imports and image attachments answer with a clear note instead.
 `mock` returns deterministic canned JSON so the whole flow can be tested with
@@ -240,6 +242,22 @@ The user records speech; the server turns it into text; the message is then a no
 | `messages.voice` | Optional `"pending" \| "done" \| "failed"`. `queries/messages:list` returns it when set. Absent on a typed message and on an assistant message. |
 | Coach input | `jobs/chat:input` returns nothing for a message that is `pending` or `failed`. A voice message without a transcript is left out of the history of other replies and of the thread summary. A file of kind `audio` is never a coach file: not as text, not as an image, not in `sources`. Only the transcript (the message text) reaches the model. |
 | Provider | Optional `transcribe(bytes, mime, filename): Promise<string>`. OpenAI: `POST {base}/v1/audio/transcriptions`, multipart form with `model` and `file`, answer `{ text }`, timeout 60 s. The model is the env `OPENAI_TRANSCRIBE_MODEL`, default `gpt-4o-transcribe`. Anthropic and DeepSeek have none. The mock returns a fixed text (a file named `silence...` gives an empty one). |
+
+## Exercise art (Convex backend)
+
+Every exercise gets one picture with two key poses side by side. The server makes it once per exercise name and stores it. The app shows the left half, then the right half, in a loop. The server does not cut the image.
+
+Key of an exercise: `name.trim().toLowerCase()` with runs of white space made one space (max 80 characters).
+
+| Item | Contract |
+|---|---|
+| Table `exerciseArt` | `{ key, name, status: "pending" \| "ready" \| "failed", storageId?, sourceId?, model?, error? (<=300), createdAt, updatedAt }`. Indexes `by_key`, `by_updatedAt`. |
+| mutation `commands/exerciseArt:request` | `{ token, names: string[] }` (1..12 names, each 1..80 after trim; else a `ConvexError`). A name with no row gets a `pending` row and a `jobs/exerciseArt:make` run. A `failed` row older than 24 hours goes back to `pending` and runs again. Other rows stay. At most 40 new or retried rows in the last 24 hours (rows counted by `updatedAt`); names over the cap are skipped silently. Idempotent. Returns `null`. |
+| query `queries/exerciseArt:get` | `{ token, names: string[] }` (0..30) returns `[{ name, status: "none" \| "pending" \| "ready" \| "failed", url: string \| null }]`, one item per name, same order. `url` is the storage URL when the status is `ready`, else `null`. |
+| Image | PNG, 1536x1024, two panels of equal width: left = start position, right = end position. |
+| action `jobs/exerciseArt:make` (internal) | Stops when the row is not `pending`. Shortlist of the public exercise list (`model/data/exerciseSources.json`, 873 entries of free-exercise-db, public domain) by word overlap, then job `match_exercise`. With a match it fetches the two public photos (`.../exercises/<id>/0.jpg` start, `1.jpg` end); a failed photo fetch means: go on without photos. Muscles come from the matched entry, else from `musclesFor(name).primary`. It calls `provider.image`, stores the PNG, and sets `ready` with `storageId`, `sourceId` (when matched) and `model`. Any error, or a provider with no `image` method, sets `failed` with a short `error`. It never throws. Only the exercise name and the public photos go to the provider. |
+| Auto request | When `jobs/startRequest:save` stores a proposal with a plan, it requests art for the exercise names of the plan (at most 12) through the same logic as the command, with the same daily cap. |
+| Provider | Optional `image(prompt, photos: [{bytes, mime}]): Promise<Uint8Array>`. OpenAI only. With photos: `POST {base}/v1/images/edits`, multipart with `model`, `prompt`, `size=1536x1024`, `quality=medium` and one `image[]` part per photo. Without photos: `POST {base}/v1/images/generations`, JSON `{ model, prompt, size, quality }`. Both answer `{ data: [{ b64_json }] }`. Timeout 180 s. The model is the env `OPENAI_IMAGE_MODEL`, default `gpt-image-2`. Anthropic and DeepSeek have none. The mock returns a few fixed bytes (model `mock-image`). |
 
 ## Coach model (Convex backend)
 

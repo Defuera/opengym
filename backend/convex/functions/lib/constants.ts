@@ -27,3 +27,8 @@ export const START_REQUEST_PURGE_BATCH = 50;
 export const DELETE_AFTER_MS = 72 * 3_600_000;
 /** Rows erased per purge pass; a full pass schedules the next one. */
 export const PURGE_BATCH = 50;
+
+/** Exercise art: at most this many new or retried art rows in the last 24 hours (names over the cap are skipped silently). */
+export const EXERCISE_ART_DAILY_MAX = 40;
+/** A failed art row is tried again by the next request when it is older than this. */
+export const EXERCISE_ART_RETRY_MS = 86_400_000;

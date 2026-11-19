@@ -13,18 +13,54 @@ export interface OpenAiCompatibleConfig extends HttpProviderOptions {
   maxTokensField: "max_completion_tokens" | "max_tokens";
   /** Path of speech to text (POST multipart). Without it the provider has no `transcribe`. */
   transcribePath?: string;
+  /** Base path of image generation (POST), e.g. /v1/images. Without it the provider has no `image`. */
+  imagePath?: string;
 }
+
+/** Image size of exercise art: two panels of 768x1024 side by side. */
+const IMAGE_SIZE = "1536x1024";
+const IMAGE_TIMEOUT_MS = 180_000;
 
 /** Shared by the openai and deepseek providers (same wire format). */
 export class OpenAiCompatibleProvider implements AiProvider {
   readonly name: string;
   readonly supportsImages: boolean;
   readonly transcribe?: (bytes: Uint8Array, mime: string, filename: string) => Promise<string>;
+  readonly image?: (prompt: string, photos: { bytes: Uint8Array; mime: string }[]) => Promise<Uint8Array>;
+  readonly imageModel?: string;
 
   constructor(private readonly c: OpenAiCompatibleConfig) {
     this.name = c.name;
     this.supportsImages = c.supportsImages;
     if (c.transcribePath) this.transcribe = (bytes, mime, filename) => this.speechToText(c.transcribePath!, bytes, mime, filename);
+    if (c.imagePath) {
+      this.imageModel = c.imageModel ?? "gpt-image-2";
+      this.image = (prompt, photos) => this.drawImage(c.imagePath!, this.imageModel!, prompt, photos);
+    }
+  }
+
+  private async drawImage(path: string, model: string, prompt: string, photos: { bytes: Uint8Array; mime: string }[]): Promise<Uint8Array> {
+    const f = this.c.fetch ?? fetch;
+    const base = this.c.baseUrl ?? this.c.defaultBaseUrl;
+    const auth = { authorization: `Bearer ${this.c.apiKey}` };
+    let data: { data?: { b64_json?: unknown }[] };
+    if (photos.length > 0) {
+      const form = new FormData();
+      form.append("model", model);
+      form.append("prompt", prompt);
+      form.append("size", IMAGE_SIZE);
+      form.append("quality", "medium");
+      photos.forEach((p, i) => form.append("image[]", new Blob([p.bytes as BlobPart], { type: p.mime }), `photo${i}.${p.mime.includes("png") ? "png" : "jpg"}`));
+      data = (await postForm(f, `${base}${path}/edits`, auth, form, IMAGE_TIMEOUT_MS)) as typeof data;
+    } else {
+      data = (await postJson(f, `${base}${path}/generations`, auth, { model, prompt, size: IMAGE_SIZE, quality: "medium" }, IMAGE_TIMEOUT_MS)) as typeof data;
+    }
+    const b64 = data.data?.[0]?.b64_json;
+    if (typeof b64 !== "string" || !b64) throw new ProviderError("empty image response");
+    const bin = atob(b64);
+    const out = new Uint8Array(bin.length);
+    for (let k = 0; k < bin.length; k++) out[k] = bin.charCodeAt(k);
+    return out;
   }
 
   private async speechToText(path: string, bytes: Uint8Array, mime: string, filename: string): Promise<string> {

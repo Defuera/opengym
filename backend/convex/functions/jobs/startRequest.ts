@@ -5,6 +5,7 @@ import { providerFor, runAiJob } from "../lib/ai";
 import { allContext, allGoals, allSessions, startRequestById } from "../lib/db";
 import { coachEntries, entryImageFiles, loadEntryImages } from "../lib/entriesDb";
 import { activeLimits } from "../lib/limitsDb";
+import { requestExerciseArt } from "../lib/exerciseArtDb";
 import { allPlaces, createPlace } from "../lib/placesDb";
 import { lastPlaceIdFor } from "../model/places";
 import { startDraft } from "../lib/validators";
@@ -64,6 +65,8 @@ export const save = internalMutation({
         ...(place ? { place: { placeId: place.placeId, name: place.name } } : {}),
       },
     });
+    // Art for the exercises of the plan (the same logic as commands/exerciseArt:request, daily cap kept).
+    if (checked.plan) await requestExerciseArt(ctx, checked.plan.exercises.map((e) => e.name.trim()).filter((n) => n.length > 0).slice(0, 12));
     // Background learning (ADR-021), never blocking: the newest feedback, else the note or text, is read for what it says about this place.
     const feedback = doc.feedback?.[doc.feedback.length - 1];
     const sentence = feedback ?? doc.text?.trim();

@@ -50,6 +50,12 @@ abstract class ConvexClient {
 
   /// The places the coach knows, sorted by name (`queries/places:list`).
   Stream<List<Place>> watchPlaces();
+
+  /// The art state of each name, same order (`queries/exerciseArt:get`).
+  Stream<List<ExerciseArt>> watchExerciseArt(List<String> names);
+
+  /// Asks the server to make art for these names (1 to 12). Idempotent.
+  Future<void> requestExerciseArt(List<String> names);
   /// The stored plan for [activity] (null: Gym) and [focus]; a null focus asks
   /// for the advised focus.
   Stream<Stored<Plan>> watchNextPlan({String? activity, String? focus});
@@ -303,6 +309,14 @@ class DartvexConvexClient implements ConvexClient {
   @override
   Stream<List<Place>> watchPlaces() =>
       _watch('queries/places:list', const <String, dynamic>{}, decodePlaces);
+
+  @override
+  Stream<List<ExerciseArt>> watchExerciseArt(List<String> names) =>
+      _watch('queries/exerciseArt:get', <String, dynamic>{'names': names}, decodeExerciseArts);
+
+  @override
+  Future<void> requestExerciseArt(List<String> names) =>
+      _mutate('commands/exerciseArt:request', <String, dynamic>{'names': names});
 
   @override
   Future<void> saveEntry({

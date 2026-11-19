@@ -12,6 +12,7 @@ class ExercisePanel extends StatelessWidget {
     required this.children,
     this.hint,
     this.pinned = const <Widget>[],
+    this.trailing,
   });
 
   final String name;
@@ -19,11 +20,24 @@ class ExercisePanel extends StatelessWidget {
   final String? hint;
   final List<Widget> pinned;
 
+  /// A small widget at the right of the title (a picture). Null: none.
+  final Widget? trailing;
+
   @override
   Widget build(BuildContext context) {
     final String? h = hint;
     final List<Widget> body = <Widget>[
-      Text(name, style: OG.display(28)),
+      if (trailing == null)
+        Text(name, style: OG.display(28))
+      else
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Expanded(child: Text(name, style: OG.display(28))),
+            const SizedBox(width: 12),
+            trailing!,
+          ],
+        ),
     ];
     if (h != null) {
       body.add(const SizedBox(height: 6));

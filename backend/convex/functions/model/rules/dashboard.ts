@@ -87,6 +87,8 @@ export function resolveDashboard(spec: DashboardSpec, sessions: Session[], goals
           .map((s) => ({ t: s.endedAt, value: Math.max(0, ...s.exercises.filter((e) => e.name.toLowerCase() === k).map(topKg)), has: s.exercises.some((e) => e.name.toLowerCase() === k) }))
           .filter((p) => p.has)
           .map(({ t, value }) => ({ t, value }));
+        // An exercise done without weight has no top set to draw.
+        if (!points.some((p) => p.value > 0)) break;
         modules.push({ type: "trend", title: `${exercise}, top set`, unit: "kg", points });
         break;
       }

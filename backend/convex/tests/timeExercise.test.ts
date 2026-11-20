@@ -107,6 +107,8 @@ describe("time exercise in rules", () => {
     expect(stats(bikeOnly, 7, 6000).best).toBeNull();
     const d = resolveDashboard({ source: "rules", modules: [{ type: "trend", exercise: "Stationary bike" }, { type: "recent_sessions", limit: 3 }] }, bikeOnly, [], 7, 6000);
     expect(JSON.stringify(d)).toContain("25 min");
+    // No weight was lifted: there is no top set to draw.
+    expect(d.modules.some((m) => m.type === "trend")).toBe(false);
   });
 
   it("review counts timed exercises, not their entries as sets", () => {

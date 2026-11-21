@@ -49,3 +49,8 @@ export const PROPOSAL_FOR_THREAD_MAX = 50;
 export const PROGRAM_MAX_WEEKS = 26;
 /** The AI budget to write one program (a long pasted program can take two minutes). */
 export const PROGRAM_BUILD_BUDGET_MS = 300_000;
+
+/** A stored AI call (what was sent to the model and what came back) is erased after this long (ADR-027). */
+export const AI_CALL_KEEP_MS = 90 * 86_400_000;
+/** Longest text kept per field of a stored AI call; longer text is cut. */
+export const AI_CALL_TEXT_MAX = 200_000;

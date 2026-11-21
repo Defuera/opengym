@@ -296,6 +296,24 @@ export default defineSchema({
     .index("by_requestId", ["requestId"])
     .index("by_createdAt", ["createdAt"]),
 
+  // One row per AI job run (ADR-027): the exact prompt sent, every attempt, the outcome. For reading the coach's real answers; no code reads it
+  // for the app. Written by jobs/aiCalls:save. Erased after 90 days by jobs/purge:run. Images are counted, not kept.
+  aiCalls: defineTable({
+    at: v.number(),
+    job: v.string(),
+    provider: v.string(),
+    model: v.optional(v.string()),
+    system: v.string(),
+    messages: v.array(v.object({ role: v.union(v.literal("user"), v.literal("assistant")), content: v.string() })),
+    images: v.number(),
+    attempts: v.array(v.object({ raw: v.optional(v.string()), error: v.optional(v.string()), ms: v.number() })),
+    path: v.union(v.literal("ai"), v.literal("fallback")),
+    reason: v.optional(v.string()),
+    ms: v.number(),
+  })
+    .index("by_at", ["at"])
+    .index("by_job", ["job", "at"]),
+
   // Owner settings (one row). `aiModel` is the coach model chosen in the app; absent = the model from the environment.
   // `modelList` is the provider's model list, cached by jobs/models:refresh. `modelListError` is a short text without secrets.
   settings: defineTable({

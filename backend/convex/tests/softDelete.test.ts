@@ -219,14 +219,14 @@ describe("purge", () => {
     await removeS("young");
     await removeE("e-young");
     vi.setSystemTime(T0 + DELETE_AFTER_MS + HOUR); // old is 73 h marked, young 33 h
-    expect(await purge()).toEqual({ sessions: 1, entries: 1, programs: 0 });
+    expect(await purge()).toEqual({ sessions: 1, entries: 1, programs: 0, aiCalls: 0 });
     expect((await sessionRows()).map((s) => s.sessionId).sort()).toEqual(["live", "young"]);
     expect((await reviewRows()).map((r) => r.sessionId).sort()).toEqual(["live", "young"]);
     expect((await entryRows()).map((e) => e.entryId).sort()).toEqual(["e-live", "e-young"]);
     expect((await fileRows()).map((f) => f.fileId)).toEqual(["f-young"]);
     expect(await t.run((c) => c.storage.get(blob))).toBeNull();
     vi.setSystemTime(T0 + 40 * HOUR + DELETE_AFTER_MS + HOUR);
-    expect(await purge()).toEqual({ sessions: 1, entries: 1, programs: 0 });
+    expect(await purge()).toEqual({ sessions: 1, entries: 1, programs: 0, aiCalls: 0 });
     expect((await sessionRows()).map((s) => s.sessionId)).toEqual(["live"]);
     expect(await fileRows()).toHaveLength(0);
   });
@@ -237,7 +237,7 @@ describe("purge", () => {
         await ctx.db.insert("entries", { entryId: `e${i}`, text: "x", fileIds: [], at: NOW, createdAt: NOW, deletedAt: 1 });
       }
     });
-    expect(await purge()).toEqual({ sessions: 0, entries: PURGE_BATCH, programs: 0 });
+    expect(await purge()).toEqual({ sessions: 0, entries: PURGE_BATCH, programs: 0, aiCalls: 0 });
     expect(await entryRows()).toHaveLength(5);
     await settle(t);
     expect(await entryRows()).toHaveLength(0);

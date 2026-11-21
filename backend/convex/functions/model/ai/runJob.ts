@@ -43,8 +43,30 @@ export interface JobResult<O> {
   reason?: string;
 }
 
+/** One provider call of a job: the raw reply, or the error (a failed check or a failed request). */
+export interface JobAttempt {
+  raw?: string;
+  error?: string;
+  ms: number;
+}
+
+/** What one job run sent and got back: the exact prompt, every attempt, the outcome. The caller may store it (ADR-027). */
+export interface JobTrace {
+  job: string;
+  system: string;
+  messages: ChatMessage[];
+  /** How many images went with the prompt (the images themselves are not kept). */
+  images: number;
+  attempts: JobAttempt[];
+  path: "ai" | "fallback";
+  reason?: string;
+  ms: number;
+}
+
 export interface RunOptions {
   timeoutMs?: number;
+  /** Called once per run, after the outcome is known. An error in it never changes the result. */
+  onTrace?(trace: JobTrace): void;
 }
 
 export function extractJson(text: string): unknown {
@@ -70,14 +92,28 @@ export async function runJob<I, O>(
   opts: RunOptions = {},
 ): Promise<JobResult<O>> {
   const started = Date.now();
+  const attempts: JobAttempt[] = [];
+  let sent: Prompt | null = null;
+  let sentImages = 0;
+  const trace = (path: "ai" | "fallback", reason?: string): void => {
+    if (!opts.onTrace || !sent) return;
+    try {
+      opts.onTrace({ job: job.name, system: sent.system, messages: sent.messages, images: sentImages, attempts, path, ...(reason ? { reason } : {}), ms: Date.now() - started });
+    } catch {
+      // A trace is never worth a failed job.
+    }
+  };
   const useFallback = (reason: string): JobResult<O> => {
     logger.info(`[ai] job=${job.name} path=fallback reason="${reason}" ms=${Date.now() - started}`);
+    trace("fallback", reason);
     return { value: job.fallback(input), path: "fallback", reason };
   };
   if (!provider) return useFallback("AI is not configured");
 
   const prompt = job.build(input);
   const images = prompt.images?.length && provider.supportsImages ? prompt.images : undefined;
+  sent = prompt;
+  sentImages = images?.length ?? 0;
   let messages = prompt.messages;
   let lastError = "unknown";
   const deadline = opts.timeoutMs ? started + opts.timeoutMs : null;
@@ -85,8 +121,10 @@ export async function runJob<I, O>(
   for (let attempt = 0; attempt < 2; attempt++) {
     const remaining = deadline ? deadline - Date.now() : undefined;
     if (remaining !== undefined && remaining <= 0) break;
+    const attemptStarted = Date.now();
+    let raw: string | undefined;
     try {
-      const raw = await provider.complete({
+      raw = await provider.complete({
         system: prompt.system,
         messages,
         images,
@@ -99,6 +137,8 @@ export async function runJob<I, O>(
       const broken = result.success ? (job.check?.(result.data, input) ?? null) : null;
       if (result.success && !broken) {
         logger.info(`[ai] job=${job.name} path=ai provider=${provider.name} attempt=${attempt + 1} ms=${Date.now() - started}`);
+        attempts.push({ raw, ms: Date.now() - attemptStarted });
+        trace("ai");
         return { value: result.data, path: "ai" };
       }
       lastError = `invalid output: ${result.success ? broken : result.error.issues.slice(0, 3).map((i) => `${i.path.join(".")} ${i.message}`).join("; ")}`;
@@ -107,8 +147,10 @@ export async function runJob<I, O>(
         { role: "assistant", content: raw.slice(0, 2000) },
         { role: "user", content: job.json ? `That reply was invalid (${lastError}). Reply again with only valid JSON in the required shape.` : "That reply was empty. Reply again." },
       ];
+      attempts.push({ raw, error: lastError, ms: Date.now() - attemptStarted });
     } catch (e) {
       lastError = (e as Error).message;
+      attempts.push({ ...(raw !== undefined ? { raw } : {}), error: lastError, ms: Date.now() - attemptStarted });
       if (/timed out/.test(lastError)) break; // no point retrying a timeout inside a budget
     }
     logger.warn(`[ai] job=${job.name} attempt=${attempt + 1} failed: ${lastError}`);

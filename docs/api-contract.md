@@ -172,6 +172,8 @@ Time exercises (a bike, a plank hold, a treadmill) inside a session with sets:
 - The app's add-exercise sheet lists the exercises of the user's own log (most recently used first, the log's spelling) and nothing else.
   A new name asks "Sets and reps" or "Time"; a name from the log keeps the measure it had last time.
 
+**Stored AI calls (Convex backend, ADR-027).** Every job run that reaches the provider is stored as one row in `aiCalls`: `{ at, job, provider, model?, system, messages: [{ role, content }], images: number, attempts: [{ raw?, error?, ms }], path: "ai" | "fallback", reason?, ms }`. Indexes `by_at`, `by_job`. It holds the exact prompt, every attempt (a rejected first answer too, with the reason) and the outcome. Images are counted, not stored. A text over 200,000 characters is cut. Written by `jobs/aiCalls:save` from `lib/ai.ts`; a failed write never fails the job. `jobs/purge:run` erases a row 90 days after the call. The app does not read this table.
+
 ## Providers
 
 `AI_PROVIDER=anthropic | openai | deepseek | mock`. One interface:

@@ -24,6 +24,7 @@ import type * as commands_settings from "../commands/settings.js";
 import type * as commands_start from "../commands/start.js";
 import type * as commands_threads from "../commands/threads.js";
 import type * as crons from "../crons.js";
+import type * as jobs_aiCalls from "../jobs/aiCalls.js";
 import type * as jobs_chat from "../jobs/chat.js";
 import type * as jobs_dashboards from "../jobs/dashboards.js";
 import type * as jobs_exerciseArt from "../jobs/exerciseArt.js";
@@ -176,6 +177,7 @@ declare const fullApi: ApiFromModules<{
   "commands/start": typeof commands_start;
   "commands/threads": typeof commands_threads;
   crons: typeof crons;
+  "jobs/aiCalls": typeof jobs_aiCalls;
   "jobs/chat": typeof jobs_chat;
   "jobs/dashboards": typeof jobs_dashboards;
   "jobs/exerciseArt": typeof jobs_exerciseArt;

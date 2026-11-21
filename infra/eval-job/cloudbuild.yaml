@@ -1,0 +1,5 @@
+# Builds the eval job image. Run by infra/deploy-eval-job.sh with backend/convex as the source.
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args: ["build", "-t", "$_IMAGE", "-f", "eval-job.Dockerfile", "."]
+images: ["$_IMAGE"]

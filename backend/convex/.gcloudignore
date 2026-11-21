@@ -1,0 +1,7 @@
+# What a Cloud Build upload of this folder leaves out (used by infra/deploy-eval-job.sh).
+node_modules/
+.env*
+tests/
+evals/reports/
+.git
+.gitignore

@@ -19,6 +19,8 @@ export interface BuildSessionInput {
   feedbackFromThePerson?: string[];
   /** Every place the person has, with its equipment note ("" = unknown) and whether it was the place of the last session of this activity (ADR-021). */
   placesTheCoachKnows?: { name: string; equipment: string; lastUsedForThisActivity: boolean }[];
+  /** The foci the log holds, per activity with sets, with how often each was logged (most used first). The coach reuses one of these names. */
+  fociTheUserUses?: { activity: string; foci: { focus: string; timesLogged: number }[] }[];
   picture: ReturnType<typeof coachPicture>;
   limits: Limit[];
   /** Photos of the log entries of the last day. Sent only when the provider takes images. */
@@ -34,6 +36,8 @@ Coach the way a good coach does who has trained this person for a long time: you
 When previousPlan and feedbackFromThePerson are present, the person saw that plan and asked for a change: rebuild the session so that the feedback holds.
 
 placesTheCoachKnows says where the person trains and what is there; choose today's place (the note may say it, otherwise the one last used for this activity) and use only equipment that place has. A place with an empty equipment text is unknown: prefer bodyweight and what the person's log shows there.
+
+The focus is the short name of the kind of session (Upper, Legs, Full body), one or two words. fociTheUserUses lists the names this person already has for each activity, with how often each was logged: use one of them, the closest one, and prefer the names logged often. Give a new focus only when the session is truly a different kind from all of them. What is special about today (a goal, a mix, a place) goes in reason, not in focus. Never put the request or the note in focus.
 
 Two things are fixed. Never use an exercise or a movement that a limit marks avoid. The name of the activity is not yours to change; when activity is null, name it from the request (one to three words), and reuse a name from the person's log when the request means the same activity.`;
 
@@ -53,7 +57,7 @@ export const buildSessionJob: JobDef<BuildSessionInput, StartProposal> = {
   },
   build: (i) => ({
     system: `JOB: build_session\n\n${ROLE}\n\n${JSON_ONLY}\n${SHAPE}`,
-    messages: [{ role: "user", content: `Build today's session.\n\nINPUT_JSON:\n${JSON.stringify({ activity: i.name, ...(i.request !== undefined ? { request: i.request } : {}), noteForToday: i.note || null, ...(i.placesTheCoachKnows ? { placesTheCoachKnows: i.placesTheCoachKnows } : {}), ...(i.feedbackFromThePerson ? { ...(i.previousPlan ? { previousPlan: i.previousPlan } : {}), feedbackFromThePerson: i.feedbackFromThePerson } : {}), ...i.picture })}` }],
+    messages: [{ role: "user", content: `Build today's session.\n\nINPUT_JSON:\n${JSON.stringify({ activity: i.name, ...(i.request !== undefined ? { request: i.request } : {}), noteForToday: i.note || null, ...(i.placesTheCoachKnows ? { placesTheCoachKnows: i.placesTheCoachKnows } : {}), ...(i.fociTheUserUses && i.fociTheUserUses.length > 0 ? { fociTheUserUses: i.fociTheUserUses } : {}), ...(i.feedbackFromThePerson ? { ...(i.previousPlan ? { previousPlan: i.previousPlan } : {}), feedbackFromThePerson: i.feedbackFromThePerson } : {}), ...i.picture })}` }],
     images: i.images,
   }),
   fallback: (i) => ({ kind: "gym", type: i.name ?? nameFromText(i.request ?? ""), plan: { rationale: "Empty session. Add what you do.", exercises: [] } }),

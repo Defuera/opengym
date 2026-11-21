@@ -61,6 +61,24 @@ export function fociByDue(sessions: Session[], activity: string): string[] {
   return [...last.values()].sort((a, b) => a.at - b.at || a.name.localeCompare(b.name)).map((x) => x.name);
 }
 
+/**
+ * Every focus the log holds for one set-based activity, with how often it was logged. Most used first, then most recent.
+ * The name is the log's most recent spelling. The coach reads this list to reuse a focus name and not invent a new one.
+ */
+export function fociByUse(sessions: Session[], activity: string): { focus: string; timesLogged: number }[] {
+  const key = activityKey(activity);
+  const by = new Map<string, { focus: string; timesLogged: number; last: number }>();
+  for (const s of sessions) {
+    if (!isSetBasedOf(s, key) || !s.focus?.trim()) continue;
+    const k = activityKey(s.focus);
+    const cur = by.get(k) ?? { focus: s.focus.trim(), timesLogged: 0, last: 0 };
+    cur.timesLogged++;
+    if (s.endedAt >= cur.last) Object.assign(cur, { last: s.endedAt, focus: s.focus.trim() });
+    by.set(k, cur);
+  }
+  return [...by.values()].sort((a, b) => b.timesLogged - a.timesLogged || b.last - a.last).map(({ focus, timesLogged }) => ({ focus, timesLogged }));
+}
+
 /** The last session with sets of an activity (and of a focus, when one is given), or null. */
 export function lastOfActivity(sessions: Session[], activity: string, focus?: string): Session | null {
   const key = activityKey(activity);

@@ -3,6 +3,7 @@ import { coachPicture } from "./ai/jobs/coachPicture";
 import { knownActivities } from "./ai/jobs/inputs";
 import { lastPlaceIdFor } from "./places";
 import { dropAvoided } from "./rules/limits";
+import { fociByUse } from "./rules/foci";
 import { rulesPlan } from "./rules/planner";
 import type { ContextItem, Entry, Goal, Limit, PlanDraft, Session } from "./schema";
 import { activityKey } from "./sessionShape";
@@ -37,12 +38,16 @@ export function buildStartInput(doc: StartDoc, d: StartData) {
   // The places the coach knows (ADR-021): all of them, with the one last used for this activity marked. Only places go here, never records.
   const lastPlaceId = doc.name ? lastPlaceIdFor(d.sessions, doc.name) : undefined;
   const placesTheCoachKnows = d.places.map((p) => ({ name: p.name, equipment: p.text, lastUsedForThisActivity: p.placeId === lastPlaceId }));
+  // The focus names of the log (bounded): of the named activity, or of every activity with sets when the coach names it.
+  const withSets = known.filter((a) => a.kind === "gym" && (!doc.name || activityKey(a.type) === activityKey(doc.name)));
+  const fociTheUserUses = withSets.map((a) => ({ activity: a.type, foci: fociByUse(d.sessions, a.type).slice(0, 8) })).filter((a) => a.foci.length > 0).slice(0, 6);
   const job: BuildSessionInput = {
     name: doc.name ?? null,
     note: doc.name ? (doc.text ?? "") : "",
     ...(doc.name ? {} : { request: doc.text ?? "" }),
     ...(doc.feedback ? { feedbackFromThePerson: doc.feedback, ...(doc.previousPlan ? { previousPlan: doc.previousPlan } : {}) } : {}),
     placesTheCoachKnows,
+    fociTheUserUses,
     picture: coachPicture(d.sessions, [...d.goals].sort((x, y) => x.createdAt - y.createdAt), d.context, d.limits, d.entries, d.now),
     limits: d.limits,
   };

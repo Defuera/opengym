@@ -163,4 +163,32 @@ void main() {
     await t.pumpAndSettle();
     expect(moves, <List<int>>[<int>[0, 2]]);
   });
+
+  testWidgets('time list: a tap on the time opens a field, and a typed 2:30 is passed on as 2.5', (WidgetTester t) async {
+    final List<double> typed = <double>[];
+    await t.pumpWidget(_wrap(TimeList(
+      entries: const <TimeRowData>[TimeRowData(id: 'a', minutes: 2)],
+      selected: 0,
+      onSelect: (int _) {},
+      onAdd: () {},
+      onRemove: (int _) {},
+      onMinutesChanged: (double _) {},
+      onMinutesSet: typed.add,
+      onDistanceChanged: (double? _) {},
+    )));
+    await t.tap(find.byKey(const ValueKey<String>('stepper-value')));
+    await t.pumpAndSettle();
+    expect(find.widgetWithText(TextField, '2:00'), findsOneWidget);
+    await t.enterText(find.byType(TextField), '2:30');
+    await t.tap(find.text('Set'));
+    await t.pumpAndSettle();
+    expect(typed, <double>[2.5]);
+    // A text that is not a time changes nothing.
+    await t.tap(find.byKey(const ValueKey<String>('stepper-value')));
+    await t.pumpAndSettle();
+    await t.enterText(find.byType(TextField), 'soon');
+    await t.tap(find.text('Set'));
+    await t.pumpAndSettle();
+    expect(typed, <double>[2.5]);
+  });
 }

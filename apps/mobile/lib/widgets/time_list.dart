@@ -7,6 +7,7 @@ import 'og_button.dart';
 import 'set_check.dart';
 import 'set_editor_card.dart';
 import 'set_row.dart';
+import 'text_sheet.dart';
 import 'time_format.dart';
 
 /// Plain data for one entry of a time exercise, so widgets need no model imports.
@@ -50,6 +51,7 @@ class TimeList extends StatelessWidget {
     required this.onRemove,
     required this.onMinutesChanged,
     required this.onDistanceChanged,
+    this.onMinutesSet,
     this.onToggle,
     this.checkPrefix = 'set-check',
     this.countdownIndex,
@@ -67,6 +69,9 @@ class TimeList extends StatelessWidget {
   final ValueChanged<int> onRemove;
   final ValueChanged<double> onMinutesChanged;
   final ValueChanged<double?> onDistanceChanged;
+
+  /// The person typed a time for the selected entry (in minutes). Null: the time cannot be typed.
+  final ValueChanged<double>? onMinutesSet;
 
   /// Tap on an entry's check control (complete or undo). Null: no check controls.
   final ValueChanged<int>? onToggle;
@@ -103,6 +108,7 @@ class TimeList extends StatelessWidget {
             onCheck: onToggle == null ? null : () => onToggle!(i),
             checkKey: ValueKey<String>('$checkPrefix-$i'),
             onMinutesChanged: onMinutesChanged,
+            onMinutesSet: onMinutesSet,
             onDistanceChanged: onDistanceChanged,
             countdown: countdownIndex == i ? remaining : null,
             paused: paused,
@@ -227,6 +233,7 @@ class TimeEditorCard extends StatefulWidget {
     required this.minutes,
     required this.onMinutesChanged,
     required this.onDistanceChanged,
+    this.onMinutesSet,
     this.distance,
     this.done = false,
     this.onCheck,
@@ -244,6 +251,10 @@ class TimeEditorCard extends StatefulWidget {
   final String? distance;
   final ValueChanged<double> onMinutesChanged;
   final ValueChanged<double?> onDistanceChanged;
+
+  /// A tap on the time opens a field to type it ("2:30"); this gets the minutes.
+  /// Null: the time is changed with the steps only.
+  final ValueChanged<double>? onMinutesSet;
   final bool done;
 
   /// Tap on the check control; null hides the control.
@@ -274,6 +285,22 @@ class _TimeEditorCardState extends State<TimeEditorCard> {
   void dispose() {
     _km.dispose();
     super.dispose();
+  }
+
+  /// Asks for a typed time and passes it on. A text that is not a time changes nothing.
+  Future<void> _typeTime() async {
+    final String? text = await showTextSheet(
+      context,
+      title: 'Time',
+      label: 'Minutes and seconds',
+      hint: '2:30, 10 or 45s',
+      actionLabel: 'Set',
+      initialText: timeEntryText(widget.minutes),
+    );
+    final double? minutes = text == null ? null : parseTimeEntry(text);
+    if (minutes != null) {
+      widget.onMinutesSet?.call(minutes);
+    }
   }
 
   @override
@@ -326,6 +353,7 @@ class _TimeEditorCardState extends State<TimeEditorCard> {
               onPlus: () => widget.onMinutesChanged(1),
               onLongMinus: () => widget.onMinutesChanged(-5),
               onLongPlus: () => widget.onMinutesChanged(5),
+              onValueTap: widget.onMinutesSet == null ? null : _typeTime,
             ),
             const SizedBox(height: 12),
             if (widget.distance == null && isShortTime(widget.minutes))

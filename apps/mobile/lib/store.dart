@@ -484,15 +484,17 @@ class AppStore extends ChangeNotifier {
     _commit();
   }
 
-  /// Adds an exercise. A name from the log keeps the measure it had last
-  /// time; for a new name [measure] says how it is tracked.
+  /// Adds an exercise right after the one that is open, and opens it. A name
+  /// from the log keeps the measure it had last time; for a new name [measure]
+  /// says how it is tracked.
   void addExercise(String name, {String measure = measureSets}) {
     final Session? a = active;
     if (a == null) {
       return;
     }
-    a.exercises.add(makeExercise(sessions, name, measure: measure));
-    _select(a.exercises.length - 1);
+    final int at = a.exercises.isEmpty ? 0 : math.min(math.max(curEx, 0) + 1, a.exercises.length);
+    a.exercises.insert(at, makeExercise(sessions, name, measure: measure));
+    _select(at);
     _commit();
   }
 
@@ -564,6 +566,16 @@ class AppStore extends ChangeNotifier {
       return;
     }
     s.minutes = stepMinutes(s.minutes ?? 0, delta);
+    _commit();
+  }
+
+  /// Time exercise: the person typed the time of the current entry, in minutes.
+  void setMinutes(double minutes) {
+    final SetEntry? s = currentSet;
+    if (s == null || !s.isTime || minutes <= 0) {
+      return;
+    }
+    s.minutes = minutes;
     _commit();
   }
 

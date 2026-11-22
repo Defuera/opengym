@@ -279,4 +279,33 @@ void _storeSetAndOrderTests() {
     store.updateSession(edit);
     expect(store.sessionById(id)!.parse, isNull);
   });
+
+  test('a new exercise goes right after the open one and opens', () async {
+    final AppStore store = await _newStore(InMemorySessionRepository());
+    store.begin(focus: 'Push', prepared: pushPlan());
+    final List<String> before = store.active!.exercises.map((Exercise e) => e.name).toList();
+    store.pickExercise(1);
+    store.addExercise('Rowing machine', measure: measureTime);
+    expect(store.curEx, 2);
+    expect(store.currentExercise!.name, 'Rowing machine');
+    expect(store.active!.exercises.map((Exercise e) => e.name).toList(),
+        <String>[before[0], before[1], 'Rowing machine', ...before.sublist(2)]);
+    // In an empty session it is the first.
+    final AppStore empty = await _newStore(InMemorySessionRepository());
+    empty.begin(prepared: <Exercise>[]);
+    empty.addExercise('Squat');
+    expect(empty.curEx, 0);
+    expect(empty.active!.exercises.single.name, 'Squat');
+  });
+
+  test('a typed time sets the minutes of the current time entry only', () async {
+    final AppStore store = await _newStore(InMemorySessionRepository());
+    store.begin(prepared: <Exercise>[]);
+    store.addExercise('Rowing machine', measure: measureTime);
+    store.setMinutes(2.5);
+    expect(store.currentSet!.minutes, 2.5);
+    store.addExercise('Squat');
+    store.setMinutes(7);
+    expect(store.currentSet!.minutes, isNull);
+  });
 }

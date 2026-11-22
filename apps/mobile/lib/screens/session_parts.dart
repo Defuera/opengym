@@ -121,6 +121,7 @@ class SessionPanel extends StatelessWidget {
             onAdd: store.addSet,
             onRemove: store.removeSetAt,
             onMinutesChanged: store.changeMinutes,
+            onMinutesSet: store.setMinutes,
             onDistanceChanged: store.setDistance,
             onToggle: store.toggleSet,
             checkPrefix: 'set-check-${store.curEx}',

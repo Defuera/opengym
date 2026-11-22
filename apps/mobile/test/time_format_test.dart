@@ -105,4 +105,30 @@ void main() {
       expect(store.currentSet!.minutes, 0.5833);
     });
   });
+
+  group('parseTimeEntry', () {
+    test('minutes and seconds, seconds, plain minutes', () {
+      expect(parseTimeEntry('2:30'), 2.5);
+      expect(parseTimeEntry(' 0:45 '), 0.75);
+      expect(parseTimeEntry('45s'), 0.75);
+      expect(parseTimeEntry('90 sec'), 1.5);
+      expect(parseTimeEntry('10'), 10);
+      expect(parseTimeEntry('2,5'), 2.5);
+      expect(parseTimeEntry('3 min'), 3);
+    });
+
+    test('not a time gives null; the limits hold', () {
+      expect(parseTimeEntry(''), isNull);
+      expect(parseTimeEntry('abc'), isNull);
+      expect(parseTimeEntry('2:75'), isNull);
+      expect(parseTimeEntry('1s'), 0.0833); // never under 5 s
+      expect(parseTimeEntry('9999'), 600);
+    });
+
+    test('the text to edit is always m:ss', () {
+      expect(timeEntryText(2), '2:00');
+      expect(timeEntryText(2.5), '2:30');
+      expect(timeEntryText(0.5), '0:30');
+    });
+  });
 }

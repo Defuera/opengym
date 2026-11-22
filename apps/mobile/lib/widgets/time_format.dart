@@ -65,3 +65,36 @@ double stepMinutes(double minutes, double delta) {
   next = next.clamp(minTimeSeconds, _maxTimeSeconds);
   return double.parse((next / 60).toStringAsFixed(4));
 }
+
+/// The text the person edits when they type a time: always "m:ss" ("2:30", "0:45").
+String timeEntryText(double minutes) => _clock(timeSeconds(minutes));
+
+/// Reads a typed time into minutes, or null when it is not a time. "2:30" is
+/// minutes and seconds, "45s" is seconds, and a plain number ("10", "2.5") is
+/// minutes. The result stays between 5 s and 600 minutes.
+double? parseTimeEntry(String text) {
+  final String t = text.trim().toLowerCase().replaceAll(',', '.');
+  if (t.isEmpty) {
+    return null;
+  }
+  double? seconds;
+  final RegExpMatch? clock = RegExp(r'^(\d{1,3}):(\d{1,2})$').firstMatch(t);
+  final RegExpMatch? secs = RegExp(r'^(\d+(?:\.\d+)?)\s*(?:s|sec|secs|seconds?)$').firstMatch(t);
+  final RegExpMatch? mins = RegExp(r'^(\d+(?:\.\d+)?)\s*(?:m|min|mins|minutes?)?$').firstMatch(t);
+  if (clock != null) {
+    final int s = int.parse(clock.group(2)!);
+    if (s > 59) {
+      return null;
+    }
+    seconds = int.parse(clock.group(1)!) * 60.0 + s;
+  } else if (secs != null) {
+    seconds = double.parse(secs.group(1)!);
+  } else if (mins != null) {
+    seconds = double.parse(mins.group(1)!) * 60;
+  }
+  if (seconds == null) {
+    return null;
+  }
+  final int whole = seconds.round().clamp(minTimeSeconds, _maxTimeSeconds);
+  return double.parse((whole / 60).toStringAsFixed(4));
+}

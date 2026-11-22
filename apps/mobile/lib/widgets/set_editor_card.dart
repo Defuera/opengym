@@ -164,7 +164,11 @@ class NumberStepper extends StatelessWidget {
     required this.onPlus,
     this.onLongMinus,
     this.onLongPlus,
+    this.onValueTap,
   });
+
+  /// Tap on the value itself (for example to type one). Null: the value is not a control.
+  final VoidCallback? onValueTap;
 
   final String value;
   final String unit;
@@ -179,7 +183,11 @@ class NumberStepper extends StatelessWidget {
       children: <Widget>[
         StepperButton(icon: Icons.remove, onTap: onMinus, onLongPress: onLongMinus),
         Expanded(
-          child: Padding(
+          child: GestureDetector(
+            key: onValueTap == null ? null : const ValueKey<String>('stepper-value'),
+            behavior: HitTestBehavior.opaque,
+            onTap: onValueTap,
+            child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 6),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -198,6 +206,7 @@ class NumberStepper extends StatelessWidget {
                       .copyWith(height: 1.2, letterSpacing: 0.5),
                 ),
               ],
+            ),
             ),
           ),
         ),

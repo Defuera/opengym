@@ -5,8 +5,9 @@ import '../theme.dart';
 import 'set_check.dart';
 import 'set_row.dart';
 
-/// The current set, expanded: badge and title, "Last rep failed" pill, then
-/// reps and weight steppers side by side.
+/// The current set, expanded: badge, title and check; reps and weight steppers
+/// side by side; then a quiet "Last rep failed" toggle. No weight shows as
+/// "BW" (bodyweight); the plus still adds weight.
 class SetEditorCard extends StatelessWidget {
   const SetEditorCard({
     super.key,
@@ -57,23 +58,12 @@ class SetEditorCard extends StatelessWidget {
             children: <Widget>[
               SetBadge(number: number, accent: true),
               const SizedBox(width: 10),
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 110),
+              Expanded(
                 child: Text(
                   title,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: OG.body(size: 15, weight: FontWeight.w800),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Align(
-                  alignment: Alignment.centerRight,
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    child: _FailedPill(value: failed, onChanged: onFailedChanged),
-                  ),
                 ),
               ),
               if (onCheck != null) ...<Widget>[
@@ -98,8 +88,8 @@ class SetEditorCard extends StatelessWidget {
               const SizedBox(width: 14),
               Expanded(
                 child: NumberStepper(
-                  value: kg,
-                  unit: 'kg',
+                  value: isZeroKg(kg) ? 'BW' : kg,
+                  unit: isZeroKg(kg) ? 'body' : 'kg',
                   onMinus: () => onKgChanged(-2.5),
                   onPlus: () => onKgChanged(2.5),
                 ),
@@ -107,12 +97,18 @@ class SetEditorCard extends StatelessWidget {
             ],
           ),
           ),
+          const SizedBox(height: 8),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: _FailedPill(value: failed, onChanged: onFailedChanged),
+          ),
         ],
       ),
     );
   }
 }
 
+/// A quiet toggle under the steppers: a small box and the words. Ink when on.
 class _FailedPill extends StatelessWidget {
   const _FailedPill({required this.value, required this.onChanged});
 
@@ -121,20 +117,16 @@ class _FailedPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final Color fg = value ? OG.white : OG.ink;
+    final Color fg = value ? OG.ink : OG.mute;
     return GestureDetector(
+      key: const ValueKey<String>('last-rep-failed'),
       behavior: HitTestBehavior.opaque,
       onTap: () {
         HapticFeedback.lightImpact();
         onChanged(!value);
       },
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(7, 5, 11, 5),
-        decoration: BoxDecoration(
-          color: value ? OG.ink : OG.card,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: OG.ink, width: 2),
-        ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(0, 6, 12, 0),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
@@ -145,7 +137,7 @@ class _FailedPill extends StatelessWidget {
             ),
             const SizedBox(width: 6),
             Text('Last rep failed',
-                style: OG.body(size: 13, weight: FontWeight.w700, color: fg)),
+                style: OG.body(size: 14, weight: value ? FontWeight.w700 : FontWeight.w600, color: fg)),
           ],
         ),
       ),

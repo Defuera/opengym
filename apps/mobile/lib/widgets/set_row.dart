@@ -73,6 +73,9 @@ class _DashedCirclePainter extends BoxPainter {
   }
 }
 
+/// True when a shown weight ("0", "0.0") is no weight at all.
+bool isZeroKg(String kg) => (double.tryParse(kg.replaceAll(',', '.')) ?? 1) == 0;
+
 /// One compact set: badge, then "6 × 60 kg". Not the current set, so no steppers.
 class SetRow extends StatelessWidget {
   const SetRow({
@@ -100,8 +103,11 @@ class SetRow extends StatelessWidget {
   final VoidCallback? onCheck;
   final Key? checkKey;
 
-  /// "6 × 60 kg", or "6½ × 70 kg" when the last rep failed.
-  String get label => '$reps${failed ? '½' : ''} × $kg kg';
+  /// No weight: the set is done with the body alone, so no "× 0 kg" is shown.
+  bool get bodyweight => isZeroKg(kg);
+
+  /// "6 × 60 kg", or "6½ × 70 kg" when the last rep failed; "15 reps" with no weight.
+  String get label => bodyweight ? '$reps${failed ? '½' : ''} reps' : '$reps${failed ? '½' : ''} × $kg kg';
 
   @override
   Widget build(BuildContext context) {
@@ -126,15 +132,22 @@ class SetRow extends StatelessWidget {
                     text: '$reps${failed ? '½' : ''}',
                     style: OG.display(20, color: fg),
                   ),
-                  TextSpan(
-                    text: ' × ',
-                    style: OG.body(size: 20, weight: FontWeight.w500, color: OG.mute),
-                  ),
-                  TextSpan(text: kg, style: OG.display(20, color: fg)),
-                  TextSpan(
-                    text: ' kg',
-                    style: OG.body(size: 13, weight: FontWeight.w500, color: OG.mute),
-                  ),
+                  if (bodyweight)
+                    TextSpan(
+                      text: ' reps',
+                      style: OG.body(size: 13, weight: FontWeight.w500, color: OG.mute),
+                    )
+                  else ...<InlineSpan>[
+                    TextSpan(
+                      text: ' × ',
+                      style: OG.body(size: 20, weight: FontWeight.w500, color: OG.mute),
+                    ),
+                    TextSpan(text: kg, style: OG.display(20, color: fg)),
+                    TextSpan(
+                      text: ' kg',
+                      style: OG.body(size: 13, weight: FontWeight.w500, color: OG.mute),
+                    ),
+                  ],
                 ],
               ),
             ),

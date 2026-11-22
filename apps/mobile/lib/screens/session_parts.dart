@@ -5,6 +5,7 @@ import '../planner.dart';
 import '../store.dart';
 import '../stores/countdown_store.dart';
 import '../stores/exercise_art_store.dart';
+import '../theme.dart';
 import '../widgets/choice_sheet.dart';
 import '../widgets/comment_line.dart';
 import '../widgets/exercise_anim.dart';
@@ -51,15 +52,33 @@ class ExerciseStrip extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
         Expanded(
-          child: ExerciseCarousel(
-            selectedIndex: store.curEx,
-            onReorder: store.moveExercise,
-            endPad: 10,
-            children: cards,
+          child: Stack(
+            children: <Widget>[
+              ExerciseCarousel(
+                selectedIndex: store.curEx,
+                onReorder: store.moveExercise,
+                endPad: 24,
+                children: cards,
+              ),
+              // The cards fade out before the add button, so the button never looks as if it covers one.
+              const Positioned(
+                right: 0,
+                top: 0,
+                bottom: 0,
+                width: 24,
+                child: IgnorePointer(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(colors: <Color>[Color(0x00F2F1EC), OG.ground]),
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
         Padding(
-          padding: const EdgeInsets.fromLTRB(0, 2, 20, 0),
+          padding: const EdgeInsets.fromLTRB(8, 2, 20, 0),
           child: AddCard(key: const ValueKey<String>('add-exercise'), onTap: onAdd, label: 'Add exercise', compact: true),
         ),
       ],

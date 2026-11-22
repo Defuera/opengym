@@ -3,7 +3,8 @@
 //   flutter test test/shots/session_ui_shots.dart
 // It writes a.png (main), b.png ("Change plan" sheet), c.png ("Why this
 // session" sheet with the figure), d.png (rep/kg exercise, set 1 done), e.png
-// (time exercise), f.png (all sets done) and g.png (leave sheet) at 390x844
+// (time exercise), f.png (all sets done), g.png (leave sheet) and h.png
+// (bodyweight exercise) at 390x844
 // logical px, pixel ratio 3.
 import 'dart:io';
 import 'dart:typed_data';
@@ -120,6 +121,19 @@ void main() {
     await t.tap(find.byKey(const ValueKey<String>('set-check-1-0')));
     await t.pumpAndSettle();
     await _save(t, key, 'd');
+  });
+
+  testWidgets('h: bodyweight exercise, last rep failed on', (WidgetTester t) async {
+    final (AppDeps d, GlobalKey key) = await _open(t, sets: 3);
+    d.store.pickExercise(1);
+    d.store.addExercise('Standing Calf Raise');
+    d.store.changeReps(12);
+    d.store.addSet();
+    d.store.addSet();
+    d.store.pickSet(0);
+    d.store.toggleFailed();
+    await t.pumpAndSettle();
+    await _save(t, key, 'h');
   });
 
   testWidgets('e: time exercise entry open', (WidgetTester t) async {

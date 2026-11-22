@@ -27,7 +27,8 @@ export function logForPrompt(sessions: Session[], limit = 12) {
 export const goalsForPrompt = (goals: Goal[]) =>
   goals.map((g) => ({ id: g.id, title: g.title, kind: g.kind, exercise: g.exercise, targetKg: g.targetKg, sessionsPerWeek: g.sessionsPerWeek, status: g.status }));
 
-export const contextForPrompt = (items: ContextItem[]) => items.filter((c) => c.active).map((c) => ({ topic: c.topic, text: c.text }));
+/** The notes about the person, each with the day it was stored: a body signal of last week weighs more than one of last year. */
+export const contextForPrompt = (items: ContextItem[]) => items.filter((c) => c.active).map((c) => ({ topic: c.topic, text: c.text, stored: new Date(c.createdAt).toISOString().slice(0, 10) }));
 
 export { limitsForPrompt } from "../../rules/limits";
 

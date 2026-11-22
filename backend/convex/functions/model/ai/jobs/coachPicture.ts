@@ -44,6 +44,8 @@ export function coachPicture(all: Session[], goals: Goal[], context: ContextItem
     focus: s.focus,
     // A comment is what the person wrote about the exercise in that session (ADR-029), word for word.
     exercises: s.exercises.map((e) => `${e.name}: ${setsText(e.sets)}${e.comment ? ` (comment from the person: "${e.comment}")` : ""}`),
+    // How long the session really took: only for one done in the app (an imported one holds message times).
+    ...(s.endedAt > s.startedAt && s.source !== "import" ? { durationMin: Math.round((s.endedAt - s.startedAt) / 60000) } : {}),
     minutes: s.minutes,
     distanceKm: s.distanceKm,
     note: s.note,

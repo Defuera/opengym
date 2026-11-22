@@ -226,7 +226,7 @@ Coach: `coachPicture` (the `build_session` input) has a field `logEntriesFromThe
 
 ## Programs and proposals (Convex backend)
 
-A program is a plan over several weeks that the person agreed to: phases, the sessions of each phase, rules and tests. The coach only PROPOSES it. A proposal is a generic frame ("the coach proposes, the person agrees"); a program is its first kind. The session start (`startRequests`) stays as it is. A program session is built by plain code from the written program, with no AI in that path.
+A program is a plan over several weeks that the person agreed to: phases, the sessions of each phase, rules and tests. The coach only PROPOSES it. A proposal is a generic frame ("the coach proposes, the person agrees"); a program is its first kind. The session start has no program entry of its own (ADR-030): `build_session` gets `programsThePersonFollows` (every active program that runs today: the week, the phase, `slotsThisWeek` with done or not, `sessionsAsWritten`, the rules, the tests) and builds the session from it. When the coach says which program session it built (`program: {programId, key}`), `jobs/startRequest:save` finds the week and the first open slot with that key and stores `program: {programId, week, slot, key}` on the proposal; the app writes these as `programId`, `programWeek`, `programSlot`, `programKey` on the session. `queries/programs:list` still returns `now.next` (the written session with the kg of the last time); the app no longer starts a session from it.
 
 ```ts
 ProgramSession { key: string 1..12, title: string 1..40, activity: string 1..40, exercises: PlanExercise[] 1..14, note?: string <=200 }

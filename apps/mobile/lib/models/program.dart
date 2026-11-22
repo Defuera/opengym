@@ -243,6 +243,21 @@ class ProgramLink {
   final int week;
   final int slot;
   final String key;
+
+  /// The link of a start proposal (`{programId, week, slot, key}`), or null.
+  static ProgramLink? tryParse(Object? j) {
+    if (j is! Map) {
+      return null;
+    }
+    final Object? id = j['programId'];
+    final Object? week = j['week'];
+    final Object? slot = j['slot'];
+    final Object? key = j['key'];
+    if (id is! String || id.isEmpty || week is! num || slot is! num || key is! String || key.isEmpty) {
+      return null;
+    }
+    return ProgramLink(programId: id, week: week.toInt(), slot: slot.toInt(), key: key);
+  }
 }
 
 /// The generic frame of "the coach proposes" (`queries/proposals:get`). The

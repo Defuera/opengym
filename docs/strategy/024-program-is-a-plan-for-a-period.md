@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted (details Proposed)
+Accepted (details Proposed). Partly replaced by ADR-030 on 2026-11-22: no program row in the start sheet, and a program session is built by the coach.
 
 The owner asked for a Program entity on 2026-11-19 and said "let go" to step 1 as described to him. The section "Choices the owner has not confirmed" lists what he did not decide himself.
 

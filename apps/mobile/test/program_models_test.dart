@@ -182,8 +182,6 @@ void main() {
     expect(programStatusLine(kneeProgram(state: 'ended')), 'Ended');
     expect(programShortLine(p), 'Week 2 of 4');
     expect(programShortLine(kneeProgram(status: 'done')), 'Done');
-    expect(programStartLine(p), 'week 2 of 4 · next: Session B (2 of 5)');
-    expect(programStartLine(kneeProgram(done: const <bool>[true, true, true, true, true])), 'week 2 of 4 · week done');
     expect(planLine(const PlanExercise(name: 'Leg press', sets: <PlanSet>[PlanSet(reps: 12, kg: 40), PlanSet(reps: 12, kg: 40), PlanSet(reps: 12, kg: 40)])), 'Leg press · 3 × 12 × 40 kg');
     expect(planLine(const PlanExercise(name: 'Step-up', sets: <PlanSet>[PlanSet(reps: 10, kg: 0)])), 'Step-up · 1 × 10');
     expect(planLine(const PlanExercise(name: 'Row', sets: <PlanSet>[PlanSet(reps: 8, kg: 20), PlanSet(reps: 6, kg: 25)])), 'Row · 8 × 20 kg, 6 × 25 kg');

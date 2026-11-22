@@ -21,6 +21,10 @@ export function toSession(d: Doc<"sessions">): Session {
     source: d.source,
     ...(d.importId !== undefined ? { importId: d.importId } : {}),
     ...(d.placeId !== undefined ? { placeId: d.placeId } : {}),
+    ...(d.programId !== undefined ? { programId: d.programId } : {}),
+    ...(d.programWeek !== undefined ? { programWeek: d.programWeek } : {}),
+    ...(d.programSlot !== undefined ? { programSlot: d.programSlot } : {}),
+    ...(d.programKey !== undefined ? { programKey: d.programKey } : {}),
   });
 }
 

@@ -74,7 +74,7 @@ void main() {
     await _save(t, key, '2-program');
   });
 
-  testWidgets('3: the start sheet with the program row', (WidgetTester t) async {
+  testWidgets('3: the start sheet has no program row', (WidgetTester t) async {
     final GlobalKey key = _view(t, 844);
     final FakeConvexClient fake = FakeConvexClient();
     final AppDeps d = await testDeps(fake, sessions: sheetLog);
@@ -83,7 +83,7 @@ void main() {
     await t.pump();
     await t.tap(find.byIcon(Icons.add));
     await t.pumpAndSettle();
-    expect(find.byKey(const ValueKey<String>('program-row-prog-1')), findsOneWidget);
+    expect(find.byKey(const ValueKey<String>('program-row-prog-1')), findsNothing);
     await _save(t, key, '3-start-sheet');
   });
 

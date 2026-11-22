@@ -8,6 +8,7 @@ import 'package:opengym/screens/about_me_screen.dart';
 import 'package:opengym/screens/chat_screen.dart';
 import 'package:opengym/screens/program_screen.dart';
 import 'package:opengym/screens/session_screen.dart';
+import 'package:opengym/screens/start_flow.dart';
 import 'package:opengym/stores/context_store.dart';
 import 'package:opengym/widgets/og_button.dart';
 import 'package:opengym/widgets/session_meta_row.dart';
@@ -32,108 +33,68 @@ Future<(FakeConvexClient, AppDeps)> _deps({List<Program>? programs}) async {
 Future<void> _openScreen(WidgetTester t, Widget screen) => launch(t, screen);
 
 void main() {
-  group('start sheet row', () {
-    testWidgets('a running active program is one compact row with its next session', (WidgetTester t) async {
+  // ADR-030: the program is data for the coach. The start sheet has no program row; a session of a program comes from the
+  // coach's proposal, which carries the program link.
+  const StartProposal fromProgram = StartProposal(
+    kind: 'gym',
+    type: 'Gym',
+    focus: 'Legs',
+    reason: 'Session B of week 2',
+    plan: Plan(id: 'x', focus: 'Legs', createdAt: 1, source: 'ai', rationale: 'Session B as written', exercises: <PlanExercise>[
+      PlanExercise(name: 'Step-up', sets: <PlanSet>[PlanSet(reps: 10, kg: 0)]),
+    ]),
+    program: ProgramLink(programId: 'prog-1', week: 2, slot: 1, key: 'B'),
+  );
+
+  group('program and the start sheet', () {
+    testWidgets('a running program adds no row to the start sheet', (WidgetTester t) async {
       final (FakeConvexClient fake, AppDeps _) = await openHome(t);
       fake.programs.set(<Program>[kneeProgram()]);
       await t.pump();
       await openStart(t);
-      expect(_key('program-row-prog-1'), findsOneWidget);
-      expect(find.text('Knee for skiing'), findsOneWidget);
-      expect(find.text('week 2 of 4 · next: Session B (2 of 5)'), findsOneWidget);
-      expect(_key('program-open-prog-1'), findsOneWidget);
+      expect(find.text('Knee for skiing'), findsNothing);
+      expect(find.byWidgetPredicate((Widget w) => w.key is ValueKey<String> && (w.key! as ValueKey<String>).value.startsWith('program-')), findsNothing);
     });
 
-    testWidgets('no row for a paused program, one that has not started, one that ended, or none', (WidgetTester t) async {
-      final (FakeConvexClient fake, AppDeps _) = await openHome(t);
-      fake.programs.set(<Program>[
-        kneeProgram(id: 'a', status: 'paused'),
-        kneeProgram(id: 'b', state: 'before'),
-        kneeProgram(id: 'c', state: 'ended'),
-      ]);
-      await t.pump();
-      await openStart(t);
-      expect(find.byWidgetPredicate((Widget w) => w.key is ValueKey<String> && (w.key! as ValueKey<String>).value.startsWith('program-row-')), findsNothing);
+    test('a start proposal reads its program link, and a broken one is dropped', () {
+      final StartProposal p = StartProposal.fromJson(<String, dynamic>{
+        'kind': 'gym',
+        'type': 'Gym',
+        'program': <String, dynamic>{'programId': 'prog-1', 'week': 2, 'slot': 1, 'key': 'B'},
+      });
+      expect(p.program!.programId, 'prog-1');
+      expect(p.program!.week, 2);
+      expect(p.program!.slot, 1);
+      expect(p.program!.key, 'B');
+      expect(StartProposal.fromJson(<String, dynamic>{'kind': 'gym', 'type': 'Gym', 'program': <String, dynamic>{'programId': 'prog-1'}}).program, isNull);
+      expect(StartProposal.fromJson(<String, dynamic>{'kind': 'gym', 'type': 'Gym'}).program, isNull);
     });
 
-    testWidgets('a tap starts the next session with the link; the written exercises and the reason show', (WidgetTester t) async {
-      final (FakeConvexClient fake, AppDeps d) = await openHome(t);
-      fake.programs.set(<Program>[kneeProgram()]);
-      await t.pump();
-      await openStart(t);
-      await t.tap(_key('program-row-prog-1'));
+    testWidgets('a session from a program proposal carries the link and is sent with it', (WidgetTester t) async {
+      final (FakeConvexClient _, AppDeps d) = await openHome(t);
+      openProposal(t.state<NavigatorState>(find.byType(Navigator).first), d, fromProgram);
       await t.pumpAndSettle();
       expect(find.byType(SessionScreen), findsOneWidget);
       final Session a = d.store.active!;
-      expect(a.type, 'Gym');
-      expect(a.focus, 'Session B');
-      expect(a.planNote, 'Knee for skiing · week 2 · Session B');
-      expect(a.exercises.map((Exercise e) => e.name), <String>['Step-up', 'Calf raise']);
-      expect(a.exercises.first.sets.length, 3);
       expect(a.program!.programId, 'prog-1');
-      expect(a.program!.week, 2);
-      expect(a.program!.slot, 1);
       expect(a.program!.key, 'B');
       // The link is kept with the open session on the phone.
       expect(Session.fromJson(a.toJson()).program!.slot, 1);
-    });
-
-    testWidgets('a bike day opens as the activity of its session', (WidgetTester t) async {
-      final (FakeConvexClient fake, AppDeps d) = await openHome(t);
-      fake.programs.set(<Program>[kneeProgram(done: const <bool>[true, true, true, false, false])]);
-      await t.pump();
-      await openStart(t);
-      await t.tap(_key('program-row-prog-1'));
-      await t.pumpAndSettle();
-      expect(d.store.active!.type, 'Cycling');
-      expect(d.store.active!.program!.key, 'Bike');
-      expect(d.store.active!.exercises.single.isTime, isTrue);
-    });
-
-    testWidgets('an open session with a done set is resumed, not replaced', (WidgetTester t) async {
-      final (FakeConvexClient fake, AppDeps d) = await openHome(t);
-      d.store.begin(activity: 'Gym', prepared: <Exercise>[Exercise(id: 'x', name: 'Own', sets: <SetEntry>[SetEntry(reps: 5, kg: 5)])]);
       d.store.completeSet();
-      fake.programs.set(<Program>[kneeProgram()]);
-      await t.pump();
-      await openStart(t);
-      await t.tap(_key('program-row-prog-1'));
-      await t.pumpAndSettle();
-      expect(d.store.active!.exercises.single.name, 'Own');
-      expect(d.store.active!.program, isNull);
+      final String id = d.store.finish()!;
+      final Map<String, dynamic> wire = encodeSession(d.store.sessionById(id)!);
+      expect(wire['programId'], 'prog-1');
+      expect(wire['programWeek'], 2);
+      expect(wire['programSlot'], 1);
+      expect(wire['programKey'], 'B');
     });
 
-    testWidgets('the small button opens the Program screen', (WidgetTester t) async {
-      final (FakeConvexClient fake, AppDeps d) = await openHome(t);
-      fake.programs.set(<Program>[kneeProgram()]);
-      await t.pump();
-      await openStart(t);
-      await t.tap(_key('program-open-prog-1'));
-      await t.pumpAndSettle();
-      expect(find.byType(ProgramScreen), findsOneWidget);
-      expect(d.store.active, isNull);
-    });
-
-    testWidgets('with the week done the row says so and a tap opens the Program screen', (WidgetTester t) async {
-      final (FakeConvexClient fake, AppDeps _) = await openHome(t);
-      fake.programs.set(<Program>[kneeProgram(done: const <bool>[true, true, true, true, true])]);
-      await t.pump();
-      await openStart(t);
-      expect(find.text('week 2 of 4 · week done'), findsOneWidget);
-      await t.tap(_key('program-row-prog-1'));
-      await t.pumpAndSettle();
-      expect(find.byType(ProgramScreen), findsOneWidget);
-    });
-
-    testWidgets('feedback on a program session goes with the plan as it is; the link survives the replace', (WidgetTester t) async {
+    testWidgets('a rebuilt plan with no link keeps the link of the open session', (WidgetTester t) async {
       t.view.physicalSize = const Size(800, 2000);
       t.view.devicePixelRatio = 1;
       addTearDown(t.view.reset);
       final (FakeConvexClient fake, AppDeps d) = await openHome(t);
-      fake.programs.set(<Program>[kneeProgram()]);
-      await t.pump();
-      await openStart(t);
-      await t.tap(_key('program-row-prog-1'));
+      openProposal(t.state<NavigatorState>(find.byType(Navigator).first), d, fromProgram);
       await t.pumpAndSettle();
       await t.tap(find.widgetWithText(MetaItem, 'Change plan'));
       await t.pumpAndSettle();
@@ -142,9 +103,7 @@ void main() {
       await t.tap(find.widgetWithText(OgButton, 'Rebuild'));
       await t.pump();
       await t.pump(const Duration(seconds: 1));
-      expect(fake.startNames.last, 'Gym');
       expect(fake.startFeedback.last, ('no step-ups, my knee hurts', null));
-      expect(fake.startPreviousPlans.last!.map((Map<String, dynamic> e) => e['name']), <Object?>['Step-up', 'Calf raise']);
       fake.answerStart(StartRequest(
         requestId: fake.lastStartId,
         status: 'ready',
@@ -160,22 +119,6 @@ void main() {
       expect(d.store.active!.exercises.single.name, 'Glute bridge');
       expect(d.store.active!.program!.programId, 'prog-1');
       expect(d.store.active!.program!.key, 'B');
-    });
-
-    testWidgets('a finished program session is sent with its program, week and slot', (WidgetTester t) async {
-      final (FakeConvexClient fake, AppDeps d) = await openHome(t);
-      fake.programs.set(<Program>[kneeProgram()]);
-      await t.pump();
-      await openStart(t);
-      await t.tap(_key('program-row-prog-1'));
-      await t.pumpAndSettle();
-      d.store.completeSet();
-      final String id = d.store.finish()!;
-      final Map<String, dynamic> wire = encodeSession(d.store.sessionById(id)!);
-      expect(wire['programId'], 'prog-1');
-      expect(wire['programWeek'], 2);
-      expect(wire['programSlot'], 1);
-      expect(wire['programKey'], 'B');
     });
   });
 

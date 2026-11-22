@@ -76,6 +76,8 @@ export const StartProposalSchema = z
     plan: PlanDraftSchema.optional(),
     /** The place of the session: a name from placesTheCoachKnows, or a new short name (ADR-021). Code maps it. */
     place: z.string().trim().min(1).max(30).optional(),
+    /** The program session this is (ADR-030): the coach names it, code finds the week and the slot. A value that does not fit is dropped. */
+    program: z.object({ programId: z.string().min(1).max(100), key: z.string().min(1).max(12) }).optional().catch(undefined),
   })
   .refine((p) => p.kind !== "gym" || p.plan !== undefined, { message: "a session with sets needs a plan", path: ["plan"] });
 

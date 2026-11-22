@@ -106,6 +106,7 @@ import type * as model_parseLogInput from "../model/parseLogInput.js";
 import type * as model_places from "../model/places.js";
 import type * as model_poseShift from "../model/poseShift.js";
 import type * as model_program from "../model/program.js";
+import type * as model_programForCoach from "../model/programForCoach.js";
 import type * as model_proposalPolicy from "../model/proposalPolicy.js";
 import type * as model_proposals from "../model/proposals.js";
 import type * as model_rules_dashboard from "../model/rules/dashboard.js";
@@ -263,6 +264,7 @@ declare const fullApi: ApiFromModules<{
   "model/places": typeof model_places;
   "model/poseShift": typeof model_poseShift;
   "model/program": typeof model_program;
+  "model/programForCoach": typeof model_programForCoach;
   "model/proposalPolicy": typeof model_proposalPolicy;
   "model/proposals": typeof model_proposals;
   "model/rules/dashboard": typeof model_rules_dashboard;

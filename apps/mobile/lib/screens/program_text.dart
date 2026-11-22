@@ -80,17 +80,6 @@ String programShortLine(Program p) {
   return n.state == 'ended' ? 'Ended' : 'Week ${n.week} of ${n.weeks}';
 }
 
-/// The start sheet line of a running program: "week 1 of 4 · next: Session A (1 of 3)", or "week 1 of 4 · week done".
-String programStartLine(Program p) {
-  final ProgramNow n = p.now!;
-  final ProgramNext? next = n.next;
-  final String week = 'week ${n.week} of ${n.weeks}';
-  if (next == null) {
-    return '$week · week done';
-  }
-  return '$week · next: ${next.title} (${n.nextPosition} of ${n.slots.length})';
-}
-
 /// "Weeks 1 to 2" or "Week 3".
 String weeksText(int from, int to) => from == to ? 'Week $from' : 'Weeks $from to $to';
 

@@ -36,6 +36,8 @@ export const startProposal = v.object({
   plan: v.optional(v.object({ source: proposalSource, rationale: v.string(), exercises: v.array(planExercise) })),
   /** Where the session is for (ADR-021). Set in code by jobs/startRequest:save. */
   place: v.optional(proposalPlace),
+  /** The program session this is (ADR-030). Set in code by jobs/startRequest:save; the app writes it on the session. */
+  program: v.optional(v.object({ programId: v.string(), week: v.number(), slot: v.number(), key: v.string() })),
 });
 
 /** What the interpret_request job hands to the save step: the same, with the plan as a bare draft (the source is a separate argument). */
@@ -48,6 +50,8 @@ export const startDraft = v.object({
   plan: v.optional(v.object({ rationale: v.string(), exercises: v.array(planExercise) })),
   /** The place NAME the coach chose (a known one or a new one). jobs/startRequest:save maps it to a place. */
   place: v.optional(v.string()),
+  /** The program session the coach says this is. jobs/startRequest:save finds the week and the slot. */
+  program: v.optional(v.object({ programId: v.string(), key: v.string() })),
 });
 
 /** Dashboard layout spec: which modules, in what order. Numbers are never stored (computed by code). */

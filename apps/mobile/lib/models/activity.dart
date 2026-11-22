@@ -1,6 +1,7 @@
 import 'json_util.dart';
 import 'place.dart';
 import 'plan.dart';
+import 'program.dart';
 
 /// The name of a session with sets when the user gave none. It is only a
 /// default: a session with sets may carry any activity name (ADR-016).
@@ -34,6 +35,7 @@ class StartProposal {
     this.reason = '',
     this.plan,
     this.place,
+    this.program,
   });
 
   /// `gym` (a session with sets) or `activity` (time and distance).
@@ -49,6 +51,9 @@ class StartProposal {
   /// Where the coach expects the session to be, if it said.
   final PlaceRef? place;
 
+  /// The program session this is, when the coach built it from a program.
+  final ProgramLink? program;
+
   factory StartProposal.fromJson(Map<String, dynamic> j) {
     final String kind = str(j['kind'], 'gym') == 'activity' ? 'activity' : 'gym';
     final Object? plan = j['plan'];
@@ -62,6 +67,7 @@ class StartProposal {
       reason: str(j['reason']),
       plan: plan is Map ? Plan.fromJson(asMap(plan)) : null,
       place: PlaceRef.tryParse(j['place']),
+      program: ProgramLink.tryParse(j['program']),
     );
   }
 }

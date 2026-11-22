@@ -2,6 +2,8 @@ import type { BuildSessionInput } from "./ai/jobs/buildSession";
 import { coachPicture } from "./ai/jobs/coachPicture";
 import { knownActivities } from "./ai/jobs/inputs";
 import { lastPlaceIdFor } from "./places";
+import { localDate } from "./program";
+import { type ProgramForCoach, programsForCoach } from "./programForCoach";
 import { dropAvoided } from "./rules/limits";
 import { fociByUse } from "./rules/foci";
 import { rulesPlan } from "./rules/planner";
@@ -24,6 +26,8 @@ export interface StartData {
   limits: Limit[];
   places: { placeId: string; name: string; text: string }[];
   entries: Entry[];
+  /** Every live program. Absent in old callers: then the coach gets none. */
+  programs?: ProgramForCoach[];
   now: number;
 }
 
@@ -41,12 +45,14 @@ export function buildStartInput(doc: StartDoc, d: StartData) {
   // The focus names of the log (bounded): of the named activity, or of every activity with sets when the coach names it.
   const withSets = known.filter((a) => a.kind === "gym" && (!doc.name || activityKey(a.type) === activityKey(doc.name)));
   const fociTheUserUses = withSets.map((a) => ({ activity: a.type, foci: fociByUse(d.sessions, a.type).slice(0, 8) })).filter((a) => a.foci.length > 0).slice(0, 6);
+  const programs = programsForCoach(d.programs ?? [], d.sessions, localDate(d.now));
   const job: BuildSessionInput = {
     name: doc.name ?? null,
     note: doc.name ? (doc.text ?? "") : "",
     ...(doc.name ? {} : { request: doc.text ?? "" }),
     ...(doc.feedback ? { feedbackFromThePerson: doc.feedback, ...(doc.previousPlan ? { previousPlan: doc.previousPlan } : {}) } : {}),
     placesTheCoachKnows,
+    ...(programs.length > 0 ? { programsThePersonFollows: programs } : {}),
     fociTheUserUses,
     picture: coachPicture(d.sessions, [...d.goals].sort((x, y) => x.createdAt - y.createdAt), d.context, d.limits, d.entries, d.now),
     limits: d.limits,

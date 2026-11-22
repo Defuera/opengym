@@ -23,6 +23,18 @@ first and fix anything it reports before anything else.**
    pick your team
 7. Plug in the iPhone (Developer Mode on) -> `flutter run --release`
 
+To update an app that is on the phone already, build and install in place:
+
+```
+flutter build ios --release
+xcrun devicectl device install app --device <device id> build/ios/iphoneos/Runner.app
+```
+
+Do not use `flutter install` for an update. It removes the old app first, and
+with it everything the app keeps on the phone: the server address and token,
+the open session, and changes that were not sent yet (seen on 2026-11-22).
+`flutter devices` prints the device id.
+
 ## Android
 
 `android/` is generated with

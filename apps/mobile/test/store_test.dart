@@ -334,4 +334,83 @@ void _storeSetAndOrderTests() {
     store.setComment('x' * 1500);
     expect(store.currentExercise!.comment!.length, 1000);
   });
+
+  group('continue a finished session', () {
+    Future<(AppStore, InMemorySessionRepository, String)> finished() async {
+      final InMemorySessionRepository repo = InMemorySessionRepository();
+      final AppStore store = await _newStore(repo);
+      store.begin(focus: 'Push', prepared: pushPlan());
+      store.setComment('felt fine');
+      store.completeSet();
+      final String id = store.finish()!;
+      return (store, repo, id);
+    }
+
+    test('it opens again as it was: done sets, open sets, every exercise', () async {
+      final (AppStore store, _, String id) = await finished();
+      expect(store.sessionById(id)!.exercises.length, 1); // the log keeps only what was done
+      expect(store.canContinue(id), isTrue);
+      expect(store.continueSession(id), isTrue);
+      expect(store.active!.id, id);
+      expect(store.active!.endedAt, isNull);
+      expect(store.active!.exercises.length, 4);
+      expect(store.active!.exercises.first.sets.map((SetEntry s) => s.done), <bool>[true, false, false, false]);
+      expect(store.active!.exercises.first.comment, 'felt fine');
+      expect(store.curEx, 0); // the first exercise with an open set
+      expect(store.curSet, 1);
+      expect(store.activeDirty, isTrue); // it goes to the server as the open session again
+      expect(store.sessionById(id), isNotNull); // the finished copy stays until the new end
+      expect(store.canContinue(id), isFalse); // once
+    });
+
+    test('the new end replaces the finished copy; nothing is doubled', () async {
+      final (AppStore store, _, String id) = await finished();
+      final List<String> saved = <String>[];
+      store.onSessionSaved = saved.add;
+      store.continueSession(id);
+      store.completeSet();
+      expect(store.finish(), id);
+      expect(saved, <String>[id]);
+      expect(store.sessions.where((Session s) => s.id == id).length, 1);
+      expect(store.sessionById(id)!.exercises.first.sets.length, 2);
+    });
+
+    test('a discard of the continued session keeps the finished one', () async {
+      final (AppStore store, _, String id) = await finished();
+      store.continueSession(id);
+      store.discard();
+      expect(store.active, isNull);
+      expect(store.sessionById(id)!.exercises.first.sets.length, 1);
+    });
+
+    test('not after one hour, not after an edit, not while other logged work is open', () async {
+      final (AppStore store, _, String id) = await finished();
+      final int now = DateTime.now().millisecondsSinceEpoch;
+      expect(store.canContinue(id, now: now + 59 * 60000), isTrue);
+      expect(store.canContinue(id, now: now + 61 * 60000), isFalse);
+      expect(store.canContinue('other'), isFalse);
+      store.begin(focus: 'Pull', prepared: pushPlan());
+      expect(store.canContinue(id), isTrue); // a plan with no done set gives way
+      store.completeSet();
+      expect(store.canContinue(id), isFalse);
+      store.discard();
+      store.updateSession(Session.fromJson(store.sessionById(id)!.toJson()));
+      expect(store.canContinue(id), isFalse);
+    });
+
+    test('the chance survives a restart of the app', () async {
+      final (AppStore _, InMemorySessionRepository repo, String id) = await finished();
+      final AppStore again = await _newStore(repo);
+      expect(again.canContinue(id), isTrue);
+      expect(again.continueSession(id), isTrue);
+      expect(again.active!.exercises.length, 4);
+    });
+
+    test('the server copy of a continued session does not touch the log while it runs', () async {
+      final (AppStore store, _, String id) = await finished();
+      final Session server = Session.fromJson(<String, dynamic>{...store.sessionById(id)!.toJson(), 'note': 'from server'});
+      store.continueSession(id);
+      expect(store.mergeRemote(<Session>[server]), 0);
+    });
+  });
 }

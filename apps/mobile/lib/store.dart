@@ -56,6 +56,14 @@ class AppStore extends ChangeNotifier {
   String? _activeJson;
   String? _activeId;
 
+  /// How long after its end a finished session can be opened again.
+  static const Duration continueWindow = Duration(hours: 1);
+
+  /// The session as it was open just before the last finish (with the sets
+  /// that were not done), and the time of that finish. See [continueSession].
+  Session? _undo;
+  int _undoAt = 0;
+
   /// UI indices for the session screen.
   int curEx = 0;
   int curSet = 0;
@@ -68,6 +76,8 @@ class AppStore extends ChangeNotifier {
     activeRev = s.activeRev;
     activeDirty = s.activeDirty;
     pendingClear = s.pendingClear;
+    _undo = s.undo;
+    _undoAt = s.undoAt;
     _activeJson = openSessionJson;
     _activeId = active?.id;
     _select(0);
@@ -113,6 +123,8 @@ class AppStore extends ChangeNotifier {
       activeRev: activeRev,
       activeDirty: activeDirty,
       pendingClear: pendingClear,
+      undo: _undo,
+      undoAt: _undoAt,
     ));
   }
 
@@ -250,6 +262,8 @@ class AppStore extends ChangeNotifier {
     if (a == null) {
       return null;
     }
+    // The session as it is now, with the open sets: "Continue session" brings it back.
+    final Session before = Session.fromJson(a.toJson());
     final List<Exercise> kept = <Exercise>[];
     for (final Exercise e in a.exercises) {
       final List<SetEntry> done = e.sets
@@ -273,14 +287,59 @@ class AppStore extends ChangeNotifier {
     String? savedId;
     if (kept.isNotEmpty) {
       a.endedAt = DateTime.now().millisecondsSinceEpoch;
+      // A continued session is in the log already: the new end replaces it.
+      sessions.removeWhere((Session s) => s.id == a.id);
       sessions.add(a);
       savedId = a.id;
+      _undo = before;
+      _undoAt = a.endedAt!;
     }
     active = null;
     _select(0);
     _commit();
     _announce(savedId);
     return savedId;
+  }
+
+  /// True when the finished session [id] can be opened again: it was finished
+  /// on this phone less than [continueWindow] ago, was not changed since, and
+  /// no other session with logged sets is open.
+  bool canContinue(String id, {int? now}) {
+    final Session? u = _undo;
+    if (u == null || u.id != id || sessionById(id) == null) {
+      return false;
+    }
+    if (active != null && hasDoneSet) {
+      return false;
+    }
+    final int t = now ?? DateTime.now().millisecondsSinceEpoch;
+    return t - _undoAt <= continueWindow.inMilliseconds;
+  }
+
+  /// Opens the finished session [id] again as it was before the finish, with
+  /// its done sets and the sets that were not done. The finished copy stays in
+  /// the log until the session is finished again; that end then replaces it.
+  /// So a discard of the continued session loses nothing. False when
+  /// [canContinue] is false.
+  bool continueSession(String id) {
+    if (!canContinue(id)) {
+      return false;
+    }
+    final Session s = _undo!;
+    _undo = null;
+    active = s;
+    int open = s.exercises.indexWhere((Exercise e) => e.sets.any((SetEntry x) => !x.done));
+    _select(open < 0 ? math.max(0, s.exercises.length - 1) : open);
+    _commit();
+    return true;
+  }
+
+  /// A change to the finished session [id] ends the chance to continue it: the
+  /// copy from before the finish no longer matches the log.
+  void _dropUndo(String id) {
+    if (_undo?.id == id) {
+      _undo = null;
+    }
   }
 
   void _announce(String? id) {
@@ -312,7 +371,8 @@ class AppStore extends ChangeNotifier {
     };
     int changed = 0;
     for (final Session r in remote) {
-      if (r.id.isEmpty || r.endedAt == null || pending.contains(r.id)) {
+      // A continued session is open again: the server's finished copy does not replace the log entry while it runs.
+      if (r.id.isEmpty || r.endedAt == null || pending.contains(r.id) || r.id == active?.id) {
         continue;
       }
       final int? i = at[r.id];
@@ -377,6 +437,7 @@ class AppStore extends ChangeNotifier {
       return;
     }
     s.parse = null; // the user's edit is final: the server drops a late reading of the text
+    _dropUndo(s.id);
     sessions[i] = s;
     sessions.sort((Session a, Session b) => a.when.compareTo(b.when));
     _commit();
@@ -393,6 +454,7 @@ class AppStore extends ChangeNotifier {
     if (sessions.length == before) {
       return;
     }
+    _dropUndo(id);
     _commit();
     final void Function(String id)? cb = onSessionRemoved;
     if (cb != null) {

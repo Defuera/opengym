@@ -16,6 +16,8 @@ import '../widgets/recap_exercise_card.dart';
 import '../widgets/review_card.dart';
 import 'place_mark_view.dart';
 import 'session_edit_screen.dart';
+import 'session_screen.dart';
+import 'start_flow.dart';
 
 /// A finished session: what was done, set by set, the note, the coach's
 /// review and the body figure of what it loaded. Edit and Delete are here.
@@ -64,6 +66,17 @@ class _SessionRecapScreenState extends State<SessionRecapScreen> {
     if (mounted) {
       Navigator.of(context).pop();
     }
+  }
+
+  /// Opens the session again as it was before the finish, on the session screen.
+  void _continue() {
+    final AppDeps d = widget.deps;
+    if (!d.store.continueSession(widget.sessionId)) {
+      return;
+    }
+    Navigator.of(context).pushReplacement(MaterialPageRoute<void>(
+      builder: (BuildContext c) => SessionScreen(store: d.store, deps: d, rebuild: rebuildFor(d)),
+    ));
   }
 
   /// Edit and Delete live behind the menu button at the top right.
@@ -137,6 +150,16 @@ class _SessionRecapScreenState extends State<SessionRecapScreen> {
     final bool spanKnown = (s.endedAt ?? s.startedAt) > s.startedAt;
     final bool showTimes = hasRealTimes(s) && spanKnown;
     return <Widget>[
+      if (widget.deps.store.canContinue(s.id)) ...<Widget>[
+        OgButton(
+          key: const ValueKey<String>('recap-continue'),
+          onPressed: _continue,
+          child: const Text('Continue session'),
+        ),
+        const SizedBox(height: 6),
+        Text('Finished by mistake? You can go on for 1 hour after the end.', style: OG.muted(size: 14)),
+        const SizedBox(height: 16),
+      ],
       Text(s.type, key: const ValueKey<String>('recap-type'), style: OG.display(28)),
       if (focus != null && focus.isNotEmpty)
         Text(focus, key: const ValueKey<String>('recap-focus'), style: OG.muted(weight: FontWeight.w600)),

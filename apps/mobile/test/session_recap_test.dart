@@ -421,4 +421,29 @@ void main() {
     d.store.updateSession(Session.fromJson(_run.toJson())..id = 'nope');
     expect(told, hasLength(1));
   });
+
+  testWidgets('a session finished just now offers "Continue session"; a tap opens it again', (WidgetTester t) async {
+    _tall(t);
+    final AppDeps d = await testDeps(FakeConvexClient(), connected: false);
+    d.store.begin(prepared: <Exercise>[
+      Exercise(id: 'a', name: 'Leg Press', sets: <SetEntry>[SetEntry(reps: 12, kg: 30), SetEntry(reps: 12, kg: 30)]),
+      Exercise(id: 'b', name: 'Wall Sit', measure: measureTime, sets: <SetEntry>[SetEntry.time(1)]),
+    ]);
+    d.store.completeSet();
+    final String id = d.store.finish()!;
+    await t.pumpWidget(MaterialApp(home: SessionRecapScreen(deps: d, sessionId: id)));
+    await t.pump();
+    expect(_key('recap-continue'), findsOneWidget);
+    await t.tap(_key('recap-continue'));
+    await t.pumpAndSettle();
+    expect(find.byType(SessionScreen), findsOneWidget);
+    expect(find.byType(SessionRecapScreen), findsNothing);
+    expect(d.store.active!.id, id);
+    expect(d.store.active!.exercises.map((Exercise e) => e.name), <String>['Leg Press', 'Wall Sit']);
+  });
+
+  testWidgets('an older session has no "Continue session"', (WidgetTester t) async {
+    await _open(t, _gym());
+    expect(_key('recap-continue'), findsNothing);
+  });
 }

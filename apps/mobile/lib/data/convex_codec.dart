@@ -108,6 +108,13 @@ String decodeAccepted(Object? v) {
 }
 
 /// The answer of `queries/start:request`: null, or the request state.
+OpenRemote decodeOpenRemote(Object? v) {
+  final Map<String, dynamic> m = asMap(normalize(v));
+  final Object? s = m['session'];
+  final Object? rev = m['rev'];
+  return OpenRemote(session: s is Map ? Session.fromJson(asMap(s)) : null, rev: rev is num ? rev.toInt() : 0);
+}
+
 StartRequest? decodeStartRequest(Object? v) {
   return v is Map ? StartRequest.fromJson(asMap(normalize(v))) : null;
 }

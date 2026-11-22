@@ -39,9 +39,22 @@ class AppStore extends ChangeNotifier {
   /// place of a finished session was changed locally.
   void Function(String id, String? placeId)? onSessionPlaceChanged;
 
+  /// Called after the open session changed on the phone (also when it ended).
+  /// Compose wires this to the open session sync.
+  void Function()? onActiveChanged;
+
   List<Session> sessions = <Session>[];
   Session? active;
   int activeAt = 0;
+
+  /// The server's revision the open session is based on, whether it has a
+  /// change the server does not hold, and the id of an ended session that is
+  /// still open on the server. See `data/open_session_sync.dart`.
+  int activeRev = 0;
+  bool activeDirty = false;
+  String? pendingClear;
+  String? _activeJson;
+  String? _activeId;
 
   /// UI indices for the session screen.
   int curEx = 0;
@@ -52,17 +65,107 @@ class AppStore extends ChangeNotifier {
     sessions = List<Session>.from(s.sessions);
     active = s.active;
     activeAt = s.activeAt;
+    activeRev = s.activeRev;
+    activeDirty = s.activeDirty;
+    pendingClear = s.pendingClear;
+    _activeJson = openSessionJson;
+    _activeId = active?.id;
     _select(0);
+  }
+
+  /// The open session as the server takes it (`commands/openSession:put`), as
+  /// one JSON text; null when there is none.
+  String? get openSessionJson {
+    final Session? a = active;
+    return a == null ? null : jsonEncode(openSessionWire(a));
   }
 
   void _commit() {
     _syncCountdown();
     activeAt = DateTime.now().millisecondsSinceEpoch;
+    // The open session changed, started or ended: the server must hear of it.
+    final String? now = openSessionJson;
+    final bool changed = now != _activeJson;
+    if (changed) {
+      if (now == null) {
+        pendingClear = _activeId;
+        activeDirty = false;
+        activeRev = 0;
+      } else {
+        pendingClear = null;
+        activeDirty = true;
+      }
+      _activeJson = now;
+      _activeId = active?.id;
+    }
+    _save();
+    notifyListeners();
+    if (changed) {
+      onActiveChanged?.call();
+    }
+  }
+
+  void _save() {
     _repo.save(StoredState(
       sessions: sessions,
       active: active,
       activeAt: activeAt,
+      activeRev: activeRev,
+      activeDirty: activeDirty,
+      pendingClear: pendingClear,
     ));
+  }
+
+  /// The server holds the open session as [json] at revision [rev]. A change
+  /// made on the phone since [json] was sent keeps the session marked as not sent.
+  void markActiveSynced(String json, int rev) {
+    activeRev = rev;
+    if (json == _activeJson) {
+      activeDirty = false;
+    }
+    _save();
+  }
+
+  /// The server no longer holds the ended session [id].
+  void markCleared(String id) {
+    if (pendingClear == id) {
+      pendingClear = null;
+      _save();
+    }
+  }
+
+  /// The open session is not on the server (any more): it is sent again.
+  void markActiveUnsent() {
+    if (active != null && !activeDirty) {
+      activeDirty = true;
+      _save();
+    }
+  }
+
+  /// Takes the server's copy of the open session (a change made outside the
+  /// phone, or a session opened elsewhere). The caller checked that the phone
+  /// holds no unsent change. With the same session open, only the plan parts
+  /// change, so nothing the phone alone knows is lost.
+  void applyRemoteActive(Session remote, int rev) {
+    final Session? a = active;
+    if (a != null && a.id == remote.id) {
+      a
+        ..exercises = remote.exercises
+        ..focus = remote.focus
+        ..planNote = remote.planNote
+        ..placeId = remote.placeId;
+    } else {
+      active = remote;
+    }
+    activeRev = rev;
+    activeDirty = false;
+    pendingClear = null;
+    _activeJson = openSessionJson;
+    _activeId = active?.id;
+    _select(math.min(curEx, math.max(0, active!.exercises.length - 1)));
+    _syncCountdown();
+    activeAt = DateTime.now().millisecondsSinceEpoch;
+    _save();
     notifyListeners();
   }
 

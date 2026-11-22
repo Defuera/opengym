@@ -126,6 +126,44 @@ export const entryFields = {
   deletedAt: v.optional(v.number()),
 };
 
+const openSet = v.object({
+  reps: v.optional(v.number()),
+  kg: v.optional(v.number()),
+  max: v.optional(v.boolean()),
+  failed: v.optional(v.boolean()),
+  minutes: v.optional(v.number()),
+  distanceKm: v.optional(v.number()),
+  done: v.boolean(),
+  at: v.optional(v.number()),
+});
+
+/** The open session in the app's own shape (ADR-028). Not a fact until the app finishes it and saves a session. */
+export const openSessionFields = {
+  id: v.string(),
+  kind: v.literal("gym"),
+  type: v.string(),
+  focus: v.optional(v.string()),
+  startedAt: v.number(),
+  source: v.optional(v.string()),
+  planNote: v.optional(v.string()),
+  placeId: v.optional(v.string()),
+  programId: v.optional(v.string()),
+  programWeek: v.optional(v.number()),
+  programSlot: v.optional(v.number()),
+  programKey: v.optional(v.string()),
+  exercises: v.array(
+    v.object({
+      id: v.string(),
+      name: v.string(),
+      measure: v.optional(v.literal("time")),
+      sets: v.array(openSet),
+      fresh: v.optional(v.boolean()),
+      carry: v.optional(v.boolean()),
+      note: v.optional(v.string()),
+    }),
+  ),
+};
+
 export default defineSchema({
   // Facts. Written only by commands (ADR-002).
   sessions: defineTable(sessionFields)
@@ -313,6 +351,11 @@ export default defineSchema({
   })
     .index("by_at", ["at"])
     .index("by_job", ["job", "at"]),
+
+  // The open session (ADR-028): at most one row, the session the person is doing now, in the app's own shape. The app writes it on every
+  // change (commands/openSession:put) and removes it when the session ends. An outside writer changes only the part that is not done
+  // (jobs/openSession:replacePlan). `rev` grows by one on every write; the app takes an outside change only when `rev` is newer than its own.
+  openSession: defineTable({ ...openSessionFields, rev: v.number(), updatedAt: v.number(), updatedBy: v.union(v.literal("app"), v.literal("coach"), v.literal("owner")) }),
 
   // Owner settings (one row). `aiModel` is the coach model chosen in the app; absent = the model from the environment.
   // `modelList` is the provider's model list, cached by jobs/models:refresh. `modelListError` is a short text without secrets.

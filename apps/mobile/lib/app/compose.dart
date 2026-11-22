@@ -8,6 +8,7 @@ import '../data/health_tracker_source.dart';
 import '../data/local_countdown_signal.dart';
 import '../data/pickers.dart';
 import '../data/voice_recorder.dart';
+import '../data/open_session_sync.dart';
 import '../data/session_sync.dart';
 import '../data/settings_repository.dart';
 import '../data/shared_prefs_session_repository.dart';
@@ -53,9 +54,15 @@ Future<AppDeps> compose() async {
     settings: SharedPrefsSettingsRepository(),
     client: client,
   );
-  connection.onConnected = () => unawaited(outbox.flush());
-
   final SessionSync sessions = SessionSync(client: client, store: store, outbox: outbox);
+  // The open session: saved on the phone first, then kept the same on the server (ADR-028).
+  final OpenSessionSync openSession =
+      OpenSessionSync(client: client, store: store, isConnected: () => connection.connected);
+  connection.onConnected = () {
+    unawaited(outbox.flush());
+    unawaited(openSession.flush());
+  };
+
   final DashboardStore dashboard = DashboardStore(client: client);
   final CoachStore coach = CoachStore(client: client, isConnected: () => connection.connected);
   final ReviewStore reviews = ReviewStore(client: client);
@@ -101,6 +108,7 @@ Future<AppDeps> compose() async {
 
   // Live subscriptions: opened once, they survive a change of server address.
   sessions.start();
+  openSession.start();
   goals.start();
   entries.start();
   context.start();

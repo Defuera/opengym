@@ -239,6 +239,16 @@ abstract class ConvexClient {
   /// The state of one start request; null while the server has none.
   Stream<StartRequest?> watchStartRequest(String requestId);
 
+  /// The open session on the server (ADR-028); `session` is null when there is none.
+  Stream<OpenRemote> watchOpenSession();
+
+  /// Stores the open session ([openSessionWire]) and returns the server's new
+  /// revision. NOT a fact: it never goes to the outbox.
+  Future<int> putOpenSession(Map<String, dynamic> session);
+
+  /// The session [id] ended on the phone: the server drops its open copy. Idempotent.
+  Future<void> clearOpenSession(String id);
+
   /// Starts an AI import of uploaded files. Progress arrives through
   /// [watchImports]. Sending the same [importId] again changes nothing.
   Future<void> startImport({required String importId, required List<String> fileIds});
@@ -401,6 +411,19 @@ class DartvexConvexClient implements ConvexClient {
         if (previousRequestId != null) 'previousRequestId': previousRequestId,
         if (previousPlan != null) 'previousPlan': previousPlan,
       });
+
+  @override
+  Stream<OpenRemote> watchOpenSession() =>
+      _watch('queries/openSession:get', const <String, dynamic>{}, decodeOpenRemote);
+
+  @override
+  Future<int> putOpenSession(Map<String, dynamic> session) async {
+    final Object? v = await _mutateValue('commands/openSession:put', <String, dynamic>{'session': session});
+    return v is num ? v.toInt() : 0;
+  }
+
+  @override
+  Future<void> clearOpenSession(String id) => _mutate('commands/openSession:clear', <String, dynamic>{'id': id});
 
   @override
   Stream<List<Program>> watchPrograms() =>

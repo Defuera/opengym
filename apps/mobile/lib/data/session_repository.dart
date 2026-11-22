@@ -6,11 +6,23 @@ class StoredState {
     required this.sessions,
     this.active,
     this.activeAt = 0,
+    this.activeRev = 0,
+    this.activeDirty = false,
+    this.pendingClear,
   });
 
   final List<Session> sessions;
   final Session? active;
   final int activeAt;
+
+  /// The server's revision of the open session that the phone's copy is based on (0: none).
+  final int activeRev;
+
+  /// The open session has a change the server does not hold yet.
+  final bool activeDirty;
+
+  /// The id of a session that ended on the phone and is still open on the server.
+  final String? pendingClear;
 
   static StoredState empty() => const StoredState(sessions: <Session>[]);
 
@@ -19,6 +31,9 @@ class StoredState {
       'sessions': sessions.map((Session s) => s.toJson()).toList(),
       'active': active?.toJson(),
       'activeAt': activeAt,
+      'activeRev': activeRev,
+      'activeDirty': activeDirty,
+      if (pendingClear != null) 'pendingClear': pendingClear,
     };
   }
 
@@ -32,10 +47,16 @@ class StoredState {
     }
     final Object? a = j['active'];
     final Object? at = j['activeAt'];
+    final Object? rev = j['activeRev'];
+    final Object? clear = j['pendingClear'];
     return StoredState(
       sessions: list,
       active: a == null ? null : Session.fromJson(a as Map<String, dynamic>),
       activeAt: at is num ? at.toInt() : 0,
+      activeRev: rev is num ? rev.toInt() : 0,
+      // A copy from before the sync existed (no flag) counts as not yet sent.
+      activeDirty: a != null && j['activeDirty'] != false,
+      pendingClear: clear is String && clear.isNotEmpty ? clear : null,
     );
   }
 }

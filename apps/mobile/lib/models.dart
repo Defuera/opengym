@@ -407,3 +407,21 @@ ProgramLink? _readProgram(Map<String, dynamic> j) {
   }
   return null;
 }
+
+/// The open session as the server takes it (ADR-028): the local shape of
+/// [Session.toJson] without the fields only a finished session has.
+Map<String, dynamic> openSessionWire(Session s) {
+  final Map<String, dynamic> m = s.toJson();
+  for (final String k in const <String>['endedAt', 'minutes', 'distanceKm', 'note', 'importId', 'parse']) {
+    m.remove(k);
+  }
+  return m;
+}
+
+/// The server's open session: [session] is null when there is none.
+class OpenRemote {
+  const OpenRemote({this.session, this.rev = 0});
+
+  final Session? session;
+  final int rev;
+}

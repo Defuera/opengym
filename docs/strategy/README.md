@@ -42,3 +42,4 @@ This directory holds the Architecture Decision Records (ADRs) for Gym Days (Open
 | [025](025-one-proposal-block.md) | One Proposal Block for What the Coach Offers | Accepted (details Proposed) |
 | [026](026-talk-to-the-coach-in-one-chat.md) | Every Conversation With the Coach Is the Chat | Accepted (details Proposed) |
 | [027](027-store-ai-calls-for-90-days.md) | The Server Stores Every AI Call for 90 Days | Accepted |
+| [028](028-open-session-lives-on-the-server.md) | The Open Session Lives on the Server, With a Copy on the Phone | Accepted |

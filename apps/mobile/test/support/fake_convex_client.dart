@@ -212,6 +212,34 @@ class FakeConvexClient implements ConvexClient {
   @override
   Stream<List<Session>> watchSessionsSince(int since) => _sessions.stream();
 
+  /// The open session the server holds. Set a value to push an outside change.
+  final Live<OpenRemote> openRemote = Live<OpenRemote>(const OpenRemote());
+
+  /// Every open session the app put, in order, and every id it cleared.
+  final List<Map<String, dynamic>> openPuts = <Map<String, dynamic>>[];
+  final List<String> openClears = <String>[];
+
+  @override
+  Stream<OpenRemote> watchOpenSession() => openRemote.stream();
+
+  @override
+  Future<int> putOpenSession(Map<String, dynamic> session) async {
+    _command('putOpenSession');
+    openPuts.add(session);
+    final int rev = (openRemote.value?.rev ?? 0) + 1;
+    openRemote.set(OpenRemote(session: Session.fromJson(session), rev: rev));
+    return rev;
+  }
+
+  @override
+  Future<void> clearOpenSession(String id) async {
+    _command('clearOpenSession');
+    openClears.add(id);
+    if (openRemote.value?.session?.id == id) {
+      openRemote.set(const OpenRemote());
+    }
+  }
+
   @override
   Stream<List<Goal>> watchGoals() => _goals.stream();
 

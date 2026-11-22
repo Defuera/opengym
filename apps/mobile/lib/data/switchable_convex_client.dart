@@ -94,6 +94,18 @@ class SwitchableConvexClient implements ConvexClient {
       _proxy((ConvexClient c) => c.watchRecentSessions(limit: limit));
 
   @override
+  Stream<OpenRemote> watchOpenSession() => _proxy((ConvexClient c) => c.watchOpenSession());
+
+  @override
+  Future<int> putOpenSession(Map<String, dynamic> session) {
+    final ConvexClient? c = _inner;
+    return c == null ? Future<int>.error(const ConvexCallException.notConfigured()) : c.putOpenSession(session);
+  }
+
+  @override
+  Future<void> clearOpenSession(String id) => _call((ConvexClient c) => c.clearOpenSession(id));
+
+  @override
   Stream<List<Session>> watchSessionsSince(int since) =>
       _proxy((ConvexClient c) => c.watchSessionsSince(since));
 

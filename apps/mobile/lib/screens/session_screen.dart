@@ -307,7 +307,11 @@ class _SessionScreenState extends State<SessionScreen> with WidgetsBindingObserv
                 Padding(
                   padding: const EdgeInsets.fromLTRB(18, 4, 20, 0),
                   child: SessionMetaRow(
-                    note: (rebuild?.failed ?? false) && !busy ? 'Could not rebuild. Try again.' : null,
+                    note: (rebuild?.failed ?? false) && !busy
+                        ? 'Could not rebuild. Try again.'
+                        : canChange && !busy
+                            ? (rebuild!.offer != null ? 'The plan of the coach is ready.' : rebuild!.notice)
+                            : null,
                     items: <Widget>[
                       if (deps != null)
                         PlaceMarkView(deps: deps!, placeId: a.placeId, onPick: store.setActivePlace),
@@ -319,6 +323,12 @@ class _SessionScreenState extends State<SessionScreen> with WidgetsBindingObserv
                           onTap: () => _showWhy(context, a),
                         ),
                       if (canChange) MetaItem(label: 'Change plan', onTap: () => _showChangePlan(context)),
+                      if (canChange && !busy && rebuild!.offer != null)
+                        MetaItem(
+                          key: const ValueKey<String>('use-coach-plan'),
+                          label: 'Use the coach plan',
+                          onTap: rebuild!.useOffer,
+                        ),
                     ],
                   ),
                 ),

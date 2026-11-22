@@ -15,8 +15,25 @@ class ProposalRebuild extends ChangeNotifier {
     required this.activity,
     required this.onProposal,
     this.exercises,
+    this.note,
+    String? notice,
+    StartRun? late,
   })  : _plans = plans,
-        _requestId = requestId;
+        _requestId = requestId,
+        _notice = notice,
+        _late = late {
+    late?.late.then((StartProposal p) {
+      if (_disposed || _late != late || p.kind != 'gym') {
+        return;
+      }
+      _offer = p;
+      notifyListeners();
+    });
+  }
+
+  /// The note for today the person gave at the start. It goes with feedback on
+  /// a session that has no request, so the coach still knows it.
+  final String? note;
 
   /// The activity of the shown session. Without a known request (the app was
   /// restarted, or the session did not come from the coach) the feedback goes
@@ -35,6 +52,9 @@ class ProposalRebuild extends ChangeNotifier {
   final bool Function(StartProposal) onProposal;
 
   String? _requestId;
+  String? _notice;
+  StartRun? _late;
+  StartProposal? _offer;
   StartRun? _run;
   bool _failed = false;
   bool _disposed = false;
@@ -44,18 +64,47 @@ class ProposalRebuild extends ChangeNotifier {
   /// The last rebuild failed; the old proposal is still shown.
   bool get failed => _failed;
 
+  /// Why the shown session is not the coach's plan (the coach did not answer);
+  /// null when it is, or after the coach's plan was taken.
+  String? get notice => _notice;
+
+  /// The coach's plan that came after the app gave up waiting. Null when there is none.
+  StartProposal? get offer => _offer;
+
+  /// Shows the late plan of the coach in place of the session. False when it could not be shown.
+  bool useOffer() {
+    final StartProposal? p = _offer;
+    final StartRun? run = _late;
+    if (p == null || run == null) {
+      return false;
+    }
+    _offer = null;
+    _late = null;
+    final bool shown = onProposal(p);
+    if (shown) {
+      _requestId = run.requestId;
+      _notice = null;
+    }
+    notifyListeners();
+    return shown;
+  }
+
   /// Sends [feedback] (the caller trims it and checks it is not empty).
   Future<void> rebuild(String feedback) async {
     if (_run != null) {
       return;
     }
+    // New feedback replaces a late answer to the first request.
+    _late?.cancel();
+    _late = null;
+    _offer = null;
     final String? prev = _requestId;
     final List<Map<String, dynamic>> plan = compactPlan(exercises?.call() ?? <Exercise>[]);
     final StartRun run;
     if (prev != null) {
       run = _plans.requestRebuild(feedback: feedback, previousRequestId: prev);
     } else if (plan.isNotEmpty) {
-      run = _plans.requestFeedbackOnPlan(name: activity(), feedback: feedback, previousPlan: plan);
+      run = _plans.requestFeedbackOnPlan(name: activity(), feedback: feedback, previousPlan: plan, note: note);
     } else {
       run = _plans.requestStart(name: activity(), text: feedback.length > 2000 ? feedback.substring(0, 2000) : feedback);
     }
@@ -69,6 +118,7 @@ class ProposalRebuild extends ChangeNotifier {
     _run = null;
     if (p != null && p.kind == 'gym' && onProposal(p)) {
       _requestId = run.requestId;
+      _notice = null;
     } else {
       _failed = true;
     }
@@ -85,6 +135,7 @@ class ProposalRebuild extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    _late?.cancel();
     _run?.cancel();
     super.dispose();
   }

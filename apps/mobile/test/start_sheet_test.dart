@@ -7,6 +7,7 @@ import 'package:opengym/models.dart';
 import 'package:opengym/screens/log_text_screen.dart';
 import 'package:opengym/screens/session_screen.dart';
 import 'package:opengym/widgets/og_button.dart';
+import 'package:opengym/widgets/session_meta_row.dart';
 import 'support/fake_convex_client.dart';
 import 'support/sheet_fixtures.dart';
 
@@ -161,16 +162,62 @@ void main() {
     expect(d.store.active!.exercises.map((Exercise e) => e.name), <String>['Press-up', 'Squat']);
   });
 
-  testWidgets('no answer in 20 s: the rules plan opens', (WidgetTester t) async {
+  testWidgets('no answer in 40 s: the rules plan opens with a notice', (WidgetTester t) async {
     final (FakeConvexClient _, AppDeps d) = await openHome(t);
     await openStart(t);
     await pickAndStart(t, 'Home');
-    await t.pump(const Duration(seconds: 19));
+    await t.pump(const Duration(seconds: 39));
     expect(find.text('Preparing…'), findsOneWidget);
     await t.pump(const Duration(seconds: 2));
     await t.pumpAndSettle();
     expect(d.store.active!.type, 'Home');
     expect(d.store.active!.exercises, isNotEmpty);
+    expect(find.text('The coach did not answer in time. This is your last Quick session.'), findsOneWidget);
+  });
+
+  testWidgets('an answer after 40 s is offered, and a tap takes it', (WidgetTester t) async {
+    final (FakeConvexClient fake, AppDeps d) = await openHome(t);
+    await openStart(t);
+    await pickAndStart(t, 'Home', note: '2 hours session');
+    await t.pump(const Duration(seconds: 41));
+    await t.pumpAndSettle();
+    expect(find.byKey(const ValueKey<String>('use-coach-plan')), findsNothing);
+    fake.answerStart(StartRequest(
+        requestId: fake.lastStartId,
+        status: 'ready',
+        proposal: const StartProposal(
+            kind: 'gym',
+            type: 'Home',
+            focus: 'Legs',
+            plan: Plan(id: 'x', focus: 'Legs', createdAt: 1, source: 'ai', rationale: 'Long day', exercises: <PlanExercise>[
+              PlanExercise(name: 'Wall Sit', sets: <PlanSet>[PlanSet(reps: 8, kg: 0)]),
+            ]))));
+    await t.pumpAndSettle();
+    expect(d.store.active!.exercises.map((Exercise e) => e.name), <String>['Press-up', 'Squat']); // not swapped by itself
+    expect(find.text('The plan of the coach is ready.'), findsOneWidget);
+    await t.tap(find.byKey(const ValueKey<String>('use-coach-plan')));
+    await t.pumpAndSettle();
+    expect(d.store.active!.exercises.single.name, 'Wall Sit');
+    expect(find.byKey(const ValueKey<String>('use-coach-plan')), findsNothing);
+    expect(find.textContaining('did not answer in time'), findsNothing);
+  });
+
+  testWidgets('feedback on the rules plan after a late coach keeps the note for today', (WidgetTester t) async {
+    final (FakeConvexClient fake, AppDeps _) = await openHome(t);
+    await openStart(t);
+    await pickAndStart(t, 'Home', note: '2 hours session');
+    await t.pump(const Duration(seconds: 41));
+    await t.pumpAndSettle();
+    await t.tap(find.widgetWithText(MetaItem, 'Change plan'));
+    await t.pumpAndSettle();
+    await t.enterText(find.byType(TextField).last, 'too short');
+    await t.pump();
+    await t.tap(find.widgetWithText(OgButton, 'Rebuild'));
+    await t.pump();
+    await t.pump(const Duration(seconds: 1));
+    expect(fake.startSent.last.$2, '2 hours session');
+    expect(fake.startFeedback.last.$1, 'too short');
+    await t.pump(const Duration(seconds: 41)); // the rebuild gives up; no timer is left
   });
 
   testWidgets('request error: the rules plan opens', (WidgetTester t) async {

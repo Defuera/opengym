@@ -13,8 +13,8 @@ import { buildSessionJob } from "../model/ai/jobs/buildSession";
 import { buildStartInput } from "../model/startInput";
 import { checkedStartProposal, pickPlace, startOutcome } from "../model/startSave";
 
-/** The AI budget for one request. The app gives up after 20 s and opens an empty session itself. */
-const BUDGET_MS = 25_000;
+/** The AI budget for one request. The app gives up after 40 s and opens its own plan; an answer that comes later is offered on the session screen. */
+const BUDGET_MS = 35_000;
 
 /** Bounded model input for one request, or null when the request is gone or no longer pending. */
 export const input = internalQuery({

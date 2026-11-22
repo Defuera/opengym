@@ -23,7 +23,8 @@ import { previousPlan as previousPlanShape } from "../lib/validators";
  * to these two are ignored: the previous row decides.
  * Feedback on a session that did not come from a start request (a program session): `feedback` may come with `previousPlan` (the
  * compact plan shape of `startRequests.previousPlan`, sent by the app) INSTEAD of `previousRequestId`, together with `name` (1..40). Then
- * the row gets `name`, `feedback: [feedback]` and `previousPlan`, and the job works as for any rebuild. Exactly one of
+ * the row gets `name`, `feedback: [feedback]` and `previousPlan`, and the job works as for any rebuild. A `text` given here is kept as the
+ * note for today (cut to the text limit): the app sends the note of the first request when its own plan replaced a late answer. Exactly one of
  * `previousRequestId` and `previousPlan` goes with `feedback`.
  * Returns the requestId.
  */
@@ -68,7 +69,7 @@ export const request = mutation({
     const plan = compactPlan(prev?.proposal?.plan);
     await ctx.db.insert("startRequests", {
       requestId: id,
-      ...(givenPlan ? { name: planName!, feedback: [cleanFeedback!], previousPlan: givenPlan } : prev ? { ...(prev.text ? { text: prev.text } : {}), ...(prev.name ? { name: prev.name } : {}), feedback: feedbackChain(prev.feedback, cleanFeedback!), ...(plan ? { previousPlan: plan } : {}) } : { ...(clean ? { text: clean } : {}), ...(cleanName ? { name: cleanName } : {}) }),
+      ...(givenPlan ? { name: planName!, ...(clean ? { text: clean.slice(0, START_REQUEST_MAX_TEXT) } : {}), feedback: [cleanFeedback!], previousPlan: givenPlan } : prev ? { ...(prev.text ? { text: prev.text } : {}), ...(prev.name ? { name: prev.name } : {}), feedback: feedbackChain(prev.feedback, cleanFeedback!), ...(plan ? { previousPlan: plan } : {}) } : { ...(clean ? { text: clean } : {}), ...(cleanName ? { name: cleanName } : {}) }),
       status: "pending",
       createdAt: now,
     });

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../app/deps.dart';
 import '../models.dart';
 import '../stores/proposal_rebuild.dart';
+import '../stores/start_run.dart';
 import 'log_text_screen.dart';
 import 'prepare_session_screen.dart';
 import 'program_screen.dart';
@@ -12,26 +13,40 @@ import 'session_screen.dart';
 
 Route<void> _route(Widget screen) => MaterialPageRoute<void>(builder: (BuildContext c) => screen);
 
-SessionScreen _session(AppDeps d) => SessionScreen(store: d.store, deps: d, rebuild: rebuildFor(d));
+SessionScreen _session(AppDeps d, {StartFallback? fallback}) =>
+    SessionScreen(store: d.store, deps: d, rebuild: rebuildFor(d, fallback: fallback));
+
+/// Why a session opened from the app's own plan after a start request: the
+/// [notice] the person reads, the [note] for today they gave, and the run that
+/// still waits for a [late] answer of the coach (null when the request failed).
+class StartFallback {
+  const StartFallback({required this.notice, this.note, this.late});
+
+  final String notice;
+  final String? note;
+  final StartRun? late;
+}
 
 /// A stored proposal: the prepared session of [activity] + [focus]. An open
 /// session is resumed; offline (or with no focus) it starts from the local
 /// fallback plan at once; online the stored plan is read (a few seconds at
 /// most) by the prepare screen. With [local] the stored plan is not read: the
-/// session starts from the local fallback plan at once.
-void openPrepared(NavigatorState nav, AppDeps d, {required String activity, String? focus, bool local = false}) {
+/// session starts from the local fallback plan at once. [fallback] says that
+/// the coach was asked first and did not answer.
+void openPrepared(NavigatorState nav, AppDeps d,
+    {required String activity, String? focus, bool local = false, StartFallback? fallback}) {
   if (local || d.store.hasDoneSet || !d.connection.connected || focus == null) {
     d.store.begin(activity: activity, focus: focus);
-    nav.push(_route(_session(d)));
+    nav.push(_route(_session(d, fallback: fallback)));
     return;
   }
   nav.push(_route(PrepareSessionScreen(deps: d, activity: activity, focus: focus)));
 }
 
 /// An empty session (no plan) named [activity].
-void openEmpty(NavigatorState nav, AppDeps d, {String activity = gymType}) {
+void openEmpty(NavigatorState nav, AppDeps d, {String activity = gymType, StartFallback? fallback}) {
   d.store.begin(activity: activity, prepared: <Exercise>[]);
-  nav.push(_route(_session(d)));
+  nav.push(_route(_session(d, fallback: fallback)));
 }
 
 /// The Log form (one text) of a time/distance activity named [activity].
@@ -59,9 +74,12 @@ void openProposal(NavigatorState nav, AppDeps d, StartProposal p, {String? reque
 
 /// The feedback loop of the open session. With [requestId] the coach gets the
 /// plan it made before; without it the feedback is the note of a new request.
-ProposalRebuild rebuildFor(AppDeps d, {String? requestId}) => ProposalRebuild(
+ProposalRebuild rebuildFor(AppDeps d, {String? requestId, StartFallback? fallback}) => ProposalRebuild(
       plans: d.plans,
       requestId: requestId,
+      note: fallback?.note,
+      notice: fallback?.notice,
+      late: fallback?.late,
       activity: () => d.store.active?.type ?? gymType,
       exercises: () => d.store.active?.exercises ?? <Exercise>[],
       onProposal: (StartProposal n) => _replaceProposal(d, n),

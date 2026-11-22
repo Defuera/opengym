@@ -57,20 +57,27 @@ class _StartSheetState extends State<StartSheet> {
   }
 
   /// An empty session. [name] is used as it is (the draft limits it to 40).
-  void _empty([String name = gymType]) {
+  void _empty([String name = gymType, StartFallback? fallback]) {
     _run?.cancel();
     widget.nav.pop();
-    openEmpty(widget.nav, widget.deps, activity: name);
+    openEmpty(widget.nav, widget.deps, activity: name, fallback: fallback);
   }
 
   /// The plain-code plan for [name]: the focus due in the log, then the last
   /// session of that focus. Used offline and when the request fails.
-  void _rules(String name) {
+  void _rules(String name, [StartFallback? fallback]) {
     _run?.cancel();
     final List<FocusRank> rot = focusRotation(widget.deps.store.sessions, activity: name);
+    final String? focus = rot.isEmpty ? null : rot.first.focus;
     widget.nav.pop();
     openPrepared(widget.nav, widget.deps,
-        activity: name, focus: rot.isEmpty ? null : rot.first.focus, local: true);
+        activity: name,
+        focus: focus,
+        local: true,
+        fallback: fallback == null || focus == null
+            ? fallback
+            : StartFallback(
+                notice: '${fallback.notice} This is your last $focus session.', note: fallback.note, late: fallback.late));
   }
 
   Future<void> _start() async {
@@ -96,7 +103,7 @@ class _StartSheetState extends State<StartSheet> {
     if (_run != null) {
       return;
     }
-    void plain() => rules ? _rules(fallback) : _empty(fallback);
+    void plain([StartFallback? why]) => rules ? _rules(fallback, why) : _empty(fallback, why);
     // A request is not a fact and never waits in the outbox: offline, go on.
     if (!widget.deps.connection.connected) {
       plain();
@@ -114,7 +121,16 @@ class _StartSheetState extends State<StartSheet> {
       return;
     }
     if (p == null) {
-      plain();
+      // The person must see that this is not the coach's plan. A run that gave
+      // up keeps waiting: the session screen offers a late answer.
+      if (run.gaveUp) {
+        _run = null;
+      }
+      plain(StartFallback(
+        notice: run.gaveUp ? 'The coach did not answer in time.' : 'The coach could not build a session.',
+        note: text,
+        late: run.gaveUp ? run : null,
+      ));
       return;
     }
     widget.nav.pop();

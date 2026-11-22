@@ -15,7 +15,7 @@ export const USAGE = `Usage: npm run eval -- [options]
   --case ID          one case
   --concurrency N    cases at the same time (default 4)
   --max-calls N      hard cap on provider calls, retries included (default 150)
-  --timeout MS       time budget of one job call (default 25000, the server's)
+  --timeout MS       time budget of one job call (default 35000, the server's)
   --out DIR          report folder (default evals/reports)
 Env: AI_PROVIDER (or EVAL_PROVIDER), <PROVIDER>_API_KEY, <PROVIDER>_MODEL (or EVAL_MODEL),
      EVAL_PRICE_IN / EVAL_PRICE_OUT (USD per million tokens, optional, for the cost line).`;
@@ -24,7 +24,7 @@ const JOBS = ["build_session", "chat", "parse_log", "learn_place"];
 
 /** Reads the flags. Throws a short message on a bad one. */
 export function parseArgs(argv: string[]): Args {
-  const a: Args = { samples: 1, concurrency: 4, maxCalls: 150, timeoutMs: 25_000, help: false };
+  const a: Args = { samples: 1, concurrency: 4, maxCalls: 150, timeoutMs: 35_000, help: false };
   const int = (flag: string, v: string | undefined, min: number): number => {
     const n = Number(v);
     if (!Number.isInteger(n) || n < min) throw new Error(`${flag} needs a whole number of at least ${min}`);

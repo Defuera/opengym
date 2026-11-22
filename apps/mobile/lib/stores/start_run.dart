@@ -10,6 +10,9 @@ import '../planner.dart';
 /// [result] completes with the proposal when the request is ready, and with
 /// null on a failed request, a send error, or [budget] running out. It never
 /// throws. [cancel] stops watching; [result] then stays unfinished.
+///
+/// After [budget] ran out the run keeps watching ([gaveUp] is true): an answer
+/// that comes later completes [late], so the session screen can offer it.
 class StartRun {
   StartRun({
     required ConvexClient client,
@@ -20,7 +23,7 @@ class StartRun {
     List<Map<String, dynamic>>? previousPlan,
     required Duration budget,
   }) : requestId = newId() {
-    _timer = Timer(budget, () => _finish(null));
+    _timer = Timer(budget, _giveUp);
     _start(client, name, text, feedback, previousRequestId, previousPlan);
   }
 
@@ -28,9 +31,18 @@ class StartRun {
   final Completer<StartProposal?> _done = Completer<StartProposal?>();
   StreamSubscription<StartRequest?>? _sub;
   Timer? _timer;
+  final Completer<StartProposal> _late = Completer<StartProposal>();
   bool _cancelled = false;
+  bool _gaveUp = false;
 
   Future<StartProposal?> get result => _done.future;
+
+  /// [budget] ran out before an answer came.
+  bool get gaveUp => _gaveUp;
+
+  /// The proposal of an answer that came after [budget] ran out. It stays
+  /// unfinished when no such answer comes.
+  Future<StartProposal> get late => _late.future;
 
   Future<void> _start(
     ConvexClient client,
@@ -47,7 +59,15 @@ class StartRun {
           if (r == null || r.pending) {
             return;
           }
-          _finish(r.status == 'ready' ? r.proposal : null);
+          final StartProposal? p = r.status == 'ready' ? r.proposal : null;
+          if (_gaveUp) {
+            _sub?.cancel();
+            if (p != null && !_cancelled && !_late.isCompleted) {
+              _late.complete(p);
+            }
+            return;
+          }
+          _finish(p);
         },
         onError: (Object e) => _finish(null),
       );
@@ -70,6 +90,15 @@ class StartRun {
     }
     _release();
     _done.complete(p);
+  }
+
+  /// The budget ran out: [result] is null, and the run keeps watching for [late].
+  void _giveUp() {
+    if (_cancelled || _done.isCompleted) {
+      return;
+    }
+    _gaveUp = true;
+    _done.complete(null);
   }
 
   void _release() {

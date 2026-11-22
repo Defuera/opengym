@@ -11,7 +11,7 @@ class PlanStore extends ChangeNotifier {
   PlanStore({
     required ConvexClient client,
     this.planBudget = const Duration(seconds: 3),
-    this.startBudget = const Duration(seconds: 20),
+    this.startBudget = const Duration(seconds: 40),
   }) : _client = client;
 
   final ConvexClient _client;
@@ -43,12 +43,15 @@ class PlanStore extends ChangeNotifier {
 
   /// Feedback on a session that did not come from a start request: the
   /// coach gets the [name] of the activity and the [previousPlan] as it is on the phone.
+  /// [note] is the note for today the person gave at the start, when there was one.
   StartRun requestFeedbackOnPlan({
     required String name,
     required String feedback,
     required List<Map<String, dynamic>> previousPlan,
+    String? note,
   }) =>
-      StartRun(client: _client, name: name, feedback: feedback, previousPlan: previousPlan, budget: startBudget);
+      StartRun(
+          client: _client, name: name, text: note, feedback: feedback, previousPlan: previousPlan, budget: startBudget);
 
   /// Asks the coach to rebuild the proposal of [previousRequestId] with the
   /// person's [feedback]. Same rules as [requestStart].

@@ -441,6 +441,11 @@ describe("commands/start:request with previousPlan", () => {
   const start = (requestId: string, extra: Record<string, unknown>) => t.mutation(api.commands.start.request, { token: TOKEN, requestId, ...extra } as never);
   const row = (requestId: string) => t.run((c) => c.db.query("startRequests").withIndex("by_requestId", (q) => q.eq("requestId", requestId)).unique());
 
+  it("keeps a text sent with previousPlan as the note for today", async () => {
+    await start("n", { name: "Session A", text: " 2 hours session ", feedback: "too short", previousPlan: plan });
+    expect(await row("n")).toMatchObject({ name: "Session A", text: "2 hours session", feedback: ["too short"], previousPlan: plan });
+  });
+
   it("takes feedback with previousPlan and name instead of previousRequestId", async () => {
     await start("a", { name: "Session A", feedback: "  no squats  ", previousPlan: plan });
     expect(await row("a")).toMatchObject({ name: "Session A", feedback: ["no squats"], previousPlan: plan, status: "pending" });

@@ -22,7 +22,7 @@ Flags (after `--`):
 - `--case ID`: one case.
 - `--concurrency N`: cases at the same time. Default 4.
 - `--max-calls N`: a hard cap on provider calls, retries included. Default 150. When it is spent, the run stops and the rest is marked `skipped` or `aborted`.
-- `--timeout MS`: time budget of one job call. Default 25000, the same as the server.
+- `--timeout MS`: time budget of one job call. Default 35000, the same as the server.
 - `--out DIR`: report folder. Default `evals/reports`.
 
 Optional: `EVAL_PRICE_IN` and `EVAL_PRICE_OUT` (USD per million tokens) add a cost line. Without them the cost is `n/a`. Tokens come from the `usage` field of the provider answer.

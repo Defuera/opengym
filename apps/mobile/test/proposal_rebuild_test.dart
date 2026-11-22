@@ -311,8 +311,34 @@ void main() {
     await t.pumpAndSettle();
     await t.tap(find.text('Finish and save'));
     await t.pumpAndSettle();
+    await t.tap(find.byKey(const ValueKey<String>('confirm-finish')));
+    await t.pumpAndSettle();
     expect(d.store.active, isNull);
     expect(d.store.sessions, isNotEmpty);
+  });
+
+  testWidgets('finishing asks first: "Keep going" and closing the sheet keep the session open', (WidgetTester t) async {
+    final (FakeConvexClient _, AppDeps d) = await _openProposal(t);
+    final int before = d.store.sessions.length;
+    d.store.completeSet();
+    await t.pump();
+    for (final Finder dismiss in <Finder>[find.text('Keep going'), find.byKey(const ValueKey<String>('og-sheet-close'))]) {
+      await t.tap(find.text('Finish session'));
+      await t.pumpAndSettle();
+      expect(find.text('Finish this session?'), findsOneWidget);
+      expect(find.text('Every set is done.'), findsOneWidget);
+      await t.tap(dismiss);
+      await t.pumpAndSettle();
+      expect(d.store.active, isNotNull);
+      expect(d.store.sessions.length, before);
+    }
+    d.store.addSet();
+    await t.pump();
+    await t.tap(find.byIcon(Icons.arrow_back));
+    await t.pumpAndSettle();
+    await t.tap(find.text('Finish and save'));
+    await t.pumpAndSettle();
+    expect(find.text('1 set is not done. It is not saved.'), findsOneWidget);
   });
 
   testWidgets('closing the sheet stays; system back opens it', (WidgetTester t) async {

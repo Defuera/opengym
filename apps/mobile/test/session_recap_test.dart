@@ -401,6 +401,8 @@ void main() {
     await t.pumpAndSettle();
     await t.tap(find.text('Finish session'));
     await t.pumpAndSettle();
+    await t.tap(find.byKey(const ValueKey<String>('confirm-finish')));
+    await t.pumpAndSettle();
     expect(find.text('8 × 60 kg'), findsOneWidget);
     expect(find.byKey(const ValueKey<String>('recap-menu')), findsOneWidget);
     expect(d.store.active, isNull);

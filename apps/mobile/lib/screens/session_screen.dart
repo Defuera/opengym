@@ -206,6 +206,42 @@ class _SessionScreenState extends State<SessionScreen> with WidgetsBindingObserv
 
   /// The one way out: Pause, Finish (with a done set) or Discard. Closing the
   /// sheet stays in the session.
+  /// The one confirm step before a session is finished. It says what is left
+  /// out: sets that are not done are not saved. True only on "Finish and save".
+  Future<bool> _confirmFinish(BuildContext context) async {
+    int open = 0;
+    for (final Exercise e in store.active?.exercises ?? <Exercise>[]) {
+      open += e.sets.where((SetEntry s) => !s.done).length;
+    }
+    final String? c = await showChoiceSheet(
+      context,
+      title: 'Finish this session?',
+      message: open == 0
+          ? 'Every set is done.'
+          : open == 1
+              ? '1 set is not done. It is not saved.'
+              : '$open sets are not done. They are not saved.',
+      choices: const <SheetChoice>[
+        SheetChoice(
+          value: 'finish',
+          label: 'Finish and save',
+          variant: OgVariant.accent,
+          key: ValueKey<String>('confirm-finish'),
+        ),
+        SheetChoice(value: 'stay', label: 'Keep going', variant: OgVariant.dashed),
+      ],
+    );
+    return c == 'finish';
+  }
+
+  /// The bottom button: asks first, then finishes and opens the recap.
+  Future<void> _finishFromButton(BuildContext context) async {
+    if (!await _confirmFinish(context) || !context.mounted) {
+      return;
+    }
+    _leave(context, recapId: store.finish());
+  }
+
   Future<void> _askLeave(BuildContext context) async {
     final String? choice = await showChoiceSheet(
       context,
@@ -227,6 +263,9 @@ class _SessionScreenState extends State<SessionScreen> with WidgetsBindingObserv
       }
       return;
     } else if (choice == 'finish') {
+      if (!context.mounted || !await _confirmFinish(context)) {
+        return;
+      }
       saved = store.finish();
     } else if (choice == 'discard') {
       if (!context.mounted) {
@@ -454,7 +493,7 @@ class _SessionScreenState extends State<SessionScreen> with WidgetsBindingObserv
         child: OgButton(
           key: ValueKey<String>(next ? 'next-exercise' : 'finish-session'),
           variant: OgVariant.ink,
-          onPressed: next ? store.nextExercise : () => _leave(context, recapId: store.finish()),
+          onPressed: next ? store.nextExercise : () => _finishFromButton(context),
           child: Text(next ? 'Next exercise' : 'Finish session', style: OG.display(20, color: OG.white)),
         ),
       ),

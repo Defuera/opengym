@@ -226,6 +226,8 @@ void main() {
       final String id = d.store.active!.id;
       await t.tap(find.text('Finish session'));
       await t.pumpAndSettle();
+      await t.tap(find.byKey(const ValueKey<String>('confirm-finish')));
+      await t.pumpAndSettle();
       expect(d.store.sessionById(id)!.placeId, 'home');
       // The save the outbox sends is built from this session: it carries the place.
       expect(encodeSession(d.store.sessionById(id)!)['placeId'], 'home');

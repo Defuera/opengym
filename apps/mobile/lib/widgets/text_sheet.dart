@@ -12,6 +12,9 @@ Future<String?> showTextSheet(
   required String actionLabel,
   String? hint,
   String? initialText,
+  bool allowEmpty = false,
+  int maxLines = 1,
+  int? maxLength,
 }) {
   return showOgSheet<String>(
     context,
@@ -20,6 +23,9 @@ Future<String?> showTextSheet(
       actionLabel: actionLabel,
       hint: hint,
       initialText: initialText,
+      allowEmpty: allowEmpty,
+      maxLines: maxLines,
+      maxLength: maxLength,
     ),
     title: title,
   );
@@ -31,7 +37,15 @@ class _TextSheet extends StatefulWidget {
     required this.actionLabel,
     this.hint,
     this.initialText,
+    this.allowEmpty = false,
+    this.maxLines = 1,
+    this.maxLength,
   });
+
+  /// With this an empty text is an answer too (it clears the value).
+  final bool allowEmpty;
+  final int maxLines;
+  final int? maxLength;
 
   final String label;
   final String actionLabel;
@@ -53,7 +67,7 @@ class _TextSheetState extends State<_TextSheet> {
 
   void _done() {
     final String v = _c.text.trim();
-    if (v.isNotEmpty) {
+    if (v.isNotEmpty || widget.allowEmpty) {
       FocusManager.instance.primaryFocus?.unfocus(); // the keyboard closes with the sheet
       Navigator.of(context).pop(v);
     }
@@ -69,6 +83,10 @@ class _TextSheetState extends State<_TextSheet> {
           label: widget.label,
           controller: _c,
           hint: widget.hint,
+          maxLines: widget.maxLines,
+          minLines: widget.maxLines > 1 ? 2 : null,
+          maxLength: widget.maxLength,
+          autocorrect: widget.maxLines > 1,
           onSubmitted: (String v) => _done(),
         ),
         const SizedBox(height: 14),

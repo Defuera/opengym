@@ -42,7 +42,8 @@ export function coachPicture(all: Session[], goals: Goal[], context: ContextItem
     ...(s.endedAt > s.startedAt || s.source !== "import" ? { start: localTime(s.startedAt) } : {}),
     type: s.type,
     focus: s.focus,
-    exercises: s.exercises.map((e) => `${e.name}: ${setsText(e.sets)}`),
+    // A comment is what the person wrote about the exercise in that session (ADR-029), word for word.
+    exercises: s.exercises.map((e) => `${e.name}: ${setsText(e.sets)}${e.comment ? ` (comment from the person: "${e.comment}")` : ""}`),
     minutes: s.minutes,
     distanceKm: s.distanceKm,
     note: s.note,

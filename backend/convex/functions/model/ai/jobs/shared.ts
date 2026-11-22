@@ -18,7 +18,7 @@ export function logForPrompt(sessions: Session[], limit = 12) {
     kind: s.kind,
     type: s.type,
     focus: s.focus,
-    exercises: s.exercises.map((e) => ({ name: e.name, sets: e.sets.map((x) => ("kg" in x ? `${x.reps}x${fmtKg(x.kg)}${x.max ? " max" : ""}` : timeText(x))).join(", ") })),
+    exercises: s.exercises.map((e) => ({ name: e.name, sets: e.sets.map((x) => ("kg" in x ? `${x.reps}x${fmtKg(x.kg)}${x.max ? " max" : ""}` : timeText(x))).join(", "), ...(e.comment ? { commentFromThePerson: e.comment } : {}) })),
     minutes: s.minutes,
     distanceKm: s.distanceKm,
   }));

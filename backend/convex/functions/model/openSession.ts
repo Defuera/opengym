@@ -20,7 +20,10 @@ export interface OpenExercise {
   sets: OpenSet[];
   fresh?: boolean;
   carry?: boolean;
+  /** The plan note of the coach. */
   note?: string;
+  /** What the person wrote about the exercise (ADR-029). */
+  comment?: string;
 }
 
 /** A planned exercise as an outside writer gives it: no id, no done flag. */
@@ -35,11 +38,12 @@ export const OPEN_SESSION_MAX_EXERCISES = 40;
 export const OPEN_SESSION_MAX_SETS = 30;
 
 const key = (name: string) => name.trim().toLowerCase().replace(/\s+/g, " ");
-const hasDone = (e: OpenExercise) => e.sets.some((s) => s.done);
+/** The person's own work on an exercise: a done set or a comment. An outside writer never touches it. */
+const hasDone = (e: OpenExercise) => e.sets.some((s) => s.done) || !!e.comment;
 
 /**
  * The exercises after an outside writer (the coach, the owner's tool) gives a new plan. Plain code keeps the facts:
- * an exercise with a done set stays exactly as it is, in its place at the front; every other exercise is replaced by the plan.
+ * an exercise with a done set or a comment of the person stays exactly as it is, in its place at the front; every other exercise is replaced by the plan.
  * A planned exercise with the name of a kept one is left out. `newId` makes the ids of the new exercises.
  */
 export function mergePlan(current: OpenExercise[], planned: PlannedExercise[], newId: () => string): OpenExercise[] {

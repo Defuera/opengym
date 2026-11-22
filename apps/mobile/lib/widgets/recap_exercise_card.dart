@@ -4,10 +4,13 @@ import '../theme.dart';
 
 /// One exercise of a finished session: its name and one line per entry.
 class RecapExerciseCard extends StatelessWidget {
-  const RecapExerciseCard({super.key, required this.name, required this.lines});
+  const RecapExerciseCard({super.key, required this.name, required this.lines, this.comment});
 
   final String name;
   final List<String> lines;
+
+  /// What the person wrote about the exercise in this session. Null: none.
+  final String? comment;
 
   @override
   Widget build(BuildContext context) {
@@ -32,6 +35,11 @@ class RecapExerciseCard extends StatelessWidget {
                   Expanded(child: Text(lines[i], style: OG.body(size: 17))),
                 ],
               ),
+            ),
+          if (comment != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 10),
+              child: Text(comment!, key: const ValueKey<String>('recap-comment'), style: OG.muted(size: 15)),
             ),
         ],
       ),

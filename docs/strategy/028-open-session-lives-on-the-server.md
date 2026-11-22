@@ -22,7 +22,7 @@ So nothing outside the phone could change it. A plan of the coach that came late
 - Logging stays local first (ADR-003). Each change is saved on the phone at once. The app sends it to the server after, and marks on disk that a change is not sent yet. Offline, the mark stays and the change goes out when the connection is back.
 - The app subscribes to the row. It takes the server's copy only when the phone holds no unsent change and the server's revision is newer than the one the phone has. That is a change made outside the phone.
 - When the phone and an outside writer change the session at the same time, the phone wins. The person's hands are on it.
-- A set marked done is a fact, and only the app writes facts (ADR-002). An outside writer goes through `jobs/openSession:replacePlan`: plain code keeps every exercise that has a done set exactly as it is and replaces only the rest.
+- A set marked done is a fact, and only the app writes facts (ADR-002). An outside writer goes through `jobs/openSession:replacePlan`: plain code keeps every exercise that has a done set (or, since ADR-029, a comment of the person) exactly as it is and replaces only the rest.
 - The row is not a fact. The session becomes a fact when the app finishes it and sends `commands/sessions:save`, as before. The app then removes the row.
 - A session that ended on the phone is never opened again from the server: the phone keeps the id of the ended session until the server has dropped the row.
 

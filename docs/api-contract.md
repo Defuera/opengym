@@ -174,14 +174,16 @@ Time exercises (a bike, a plank hold, a treadmill) inside a session with sets:
 
 **Stored AI calls (Convex backend, ADR-027).** Every job run that reaches the provider is stored as one row in `aiCalls`: `{ at, job, provider, model?, system, messages: [{ role, content }], images: number, attempts: [{ raw?, error?, ms }], path: "ai" | "fallback", reason?, ms }`. Indexes `by_at`, `by_job`. It holds the exact prompt, every attempt (a rejected first answer too, with the reason) and the outcome. Images are counted, not stored. A text over 200,000 characters is cut. Written by `jobs/aiCalls:save` from `lib/ai.ts`; a failed write never fails the job. `jobs/purge:run` erases a row 90 days after the call. The app does not read this table.
 
-**The open session (Convex backend, ADR-028).** Table `openSession`, at most one row: the session the person is doing now, in the app's local shape `{ id, kind: "gym", type, focus?, startedAt, source?, planNote?, placeId?, programId?, programWeek?, programSlot?, programKey?, exercises: [{ id, name, measure?: "time", note?, fresh?, carry?, sets: [{ reps?, kg?, max?, failed?, minutes?, distanceKm?, done: boolean, at? }] }] }` plus `rev` (grows by one on every write), `updatedAt` and `updatedBy: "app" | "coach" | "owner"`. It is not a fact: the session becomes a fact with `commands/sessions:save`.
+**Comment on an exercise (ADR-029).** An exercise of a session (both shapes) may carry `comment?: string` (1..1000): the person's words about that exercise in that session. `commands/sessions:save` stores it; the session queries return it. `build_session` gets it inside `recentSessions`, on the exercise line: `Dips: 10x0 (comment from the person: "...")`. `review_session` gets it as `commentFromThePerson` on the exercise. The app shows it in the session and in the recap, and does not show it when the exercise comes again.
+
+**The open session (Convex backend, ADR-028).** Table `openSession`, at most one row: the session the person is doing now, in the app's local shape `{ id, kind: "gym", type, focus?, startedAt, source?, planNote?, placeId?, programId?, programWeek?, programSlot?, programKey?, exercises: [{ id, name, measure?: "time", note?, comment?, fresh?, carry?, sets: [{ reps?, kg?, max?, failed?, minutes?, distanceKm?, done: boolean, at? }] }] }` plus `rev` (grows by one on every write), `updatedAt` and `updatedBy: "app" | "coach" | "owner"`. It is not a fact: the session becomes a fact with `commands/sessions:save`.
 
 | Function | Arguments | Returns |
 |---|---|---|
 | mutation `commands/openSession:put` | `{ token, session }` (at most 40 exercises, 30 sets each) | the new `rev`. Replaces the row, whatever session it held. The app sends it after every local change. |
 | mutation `commands/openSession:clear` | `{ token, id }` | nothing. Removes the row when it holds the session `id`. Idempotent. The app sends it when the session is finished or discarded. |
 | query `queries/openSession:get` | `{ token }` | `{ session, rev, updatedAt, updatedBy }`, or `{ session: null, rev: 0, updatedBy: null }`. The app subscribes and takes the server's copy only with no unsent local change and a newer `rev`. |
-| internal mutation `jobs/openSession:replacePlan` | `{ id?, by: "coach" \| "owner", exercises: [{ name, measure?, note?, sets }], focus?, planNote? }` | the new `rev`, or `null` when nothing changed. An exercise with a done set stays as it is; the rest is replaced. |
+| internal mutation `jobs/openSession:replacePlan` | `{ id?, by: "coach" \| "owner", exercises: [{ name, measure?, note?, sets }], focus?, planNote? }` | the new `rev`, or `null` when nothing changed. An exercise with a done set or a comment of the person stays as it is; the rest is replaced. |
 
 ## Providers
 

@@ -24,10 +24,11 @@ export const timeEntry = v.object({
 /**
  * An exercise: `measure` is absent in all old rows (= "sets"). A "time" exercise holds timeEntry items, any other holds
  * setEntry items. Two shapes, told apart by `measure`.
+ * `comment` is what the person wrote about this exercise in this session (ADR-029): how it went that day. A fact, the person's words.
  */
 export const exercise = v.union(
-  v.object({ name: v.string(), measure: v.optional(v.literal("sets")), sets: v.array(setEntry) }),
-  v.object({ name: v.string(), measure: v.literal("time"), sets: v.array(timeEntry) }),
+  v.object({ name: v.string(), measure: v.optional(v.literal("sets")), sets: v.array(setEntry), comment: v.optional(v.string()) }),
+  v.object({ name: v.string(), measure: v.literal("time"), sets: v.array(timeEntry), comment: v.optional(v.string()) }),
 );
 
 /** A fact: written only by the app or by an import the user started. Never by the AI. */
@@ -159,7 +160,10 @@ export const openSessionFields = {
       sets: v.array(openSet),
       fresh: v.optional(v.boolean()),
       carry: v.optional(v.boolean()),
+      /** The plan note the coach wrote for the exercise. */
       note: v.optional(v.string()),
+      /** What the person wrote about the exercise (ADR-029). Only the app writes it. */
+      comment: v.optional(v.string()),
     }),
   ),
 };

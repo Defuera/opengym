@@ -61,6 +61,28 @@ describe("sessions", () => {
     expect(stored!.exercises[0]!.sets[1]).toMatchObject({ failed: true });
   });
 
+  it("keeps the person's comment on an exercise, and the coach reads it on that exercise", async () => {
+    const now = 2_000_000_000_000;
+    vi.setSystemTime(now);
+    const s = pushSession("c", now - 3_600_000);
+    (s.exercises[1] as { comment?: string }).comment = "I feel my shoulder a bit";
+    await t.mutation(api.commands.sessions.save, { token: TOKEN, session: s });
+    const [stored] = await t.query(api.queries.sessions.recent, { token: TOKEN });
+    expect(stored!.exercises[1]).toMatchObject({ name: "Dips", comment: "I feel my shoulder a bit" });
+    expect(stored!.exercises[0]).not.toHaveProperty("comment");
+    const { coachPicture } = await import("../functions/model/ai/jobs/coachPicture");
+    const session = { ...s, id: s.sessionId } as never;
+    const picture = coachPicture([session], [], [], [], [], now);
+    expect(picture.recentSessions[0]!.exercises[1]).toBe('Dips: 10x0 (comment from the person: "I feel my shoulder a bit")');
+    await settle(t);
+  });
+
+  it("rejects a comment that is too long", async () => {
+    const s = pushSession("long", 2_000_000);
+    (s.exercises[0] as { comment?: string }).comment = "x".repeat(1001);
+    await expect(t.mutation(api.commands.sessions.save, { token: TOKEN, session: s })).rejects.toThrow();
+  });
+
   it("is an idempotent upsert; since honours endedAt and sorts oldest first", async () => {
     const s = pushSession("s1", 2_000_000);
     await t.mutation(api.commands.sessions.save, { token: TOKEN, session: s });

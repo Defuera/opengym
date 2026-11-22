@@ -43,3 +43,4 @@ This directory holds the Architecture Decision Records (ADRs) for Gym Days (Open
 | [026](026-talk-to-the-coach-in-one-chat.md) | Every Conversation With the Coach Is the Chat | Accepted (details Proposed) |
 | [027](027-store-ai-calls-for-90-days.md) | The Server Stores Every AI Call for 90 Days | Accepted |
 | [028](028-open-session-lives-on-the-server.md) | The Open Session Lives on the Server, With a Copy on the Phone | Accepted |
+| [029](029-comment-on-an-exercise.md) | The Person Can Comment on an Exercise in a Session | Accepted (steps 2, 3 Proposed) |

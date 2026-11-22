@@ -308,4 +308,30 @@ void _storeSetAndOrderTests() {
     store.setMinutes(7);
     expect(store.currentSet!.minutes, isNull);
   });
+
+  test('a comment on an exercise is kept through finish and goes to the server shape', () async {
+    final AppStore store = await _newStore(InMemorySessionRepository());
+    store.begin(focus: 'Push', prepared: pushPlan());
+    store.setComment('  I feel my shoulder a bit  ');
+    expect(store.currentExercise!.comment, 'I feel my shoulder a bit');
+    expect(store.activeDirty, isTrue); // it goes to the open session on the server too
+    store.completeSet();
+    final String id = store.finish()!;
+    final Session saved = store.sessionById(id)!;
+    expect(saved.exercises.single.comment, 'I feel my shoulder a bit');
+    expect((saved.toContractJson()['exercises'] as List<dynamic>).single['comment'], 'I feel my shoulder a bit');
+    // It survives the phone's own storage and the server's answer.
+    expect(Session.fromJson(saved.toJson()).exercises.single.comment, 'I feel my shoulder a bit');
+  });
+
+  test('an empty comment removes it; a long one is cut', () async {
+    final AppStore store = await _newStore(InMemorySessionRepository());
+    store.begin(focus: 'Push', prepared: pushPlan());
+    store.setComment('note');
+    store.setComment('   ');
+    expect(store.currentExercise!.comment, isNull);
+    expect(store.currentExercise!.toJson().containsKey('comment'), isFalse);
+    store.setComment('x' * 1500);
+    expect(store.currentExercise!.comment!.length, 1000);
+  });
 }

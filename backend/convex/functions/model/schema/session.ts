@@ -20,12 +20,17 @@ export const TimeEntrySchema = z
   })
   .strict();
 
+/** What the person wrote about an exercise in this session (ADR-029): how it went that day. Their own words. */
+export const EXERCISE_COMMENT_MAX = 1000;
+const ExerciseCommentSchema = z.string().min(1).max(EXERCISE_COMMENT_MAX).optional();
+
 /** An exercise measured in sets and reps. `measure` is absent in all stored data: absent means "sets". */
 export const SetsExerciseSchema = z.object({
   name: z.string().min(1).max(60),
   measure: z.literal("sets").optional(),
   // Strict: minutes/distanceKm must not appear on a sets entry, so a mixed exercise is rejected.
   sets: z.array(SetEntrySchema.strict()).max(12),
+  comment: ExerciseCommentSchema,
 });
 
 /** An exercise measured in time. Usually one entry; more are allowed (intervals). */
@@ -33,6 +38,7 @@ export const TimeExerciseSchema = z.object({
   name: z.string().min(1).max(60),
   measure: z.literal("time"),
   sets: z.array(TimeEntrySchema).max(12),
+  comment: ExerciseCommentSchema,
 });
 
 export const ExerciseSchema = z.union([SetsExerciseSchema, TimeExerciseSchema]);

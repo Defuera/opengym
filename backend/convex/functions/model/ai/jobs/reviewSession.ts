@@ -22,7 +22,7 @@ export const reviewSessionJob: JobDef<ReviewInput, ReviewDraft> = {
   maxTokens: 1500,
   output: ReviewDraftSchema,
   build: (i) => ({
-    system: systemPrompt("review_session", "Review the finished session against the previous one of the same activity and focus. Mention only differences visible in the data (sets, reps, weights, duration). Add one practical next-session pointer. Max 400 characters for the summary, at most 5 short change lines. " + LIMITS_RULE, `{"summary": string (max 400 chars), "changes": string[] (max 5)}`),
+    system: systemPrompt("review_session", "Review the finished session against the previous one of the same activity and focus. Mention only differences visible in the data (sets, reps, weights, duration). An exercise may carry commentFromThePerson, written during the session: take it into account and answer to it when it matters. Add one practical next-session pointer. Max 400 characters for the summary, at most 5 short change lines. " + LIMITS_RULE, `{"summary": string (max 400 chars), "changes": string[] (max 5)}`),
     messages: [{ role: "user", content: dataPrompt("Review this session.", { session: logForPrompt([i.session], 1)[0], previousOfSameType: (() => { const p = previousOfType(i.sessions, i.session); return p ? logForPrompt([p], 1)[0] : null; })(), recentSameType: logForPrompt(i.sessions.filter((x) => x.id !== i.session.id), 6), limits: limitsForPrompt(i.limits) }) }],
   }),
   fallback: (i) => i.rules,

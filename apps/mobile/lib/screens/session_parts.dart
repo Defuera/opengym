@@ -6,6 +6,7 @@ import '../store.dart';
 import '../stores/countdown_store.dart';
 import '../stores/exercise_art_store.dart';
 import '../widgets/choice_sheet.dart';
+import '../widgets/comment_line.dart';
 import '../widgets/exercise_anim.dart';
 import '../widgets/exercise_card.dart';
 import '../widgets/exercise_carousel.dart';
@@ -155,6 +156,7 @@ class SessionPanel extends StatelessWidget {
           onToggle: store.toggleSet,
           checkPrefix: 'set-check-${store.curEx}',
         ),
+        CommentLine(comment: ex.comment, onChanged: store.setComment),
       ],
     );
   }

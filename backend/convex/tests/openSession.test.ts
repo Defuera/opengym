@@ -18,6 +18,12 @@ describe("mergePlan", () => {
     expect(out[1]).toEqual(ex("Leg Press", [true, false]));
     expect(out[2]).toMatchObject({ id: "n0", sets: [{ reps: 10, kg: 0, max: false, done: false }] });
   });
+  it("keeps an exercise the person commented on, even with no done set", () => {
+    const out = mergePlan([{ ...ex("Bike", [false]), comment: "level 9, HR 140" }, ex("Walk", [false])], [{ name: "Squat", sets: [{ reps: 10, kg: 0 }] }], ids());
+    expect(out.map((e) => e.name)).toEqual(["Bike", "Squat"]);
+    expect(out[0]!.comment).toBe("level 9, HR 140");
+  });
+
   it("leaves out a planned exercise with the name of a kept one, and one with no set", () => {
     const out = mergePlan([ex("Leg Press", [true])], [{ name: " leg  press ", sets: [{ reps: 12, kg: 35 }] }, { name: "Empty", sets: [] }, { name: "Bike", measure: "time", sets: [{ minutes: 30 }] }], ids());
     expect(out.map((e) => e.name)).toEqual(["Leg Press", "Bike"]);

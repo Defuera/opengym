@@ -171,7 +171,7 @@ class _SessionRecapScreenState extends State<SessionRecapScreen> {
           ),
         ),
       for (final Exercise e in s.exercises) ...<Widget>[
-        RecapExerciseCard(name: e.name, lines: <String>[for (final SetEntry x in e.sets) setLine(x)]),
+        RecapExerciseCard(name: e.name, lines: <String>[for (final SetEntry x in e.sets) setLine(x)], comment: e.comment),
         const SizedBox(height: 10),
       ],
       if (note != null && note.isNotEmpty) ...<Widget>[

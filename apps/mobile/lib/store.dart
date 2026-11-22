@@ -266,7 +266,7 @@ class AppStore extends ChangeNotifier {
               ))
           .toList();
       if (done.isNotEmpty) {
-        kept.add(Exercise(id: e.id, name: e.name, measure: e.measure, sets: done));
+        kept.add(Exercise(id: e.id, name: e.name, measure: e.measure, sets: done, comment: e.comment));
       }
     }
     a.exercises = kept;
@@ -495,6 +495,17 @@ class AppStore extends ChangeNotifier {
     final int at = a.exercises.isEmpty ? 0 : math.min(math.max(curEx, 0) + 1, a.exercises.length);
     a.exercises.insert(at, makeExercise(sessions, name, measure: measure));
     _select(at);
+    _commit();
+  }
+
+  /// Sets what the person wrote about the open exercise (ADR-029). An empty text removes it.
+  void setComment(String? text) {
+    final Exercise? e = currentExercise;
+    final String? next = cleanComment(text);
+    if (e == null || e.comment == next) {
+      return;
+    }
+    e.comment = next;
     _commit();
   }
 

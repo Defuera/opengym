@@ -145,6 +145,7 @@ class Exercise {
     this.fresh = false,
     this.carry = false,
     this.note,
+    this.comment,
   });
 
   String id;
@@ -160,6 +161,10 @@ class Exercise {
   /// Plan note for this exercise (local only, not part of the API shape).
   String? note;
 
+  /// What the person wrote about this exercise in this session (ADR-029): how
+  /// it went that day. Saved with the session.
+  String? comment;
+
   Map<String, dynamic> toJson() {
     return <String, dynamic>{
       'id': id,
@@ -169,6 +174,7 @@ class Exercise {
       'fresh': fresh,
       'carry': carry,
       if (note != null) 'note': note,
+      if (comment != null) 'comment': comment,
     };
   }
 
@@ -179,6 +185,7 @@ class Exercise {
       'name': n,
       if (isTime) 'measure': measureTime,
       'sets': sets.take(12).map((SetEntry s) => s.toContractJson()).toList(),
+      if (comment != null && comment!.trim().isNotEmpty) 'comment': cleanComment(comment),
     };
   }
 
@@ -198,6 +205,7 @@ class Exercise {
       fresh: j['fresh'] == true,
       carry: j['carry'] == true,
       note: j['note'] is String ? j['note'] as String : null,
+      comment: cleanComment(j['comment']),
     );
   }
 }
@@ -424,4 +432,19 @@ class OpenRemote {
 
   final Session? session;
   final int rev;
+}
+
+/// The longest comment on an exercise (the server's limit).
+const int maxExerciseComment = 1000;
+
+/// A comment as it is stored: trimmed, cut to [maxExerciseComment], null when empty or not a text.
+String? cleanComment(Object? raw) {
+  if (raw is! String) {
+    return null;
+  }
+  final String t = raw.trim();
+  if (t.isEmpty) {
+    return null;
+  }
+  return t.length > maxExerciseComment ? t.substring(0, maxExerciseComment) : t;
 }

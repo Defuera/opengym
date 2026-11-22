@@ -11,7 +11,10 @@ import 'chat_screen.dart';
 /// [onPick] gets the place the person chose; "Tell the coach" opens a chat
 /// about the current place.
 class PlaceMarkView extends StatelessWidget {
-  const PlaceMarkView({super.key, required this.deps, required this.placeId, required this.onPick});
+  const PlaceMarkView({super.key, required this.deps, required this.placeId, required this.onPick, this.chip = false});
+
+  /// See [PlaceMark.chip].
+  final bool chip;
 
   final AppDeps deps;
   final String? placeId;
@@ -49,7 +52,7 @@ class PlaceMarkView extends StatelessWidget {
     return ListenableBuilder(
       listenable: deps.places,
       builder: (BuildContext context, Widget? child) =>
-          PlaceMark(name: deps.places.byId(placeId)?.name, onTap: () => _open(context)),
+          PlaceMark(name: deps.places.byId(placeId)?.name, chip: chip, onTap: () => _open(context)),
     );
   }
 }

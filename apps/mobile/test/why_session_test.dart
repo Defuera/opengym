@@ -50,7 +50,9 @@ void main() {
     fake.planLoadAnswer = <String, int>{'delts': 2};
     await t.tap(find.byKey(_icon));
     await t.pumpAndSettle();
-    final List<PlanLoadItem> sent = fake.planLoadRequests.single;
+    // The screen asks once for the figure at the title, and again when the sheet opens.
+    expect(fake.planLoadRequests.length, 2);
+    final List<PlanLoadItem> sent = fake.planLoadRequests.last;
     expect(sent.map((PlanLoadItem x) => x.toJson()), <Map<String, dynamic>>[
       <String, dynamic>{'name': 'Lateral Raise', 'sets': 3, 'minutes': 0},
       <String, dynamic>{'name': 'Warm-Up', 'sets': 0, 'minutes': 5},

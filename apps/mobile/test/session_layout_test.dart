@@ -72,7 +72,7 @@ void main() {
     await t.tap(find.byKey(const ValueKey<String>('why-icon')));
     await t.pumpAndSettle();
     expect(find.text(long), findsOneWidget);
-    expect(find.text('Side delts, shins'), findsOneWidget);
+    expect(find.text('Side delts, shins'), findsNWidgets(2)); // under the title, and in the sheet
     await t.tap(find.byKey(const ValueKey<String>('og-sheet-close')));
     await t.pumpAndSettle();
     expect(find.text(long), findsNothing);

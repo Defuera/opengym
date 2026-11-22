@@ -128,6 +128,41 @@ class BodyFigure extends StatelessWidget {
   }
 }
 
+/// The figure small, front and back side by side: only the load colours. No
+/// legend, no words, no tap targets. It takes the height its parent gives.
+class BodyFigureMini extends StatelessWidget {
+  const BodyFigureMini({super.key, required this.load});
+
+  /// Muscle key -> level 0..3. A missing key means 0 (grey).
+  final Map<String, int> load;
+
+  Widget _view(bool front) {
+    return AspectRatio(
+      aspectRatio: figureWidth / figureHeight,
+      child: LayoutBuilder(
+        builder: (BuildContext context, BoxConstraints c) => CustomPaint(
+          painter: _FigurePainter(
+            shapes: bodyShapes(front),
+            scale: c.maxWidth / figureWidth,
+            load: load,
+            limits: const <String, LimitMark>{},
+            focus: const <String>{},
+            selected: null,
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[_view(true), const SizedBox(width: 5), _view(false)],
+    );
+  }
+}
+
 class _FigurePainter extends CustomPainter {
   _FigurePainter({
     required this.shapes,

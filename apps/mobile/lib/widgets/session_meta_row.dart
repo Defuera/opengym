@@ -3,12 +3,20 @@ import 'package:flutter/material.dart';
 import '../theme.dart';
 import 'body_figure.dart';
 
-/// One quiet tappable item of the session meta row.
+/// The look of one chip of the session meta row: a small bordered pill.
+BoxDecoration metaChipBox() => BoxDecoration(
+      color: OG.card,
+      borderRadius: BorderRadius.circular(18),
+      border: Border.all(color: OG.ink, width: 1.5),
+    );
+
+/// One tappable chip of the session meta row: an optional icon and a label.
 class MetaItem extends StatelessWidget {
-  const MetaItem({super.key, required this.label, required this.onTap});
+  const MetaItem({super.key, required this.label, required this.onTap, this.icon});
 
   final String label;
   final VoidCallback onTap;
+  final IconData? icon;
 
   @override
   Widget build(BuildContext context) {
@@ -16,43 +24,51 @@ class MetaItem extends StatelessWidget {
       button: true,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(8),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 2),
-          child: Text(label,
-              style:
-                  OG.body(size: 14, weight: FontWeight.w500, color: OG.mute)),
+        borderRadius: BorderRadius.circular(18),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 7, horizontal: 12),
+          decoration: metaChipBox(),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              if (icon != null) ...<Widget>[Icon(icon, size: 16, color: OG.ink), const SizedBox(width: 6)],
+              Text(label, style: OG.body(size: 14, weight: FontWeight.w600)),
+            ],
+          ),
         ),
       ),
     );
   }
 }
 
-/// A quiet icon item of the meta row, with a 44 x 44 tap target.
-class MetaIconItem extends StatelessWidget {
-  const MetaIconItem({super.key, required this.icon, required this.label, required this.onTap});
+/// The small figure at the right of the session title: what the planned
+/// session works, front and back. A tap opens "Why this session". With no
+/// [load] (offline, or not known yet) the figure is grey.
+class WhyFigureButton extends StatelessWidget {
+  const WhyFigureButton({super.key, required this.load, required this.onTap});
 
-  final IconData icon;
-
-  /// Semantics label and tooltip.
-  final String label;
+  final Map<String, int>? load;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     return Semantics(
       button: true,
-      label: label,
+      label: 'Why this session',
       excludeSemantics: true,
       child: Tooltip(
-        message: label,
+        message: 'Why this session',
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(22),
-          child: SizedBox(
-            width: 44,
-            height: 44,
-            child: Icon(icon, size: 22, color: OG.mute),
+          borderRadius: BorderRadius.circular(14),
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(9, 7, 9, 7),
+            decoration: BoxDecoration(
+              color: OG.card,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: OG.ink, width: 2),
+            ),
+            child: SizedBox(height: 54, child: BodyFigureMini(load: load ?? const <String, int>{})),
           ),
         ),
       ),
@@ -77,14 +93,14 @@ class SessionMetaRow extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
             Wrap(
-              spacing: 14,
-              runSpacing: 0,
+              spacing: 8,
+              runSpacing: 8,
               crossAxisAlignment: WrapCrossAlignment.center,
               children: items,
             ),
             if (n != null)
               Padding(
-                  padding: const EdgeInsets.only(top: 2),
+                  padding: const EdgeInsets.only(top: 6),
                   child: Text(n, style: OG.muted(size: 14))),
           ],
         ));

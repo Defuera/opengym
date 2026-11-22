@@ -42,6 +42,11 @@ class SessionScreen extends StatefulWidget {
 class _SessionScreenState extends State<SessionScreen> with WidgetsBindingObserver {
   final TextEditingController _feedback = TextEditingController();
   bool _wasBusy = false;
+
+  /// What the planned session works (muscle key -> level), for the figure at
+  /// the title. Null until known, and offline.
+  Map<String, int>? _load;
+  String? _loadKey;
   String _artNames = '';
 
   /// Which side the card of the current exercise comes in from: 1 right, -1 left.
@@ -138,6 +143,21 @@ class _SessionScreenState extends State<SessionScreen> with WidgetsBindingObserv
     } catch (_) {
       return null;
     }
+  }
+
+  /// Reads the load again when the exercises or their set counts change.
+  void _trackLoad(Session a) {
+    final String key =
+        '${a.id}|${deps?.connection.connected}|${a.exercises.map((Exercise e) => '${e.name}:${e.sets.length}').join(',')}';
+    if (key == _loadKey) {
+      return;
+    }
+    _loadKey = key;
+    _planLoad(a).then((Map<String, int>? v) {
+      if (mounted && _loadKey == key) {
+        setState(() => _load = v);
+      }
+    });
   }
 
   Future<void> _showWhy(BuildContext context, Session a) {
@@ -258,6 +278,7 @@ class _SessionScreenState extends State<SessionScreen> with WidgetsBindingObserv
           return const Scaffold(body: SizedBox.shrink());
         }
         _trackArt(a);
+        _trackLoad(a);
         if (store.curEx != _lastEx) {
           _from = store.curEx > _lastEx ? 1 : -1;
           _lastEx = store.curEx;
@@ -267,121 +288,153 @@ class _SessionScreenState extends State<SessionScreen> with WidgetsBindingObserv
         final bool busy = canChange && rebuild!.busy;
         final bool why = a.focus != null || a.planNote != null || a.exercises.isNotEmpty;
         return PopScope<Object?>(
-          canPop: false,
-          onPopInvokedWithResult: (bool didPop, Object? result) {
-            if (!didPop) {
-              _askLeave(context);
-            }
-          },
-          child: Scaffold(
-          body: SafeArea(
-            child: Column(
-              children: <Widget>[
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      KeyedSubtree(
-                        key: const ValueKey<String>('leave-back'),
-                        child: OgIconButton(
-                          icon: Icons.arrow_back,
-                          onPressed: () => _askLeave(context),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Padding(
-                          padding: const EdgeInsets.only(top: 8),
-                          child: Text(
-                            a.type,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: OG.display(a.type.length > 24 ? 26 : 30),
+            canPop: false,
+            onPopInvokedWithResult: (bool didPop, Object? result) {
+              if (!didPop) {
+                _askLeave(context);
+              }
+            },
+            child: Scaffold(
+              body: SafeArea(
+                child: Column(
+                  children: <Widget>[
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          KeyedSubtree(
+                            key: const ValueKey<String>('leave-back'),
+                            child: OgIconButton(
+                              icon: Icons.arrow_back,
+                              onPressed: () => _askLeave(context),
+                            ),
                           ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(18, 4, 20, 0),
-                  child: SessionMetaRow(
-                    note: (rebuild?.failed ?? false) && !busy
-                        ? 'Could not rebuild. Try again.'
-                        : canChange && !busy
-                            ? (rebuild!.offer != null ? 'The plan of the coach is ready.' : rebuild!.notice)
-                            : null,
-                    items: <Widget>[
-                      if (deps != null)
-                        PlaceMarkView(deps: deps!, placeId: a.placeId, onPick: store.setActivePlace),
-                      if (why)
-                        MetaIconItem(
-                          key: const ValueKey<String>('why-icon'),
-                          icon: Icons.help_outline,
-                          label: 'Why this session',
-                          onTap: () => _showWhy(context, a),
-                        ),
-                      if (canChange) MetaItem(label: 'Change plan', onTap: () => _showChangePlan(context)),
-                      if (canChange && !busy && rebuild!.offer != null)
-                        MetaItem(
-                          key: const ValueKey<String>('use-coach-plan'),
-                          label: 'Use the coach plan',
-                          onTap: rebuild!.useOffer,
-                        ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 10),
-                if (busy)
-                  Expanded(
-                    child: SingleChildScrollView(
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      child: PreparingCard(
-                        title: 'Rebuilding…',
-                        message: 'The coach changes the session with your feedback.',
-                        actionLabel: 'Keep this session',
-                        onAction: rebuild!.cancel,
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Padding(
+                              padding: const EdgeInsets.only(top: 8),
+                              child: Text(
+                                a.type,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: OG.display(a.type.length > 24 ? 26 : 30),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                  )
-                else ...<Widget>[
-                  ExerciseStrip(
-                    store: store,
-                    onAdd: () => _addExercise(context),
-                  ),
-                  Expanded(
-                    child: GestureDetector(
-                      key: const ValueKey<String>('panel-swipe'),
-                      behavior: HitTestBehavior.opaque,
-                      onHorizontalDragEnd: _onSwipe,
-                      child: SingleChildScrollView(
-                        padding: const EdgeInsets.fromLTRB(20, 14, 20, 8),
-                        child: TweenAnimationBuilder<double>(
-                          key: ValueKey<String>('panel-${store.currentExercise?.id}'),
-                          tween: Tween<double>(begin: _from == 0 ? 0 : 1, end: 0),
-                          duration: still ? Duration.zero : const Duration(milliseconds: 180),
-                          curve: Curves.easeOut,
-                          builder: (BuildContext c, double t, Widget? child) => Opacity(
-                            opacity: 1 - t,
-                            child: Transform.translate(offset: Offset(_from * 48 * t, 0), child: child),
-                          ),
-                          child: deps == null
-                              ? SessionPanel(store: store)
-                              : ListenableBuilder(
-                                  listenable: deps!.art,
-                                  builder: (BuildContext c, Widget? w) => SessionPanel(store: store, art: deps!.art),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: <Widget>[
+                                if (a.focus != null && a.focus!.isNotEmpty) ...<Widget>[
+                                  Text(
+                                    a.focus!,
+                                    key: const ValueKey<String>('session-focus'),
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: OG.body(size: 16, weight: FontWeight.w600),
+                                  ),
+                                  const SizedBox(height: 8),
+                                ],
+                                SessionMetaRow(
+                                  note: (rebuild?.failed ?? false) && !busy
+                                      ? 'Could not rebuild. Try again.'
+                                      : canChange && !busy
+                                          ? (rebuild!.offer != null
+                                              ? 'The plan of the coach is ready.'
+                                              : rebuild!.notice)
+                                          : null,
+                                  items: <Widget>[
+                                    if (deps != null)
+                                      PlaceMarkView(
+                                          deps: deps!, placeId: a.placeId, onPick: store.setActivePlace, chip: true),
+                                    if (canChange)
+                                      MetaItem(
+                                          label: 'Change plan',
+                                          icon: Icons.tune,
+                                          onTap: () => _showChangePlan(context)),
+                                    if (canChange && !busy && rebuild!.offer != null)
+                                      MetaItem(
+                                        key: const ValueKey<String>('use-coach-plan'),
+                                        label: 'Use the coach plan',
+                                        icon: Icons.auto_awesome_outlined,
+                                        onTap: rebuild!.useOffer,
+                                      ),
+                                  ],
                                 ),
-                        ),
+                              ],
+                            ),
+                          ),
+                          if (why) ...<Widget>[
+                            const SizedBox(width: 12),
+                            WhyFigureButton(
+                              key: const ValueKey<String>('why-icon'),
+                              load: _load,
+                              onTap: () => _showWhy(context, a),
+                            ),
+                          ],
+                        ],
                       ),
                     ),
-                  ),
-                ],
-                _bottomButton(context, a),
-              ],
-            ),
-          ),
-        ));
+                    const SizedBox(height: 10),
+                    if (busy)
+                      Expanded(
+                        child: SingleChildScrollView(
+                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          child: PreparingCard(
+                            title: 'Rebuilding…',
+                            message: 'The coach changes the session with your feedback.',
+                            actionLabel: 'Keep this session',
+                            onAction: rebuild!.cancel,
+                          ),
+                        ),
+                      )
+                    else ...<Widget>[
+                      ExerciseStrip(
+                        store: store,
+                        onAdd: () => _addExercise(context),
+                      ),
+                      Expanded(
+                        child: GestureDetector(
+                          key: const ValueKey<String>('panel-swipe'),
+                          behavior: HitTestBehavior.opaque,
+                          onHorizontalDragEnd: _onSwipe,
+                          child: SingleChildScrollView(
+                            padding: const EdgeInsets.fromLTRB(20, 14, 20, 8),
+                            child: TweenAnimationBuilder<double>(
+                              key: ValueKey<String>('panel-${store.currentExercise?.id}'),
+                              tween: Tween<double>(begin: _from == 0 ? 0 : 1, end: 0),
+                              duration: still ? Duration.zero : const Duration(milliseconds: 180),
+                              curve: Curves.easeOut,
+                              builder: (BuildContext c, double t, Widget? child) => Opacity(
+                                opacity: 1 - t,
+                                child: Transform.translate(offset: Offset(_from * 48 * t, 0), child: child),
+                              ),
+                              child: deps == null
+                                  ? SessionPanel(store: store)
+                                  : ListenableBuilder(
+                                      listenable: deps!.art,
+                                      builder: (BuildContext c, Widget? w) =>
+                                          SessionPanel(store: store, art: deps!.art),
+                                    ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                    _bottomButton(context, a),
+                  ],
+                ),
+              ),
+            ));
       },
     );
   }

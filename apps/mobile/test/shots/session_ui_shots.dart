@@ -136,6 +136,15 @@ void main() {
     await _save(t, key, 'h');
   });
 
+  testWidgets('i: header with the figure of what the session works', (WidgetTester t) async {
+    final FakeConvexClient fake = FakeConvexClient()
+      ..planLoadAnswer = <String, int>{'shoulders': 3, 'forearms': 1, 'calves': 2, 'quads': 2, 'glutes': 1};
+    final (AppDeps d, GlobalKey key) = await _open(t, client: fake, sets: 3);
+    d.store.pickExercise(1);
+    await t.pumpAndSettle();
+    await _save(t, key, 'i');
+  });
+
   testWidgets('e: time exercise entry open', (WidgetTester t) async {
     final (AppDeps _, GlobalKey key) = await _open(t, sets: 3);
     await _save(t, key, 'e');

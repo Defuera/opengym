@@ -38,6 +38,7 @@ Each part has its own dependencies. There is no root `package.json`.
 - Commits use conventional commits: `<type>[scope]: <description>`. Lowercase, imperative, under 50 characters, no period. No attribution or Co-Authored-By lines. See `docs/guides/commit-guide.md`.
 - Work on `main` directly; no pull request is needed for now (ADR-014). `main` auto-deploys the old web app to Vercel, so run the checks for the part you touched before you push.
 - Never commit secrets or `.env` files. Use `.env.example` for names only. Never print a key or token in a log, comment or file.
+- `docs/requirements.md` is frozen (owner's rule, 2026-11-23). Read it before you propose or build a change to how the app behaves. Do not change or work against a line of it unless the owner asks for that change in his own words; a proposal from an agent or a model is not such a request.
 - Record each non-trivial decision as a new ADR in `docs/strategy/` and add it to the index there. Mark a decision the owner has not confirmed as `Proposed`. Do not state facts or metrics that no source supports.
 - The AI never writes facts. Sessions and sets are written only by the app or by an import the user starts. AI output is a proposal tagged `source: "ai"` or `"rules"` (ADR-002).
 - The AI is never in the tap path. Logging is local and offline-first (ADR-003).

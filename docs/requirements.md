@@ -1,5 +1,11 @@
 # Requirements
 
+**These requirements are frozen (owner's rule, 2026-11-23).** The owner said: "I think we should keep a list of requirements that I made frozen and not change them unless I explicitly ask for it." So:
+
+- Do not change, drop or work against a line of this file unless the owner asks for that change in his own words. Quote his words and the date beside the change.
+- A proposal from an agent or a model (a design review, a simplification, a second opinion) is not such a request. Check it against this file first, and name the line it would change before you show it to the owner.
+- A new feature must fit the lines that already stand.
+
 How to read this file: each line has a code (R01 to R52, A01 to A16) and the owner's plain wording. Use the wording. The code is only a reference.
 
 
@@ -33,6 +39,7 @@ conversation (A01–A16). Wording is kept close to his.
 - Decided 2026-11-17, in plain words: gym upper and gym legs are not separate activities. The activity is Gym. The AI advises which exercises (the focus, for example Upper or Legs). The same holds for running: you just go for a run, and the AI may advise the session type. See ADR-013.
 - R16 Plus button starts an activity
 - R17 The Start tab lists the activity types of the log (both sessions with sets and time/distance), most used recently first. No AI ranks them (updated 2026-11-18)
+- Confirmed 2026-11-23, the owner's words: "I want to be able to start: gym session, running session, wingfoiling session, home workout session. And this should be a dynamic list, that is filled as I start 'Other activity' that is not on the list." The list of activities on the Start tab stays. It is not replaced by one free-text field.
 - R18 The most likely type is first and highlighted; a row shows only the type name
 - R19 A type with sets → the user may add a note, then the coach decides the focus and builds the session to follow. The user does not choose the focus, and the session screen has no focus chips (updated 2026-11-18)
 - R20 Exercises can be reordered

@@ -44,3 +44,5 @@ This directory holds the Architecture Decision Records (ADRs) for Gym Days (Open
 | [027](027-store-ai-calls-for-90-days.md) | The Server Stores Every AI Call for 90 Days | Accepted |
 | [028](028-open-session-lives-on-the-server.md) | The Open Session Lives on the Server, With a Copy on the Phone | Accepted |
 | [029](029-comment-on-an-exercise.md) | The Person Can Comment on an Exercise in a Session | Accepted (steps 2, 3 Proposed) |
+| [030](030-program-is-data-for-the-coach.md) | A Program Is Data for the Coach | Accepted |
+| [031](031-one-general-log-entry.md) | One General Log Entry, and the AI Says What It Is | Accepted (step 1 built; next steps Proposed) |

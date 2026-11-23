@@ -127,6 +127,17 @@ export const entryFields = {
   deletedAt: v.optional(v.number()),
 };
 
+/**
+ * What the reader job found in an entry (ADR-031). Not a fact: an AI label on the fact. `rev` names the text and files that
+ * were read; a label for an older text is never shown as current. `kind` and `summary` are set only when `status` is "ready".
+ */
+export const entryRead = v.object({
+  status: v.union(v.literal("pending"), v.literal("ready"), v.literal("failed")),
+  rev: v.string(),
+  kind: v.optional(v.union(v.literal("meal"), v.literal("training"), v.literal("body"), v.literal("goal"), v.literal("other"))),
+  summary: v.optional(v.string()),
+});
+
 const openSet = v.object({
   reps: v.optional(v.number()),
   kg: v.optional(v.number()),
@@ -183,7 +194,7 @@ export default defineSchema({
     .index("by_itemId", ["itemId"])
     .index("by_createdAt", ["createdAt"])
     .index("by_importId", ["importId"]),
-  entries: defineTable(entryFields).index("by_entryId", ["entryId"]).index("by_at", ["at"]).index("by_deletedAt", ["deletedAt"]),
+  entries: defineTable({ ...entryFields, read: v.optional(entryRead) }).index("by_entryId", ["entryId"]).index("by_at", ["at"]).index("by_deletedAt", ["deletedAt"]),
   // Exercise art: one image per exercise name (two key poses side by side). The key is artKey(name).
   exerciseArt: defineTable({
     key: v.string(),

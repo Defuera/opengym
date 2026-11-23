@@ -42,6 +42,7 @@ import type * as jobs_plans from "../jobs/plans.js";
 import type * as jobs_programChat from "../jobs/programChat.js";
 import type * as jobs_programs from "../jobs/programs.js";
 import type * as jobs_purge from "../jobs/purge.js";
+import type * as jobs_readEntry from "../jobs/readEntry.js";
 import type * as jobs_rebuild from "../jobs/rebuild.js";
 import type * as jobs_reviews from "../jobs/reviews.js";
 import type * as jobs_startRequest from "../jobs/startRequest.js";
@@ -80,6 +81,7 @@ import type * as model_ai_jobs_matchExercise from "../model/ai/jobs/matchExercis
 import type * as model_ai_jobs_parseGoal from "../model/ai/jobs/parseGoal.js";
 import type * as model_ai_jobs_parseLog from "../model/ai/jobs/parseLog.js";
 import type * as model_ai_jobs_planSession from "../model/ai/jobs/planSession.js";
+import type * as model_ai_jobs_readEntry from "../model/ai/jobs/readEntry.js";
 import type * as model_ai_jobs_reviewSession from "../model/ai/jobs/reviewSession.js";
 import type * as model_ai_jobs_shared from "../model/ai/jobs/shared.js";
 import type * as model_ai_jobs_summariseThread from "../model/ai/jobs/summariseThread.js";
@@ -200,6 +202,7 @@ declare const fullApi: ApiFromModules<{
   "jobs/programChat": typeof jobs_programChat;
   "jobs/programs": typeof jobs_programs;
   "jobs/purge": typeof jobs_purge;
+  "jobs/readEntry": typeof jobs_readEntry;
   "jobs/rebuild": typeof jobs_rebuild;
   "jobs/reviews": typeof jobs_reviews;
   "jobs/startRequest": typeof jobs_startRequest;
@@ -238,6 +241,7 @@ declare const fullApi: ApiFromModules<{
   "model/ai/jobs/parseGoal": typeof model_ai_jobs_parseGoal;
   "model/ai/jobs/parseLog": typeof model_ai_jobs_parseLog;
   "model/ai/jobs/planSession": typeof model_ai_jobs_planSession;
+  "model/ai/jobs/readEntry": typeof model_ai_jobs_readEntry;
   "model/ai/jobs/reviewSession": typeof model_ai_jobs_reviewSession;
   "model/ai/jobs/shared": typeof model_ai_jobs_shared;
   "model/ai/jobs/summariseThread": typeof model_ai_jobs_summariseThread;

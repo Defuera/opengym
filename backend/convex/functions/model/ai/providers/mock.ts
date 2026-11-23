@@ -131,6 +131,8 @@ export class MockProvider implements AiProvider {
           context: [{ text: "Prefers short sessions", topic: "schedule" }],
           notes: [],
         });
+      case "read_entry":
+        return JSON.stringify({ kind: /lunch|dinner|breakfast|ate\b/i.test(String(d.text ?? "")) || d.photos > 0 ? "meal" : "other", summary: `Mock read: ${String(d.text ?? "").slice(0, 60) || "a photo"}` });
       case "parse_log": {
         // Reads "45 min", "8 km", "yesterday", "easy" and the names of the log's exercises it finds in the text. No sets: the code fills the usual ones.
         const text = String(d.text ?? "");

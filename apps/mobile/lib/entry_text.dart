@@ -46,3 +46,34 @@ String entryTitle(LogEntry e) {
   }
   return e.files.isEmpty ? 'Note' : filesText(e.files.length);
 }
+
+/// "Meal", "Training", "Body", "Goal". Null while the note is not read, when
+/// the read failed, and for a note that is none of these.
+String? entryKindLabel(LogEntry e) {
+  final EntryRead? r = e.read;
+  if (r == null || !r.ready) {
+    return null;
+  }
+  return const <String, String>{'meal': 'Meal', 'training': 'Training', 'body': 'Body', 'goal': 'Goal'}[r.kind];
+}
+
+/// The line under a note in a list: what the coach saw in its photos or
+/// files, or "Reading…" while it reads them. Null for a note with words
+/// only (the words say it) and when the read failed.
+String? entrySeenLine(LogEntry e) {
+  final EntryRead? r = e.read;
+  if (r == null || e.files.isEmpty) {
+    return null;
+  }
+  if (r.pending) {
+    return 'Reading…';
+  }
+  final String s = (r.summary ?? '').trim();
+  return r.ready && s.isNotEmpty ? s : null;
+}
+
+/// "Today, 14:05 · Meal".
+String entrySubtitle(LogEntry e, {int? nowMs}) {
+  final String? k = entryKindLabel(e);
+  return k == null ? entryWhen(e.at, nowMs: nowMs) : '${entryWhen(e.at, nowMs: nowMs)} · $k';
+}

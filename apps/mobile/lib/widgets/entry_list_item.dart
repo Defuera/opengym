@@ -2,19 +2,23 @@ import 'package:flutter/material.dart';
 
 import '../theme.dart';
 
-/// Row for a note: bold first line, muted time, a small paperclip with the
-/// number of attached files. Tap opens the note.
+/// Row for a note: bold first line, muted time, an optional line about what
+/// its photos show, a small paperclip with the number of attached files. Tap opens the note.
 class EntryListItem extends StatelessWidget {
   const EntryListItem({
     super.key,
     required this.title,
     required this.subtitle,
+    this.detail,
     this.attachments = 0,
     this.onTap,
   });
 
   final String title;
   final String subtitle;
+
+  /// One more line under the time, at most two lines. Null hides it.
+  final String? detail;
   final int attachments;
   final VoidCallback? onTap;
 
@@ -39,6 +43,16 @@ class EntryListItem extends StatelessWidget {
                     style: OG.body(size: 18, weight: FontWeight.w700),
                   ),
                   Text(subtitle, style: OG.muted()),
+                  if (detail != null) ...<Widget>[
+                    const SizedBox(height: 4),
+                    Text(
+                      detail!,
+                      key: const ValueKey<String>('entry-detail'),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: OG.body(size: 15),
+                    ),
+                  ],
                 ],
               ),
             ),

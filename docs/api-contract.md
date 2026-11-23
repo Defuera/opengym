@@ -208,6 +208,8 @@ A log entry is a free note with a time and any number of attached files. It has 
 | mutation `commands/entries:remove` | `{ token, entryId }` | `true` when this call marked the entry, `false` if it is unknown or already marked. It only marks the row (`deletedAt = now`); the entry leaves every read at once, and its files stay until the purge erases it 72 hours later (ADR-020) |
 | query `queries/entries:recent` | `{ token, limit?: number }` | newest first by `at`. Default 50, at most 200. Each item: `{ entryId, text, at, createdAt, files: { fileId, name, mime, size, kind, createdAt, url: string \| null }[] }`. A missing file is left out |
 
+**The reader label (ADR-031).** `commands/entries:save` starts the job `read_entry` for a new entry and for one whose text or file list changed. The entry row holds `read: { status: "pending" \| "ready" \| "failed", rev: string, kind?: "meal" \| "training" \| "body" \| "goal" \| "other", summary?: string (1..120) }`. `queries/entries:recent` returns `read: { status, kind?, summary? }` on each item that has one (no `rev`). Job input: `{ when, text, photos: number, files: [{ name, text (<=6000) }] }` plus up to 4 images. Output: `{ kind, summary }`. No code fallback: with no AI answer `status` is `failed`. The job writes only this label. In `logEntriesFromTheUser` an entry with files and a ready label carries `attachmentsShow: summary`.
+
 Upload uses `commands/files:generateUploadUrl` and `commands/files:register`, as for chat.
 
 **Session recap.**

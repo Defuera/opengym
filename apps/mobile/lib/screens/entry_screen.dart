@@ -94,10 +94,15 @@ class EntryScreen extends StatelessWidget {
                 if (e == null)
                   const NoteBox(title: 'This note is gone.', message: 'It was deleted.')
                 else ...<Widget>[
-                  Text(entryWhen(e.at), key: const ValueKey<String>('entry-when'), style: OG.muted()),
+                  Text(entrySubtitle(e), key: const ValueKey<String>('entry-when'), style: OG.muted()),
                   const SizedBox(height: 12),
                   if (e.text.trim().isNotEmpty) ...<Widget>[
                     Text(e.text, key: const ValueKey<String>('entry-text'), style: OG.body()),
+                    const SizedBox(height: 16),
+                  ],
+                  if (entrySeenLine(e) != null) ...<Widget>[
+                    Text('The coach sees', style: OG.muted()),
+                    Text(entrySeenLine(e)!, key: const ValueKey<String>('entry-seen'), style: OG.body(size: 15)),
                     const SizedBox(height: 16),
                   ],
                   for (final EntryFile f in e.files.where((EntryFile f) => f.isImage)) ...<Widget>[

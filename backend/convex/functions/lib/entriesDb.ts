@@ -3,7 +3,7 @@ import type { ActionCtx, DatabaseReader, MutationCtx } from "../_generated/serve
 import { liveEntryDocs, toEntry } from "./db";
 import { fileByFileId, loadAttachment, type FileDoc } from "./files";
 import type { ImageInput } from "../model/ai/provider";
-import type { Entry } from "../model/schema";
+import type { CoachSourceEntry } from "../model/entryContext";
 
 const DAY = 86_400_000;
 /** What the coach reads of the entries (ADR-017). */
@@ -15,9 +15,16 @@ export const COACH_IMAGE_MAX = 4;
 type Reader = { db: DatabaseReader };
 
 /** Entries of the last 7 days that the coach reads: the newest 20, oldest first. */
-export async function coachEntries(ctx: Reader, now: number): Promise<Entry[]> {
+export async function coachEntries(ctx: Reader, now: number): Promise<CoachSourceEntry[]> {
   const docs = await liveEntryDocs(ctx, { order: "desc", from: now - COACH_ENTRY_DAYS * DAY, to: now, limit: COACH_ENTRY_MAX });
-  return docs.reverse().map(toEntry);
+  return docs.reverse().map((d) => ({ ...toEntry(d), ...(d.fileIds.length > 0 && d.read?.status === "ready" && d.read.summary ? { seen: d.read.summary } : {}) }));
+}
+
+/** Names the text and the files of an entry: the reader job's label holds for exactly this pair (ADR-031). */
+export function entryRev(e: { text: string; fileIds: string[] }): string {
+  let h = 5381;
+  for (const ch of JSON.stringify([e.text, e.fileIds])) h = ((h * 33) ^ ch.charCodeAt(0)) >>> 0;
+  return `${h.toString(36)}-${e.text.length}-${e.fileIds.length}`;
 }
 
 const fileDoc = (f: Doc<"files">): FileDoc => ({ fileId: f.fileId, storageId: f.storageId, name: f.name, mime: f.mime, size: f.size, kind: f.kind, createdAt: f.createdAt });

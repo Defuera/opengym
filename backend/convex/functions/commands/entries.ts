@@ -1,8 +1,9 @@
 import { ConvexError, v } from "convex/values";
+import { internal } from "../_generated/api";
 import { internalMutation, mutation } from "../_generated/server";
 import { requireToken } from "../lib/auth";
 import { entryRowByEntryId, stableJson, withoutSystemFields } from "../lib/db";
-import { deleteFile } from "../lib/entriesDb";
+import { deleteFile, entryRev } from "../lib/entriesDb";
 import { markFactsChanged } from "../lib/factsChanged";
 import { fileByFileId } from "../lib/files";
 import { parseOrThrow } from "../lib/validate";
@@ -12,7 +13,7 @@ import { entryFields } from "../schema";
 /**
  * Idempotent write of one log entry, keyed by the client-made entryId (ADR-017). Validated like EntrySchema:
  * a note or at least one file, text up to 2000, up to 10 files. Every fileId must be a registered file.
- * A file the update drops is deleted (row and blob). Resending the same entry changes nothing. A save for an entry marked as
+ * A file the update drops is deleted (row and blob). A new or changed text or file list starts the reader job (ADR-031). Resending the same entry changes nothing. A save for an entry marked as
  * deleted changes nothing and returns the id (ADR-020).
  */
 export const save = mutation({
@@ -26,13 +27,21 @@ export const save = mutation({
     for (const id of entry.fileIds) {
       if (!(await fileByFileId(ctx, id))) throw new ConvexError(`entry.fileIds: no registered file "${id}"`);
     }
-    if (old && stableJson(withoutSystemFields(old)) === stableJson(entry)) return entryId; // resend, nothing changed
     if (old) {
-      await ctx.db.replace(old._id, entry);
+      const { read: _read, ...was } = withoutSystemFields(old);
+      void _read;
+      if (stableJson(was) === stableJson(entry)) return entryId; // resend, nothing changed
+    }
+    // The reader job labels the entry (ADR-031). A label is kept only while the text and the files it read are the same.
+    const rev = entryRev(entry);
+    const read = old?.read?.rev === rev ? old.read : { status: "pending" as const, rev };
+    if (old) {
+      await ctx.db.replace(old._id, { ...entry, read });
       for (const id of old.fileIds) if (!entry.fileIds.includes(id)) await deleteFile(ctx, id);
     } else {
-      await ctx.db.insert("entries", entry);
+      await ctx.db.insert("entries", { ...entry, read });
     }
+    if (read.status === "pending") await ctx.scheduler.runAfter(0, internal.jobs.readEntry.run, { entryId, rev });
     return entryId;
   },
 });

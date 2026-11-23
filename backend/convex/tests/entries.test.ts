@@ -1,9 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { api } from "../functions/_generated/api";
+import { api, internal } from "../functions/_generated/api";
+import { coachEntries } from "../functions/lib/entriesDb";
 import { buildSessionJob } from "../functions/model/ai/jobs/buildSession";
 import { assembleCoachContext } from "../functions/model/coachContext";
 import { coachPicture } from "../functions/model/ai/jobs/coachPicture";
-import { TOKEN, setup, type T } from "./helpers";
+import { TOKEN, settle, setup, stubOpenAi, type T } from "./helpers";
 
 const NOW = Date.UTC(2026, 0, 15, 12);
 const HOUR = 3_600_000;
@@ -39,7 +40,7 @@ const fileRows = () => t.run((c) => c.db.query("files").collect());
 describe("entries", () => {
   it("saves a note and returns the entryId", async () => {
     expect(await save(entry("e1"))).toBe("e1");
-    expect(await recent()).toEqual([{ entryId: "e1", text: "Lunch: rice and chicken", at: NOW - HOUR, createdAt: NOW - HOUR, files: [] }]);
+    expect(await recent()).toEqual([{ entryId: "e1", text: "Lunch: rice and chicken", at: NOW - HOUR, createdAt: NOW - HOUR, files: [], read: { status: "pending" } }]);
   });
 
   it("is idempotent per entryId and updates in place", async () => {
@@ -158,5 +159,72 @@ describe("coach prompts", () => {
     const off = assembleCoachContext(data, [], false, [image]);
     expect(off.images).toEqual([]);
     expect(assembleCoachContext({ ...data, entries: [] }, [], true).contextBlock).not.toContain("Log entries");
+  });
+});
+
+describe("the reader job labels an entry (ADR-031)", () => {
+  const read = async () => (await recent())[0]!.read;
+
+  it("labels a new entry with a kind and one line", async () => {
+    const calls = stubOpenAi(() => JSON.stringify({ kind: "meal", summary: "Rice and chicken for lunch." }));
+    await save(entry("e1"));
+    await settle(t);
+    expect(await read()).toEqual({ status: "ready", kind: "meal", summary: "Rice and chicken for lunch." });
+    expect(calls.filter((c) => c.job === "read_entry")).toHaveLength(1);
+    expect(calls[0]!.input).toMatchObject({ text: "Lunch: rice and chicken", photos: 0 });
+  });
+
+  it("writes no session, goal or note", async () => {
+    stubOpenAi(() => JSON.stringify({ kind: "training", summary: "Run, 5 km in 30 min." }));
+    await save(entry("e1", { text: "ran 5 km in 30 min" }));
+    await settle(t);
+    expect(await t.run((c) => c.db.query("sessions").collect())).toHaveLength(0);
+    expect(await t.run((c) => c.db.query("goals").collect())).toHaveLength(0);
+    expect(await t.run((c) => c.db.query("context").collect())).toHaveLength(0);
+  });
+
+  it("with no AI the entry stays as written: failed, no label", async () => {
+    await save(entry("e1"));
+    await settle(t);
+    expect(await read()).toEqual({ status: "failed" });
+  });
+
+  it("an invalid answer is retried once, then the read fails", async () => {
+    const calls = stubOpenAi(() => JSON.stringify({ kind: "food", summary: "" }));
+    await save(entry("e1"));
+    await settle(t);
+    expect(calls).toHaveLength(2);
+    expect(await read()).toEqual({ status: "failed" });
+  });
+
+  it("a changed text is read again; a changed time is not", async () => {
+    const calls = stubOpenAi((_j, i) => JSON.stringify({ kind: "meal", summary: `Saw: ${i.text}` }));
+    await save(entry("e1"));
+    await settle(t);
+    await save(entry("e1", { at: NOW - 2 * HOUR }));
+    await settle(t);
+    expect(calls).toHaveLength(1);
+    expect((await read())!.summary).toBe("Saw: Lunch: rice and chicken");
+    await save(entry("e1", { at: NOW - 2 * HOUR, text: "Lunch, no rice" }));
+    expect(await read()).toEqual({ status: "pending" });
+    await settle(t);
+    expect((await read())!.summary).toBe("Saw: Lunch, no rice");
+  });
+
+  it("a label for an older text is dropped", async () => {
+    await save(entry("e1"));
+    await save(entry("e1", { text: "Lunch, no rice" }));
+    await t.mutation(internal.jobs.readEntry.save, { entryId: "e1", read: { status: "ready", rev: "old", kind: "meal", summary: "Old." } });
+    expect(await read()).toEqual({ status: "pending" });
+  });
+
+  it("the coach reads what a photo shows, not a label on plain words", async () => {
+    stubOpenAi(() => JSON.stringify({ kind: "meal", summary: "Pasta with tomato sauce." }));
+    await upload("f1");
+    await save(entry("e1", { text: "dinner", fileIds: ["f1"] }));
+    await save(entry("e2", { text: "slept badly", at: NOW - 2 * HOUR }));
+    await settle(t);
+    const seen = await t.run((c) => coachEntries(c, NOW));
+    expect(seen.map((e) => e.seen)).toEqual([undefined, "Pasta with tomato sauce."]);
   });
 });

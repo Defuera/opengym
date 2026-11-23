@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../theme.dart';
 
-/// A quiet bold text link with a chevron, e.g. "Import a photo or a file".
+/// A quiet bold text link with a chevron, e.g. "Import old training data".
 class SheetLink extends StatelessWidget {
   const SheetLink({super.key, required this.label, required this.onTap});
 

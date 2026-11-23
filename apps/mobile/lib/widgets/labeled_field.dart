@@ -17,6 +17,7 @@ class LabeledField extends StatelessWidget {
     this.helper,
     this.readOnly = false,
     this.autocorrect = false,
+    this.focusNode,
     this.textInputAction,
     this.onChanged,
     this.onSubmitted,
@@ -36,6 +37,7 @@ class LabeledField extends StatelessWidget {
   final String? helper;
   final bool readOnly;
   final bool autocorrect;
+  final FocusNode? focusNode;
   final TextInputAction? textInputAction;
   final ValueChanged<String>? onChanged;
   final ValueChanged<String>? onSubmitted;
@@ -55,6 +57,7 @@ class LabeledField extends StatelessWidget {
         ],
         TextField(
           controller: controller,
+          focusNode: focusNode,
           keyboardType: keyboardType,
           obscureText: obscure,
           maxLines: obscure ? 1 : maxLines,

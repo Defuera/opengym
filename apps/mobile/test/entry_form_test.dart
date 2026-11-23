@@ -7,6 +7,7 @@ import 'package:opengym/data/convex_client.dart';
 import 'package:opengym/data/upload_item.dart';
 import 'package:opengym/screens/entry_form_screen.dart';
 import 'package:opengym/screens/home_screen.dart';
+import 'package:opengym/widgets/attachment_thumb.dart';
 import 'package:opengym/widgets/og_button.dart';
 
 import 'support/entry_fixtures.dart';
@@ -19,10 +20,10 @@ Finder _save() => find.widgetWithText(OgButton, 'Save');
 bool _enabled(WidgetTester t, Finder f) => t.widget<OgButton>(f).onPressed != null;
 
 Future<(FakeConvexClient, AppDeps, FakePickers)> _openForm(WidgetTester t,
-    {bool connected = true}) async {
+    {bool connected = true, String tile = 'note-text', UploadItem? photo}) async {
   final FakeConvexClient fake = FakeConvexClient();
   final AppDeps base = await testDeps(fake, connected: connected);
-  final FakePickers pickers = FakePickers();
+  final FakePickers pickers = FakePickers()..photo = photo;
   final AppDeps d = AppDeps(
     client: base.client,
     store: base.store,
@@ -48,13 +49,40 @@ Future<(FakeConvexClient, AppDeps, FakePickers)> _openForm(WidgetTester t,
   await t.pumpWidget(MaterialApp(home: HomeScreen(deps: d)));
   await t.pump();
   await openLog(t);
-  await t.tap(inSheet(find.text('Note')));
+  await t.tap(find.byKey(ValueKey<String>(tile)));
   await t.pumpAndSettle();
   return (fake, d, pickers);
 }
 
 void main() {
-  testWidgets('Plus, Log: "Note" is the first choice and opens the form (the sheet closes)',
+  testWidgets('Plus, Log, Camera: the camera opens at once and the photo is in the form',
+      (WidgetTester t) async {
+    final (FakeConvexClient fake, AppDeps _, FakePickers p) =
+        await _openForm(t, tile: 'note-camera', photo: upload('dinner.jpg'));
+    expect(find.byType(BottomSheet), findsNothing);
+    expect(p.lastCamera, isTrue);
+    expect(find.byType(AttachmentThumb), findsOneWidget);
+    expect(find.text('Add a comment: "dinner"'), findsOneWidget);
+    expect(_enabled(t, _save()), isTrue);
+    await t.enterText(find.byType(TextField), 'Dinner');
+    await t.tap(_save());
+    await t.pumpAndSettle();
+    expect(fake.calls.length, 2);
+    expect(fake.serverEntries.values.single.text, 'Dinner');
+    expect(fake.serverEntries.values.single.fileIds, hasLength(1));
+  });
+
+  testWidgets('Plus, Log, Photo: the library opens at once; a cancel leaves an empty form',
+      (WidgetTester t) async {
+    final (FakeConvexClient fake, AppDeps _, FakePickers p) = await _openForm(t, tile: 'note-library');
+    expect(p.lastCamera, isFalse);
+    expect(find.text('New note'), findsOneWidget);
+    expect(find.byType(AttachmentThumb), findsNothing);
+    expect(_enabled(t, _save()), isFalse);
+    expect(fake.calls, isEmpty);
+  });
+
+  testWidgets('Plus, Log, Text: opens the form with no picker (the sheet closes)',
       (WidgetTester t) async {
     final (FakeConvexClient fake, AppDeps d, FakePickers p) = await _openForm(t);
     expect(find.byType(BottomSheet), findsNothing);
@@ -62,14 +90,17 @@ void main() {
     expect(fake.calls, isEmpty);
     expect(d.entries.entries, isEmpty);
     expect(p.files, isEmpty);
+    expect(p.lastCamera, isNull);
   });
 
-  testWidgets('the Log tab shows Note above the activities, with its line', (WidgetTester t) async {
+  testWidgets('the Log tab shows the three note tiles above the activities', (WidgetTester t) async {
     await openHome(t);
     await openLog(t);
-    expect(inSheet(find.text('A meal, a photo, anything.')), findsOneWidget);
-    expect(t.getTopLeft(inSheet(find.text('Note'))).dy,
-        lessThan(t.getTopLeft(inSheet(find.text('Cycling'))).dy));
+    expect(inSheet(find.text('A note: a meal, how you feel, anything.')), findsOneWidget);
+    for (final String k in <String>['note-camera', 'note-library', 'note-text']) {
+      expect(t.getTopLeft(find.byKey(ValueKey<String>(k))).dy,
+          lessThan(t.getTopLeft(inSheet(find.text('Cycling'))).dy));
+    }
   });
 
   testWidgets('Save is off with no text and no file, on with text', (WidgetTester t) async {
@@ -86,16 +117,14 @@ void main() {
   testWidgets('a photo alone turns Save on; remove turns it off again', (WidgetTester t) async {
     final (FakeConvexClient fake, AppDeps d, FakePickers p) = await _openForm(t);
     p.photo = upload('lunch.jpg');
-    await t.tap(find.byKey(const ValueKey<String>('entry-attach')));
-    await t.pumpAndSettle();
-    await t.tap(find.text('Take a photo'));
+    await t.tap(find.byKey(const ValueKey<String>('entry-camera')));
     await t.pumpAndSettle();
     expect(p.lastCamera, isTrue);
-    expect(find.text('lunch.jpg'), findsOneWidget);
+    expect(find.byType(AttachmentThumb), findsOneWidget);
     expect(_enabled(t, _save()), isTrue);
-    await t.tap(find.byIcon(Icons.close));
+    await t.tap(find.byKey(const ValueKey<String>('thumb-remove')));
     await t.pump();
-    expect(find.text('lunch.jpg'), findsNothing);
+    expect(find.byType(AttachmentThumb), findsNothing);
     expect(_enabled(t, _save()), isFalse);
     expect(fake.calls, isEmpty);
     expect(d.entries.busy, isFalse);
@@ -105,9 +134,7 @@ void main() {
     final (FakeConvexClient fake, AppDeps d, FakePickers p) = await _openForm(t);
     await t.enterText(find.byType(TextField), 'Oats\nand eggs');
     p.files = <UploadItem>[upload('plan.pdf'), upload('menu.txt')];
-    await t.tap(find.byKey(const ValueKey<String>('entry-attach')));
-    await t.pumpAndSettle();
-    await t.tap(find.text('Choose a file'));
+    await t.tap(find.byKey(const ValueKey<String>('entry-file')));
     await t.pumpAndSettle();
     expect(find.text('plan.pdf'), findsOneWidget);
     expect(find.text('menu.txt'), findsOneWidget);
@@ -132,16 +159,14 @@ void main() {
     final (FakeConvexClient fake, AppDeps d, FakePickers p) = await _openForm(t);
     await t.enterText(find.byType(TextField), 'Dinner');
     p.photo = upload('d.jpg');
-    await t.tap(find.byKey(const ValueKey<String>('entry-attach')));
-    await t.pumpAndSettle();
-    await t.tap(find.text('Choose from library'));
+    await t.tap(find.byKey(const ValueKey<String>('entry-library')));
     await t.pumpAndSettle();
     fake.failUpload = const ConvexCallException.unreachable();
     await t.tap(_save());
     await t.pumpAndSettle();
     expect(find.text('Could not reach the server.'), findsOneWidget);
     expect(find.text('Dinner'), findsOneWidget);
-    expect(find.text('d.jpg'), findsOneWidget);
+    expect(find.byType(AttachmentThumb), findsOneWidget);
     expect(fake.serverEntries, isEmpty);
     await t.tap(find.widgetWithText(OgButton, 'Try again'));
     await t.pumpAndSettle();
@@ -153,9 +178,7 @@ void main() {
     final (FakeConvexClient fake, AppDeps d, FakePickers p) = await _openForm(t);
     await t.enterText(find.byType(TextField), 'x');
     p.photo = upload('d.jpg');
-    await t.tap(find.byKey(const ValueKey<String>('entry-attach')));
-    await t.pumpAndSettle();
-    await t.tap(find.text('Choose from library'));
+    await t.tap(find.byKey(const ValueKey<String>('entry-library')));
     await t.pumpAndSettle();
     fake.uploadGate = Completer<void>();
     await t.tap(_save());
@@ -180,14 +203,10 @@ void main() {
   testWidgets('a picker that fails shows the chat wording', (WidgetTester t) async {
     final (FakeConvexClient _, AppDeps _, FakePickers p) = await _openForm(t);
     p.fail = true;
-    await t.tap(find.byKey(const ValueKey<String>('entry-attach')));
-    await t.pumpAndSettle();
-    await t.tap(find.text('Choose a file'));
+    await t.tap(find.byKey(const ValueKey<String>('entry-file')));
     await t.pumpAndSettle();
     expect(find.text('Could not open the file picker.'), findsOneWidget);
-    await t.tap(find.byKey(const ValueKey<String>('entry-attach')));
-    await t.pumpAndSettle();
-    await t.tap(find.text('Take a photo'));
+    await t.tap(find.byKey(const ValueKey<String>('entry-camera')));
     await t.pumpAndSettle();
     expect(find.text('Could not open the camera or library.'), findsOneWidget);
   });

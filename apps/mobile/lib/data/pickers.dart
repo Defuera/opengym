@@ -35,6 +35,10 @@ class DevicePickers implements Pickers {
   Future<UploadItem?> pickPhoto({required bool camera}) async {
     final XFile? x = await ImagePicker().pickImage(
       source: camera ? ImageSource.camera : ImageSource.gallery,
+      // A phone photo is several megabytes; this size still reads well and uploads fast.
+      maxWidth: 2048,
+      maxHeight: 2048,
+      imageQuality: 85,
     );
     if (x == null) {
       return null;

@@ -36,7 +36,8 @@ void main() {
     await t.tap(inSheet(find.text('Log')));
     await t.pumpAndSettle();
     expect(find.byType(TextField), findsOneWidget);
-    expect(find.text('Import a photo or a file ›'), findsOneWidget);
+    expect(find.byKey(const ValueKey<String>('note-camera')), findsOneWidget);
+    expect(find.text('Import old training data ›'), findsOneWidget);
   });
 
   testWidgets('Log sheet: time and distance activities, most often first, with the last record',
@@ -64,7 +65,7 @@ void main() {
   testWidgets('Log sheet: the import link opens the import screen', (WidgetTester t) async {
     await openHome(t);
     await openLog(t);
-    await t.tap(find.text('Import a photo or a file ›'));
+    await t.tap(find.text('Import old training data ›'));
     await t.pumpAndSettle();
     expect(find.byType(ImportScreen), findsOneWidget);
   });

@@ -7,6 +7,7 @@ import 'package:opengym/screens/entry_screen.dart';
 import 'package:opengym/screens/home_recent.dart';
 import 'package:opengym/screens/home_screen.dart';
 import 'package:opengym/widgets/entry_list_item.dart';
+import 'package:opengym/widgets/attachment_thumb.dart';
 import 'package:opengym/widgets/og_button.dart';
 
 import 'support/entry_fixtures.dart';
@@ -147,7 +148,7 @@ void main() {
       await t.pumpAndSettle();
       expect(find.text('Edit note'), findsOneWidget);
       expect(find.text('Pasta, then a long walk.\nFelt good.'), findsOneWidget);
-      expect(find.text('meal.jpg'), findsOneWidget);
+      expect(find.byType(AttachmentThumb), findsOneWidget);
       await t.tap(find.descendant(
           of: find.widgetWithText(Container, 'plan.pdf').first, matching: find.byIcon(Icons.close)));
       await t.pump();

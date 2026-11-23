@@ -1,3 +1,6 @@
+import 'dart:io';
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 
 import '../app/deps.dart';
@@ -8,7 +11,7 @@ import '../planner.dart';
 import '../stores/entries_store.dart';
 import '../theme.dart';
 import '../widgets/attachment_chip.dart';
-import '../widgets/choice_sheet.dart';
+import '../widgets/attachment_thumb.dart';
 import '../widgets/cta_button.dart';
 import '../widgets/labeled_field.dart';
 import '../widgets/note_box.dart';
@@ -17,13 +20,19 @@ import '../widgets/og_icon_button.dart';
 
 const String entryOfflineNote = 'Offline. Notes need a connection to save.';
 
-/// The form of a note: new, or [entry] to change. One text field, Attach, the
-/// time (now unless changed) and Save. A failed save keeps everything typed.
+/// How a new note starts: with the keyboard, or with the camera or the photo
+/// library open at once.
+enum EntryStart { text, camera, library }
+
+/// The form of a note: new, or [entry] to change. The photos, one text field,
+/// three buttons to add a photo or a file, the time (now unless changed) and
+/// Save. A failed save keeps everything typed.
 class EntryFormScreen extends StatefulWidget {
-  const EntryFormScreen({super.key, required this.deps, this.entry});
+  const EntryFormScreen({super.key, required this.deps, this.entry, this.start = EntryStart.text});
 
   final AppDeps deps;
   final LogEntry? entry;
+  final EntryStart start;
 
   @override
   State<EntryFormScreen> createState() => _EntryFormScreenState();
@@ -31,6 +40,7 @@ class EntryFormScreen extends StatefulWidget {
 
 class _EntryFormScreenState extends State<EntryFormScreen> {
   final TextEditingController _text = TextEditingController();
+  final FocusNode _focus = FocusNode();
   late final String _id;
   late DateTime _at;
   late final List<EntryFile> _existing;
@@ -48,11 +58,24 @@ class _EntryFormScreenState extends State<EntryFormScreen> {
     _at = DateTime.fromMillisecondsSinceEpoch(e?.at ?? DateTime.now().millisecondsSinceEpoch);
     _existing = List<EntryFile>.of(e?.files ?? const <EntryFile>[]);
     _store.error = null;
+    WidgetsBinding.instance.addPostFrameCallback((Duration _) async {
+      if (!mounted) {
+        return;
+      }
+      if (widget.start != EntryStart.text) {
+        await _pick(widget.start == EntryStart.camera ? 'camera' : 'gallery');
+      }
+      // The keyboard comes up after the picker, so the comment is the next thing to do.
+      if (mounted && e == null) {
+        _focus.requestFocus();
+      }
+    });
   }
 
   @override
   void dispose() {
     _text.dispose();
+    _focus.dispose();
     _store.error = null; // a failure of this form is not shown on the next screen
     super.dispose();
   }
@@ -83,19 +106,8 @@ class _EntryFormScreenState extends State<EntryFormScreen> {
     _added.add(NewEntryFile(item));
   }
 
-  Future<void> _attach() async {
-    final String? src = await showChoiceSheet(
-      context,
-      title: 'Attach',
-      choices: const <SheetChoice>[
-        SheetChoice(value: 'camera', label: 'Take a photo'),
-        SheetChoice(value: 'gallery', label: 'Choose from library'),
-        SheetChoice(value: 'file', label: 'Choose a file'),
-      ],
-    );
-    if (src == null) {
-      return;
-    }
+  /// [src] is camera, gallery or file.
+  Future<void> _pick(String src) async {
     final bool file = src == 'file';
     try {
       if (file) {
@@ -119,6 +131,11 @@ class _EntryFormScreenState extends State<EntryFormScreen> {
       setState(() => _pickError =
           file ? 'Could not open the file picker.' : 'Could not open the camera or library.');
     }
+  }
+
+  ImageProvider _preview(UploadItem item) {
+    final List<int>? b = item.bytes;
+    return b != null ? MemoryImage(Uint8List.fromList(b)) : FileImage(File(item.path));
   }
 
   Future<void> _pickDate() async {
@@ -175,69 +192,83 @@ class _EntryFormScreenState extends State<EntryFormScreen> {
                         ],
                       ),
                       const SizedBox(height: 18),
+                      if (_fileCount > 0) ...<Widget>[
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          crossAxisAlignment: WrapCrossAlignment.end,
+                          children: <Widget>[
+                            for (final EntryFile f in _existing)
+                              f.isImage
+                                  ? AttachmentThumb(
+                                      image: f.url == null ? null : NetworkImage(f.url!),
+                                      size: 96,
+                                      onRemove: busy ? null : () => setState(() => _existing.remove(f)),
+                                    )
+                                  : AttachmentChip(
+                                      name: f.name,
+                                      onRemove: busy ? null : () => setState(() => _existing.remove(f)),
+                                    ),
+                            for (final NewEntryFile f in _added)
+                              f.item.mime.startsWith('image/')
+                                  ? AttachmentThumb(
+                                      image: _preview(f.item),
+                                      size: 96,
+                                      onRemove: busy ? null : () => setState(() => _added.remove(f)),
+                                    )
+                                  : AttachmentChip(
+                                      name: f.item.name,
+                                      onRemove: busy ? null : () => setState(() => _added.remove(f)),
+                                    ),
+                          ],
+                        ),
+                        const SizedBox(height: 14),
+                      ],
                       LabeledField(
-                        label: 'Note',
                         controller: _text,
-                        hint: 'A meal, a photo, anything.',
-                        minLines: 4,
+                        focusNode: _focus,
+                        hint: _fileCount > 0 ? 'Add a comment: "dinner"' : 'A meal, how you feel, anything.',
+                        minLines: 3,
                         maxLines: 10,
                         maxLength: entryMaxText,
                         autocorrect: true,
                         keyboardType: TextInputType.multiline,
                         onChanged: (String v) => setState(() {}),
                       ),
-                      const SizedBox(height: 18),
+                      const SizedBox(height: 14),
                       Row(
                         children: <Widget>[
-                          Expanded(
-                            child: OgButton(
-                              key: const ValueKey<String>('entry-date'),
-                              onPressed: busy ? null : _pickDate,
-                              child: Text(dateText(ms)),
-                            ),
+                          OgIconButton(
+                            key: const ValueKey<String>('entry-camera'),
+                            icon: Icons.photo_camera_outlined,
+                            onPressed: busy ? null : () => _pick('camera'),
                           ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: OgButton(
-                              key: const ValueKey<String>('entry-time'),
-                              onPressed: busy ? null : _pickTime,
-                              child: Text(clockText(ms)),
-                            ),
+                          const SizedBox(width: 8),
+                          OgIconButton(
+                            key: const ValueKey<String>('entry-library'),
+                            icon: Icons.photo_library_outlined,
+                            onPressed: busy ? null : () => _pick('gallery'),
+                          ),
+                          const SizedBox(width: 8),
+                          OgIconButton(
+                            key: const ValueKey<String>('entry-file'),
+                            icon: Icons.attach_file,
+                            onPressed: busy ? null : () => _pick('file'),
+                          ),
+                          const Spacer(),
+                          _WhenLink(
+                            key: const ValueKey<String>('entry-date'),
+                            label: whenLabel(ms),
+                            onTap: busy ? null : _pickDate,
+                          ),
+                          Text(', ', style: OG.muted()),
+                          _WhenLink(
+                            key: const ValueKey<String>('entry-time'),
+                            label: clockText(ms),
+                            onTap: busy ? null : _pickTime,
                           ),
                         ],
                       ),
-                      const SizedBox(height: 18),
-                      OgButton(
-                        key: const ValueKey<String>('entry-attach'),
-                        onPressed: busy ? null : _attach,
-                        child: const Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: <Widget>[
-                            Icon(Icons.attach_file, size: 22),
-                            SizedBox(width: 8),
-                            Text('Attach'),
-                          ],
-                        ),
-                      ),
-                      if (_fileCount > 0) ...<Widget>[
-                        const SizedBox(height: 12),
-                        Wrap(
-                          spacing: 6,
-                          runSpacing: 6,
-                          children: <Widget>[
-                            for (final EntryFile f in _existing)
-                              AttachmentChip(
-                                name: f.name,
-                                onRemove: busy ? null : () => setState(() => _existing.remove(f)),
-                              ),
-                            for (final NewEntryFile f in _added)
-                              AttachmentChip(
-                                name: f.item.name,
-                                onRemove: busy ? null : () => setState(() => _added.remove(f)),
-                              ),
-                          ],
-                        ),
-                      ],
                       if (!online) ...<Widget>[
                         const SizedBox(height: 14),
                         const NoteBox(title: 'Offline', message: entryOfflineNote),
@@ -281,6 +312,29 @@ class _EntryFormScreenState extends State<EntryFormScreen> {
           ),
         );
       },
+    );
+  }
+}
+
+/// The day or the clock time of the note, as a quiet link that opens a picker.
+class _WhenLink extends StatelessWidget {
+  const _WhenLink({super.key, required this.label, required this.onTap});
+
+  final String label;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        child: Text(
+          label,
+          style: OG.muted(weight: FontWeight.w700).copyWith(decoration: TextDecoration.underline),
+        ),
+      ),
     );
   }
 }

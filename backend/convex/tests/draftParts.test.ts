@@ -83,6 +83,18 @@ describe("a goal draft", () => {
     expect(await table("goals")).toHaveLength(0);
   });
 
+  it("a part that is left out is said in the action: the rest of the draft stays and the reason is on the action", async () => {
+    await world();
+    stubOpenAi(reply(() => draft({ summary: "Bench 70 and a note", goal: { title: "Bench 70 kg", kind: "strength", targetKg: 70 }, edits: { goalId: "gone" }, note: { text: "Warm up first", topic: "habit" } })));
+    await send("m1", "bench 70, and I warm up first", { screen: "goal" });
+    await settle(t);
+    const a = await lastAssistant();
+    expect(a.actions![0]).toMatchObject({ status: "drafted", reason: "The goal to change is gone." });
+    expect(a.actions![0]!.detail).toContain("The goal to change is gone.");
+    expect(a.proposal).toMatchObject({ noEntry: true, note: { text: "Warm up first" } });
+    expect((a.proposal as { goal?: unknown }).goal).toBeUndefined();
+  });
+
   it("with no AI the goal chat drafts the person's words as a custom goal (kg and times a week read by code); Done writes it", async () => {
     await world();
     await send("m1", "Squat 100 kg and train 3 times a week", { screen: "goal" });

@@ -175,7 +175,7 @@ class FakeConvexClient implements ConvexClient {
   }
 
   /// The coach drafts a log in the log chat.
-  void logDrafted(String threadId, String text, LogDraft draft) {
+  void logDrafted(String threadId, String text, LogDraft draft, {List<CoachAction> actions = const <CoachAction>[]}) {
     serverChanged(() {
       serverMessages.putIfAbsent(threadId, () => <Message>[]).add(Message(
           id: 'a${++_clock}',
@@ -184,6 +184,7 @@ class FakeConvexClient implements ConvexClient {
           text: text,
           createdAt: ++_clock,
           logDraft: draft,
+          actions: actions,
           question: const CoachQuestion(text: 'Is this right?', answers: <QuickAnswer>[
             QuickAnswer(id: 'approve', label: 'Done'),
             QuickAnswer(id: 'change', label: 'Add or change'),

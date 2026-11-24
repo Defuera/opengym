@@ -149,7 +149,8 @@ export async function executeActions(ctx: Ctx, base: TurnBase, actions: unknown[
           continue;
         }
         proposal = made.draft;
-        results.push({ actionId: a.id, name: a.name, status: "drafted", detail: logDetail(made.draft, made.dropped) });
+        // A part that was left out is said in the action: `reason` is the sign for the app to show the line under the draft card.
+        results.push({ actionId: a.id, name: a.name, status: "drafted", detail: logDetail(made.draft, made.dropped), ...(made.dropped ? { reason: made.dropped.slice(0, 120) } : {}) });
         continue;
       }
       case "propose_program": {

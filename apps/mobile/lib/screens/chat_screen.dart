@@ -193,8 +193,10 @@ class _ChatScreenState extends State<ChatScreen> {
         items.add(LogEndLine(onClose: () => Navigator.of(context).pop(), onOpen: () => _openEntry(madeEntry)));
         items.add(const SizedBox(height: 12));
       }
-      if (!m.mine && draft == null && m.actions.isNotEmpty) {
-        items.add(ActionLines(lines: <String>[for (final CoachAction a in m.actions) coachActionLine(a)]));
+      // Under a draft card only the actions that left something out show a line; a plain reply shows one line for each action.
+      final List<CoachAction> shown = <CoachAction>[for (final CoachAction a in m.actions) if (draft == null || a.reason != null) a];
+      if (!m.mine && shown.isNotEmpty) {
+        items.add(ActionLines(lines: <String>[for (final CoachAction a in shown) coachActionLine(a)]));
         items.add(const SizedBox(height: 8));
       }
       final CoachPlan? plan = m.proposal;

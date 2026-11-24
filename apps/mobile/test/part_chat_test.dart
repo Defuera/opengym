@@ -111,6 +111,25 @@ void main() {
     expect(find.text('Is this right?'), findsOneWidget);
   });
 
+  testWidgets('a part the server left out is said under the draft card; an action without a reason shows no line', (WidgetTester t) async {
+    final (FakeConvexClient fake, _) = await _goals(t);
+    await t.tap(find.text('Add goal'));
+    await t.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 20)));
+    await t.pumpAndSettle();
+    await _type(t, 'bench 70');
+    fake.logDrafted(
+      fake.serverThreads.keys.single,
+      'Draft.',
+      _goal,
+      actions: const <CoachAction>[
+        CoachAction(actionId: 'a1', name: 'draft_log', status: 'drafted', detail: 'Drafted: goal. The note was left out.', reason: 'The note was left out.'),
+      ],
+    );
+    await t.pump();
+    await t.pump(const Duration(milliseconds: 100));
+    expect(find.text('Drafted: goal. The note was left out.'), findsOneWidget);
+  });
+
   test('the chat context carries the goal, limit, note and part to the server', () {
     const ChatContext c = ChatContext(screen: 'limit', limitId: 'l1', part: 'left_knee');
     expect(c.toJson(), <String, dynamic>{'screen': 'limit', 'limitId': 'l1', 'part': 'left_knee'});

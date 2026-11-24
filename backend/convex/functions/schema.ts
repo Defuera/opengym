@@ -387,6 +387,10 @@ export default defineSchema({
     path: v.union(v.literal("ai"), v.literal("fallback")),
     reason: v.optional(v.string()),
     ms: v.number(),
+    /** What the call was for: the turn id (the user message id) of a coach turn. Optional: rows of other jobs and older rows have none. */
+    ref: v.optional(v.string()),
+    /** The result of each action of a coach turn (applied, drafted or rejected with the reason), written by jobs/coachTurn:save, so a bad turn can be diagnosed. */
+    actions: v.optional(v.array(actionResult)),
   })
     .index("by_at", ["at"])
     .index("by_job", ["job", "at"]),

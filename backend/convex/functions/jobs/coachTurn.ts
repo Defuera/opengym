@@ -114,6 +114,10 @@ export const save = internalMutation({
     }
     const made = await executeActions(ctx, { turnId, ...(screen !== undefined ? { screen } : {}), ...(openSessionId !== undefined ? { openSessionId } : {}), ...(rev !== undefined ? { rev } : {}) }, actions);
     const { results } = made;
+    // The trace of the turn gets what each action did, so a bad turn can be read back (ADR-027, ADR-032).
+    const calls = await ctx.db.query("aiCalls").withIndex("by_job", (q) => q.eq("job", "coach_turn")).order("desc").take(20);
+    const call = calls.find((c) => c.ref === turnId);
+    if (call) await ctx.db.patch(call._id, { actions: results });
     let proposal = made.proposal;
     let questionText = question?.text;
     if (plainLog && !proposal) {
@@ -162,7 +166,7 @@ export const run = internalAction({
         if (a) files.push(a);
       }
       const coach = assembleCoachContext(data.chat.data, files, supportsImages, await loadEntryImages(ctx, data.chat.entryImages, supportsImages));
-      const r = await runAiJob(ctx, coachTurnJob, { contextBlock: coach.contextBlock, history: data.chat.history, images: coach.images, turn: data.turn, limits: data.chat.data.limits });
+      const r = await runAiJob(ctx, coachTurnJob, { contextBlock: coach.contextBlock, history: data.chat.history, images: coach.images, turn: data.turn, limits: data.chat.data.limits }, { ref: messageId });
       await ctx.runMutation(internal.jobs.coachTurn.save, {
         threadId,
         ...data.base,

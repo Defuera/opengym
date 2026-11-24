@@ -137,6 +137,24 @@ describe("the coach turn refuses what it may not do", () => {
     expect(a.actions).toEqual([{ actionId: "a1", name: "replace_open_exercise", status: "rejected", reason: "the person has done a set of it or commented on it" }]);
   });
 
+  it("the trace of the turn in aiCalls holds the result of each action, the rejected ones with the reason", async () => {
+    await world();
+    stubOpenAi(coach(() => ({ message: "Done.", actions: [{ id: "a1", name: "replace_open_exercise", arguments: { exerciseId: "e1", exercise: BALANCE } }, { id: "a2", name: "remove_open_exercise", arguments: { exerciseId: "e3" } }] })));
+    await send("m1", "change the squat and drop the leg press", { ...CONTEXT, exerciseId: "e1" });
+    await settle(t);
+    const [call] = await t.run((c) => c.db.query("aiCalls").withIndex("by_job", (q) => q.eq("job", "coach_turn")).collect());
+    expect(call).toMatchObject({
+      ref: "m1",
+      path: "ai",
+      actions: [
+        { actionId: "a1", name: "replace_open_exercise", status: "rejected", reason: "the person has done a set of it or commented on it" },
+        { actionId: "a2", name: "remove_open_exercise", status: "applied" },
+      ],
+    });
+    // The same results are on the message the person reads.
+    expect((await messages())[1]!.actions).toMatchObject([{ status: "rejected" }, { status: "applied" }]);
+  });
+
   for (const [label, action] of [
     ["an unknown tool name", { id: "a1", name: "set_open_session_place", arguments: { placeId: "p-home" } }],
     ["bad arguments", { id: "a1", name: "replace_open_exercise", arguments: { exerciseId: "e2" } }],

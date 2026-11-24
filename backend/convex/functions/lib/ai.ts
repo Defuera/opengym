@@ -28,16 +28,17 @@ export async function providerFor(ctx: Ctx): Promise<AiProvider | null> {
  * Runs one AI job: prompt, provider, JSON, zod validation, one retry, code fallback. Logs `[ai] job=... path=... ms=...`.
  * Each run that reached the provider is stored (ADR-027): the exact prompt, every attempt, the outcome. A failed store never fails the job.
  */
-export async function runAiJob<I, O>(ctx: Ctx & Pick<ActionCtx, "runMutation">, job: JobDef<I, O>, input: I, opts?: RunOptions): Promise<JobResult<O>> {
+export async function runAiJob<I, O>(ctx: Ctx & Pick<ActionCtx, "runMutation">, job: JobDef<I, O>, input: I, opts?: RunOptions & { ref?: string }): Promise<JobResult<O>> {
+  const { ref, ...runOpts } = opts ?? {};
   const model = await ctx.runQuery(internal.queries.settings.override, {});
   let trace: JobTrace | null = null;
-  const r = await runJob(job, input, providerFromEnv(model), consoleLogger, { ...opts, onTrace: (t) => (trace = t) });
+  const r = await runJob(job, input, providerFromEnv(model), consoleLogger, { ...runOpts, onTrace: (t) => (trace = t) });
   const t = trace as JobTrace | null;
   if (t) {
     const env = envInfo(process.env);
     const usedModel = model?.trim() || env.defaultModel;
     try {
-      await ctx.runMutation(internal.jobs.aiCalls.save, { ...t, provider: env.provider, ...(usedModel ? { model: usedModel } : {}) });
+      await ctx.runMutation(internal.jobs.aiCalls.save, { ...t, provider: env.provider, ...(usedModel ? { model: usedModel } : {}), ...(ref !== undefined ? { ref } : {}) });
     } catch (e) {
       consoleLogger.warn(`[ai] call not stored: ${(e as Error).message}`);
     }

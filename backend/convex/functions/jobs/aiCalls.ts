@@ -17,6 +17,7 @@ export const save = internalMutation({
     path: v.union(v.literal("ai"), v.literal("fallback")),
     reason: v.optional(v.string()),
     ms: v.number(),
+    ref: v.optional(v.string()),
   },
   handler: async (ctx, a): Promise<void> => {
     await ctx.db.insert("aiCalls", {

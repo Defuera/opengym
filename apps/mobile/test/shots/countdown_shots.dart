@@ -47,7 +47,7 @@ void main() {
     DateTime now = DateTime(2026, 11, 19, 10);
     final AppStore store = AppStore(
       InMemorySessionRepository(),
-      countdown: CountdownStore(now: () => now, alert: () {}),
+      countdown: CountdownStore(now: () => now),
     );
     await store.load();
     store.begin(activity: 'Gym', focus: 'Cardio', prepared: <Exercise>[

@@ -70,11 +70,13 @@ class _SessionScreenState extends State<SessionScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    store.countdown.setScreenVisible(this, true);
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    store.countdown.setScreenVisible(this, false); // left the screen: let the phone sleep
     super.dispose();
   }
 
@@ -83,7 +85,10 @@ class _SessionScreenState extends State<SessionScreen>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
+      store.countdown.setScreenVisible(this, true);
       store.countdown.tick();
+    } else {
+      store.countdown.setScreenVisible(this, false); // background: let the phone sleep
     }
   }
 

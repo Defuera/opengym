@@ -11,6 +11,7 @@ import 'package:opengym/theme.dart';
 
 import 'support/fake_convex_client.dart';
 import 'support/fake_countdown_signal.dart';
+import 'support/fake_timer_cues.dart';
 import 'support/set_taps.dart';
 import 'support/test_deps.dart';
 
@@ -35,14 +36,14 @@ void main() {
   group('CountdownStore', () {
     late _Clock clock;
     late CountdownStore cd;
-    late int alerts;
+    late FakeTimerCues cues;
     late int done;
 
     setUp(() {
       clock = _Clock();
-      alerts = 0;
+      cues = FakeTimerCues();
       done = 0;
-      cd = CountdownStore(now: clock.call, alert: () => alerts++);
+      cd = CountdownStore(now: clock.call, cues: cues);
     });
     tearDown(() => cd.dispose());
 
@@ -64,7 +65,7 @@ void main() {
       cd.tick();
       cd.tick();
       expect(done, 1);
-      expect(alerts, 1);
+      expect(cues.count('vibrate'), 1);
       expect(cd.active, isFalse);
     });
 
@@ -101,7 +102,7 @@ void main() {
       clock.add(const Duration(minutes: 2));
       cd.tick();
       expect(done, 0);
-      expect(alerts, 0);
+      expect(cues.count('vibrate'), 0);
     });
 
     test('a second start replaces the first', () {
@@ -140,7 +141,7 @@ void main() {
       sig = FakeCountdownSignal();
       store = AppStore(
         InMemorySessionRepository(),
-        countdown: CountdownStore(now: clock.call, alert: () {}, signal: sig),
+        countdown: CountdownStore(now: clock.call, signal: sig),
       );
       await store.load();
       first = SetEntry.time(2);
@@ -215,7 +216,7 @@ void main() {
 
     test('permission denied: the countdown still works', () {
       final FakeCountdownSignal denied = FakeCountdownSignal(granted: false);
-      final CountdownStore cd = CountdownStore(now: clock.call, alert: () {}, signal: denied);
+      final CountdownStore cd = CountdownStore(now: clock.call, signal: denied);
       int done = 0;
       cd.start(Object(), 1, () => done++, title: 'Bike');
       clock.add(const Duration(minutes: 1));
@@ -226,7 +227,7 @@ void main() {
 
     test('a failing plugin never breaks the countdown', () async {
       final CountdownStore cd =
-          CountdownStore(now: clock.call, alert: () {}, signal: FakeCountdownSignal(fail: true));
+          CountdownStore(now: clock.call, signal: FakeCountdownSignal(fail: true));
       int done = 0;
       cd.start(Object(), 1, () => done++, title: 'Bike');
       cd.pause();
@@ -245,7 +246,7 @@ void main() {
 
     setUp(() async {
       clock = _Clock();
-      store = AppStore(InMemorySessionRepository(), countdown: CountdownStore(now: clock.call, alert: () {}));
+      store = AppStore(InMemorySessionRepository(), countdown: CountdownStore(now: clock.call));
       await store.load();
       first = SetEntry.time(2);
       store.begin(prepared: <Exercise>[
@@ -332,7 +333,7 @@ void main() {
 
     Future<void> open(WidgetTester t, List<Exercise> prepared) async {
       clock = _Clock();
-      store = AppStore(InMemorySessionRepository(), countdown: CountdownStore(now: clock.call, alert: () {}));
+      store = AppStore(InMemorySessionRepository(), countdown: CountdownStore(now: clock.call));
       await store.load();
       store.begin(prepared: prepared);
       await t.pumpWidget(MaterialApp(

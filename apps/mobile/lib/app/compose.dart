@@ -5,7 +5,9 @@ import '../data/convex_client.dart';
 import '../data/legacy_outbox_migration.dart';
 import '../data/outbox.dart';
 import '../data/health_tracker_source.dart';
+import '../data/audio_timer_cues.dart';
 import '../data/local_countdown_signal.dart';
+import '../data/wakelock_screen_awake.dart';
 import '../data/pickers.dart';
 import '../data/voice_recorder.dart';
 import '../data/open_session_sync.dart';
@@ -39,7 +41,11 @@ Future<AppDeps> compose() async {
   );
   final AppStore store = AppStore(
     SharedPrefsSessionRepository(),
-    countdown: CountdownStore(signal: LocalCountdownSignal()),
+    countdown: CountdownStore(
+      signal: LocalCountdownSignal(),
+      cues: AudioTimerCues(),
+      awake: const WakelockScreenAwake(),
+    ),
   );
   await store.load();
 

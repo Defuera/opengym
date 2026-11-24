@@ -1,9 +1,9 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart';
-
 import '../data/countdown_signal.dart';
+import '../data/screen_awake.dart';
+import '../data/timer_cues.dart';
 
 /// The countdown of one time entry in a running session. One at a time.
 ///
@@ -17,17 +17,27 @@ import '../data/countdown_signal.dart';
 class CountdownStore extends ChangeNotifier {
   CountdownStore({
     DateTime Function()? now,
-    void Function()? alert,
     this.signal = const NoCountdownSignal(),
+    this.cues = const NoTimerCues(),
+    this.awake = const NoScreenAwake(),
     this.refresh = const Duration(milliseconds: 200),
-  })  : _now = now ?? DateTime.now,
-        _alert = alert ?? _deviceAlert;
+  }) : _now = now ?? DateTime.now;
 
   /// The sound at the end time: a notification planned while the countdown runs.
   final CountdownSignal signal;
 
+  /// The start tone, the ticks of the last three seconds, the end tone and the
+  /// vibration. They play while the app runs; in the background the notification
+  /// of [signal] is the sound.
+  final TimerCues cues;
+
+  /// Keeps the screen on while the countdown runs and the session screen shows.
+  final ScreenAwake awake;
+
   final DateTime Function() _now;
-  final void Function() _alert;
+  final Set<Object> _viewers = <Object>{};
+  bool _screenSeen = false;
+  bool _awakeOn = false;
 
   /// How often the display refreshes while the countdown runs.
   final Duration refresh;
@@ -77,7 +87,34 @@ class CountdownStore extends ChangeNotifier {
     _shownSeconds = _seconds(_left);
     _timer = Timer.periodic(refresh, (Timer _) => tick());
     _plan();
+    cues.start();
+    _syncAwake();
     notifyListeners();
+  }
+
+  /// A session screen ([owner]) is in front (true) or was left or went to the
+  /// background (false). The countdown goes on; only the screen lock is let go
+  /// when no session screen shows. Before any screen reports, the store counts
+  /// as visible, so a store with no screen still holds the lock.
+  void setScreenVisible(Object owner, bool visible) {
+    _screenSeen = true;
+    if (visible) {
+      _viewers.add(owner);
+    } else {
+      _viewers.remove(owner);
+    }
+    _syncAwake();
+  }
+
+  /// The one place that drives the screen lock from the running state: held
+  /// while a countdown runs (not paused) and the session screen shows.
+  void _syncAwake() {
+    final bool want = _entry != null && !_paused && (!_screenSeen || _viewers.isNotEmpty);
+    if (want == _awakeOn) {
+      return;
+    }
+    _awakeOn = want;
+    unawaited((want ? awake.enable() : awake.disable()).catchError((Object _) {}));
   }
 
   void pause() {
@@ -88,6 +125,7 @@ class CountdownStore extends ChangeNotifier {
     _paused = true;
     _stopTimer();
     _unplan();
+    _syncAwake();
     notifyListeners();
   }
 
@@ -100,6 +138,7 @@ class CountdownStore extends ChangeNotifier {
     _timer = Timer.periodic(refresh, (Timer _) => tick());
     _shownSeconds = _seconds(_left);
     _plan();
+    _syncAwake();
     notifyListeners();
   }
 
@@ -124,13 +163,17 @@ class CountdownStore extends ChangeNotifier {
       final VoidCallback? done = _onDone;
       _clear();
       notifyListeners();
-      _alert();
+      cues.end();
+      cues.vibrate();
       done?.call();
       return;
     }
     final int s = _seconds(left);
     if (s != _shownSeconds) {
       _shownSeconds = s;
+      if (s >= 1 && s <= 3) {
+        cues.tick();
+      }
       notifyListeners();
     }
   }
@@ -150,6 +193,7 @@ class CountdownStore extends ChangeNotifier {
     _onDone = null;
     _paused = false;
     _left = Duration.zero;
+    _syncAwake();
   }
 
   void _stopTimer() {
@@ -164,10 +208,8 @@ class CountdownStore extends ChangeNotifier {
   @override
   void dispose() {
     _stopTimer();
+    _entry = null;
+    _syncAwake(); // never leave the screen held
     super.dispose();
   }
-}
-
-void _deviceAlert() {
-  unawaited(HapticFeedback.heavyImpact().catchError((Object _) {}));
 }

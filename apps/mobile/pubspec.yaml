@@ -18,6 +18,8 @@ dependencies:
   record: ^7.2.0
   flutter_local_notifications: ^23.0.3
   timezone: ^0.11.2
+  wakelock_plus: ^1.5.2
+  audioplayers: ^6.8.1
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -25,3 +27,5 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/sounds/

@@ -28,9 +28,21 @@ function timeText(minutes: number): string {
 
 /**
  * The sets of one exercise as a short text: "3 × 10", "3 × max", "10, 8, 6" (reps differ), "3 × 30 s", "10 min", "2 min, 1 min". Pure.
- * The weight is not in the text. An exercise with no set gives "".
+ * When every set has the same non-zero weight, it follows: "3 × 10 · 40 kg". Otherwise the weight is left out. An exercise with no set gives "".
  */
 export function formatSets(e: PlanExercise): string {
+  const base = formatBase(e);
+  const kg = e.measure === "time" ? undefined : sharedKg(e.sets);
+  return base && kg ? `${base} · ${num(kg)} kg` : base;
+}
+
+/** The one non-zero weight all sets share, or undefined. */
+function sharedKg(sets: { kg: number }[]): number | undefined {
+  const first = sets[0]?.kg;
+  return first && first > 0 && sets.every((s) => s.kg === first) ? first : undefined;
+}
+
+function formatBase(e: PlanExercise): string {
   const parts = e.measure === "time" ? e.sets.map((s) => timeText(s.minutes)) : e.sets.map((s) => (s.max ? "max" : String(s.reps)));
   if (parts.length === 0) return "";
   if (parts.every((p) => p === parts[0])) return parts.length === 1 && e.measure === "time" ? parts[0]! : `${parts.length} × ${parts[0]}`;

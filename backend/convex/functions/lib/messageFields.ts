@@ -25,6 +25,8 @@ export const actionResult = v.object({
   name: v.string(),
   status: v.union(v.literal("applied"), v.literal("drafted"), v.literal("rejected")),
   reason: v.optional(v.string()),
+  /** A plain line of what the function did, made by code from the checked arguments and the data (max 120). */
+  detail: v.optional(v.string()),
 });
 
 /** The whole-session plan the coach proposes (ADR-032). `exercises` are checked against the plan safety limits. `appliedAt` is set when the person approved it. */

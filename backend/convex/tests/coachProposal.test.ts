@@ -67,7 +67,7 @@ describe("a rebuild request is a proposal", () => {
       turnId: "m1",
       actions: [{ actionId: "a1", name: "rebuild_open_session", status: "drafted" }],
       question: { text: "Shall I go on?", answers: [{ id: "approve", label: "Approve" }, { id: "change", label: "Change something" }] },
-      proposal: { title: "Balance day", state: "open", exercises: [{ name: "Balance board stand", sets: "3 × 30 s" }, { name: "Squat", sets: "1 × 5" }, { name: "Calf raise 1", sets: "3 × 12" }] },
+      proposal: { title: "Balance day", state: "open", exercises: [{ name: "Balance board stand", sets: "3 × 30 s" }, { name: "Squat", sets: "1 × 5 · 60 kg" }, { name: "Calf raise 1", sets: "3 × 12" }] },
     });
     expect(Object.keys(a.proposal!).sort()).toEqual(["exercises", "state", "title"]);
   });
@@ -176,7 +176,10 @@ describe("formatSets", () => {
   it.each([
     [reps(10, 10, 10), "3 × 10"],
     [reps(10, 8, 6), "10, 8, 6"],
-    [{ name: "x", sets: [{ reps: 0, kg: 20, max: true }, { reps: 0, kg: 20, max: true }] }, "2 × max"],
+    [{ name: "x", sets: [{ reps: 0, kg: 20, max: true }, { reps: 0, kg: 20, max: true }] }, "2 × max · 20 kg"],
+    [{ name: "x", sets: [{ reps: 10, kg: 40, max: false }, { reps: 10, kg: 40, max: false }, { reps: 10, kg: 40, max: false }] }, "3 × 10 · 40 kg"],
+    [{ name: "x", sets: [{ reps: 10, kg: 40, max: false }, { reps: 10, kg: 45, max: false }] }, "2 × 10"],
+    [{ name: "x", sets: [{ reps: 10, kg: 12.5, max: false }, { reps: 8, kg: 12.5, max: false }] }, "10, 8 · 12.5 kg"],
     [time(0.5, 0.5, 0.5), "3 × 30 s"],
     [time(10), "10 min"],
     [time(2, 2), "2 × 2 min"],

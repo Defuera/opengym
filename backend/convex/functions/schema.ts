@@ -257,6 +257,8 @@ export default defineSchema({
     placeId: v.optional(v.string()),
     /** What this conversation is about (ADR-026). Set when the thread is created, from the thing it is opened from. The app hides such threads from the chat list by default. */
     about: v.optional(threadAbout),
+    /** The open session this chat was opened from: `context.openSessionId` of its first user message. The app finds the thread of an open session again by it. */
+    openSessionId: v.optional(v.string()),
   })
     .index("by_threadId", ["threadId"])
     .index("by_updatedAt", ["updatedAt"]),

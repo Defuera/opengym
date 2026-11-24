@@ -69,7 +69,8 @@ export const send = mutation({
     const first = !(await ctx.db.query("messages").withIndex("by_threadId", (q) => q.eq("threadId", threadId)).filter((q) => q.eq(q.field("role"), "user")).first());
     const title = thread.titleSource === "auto" && first && !thread.about ? { title: titleFromMessage(valid.text) } : {};
     await ctx.db.insert("messages", { messageId, threadId, role: "user", text: valid.text, fileIds: valid.fileIds ?? [], sources: [], ...(context ? { context } : {}), createdAt: now });
-    await ctx.db.patch(thread._id, { ...title, status: "thinking", error: undefined, pending: thread.pending + 1, updatedAt: now });
+    const session = first && context?.openSessionId !== undefined && thread.openSessionId === undefined ? { openSessionId: context.openSessionId } : {};
+    await ctx.db.patch(thread._id, { ...title, ...session, status: "thinking", error: undefined, pending: thread.pending + 1, updatedAt: now });
     await ctx.scheduler.runAfter(0, replyJob(context, !!answer), { threadId, messageId });
     // A thread about a place (ADR-021): the background job may learn from what the user says. It never blocks the reply.
     // The coach turn updates places itself (update_place), so the background job does not run for it.

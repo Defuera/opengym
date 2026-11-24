@@ -91,8 +91,8 @@ describe("the balance-board case (owner, 2026-11-24)", () => {
       turnId: "m1",
       text: "Swapped the stand for the balance board, and noted the board at the Gym.",
       actions: [
-        { actionId: "a1", name: "update_place", status: "applied" },
-        { actionId: "a2", name: "replace_open_exercise", status: "applied" },
+        { actionId: "a1", name: "update_place", status: "applied", detail: "Gym: added Balance board" },
+        { actionId: "a2", name: "replace_open_exercise", status: "applied", detail: "Single-leg stand → Balance board stand" },
       ],
     });
     expect(await t.run((c) => c.db.query("aiCalls").withIndex("by_job", (q) => q.eq("job", "coach_turn")).collect())).toHaveLength(1);
@@ -200,7 +200,7 @@ describe("the coach turn refuses what it may not do", () => {
     await send("m1", "make the whole session about balance", { screen: "session", openSessionId: "s1" });
     await settle(t);
     expect(await open()).toMatchObject({ rev: 1, updatedBy: "app", session: { placeId: "p-gym", exercises: EXERCISES } });
-    expect((await messages())[1]!.actions).toEqual([{ actionId: "a1", name: "rebuild_open_session", status: "drafted" }]);
+    expect((await messages())[1]!.actions).toEqual([{ actionId: "a1", name: "rebuild_open_session", status: "drafted", detail: "Proposed: 2 exercises" }]);
   });
 });
 

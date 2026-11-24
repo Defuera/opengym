@@ -54,6 +54,8 @@ export interface ActionResult {
   name: string;
   status: "applied" | "drafted" | "rejected";
   reason?: string;
+  /** What the action did in plain words, made by code, never by the model (model/actionDetail.ts). Max 120. */
+  detail?: string;
 }
 
 /** The exercises an action writes. */

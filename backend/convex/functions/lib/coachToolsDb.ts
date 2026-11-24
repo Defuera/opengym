@@ -6,6 +6,7 @@ import { fileByFileId } from "./files";
 import { PLACE_QUOTE_MAX, PLACE_TEXT_MAX } from "./placeFields";
 import { placeByPlaceId, setPlaceText } from "./placesDb";
 import { requestExerciseArt } from "./exerciseArtDb";
+import { addDetail, placeDetail, proposeDetail, removeDetail, replaceDetail } from "../model/actionDetail";
 import { type ActionResult, type CoachAction, CoachActionSchema, editPlaceText, toPlanned } from "../model/coachTools";
 import { type OneChange, type OpenExercise, addOne, removeOne, replaceOne } from "../model/openSession";
 import type { StoredProposal } from "../model/proposalText";
@@ -89,6 +90,7 @@ export async function executeActions(ctx: Ctx, base: TurnBase, actions: unknown[
       continue;
     }
     let change: OneChange | null = null;
+    let detail = "";
     switch (a.name) {
       case "update_place": {
         const why = await evidenceProblem(ctx, trigger, a.arguments.evidence);
@@ -104,7 +106,7 @@ export async function executeActions(ctx: Ctx, base: TurnBase, actions: unknown[
         }
         const quote = (trigger!.text.trim() || "(photo)").slice(0, PLACE_QUOTE_MAX);
         const wrote = await setPlaceText(ctx, place, after, "chat", quote, undefined, a.arguments.evidence);
-        results.push({ actionId: a.id, name: a.name, status: "applied", ...(wrote ? {} : { reason: "no change: the place text says it already" }) });
+        results.push({ actionId: a.id, name: a.name, status: "applied", ...(wrote ? { detail: placeDetail(place.name, a.arguments.add, a.arguments.remove) } : { reason: "no change: the place text says it already" }) });
         continue;
       }
       case "replace_open_exercise":
@@ -114,13 +116,18 @@ export async function executeActions(ctx: Ctx, base: TurnBase, actions: unknown[
           reject("a limit marks this exercise avoid");
           continue;
         }
+        const old = a.name === "replace_open_exercise" ? exercises.find((e) => e.id === a.arguments.exerciseId) : undefined;
+        detail = old ? replaceDetail(old, ex) : addDetail(ex);
         change = a.name === "replace_open_exercise" ? replaceOne(exercises, a.arguments.exerciseId, toPlanned(ex), newId()) : addOne(exercises, toPlanned(ex), newId(), a.arguments.afterExerciseId);
         if (change.ok) art.push(ex.name.trim());
         break;
       }
-      case "remove_open_exercise":
+      case "remove_open_exercise": {
+        const gone = exercises.find((e) => e.id === a.arguments.exerciseId);
+        if (gone) detail = removeDetail(gone);
         change = removeOne(exercises, a.arguments.exerciseId);
         break;
+      }
       case "rebuild_open_session": {
         const list = await safe(a.arguments.exercises);
         if (list.length === 0) {
@@ -141,7 +148,7 @@ export async function executeActions(ctx: Ctx, base: TurnBase, actions: unknown[
           openSessionId: row!.id,
         };
         art.push(...list.map((e) => e.name.trim()));
-        results.push({ actionId: a.id, name: a.name, status: "drafted" });
+        results.push({ actionId: a.id, name: a.name, status: "drafted", detail: proposeDetail(list.length) });
         continue;
       }
     }
@@ -151,7 +158,7 @@ export async function executeActions(ctx: Ctx, base: TurnBase, actions: unknown[
     }
     exercises = change.exercises;
     changed = true;
-    results.push({ actionId: a.id, name: a.name, status: "applied" });
+    results.push({ actionId: a.id, name: a.name, status: "applied", ...(detail ? { detail } : {}) });
   }
 
   if (changed && row) await ctx.db.patch(row._id, { exercises, rev: row.rev + 1, updatedAt: Date.now(), updatedBy: "coach" });

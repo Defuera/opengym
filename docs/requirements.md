@@ -147,6 +147,7 @@ conversation (A01–A16). Wording is kept close to his.
 - Confirmed 2026-11-24, the owner's words about a place description: "I didn't describe my gym at all. So AI should have known where information is coming from, and this is not a full information." A place description is partial. Equipment that is not named is unknown, not missing. The coach may ask.
 - Confirmed 2026-11-24: a comment on one exercise changes that exercise only. The owner's words: "I didn't need to completely change the session. I only needed to fix that one thing."
 - Confirmed 2026-11-24, the owner's words: "I can say, I want to change the whole workout. And then the AI replies with the question, okay, that's what I understood... That's what I propose now. Do you approve or not? And if I approve, it will regenerate the whole workout." A change of the whole session is a proposal; it is applied when the person approves.
+- Confirmed 2026-11-24, the owner's words: "let's have a dynamic categorization of logs, and maybe have them have like either a different color or different color border, something like that, so they're visually distinguishable."
 
 ## Open questions (the owner's list, still undecided unless noted)
 - Which activities are in v1 besides gym

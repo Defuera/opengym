@@ -17,13 +17,23 @@ The Log side had separate routes: a note, a completed activity as text, "Somethi
 ## Decision
 
 - The log entry (`entries`, ADR-017) is the one general input: the person's words, photos and files, stored unchanged.
-- One job, `read_entry`, reads every new or changed entry and says what it is: `meal`, `training`, `body`, `goal` or `other`, with one line about it (at most 120 characters).
+- One job, `read_entry`, reads every new or changed entry and gives it a category and one line about it (at most 120 characters). Updated 2026-11-24: the category is dynamic (see "Dynamic categories" below). It was a fixed list: `meal`, `training`, `body`, `goal`, `other`.
 - The result is stored on the entry as `read: { status: "pending" | "ready" | "failed", rev, kind?, summary? }`. It is a label made by the AI, not a fact. The person's words and files never change.
 - `rev` names the text and the file list that were read. A changed text or file list starts a new read. A late result for an older text is dropped. A change of the time alone keeps the label.
 - The job follows the usual pipeline (ADR-004): prompt, provider, JSON, zod, one retry. No plain code can read a photo, so with no AI answer the status is `failed` and the entry shows as the person wrote it.
 - Step 1 writes nothing else: no session, no goal, no note for the coach, no limit.
 - The app shows the kind after the time of the entry ("Today, 20:05 · Meal"). For an entry with photos or files it also shows the one line, and "Reading…" while the job runs.
 - The coach reads the one line for an entry with photos or files (`attachmentsShow` in `logEntriesFromTheUser`), so it knows what a photo showed after the 24 hours in which the photo itself is sent.
+
+## Dynamic categories (2026-11-24)
+
+The owner asked for a dynamic categorization of logs, shown in different colours (his words are in `requirements.md`).
+
+- `kind` is now a short free label: one or two words, Title case, at most 24 characters ("Meal", "Sleep", "Walk"). The stored type is a string. Old rows keep `meal`, `training`, `body`, `goal` and `other`: they validate and show as "Meal", "Training", "Body" and "Goal". `other` shows no label, as before. No old entry needs a re-read.
+- The AI gets `categoriesInUse` (the labels of the person's last 200 entries, most used first). It reuses one when it fits and creates a new one only when none fits. This applies to `read_entry` and to `draft_log` in the log chat.
+- Plain code tidies the label (`model/entryCategory.ts`): trim, one space, cut at 24 characters, a case-insensitive match to a known label (the known spelling wins), else Title case. The fallback is `other`.
+- No code branches on the category. A workout is known by `read.made.sessionId`, not by the label, so no separate flag was added.
+- Colour (Proposed, not confirmed by the owner, who asked for different colours and not for a method): the app picks the colour, not the AI. A fixed palette of 8 colours in `theme.dart`, chosen by a stable hash of the lower-case label, so a category has the same colour on every device. The entry row shows a coloured left border and the label in that colour. Workout session cards keep the black border.
 
 ## Proposed next steps (not built, not confirmed by the owner)
 

@@ -115,7 +115,6 @@ Widget chatStory(BuildContext context) {
       ChatBubble(
         text: 'Sample reply from the coach.',
         mine: false,
-        sources: <String>['gym log', 'goals'],
       ),
       _gap,
       SavedChips(labels: <String>['Goal: sample goal', 'Sample context note']),

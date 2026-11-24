@@ -54,11 +54,10 @@ void main() {
     await coach.send('Focus?');
     await pump();
     expect(coach.thinking, isTrue);
-    fake.coachAnswers(id, 'Focus on rows.', sources: <String>['gym log']);
+    fake.coachAnswers(id, 'Focus on rows.');
     await pump();
     expect(coach.thinking, isFalse);
     expect(coach.messages.map((Message m) => m.role), <String>['user', 'assistant']);
-    expect(coach.messages.last.sources, <String>['gym log']);
   });
 
   test('items the coach extracted show as chips after the answer', () async {

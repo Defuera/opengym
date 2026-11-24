@@ -140,7 +140,7 @@ Future<void> _chatRoundTrip(ConvexClient c) async {
     final List<Message> list = await answered;
     final int ms = sw.elapsedMilliseconds;
     final Message a = list.firstWhere((Message m) => !m.mine);
-    print('answer: length=${a.text.length} chars, sources=${a.sources}, '
+    print('answer: length=${a.text.length} chars, '
         'send to answer=${ms}ms, messages in thread=${list.length}');
     final Thread idle = (await _next(
             c.watchThreads(),

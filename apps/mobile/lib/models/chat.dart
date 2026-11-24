@@ -283,7 +283,6 @@ class Message {
     required this.text,
     required this.createdAt,
     this.fileIds = const <String>[],
-    this.sources = const <String>[],
     this.voice,
     this.proposalId,
     this.context,
@@ -322,8 +321,6 @@ class Message {
   final String text;
   final List<String> fileIds;
 
-  /// What the coach also read, e.g. "Knee thread", "gym log", "goals".
-  final List<String> sources;
   final int createdAt;
 
   /// Set on a voice message: pending | done | failed. Null on a text message.
@@ -341,7 +338,6 @@ class Message {
       'role': role,
       'text': text,
       'fileIds': fileIds,
-      'sources': sources,
       'createdAt': createdAt,
       if (voice != null) 'voice': voice,
       if (proposalId != null) 'proposalId': proposalId,
@@ -356,7 +352,6 @@ class Message {
       text: str(j['text']),
       createdAt: intOf(j['createdAt']),
       fileIds: strList(j['fileIds']),
-      sources: strList(j['sources']),
       voice: strOrNull(j['voice']),
       proposalId: strOrNull(j['proposalId']),
       context: ChatContext.fromJson(j['context']),

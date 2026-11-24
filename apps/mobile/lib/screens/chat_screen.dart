@@ -154,7 +154,6 @@ class _ChatScreenState extends State<ChatScreen> {
       items.add(ChatBubble(
         text: m.text,
         mine: m.mine,
-        sources: m.sources,
         voice: m.voice,
         voiceFailedText:
             c.isUnsentVoice(m.id) ? 'Could not send the recording.' : 'Could not read the recording.',

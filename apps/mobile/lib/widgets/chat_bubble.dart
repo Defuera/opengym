@@ -4,17 +4,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../theme.dart';
+import 'chat_markup.dart';
 import 'og_button.dart';
 
 /// One chat message. Mine on the right (accent), the coach's on the left.
-/// [sources] adds a muted "Also read: ..." line under a coach message.
+/// A coach message shows its simple formatting (bold, bullets, line breaks).
 /// A long press copies the text and shows "Copied" for a moment.
 class ChatBubble extends StatefulWidget {
   const ChatBubble({
     super.key,
     required this.text,
     required this.mine,
-    this.sources = const <String>[],
     this.attachments = const <String>[],
     this.media = const <Widget>[],
     this.copyable = true,
@@ -25,7 +25,6 @@ class ChatBubble extends StatefulWidget {
 
   final String text;
   final bool mine;
-  final List<String> sources;
   final List<String> attachments;
 
   /// Thumbnails or file chips of what was sent. They replace the "Attached" line.
@@ -115,7 +114,6 @@ class _ChatBubbleState extends State<ChatBubble> {
   Widget build(BuildContext context) {
     final String text = widget.text;
     final bool mine = widget.mine;
-    final List<String> sources = widget.sources;
     final List<String> attachments = widget.attachments;
     final Color fg = mine ? OG.white : OG.ink;
     final List<Widget> body = <Widget>[];
@@ -128,7 +126,7 @@ class _ChatBubbleState extends State<ChatBubble> {
     if (widget.voice != null) {
       body.addAll(_voiceBody(fg));
     } else if (text.isNotEmpty || widget.media.isEmpty) {
-      body.add(Text(text, style: OG.body(color: fg)));
+      body.add(mine ? Text(text, style: OG.body(color: fg)) : chatMarkup(text, OG.body(color: fg)));
     }
     if (attachments.isNotEmpty && widget.media.isEmpty) {
       body.add(const SizedBox(height: 6));
@@ -136,10 +134,6 @@ class _ChatBubbleState extends State<ChatBubble> {
         'Attached: ${attachments.join(', ')}',
         style: OG.body(size: 13, color: fg),
       ));
-    }
-    if (!mine && sources.isNotEmpty) {
-      body.add(const SizedBox(height: 8));
-      body.add(Text('Also read: ${sources.join(', ')}', style: OG.muted(size: 13)));
     }
     if (_copied) {
       body.add(const SizedBox(height: 6));

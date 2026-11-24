@@ -104,4 +104,51 @@ void main() {
       throwsA(isA<ConvexCallException>().having((e) => e.kind, 'kind', ConvexFailure.transient)),
     );
   });
+
+  test('a failed access check on an open socket is tried again by itself', () async {
+    made = <FakeConvexClient>[];
+    client = SwitchableConvexClient((String url, String token) {
+      final FakeConvexClient f = FakeConvexClient()
+        ..linkNow = ConvexLink.connected
+        ..access = AccessStatus.unreachable;
+      made.add(f);
+      return f;
+    });
+    final ConnectionStore c = ConnectionStore(
+      settings: InMemorySettingsRepository(),
+      client: client,
+      connectTimeout: const Duration(milliseconds: 200),
+      recheckDelay: const Duration(milliseconds: 50),
+    );
+    await c.save('https://x.convex.cloud', 'tok');
+    expect(c.state, ConnState.offline);
+    made[0].access = AccessStatus.ok;
+    await Future<void>.delayed(const Duration(milliseconds: 150));
+    expect(c.state, ConnState.connected);
+    c.dispose();
+  });
+
+  test('recheck on app resume fixes a stale offline state', () async {
+    made = <FakeConvexClient>[];
+    client = SwitchableConvexClient((String url, String token) {
+      final FakeConvexClient f = FakeConvexClient()
+        ..linkNow = ConvexLink.connected
+        ..access = AccessStatus.failed;
+      made.add(f);
+      return f;
+    });
+    final ConnectionStore c = ConnectionStore(
+      settings: InMemorySettingsRepository(),
+      client: client,
+      connectTimeout: const Duration(milliseconds: 200),
+      recheckDelay: const Duration(seconds: 30),
+    );
+    await c.save('https://x.convex.cloud', 'tok');
+    expect(c.state, ConnState.offline);
+    made[0].access = AccessStatus.ok;
+    c.recheck();
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+    expect(c.state, ConnState.connected);
+    c.dispose();
+  });
 }

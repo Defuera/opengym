@@ -11,10 +11,38 @@ Future<void> main() async {
   runApp(OpenGymApp(deps: deps));
 }
 
-class OpenGymApp extends StatelessWidget {
+class OpenGymApp extends StatefulWidget {
   const OpenGymApp({super.key, required this.deps});
 
   final AppDeps deps;
+
+  @override
+  State<OpenGymApp> createState() => _OpenGymAppState();
+}
+
+class _OpenGymAppState extends State<OpenGymApp> with WidgetsBindingObserver {
+  AppDeps get deps => widget.deps;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  /// Back from the background: check the link again, so a state that went
+  /// stale while the phone slept does not stay.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      deps.connection.recheck();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {

@@ -33,12 +33,17 @@ class ConnectionStore extends ChangeNotifier {
     required SettingsRepository settings,
     required SwitchableConvexClient client,
     this.connectTimeout = const Duration(seconds: 10),
+    this.recheckDelay = const Duration(seconds: 4),
   })  : _repo = settings,
         _client = client;
 
   final SettingsRepository _repo;
   final SwitchableConvexClient _client;
   final Duration connectTimeout;
+
+  /// How long to wait before the access check is tried again after it failed
+  /// while the socket itself is open.
+  final Duration recheckDelay;
 
   Settings settings = const Settings();
   ConnState state = ConnState.notConfigured;
@@ -51,6 +56,8 @@ class ConnectionStore extends ChangeNotifier {
 
   StreamSubscription<ConvexLink>? _sub;
   Timer? _timer;
+  Timer? _retry;
+  bool _linkUp = false;
   Completer<void>? _settled;
   int _gen = 0;
 
@@ -87,6 +94,8 @@ class ConnectionStore extends ChangeNotifier {
     await _sub?.cancel();
     _sub = null;
     _timer?.cancel();
+    _retry?.cancel();
+    _linkUp = false;
     _settled = Completer<void>();
     if (settings.isEmpty || settings.token.isEmpty) {
       await _client.configure('', '');
@@ -120,6 +129,10 @@ class ConnectionStore extends ChangeNotifier {
   void _onLink(int gen, ConvexLink l) {
     if (gen != _gen || state == ConnState.unauthorized && l != ConvexLink.connected) {
       return;
+    }
+    _linkUp = l == ConvexLink.connected;
+    if (!_linkUp) {
+      _retry?.cancel();
     }
     switch (l) {
       case ConvexLink.notConfigured:
@@ -164,6 +177,27 @@ class ConnectionStore extends ChangeNotifier {
       case AccessStatus.unreachable:
       case AccessStatus.failed:
         _set(ConnState.offline, 'The server did not answer the check.');
+        // The socket is open and will send no new event, so without a retry
+        // the state would stay offline until the app restarts.
+        _retry?.cancel();
+        if (_linkUp) {
+          _retry = Timer(recheckDelay, () {
+            if (gen == _gen && _linkUp && !connected) {
+              unawaited(_verify(gen));
+            }
+          });
+        }
+    }
+  }
+
+  /// The app came back to the front (or the user asked): check again when the
+  /// state is not connected, and trust a connected state only after a check.
+  void recheck() {
+    if (state == ConnState.notConfigured || state == ConnState.badUrl) {
+      return;
+    }
+    if (_linkUp) {
+      unawaited(_verify(_gen));
     }
   }
 
@@ -182,6 +216,7 @@ class ConnectionStore extends ChangeNotifier {
   @override
   void dispose() {
     _timer?.cancel();
+    _retry?.cancel();
     _sub?.cancel();
     super.dispose();
   }

@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:opengym/entry_category.dart';
 import 'package:opengym/entry_text.dart';
 import 'package:opengym/models.dart';
 import 'package:opengym/widgets/entry_list_item.dart';
+import 'package:opengym/theme.dart';
 
 import 'support/entry_fixtures.dart';
 
@@ -80,5 +82,24 @@ void main() {
     expect(find.byKey(const ValueKey<String>('entry-detail')), findsNothing);
     expect(find.byKey(const ValueKey<String>('entry-attachments')), findsOneWidget);
     expect(t.getSize(find.byType(EntryListItem)).height, lessThan(tall * 0.7));
+  });
+
+  test('a category has one colour, whatever its case; old values read as labels', () {
+    expect(OG.categoryColor('Meal'), OG.categoryColor('  meal '));
+    expect(OG.categoryPalette, contains(OG.categoryColor('Sleep')));
+    expect(<String>{for (final String c in <String>['Meal', 'Sleep', 'Walk', 'Body', 'Goal']) OG.categoryColor(c).toString()}.length, greaterThan(2));
+    expect(categoryLabel('meal'), 'Meal');
+    expect(categoryLabel('other'), isNull);
+    expect(categoryLabel('Sleep'), 'Sleep');
+  });
+
+  testWidgets('the row border and the label take the category colour', (WidgetTester t) async {
+    await t.pumpWidget(const MaterialApp(
+      home: Scaffold(body: SingleChildScrollView(child: EntryListItem(title: 'nap', subtitle: 'Today, 14:00', category: 'Sleep'))),
+    ));
+    expect(find.text('Today, 14:00 · Sleep'), findsOneWidget);
+    final Container box = t.widget<Container>(find.descendant(of: find.byType(EntryListItem), matching: find.byType(Container)).first);
+    final BoxDecoration d = box.decoration! as BoxDecoration;
+    expect((d.border! as Border).top.color, OG.categoryColor('Sleep'));
   });
 }

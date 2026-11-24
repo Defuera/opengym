@@ -1,3 +1,4 @@
+import '../entry_category.dart';
 import 'json_util.dart';
 
 /// The session part of a log draft (ADR-032): the activity, time, distance and
@@ -70,9 +71,8 @@ class LogDraft {
   bool get applied => state == 'applied';
   bool get stale => state == 'stale';
 
-  /// Meal, Training, Body, Goal, Note.
-  String get kindLabel =>
-      const <String, String>{'meal': 'Meal', 'training': 'Training', 'body': 'Body', 'goal': 'Goal'}[kind] ?? 'Note';
+  /// The category ("Meal", "Sleep", ...), or "Note" when there is none.
+  String get kindLabel => categoryLabel(kind) ?? 'Note';
 
   /// Reads `proposal` when its `type` is `log`; null for anything else.
   static LogDraft? fromJson(Object? v) {

@@ -1,6 +1,7 @@
 /// Words for a note in lists and screens. Pure Dart.
 library;
 
+import 'entry_category.dart';
 import 'models.dart';
 import 'planner.dart';
 
@@ -54,7 +55,7 @@ String? entryKindLabel(LogEntry e) {
   if (r == null || !r.ready) {
     return null;
   }
-  return const <String, String>{'meal': 'Meal', 'training': 'Training', 'body': 'Body', 'goal': 'Goal'}[r.kind];
+  return categoryLabel(r.kind);
 }
 
 /// The line under a note in a list: what the coach saw in its photos or

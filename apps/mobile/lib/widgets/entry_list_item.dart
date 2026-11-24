@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../theme.dart';
+import 'category_when.dart';
 
 /// Row for a note: bold first line, muted time, an optional line about what
 /// its photos show, a small paperclip with the number of attached files. Tap opens the note.
@@ -11,6 +12,7 @@ class EntryListItem extends StatelessWidget {
     required this.subtitle,
     this.detail,
     this.attachments = 0,
+    this.category,
     this.compact = false,
     this.onTap,
   });
@@ -24,6 +26,10 @@ class EntryListItem extends StatelessWidget {
 
   /// A small secondary row: smaller title, thin border, no detail line.
   final bool compact;
+
+  /// The category label. Set: the border and the label take its colour, and
+  /// [subtitle] is the time alone. Null: the plain ink border.
+  final String? category;
   final VoidCallback? onTap;
 
   @override
@@ -32,9 +38,9 @@ class EntryListItem extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
       child: Container(
-        decoration: compact
-            ? ogBox(shadow: false).copyWith(border: Border.all(color: OG.ink, width: 1))
-            : ogBox(shadow: false),
+        decoration: ogBox(shadow: false).copyWith(
+          border: Border.all(color: category == null ? OG.ink : OG.categoryColor(category!), width: compact ? 1.5 : OG.borderWidth),
+        ),
         padding: EdgeInsets.symmetric(horizontal: 16, vertical: compact ? 8 : 14),
         child: Row(
           children: <Widget>[
@@ -50,7 +56,7 @@ class EntryListItem extends StatelessWidget {
                         ? OG.body(size: 15, weight: FontWeight.w600)
                         : OG.body(size: 18, weight: FontWeight.w700),
                   ),
-                  Text(subtitle, style: OG.muted(size: compact ? 13 : 17)),
+                  CategoryWhen(when: subtitle, category: category, size: compact ? 13 : 17),
                   if (detail != null && !compact) ...<Widget>[
                     const SizedBox(height: 4),
                     Text(

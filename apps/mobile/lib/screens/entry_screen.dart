@@ -9,6 +9,7 @@ import '../widgets/choice_sheet.dart';
 import '../widgets/entry_photo.dart';
 import '../widgets/note_box.dart';
 import '../widgets/og_button.dart';
+import '../widgets/category_when.dart';
 import '../widgets/og_icon_button.dart';
 import '../widgets/sheet_link.dart';
 import 'entry_form_screen.dart';
@@ -138,7 +139,7 @@ class EntryScreen extends StatelessWidget {
                 if (e == null)
                   const NoteBox(title: 'This note is gone.', message: 'It was deleted.')
                 else ...<Widget>[
-                  Text(entrySubtitle(e), key: const ValueKey<String>('entry-when'), style: OG.muted()),
+                  CategoryWhen(key: const ValueKey<String>('entry-when'), when: entryWhen(e.at), category: entryKindLabel(e)),
                   const SizedBox(height: 12),
                   if (e.text.trim().isNotEmpty) ...<Widget>[
                     Text(e.text, key: const ValueKey<String>('entry-text'), style: OG.body()),

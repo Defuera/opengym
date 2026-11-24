@@ -26,6 +26,52 @@ void main() {
   });
   tearDownAll(() => OG.fontFamily = null);
 
+  testWidgets('Home Recent: three categories above two sessions', (WidgetTester t) async {
+    t.view.physicalSize = const Size(390 * 3, 520 * 3);
+    t.view.devicePixelRatio = 3;
+    addTearDown(t.view.reset);
+    final GlobalKey key = GlobalKey();
+    LogEntry e(String id, String text, double hoursAgo, String kind) => LogEntry(
+          id: id,
+          text: text,
+          at: homeNow - (hoursAgo * 3600000).round(),
+          createdAt: homeNow,
+          files: id == 'm' ? <EntryFile>[imageFile('f1')] : const <EntryFile>[],
+          read: EntryRead(status: 'ready', kind: kind),
+        );
+    await t.pumpWidget(RepaintBoundary(
+      key: key,
+      child: MaterialApp(
+        debugShowCheckedModeBanner: false,
+        theme: ThemeData(scaffoldBackgroundColor: OG.ground, fontFamily: 'TestRoboto'),
+        home: Scaffold(
+          body: Padding(
+            padding: const EdgeInsets.all(16),
+            child: HomeRecent(
+              sessions: <Session>[
+                homeGym('s4', 2, 'Legs', <String, double>{'Leg Press': 30, 'Hip Adduction': 35}),
+                homeGym('s5', 1, 'Upper', <String, double>{'Row': 42, 'Bench Press': 47.5}),
+              ],
+              entries: <LogEntry>[
+                e('m', 'Breakfast granola with yogurt', 1, 'Meal'),
+                e('s', 'Sore left knee after the stairs', 5, 'Body'),
+                e('w', 'Slept badly, woke up twice', 9, 'Sleep'),
+              ],
+            ),
+          ),
+        ),
+      ),
+    ));
+    await t.pump();
+    await t.runAsync(() async {
+      final RenderRepaintBoundary b = key.currentContext!.findRenderObject()! as RenderRepaintBoundary;
+      final ui.Image img = await b.toImage(pixelRatio: 3);
+      final ByteData? bytes = await img.toByteData(format: ui.ImageByteFormat.png);
+      await Directory(_out).create(recursive: true);
+      await File('$_out/categories.png').writeAsBytes(bytes!.buffer.asUint8List());
+    });
+  });
+
   testWidgets('Home Recent: a meal row above two sessions', (WidgetTester t) async {
     t.view.physicalSize = const Size(390 * 3, 420 * 3);
     t.view.devicePixelRatio = 3;

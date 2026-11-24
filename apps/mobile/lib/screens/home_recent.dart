@@ -74,7 +74,8 @@ class HomeRecent extends StatelessWidget {
       rows.add(e != null
           ? EntryListItem(
               title: entryTitle(e),
-              subtitle: entrySubtitle(e),
+              subtitle: entryWhen(e.at),
+              category: entryKindLabel(e),
               compact: true,
               attachments: e.files.length,
               onTap: onOpenEntry == null ? null : () => onOpenEntry!(e),

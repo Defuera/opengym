@@ -106,7 +106,7 @@ void main() {
           distanceKm: 8,
           exercises: <(String, String)>[('Strides', '4 x 20 s')],
         ),
-        limit: 'Knee: sore',
+        limitRows: const <(String, String)>[('Body part', 'Knee'), ('Status', 'Improving')],
         note: 'Left knee a bit sore',
       ),
     );

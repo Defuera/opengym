@@ -184,7 +184,7 @@ class FakeConvexClient implements ConvexClient {
           text: text,
           createdAt: ++_clock,
           logDraft: draft,
-          question: const CoachQuestion(text: 'Log this?', answers: <QuickAnswer>[
+          question: const CoachQuestion(text: 'Is this right?', answers: <QuickAnswer>[
             QuickAnswer(id: 'approve', label: 'Done'),
             QuickAnswer(id: 'change', label: 'Add or change'),
           ]),

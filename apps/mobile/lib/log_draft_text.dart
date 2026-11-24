@@ -5,15 +5,17 @@ import 'entry_text.dart';
 import 'models.dart';
 import 'planner.dart';
 
-/// The labelled rows under the summary of a draft: Session, Goal, Limit, Note,
-/// only for the parts the draft holds.
+/// The labelled rows under the summary of a draft: the session, the goal and
+/// the limit as separate rows (Exercise, Target, Per week; Body part, Avoid),
+/// and the note, only for the parts the draft holds. A note that only says
+/// what the summary says is not repeated.
 List<(String, String)> logDraftRows(LogDraft d) {
   final LogDraftSession? s = d.session;
   return <(String, String)>[
     if (s != null) ('Session', _sessionLine(s)),
-    if (d.goal != null) ('Goal', d.goal!),
-    if (d.limit != null) ('Limit', d.limit!),
-    if (d.note != null && d.note!.trim().isNotEmpty) ('Note', d.note!.trim()),
+    ...d.goalRows,
+    ...d.limitRows,
+    if (d.note != null && d.note!.trim().isNotEmpty && d.note!.trim() != d.summary.trim()) ('Note', d.note!.trim()),
   ];
 }
 
@@ -29,5 +31,5 @@ String _sessionLine(LogDraftSession s) {
   ].where((String p) => p.trim().isNotEmpty).join(' · ');
 }
 
-/// "Today, 19:30".
-String logDraftWhen(LogDraft d, {int? nowMs}) => entryWhen(d.at, nowMs: nowMs);
+/// "Today, 19:30". A goal, limit or note draft has no time (it makes no entry): null.
+String? logDraftWhen(LogDraft d, {int? nowMs}) => d.noEntry ? null : entryWhen(d.at, nowMs: nowMs);

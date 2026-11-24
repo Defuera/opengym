@@ -15,7 +15,7 @@ const LogDraft _goal = LogDraft(
   kind: 'Goal',
   summary: 'Bench press 70 kg by spring',
   at: 1700000000000,
-  goal: 'Bench press 70 kg by spring, 70 kg',
+  goalRows: <(String, String)>[('Exercise', 'Bench press'), ('Target', '70 kg')],
   noEntry: true,
 );
 
@@ -72,12 +72,13 @@ void main() {
     fake.logDrafted(
       thread,
       'Here is the new goal.',
-      const LogDraft(kind: 'Goal', summary: 'Squat 110 kg', at: 1700000000000, goal: 'Squat 110 kg, 110 kg', noEntry: true, changes: true),
+      const LogDraft(kind: 'Goal', summary: 'Squat 110 kg', at: 1700000000000, goalRows: <(String, String)>[('Target', '110 kg')], noEntry: true, changes: true),
     );
     await t.pump();
     await t.pump(const Duration(milliseconds: 100));
     expect(find.text('Change goal'), findsOneWidget);
-    expect(find.text('Squat 110 kg, 110 kg'), findsOneWidget);
+    expect(find.text('110 kg'), findsOneWidget);
+    expect(find.byKey(const ValueKey<String>('log-draft-when')), findsNothing); // a goal draft has no time
     expect(find.text('Done'), findsOneWidget);
     expect(find.text('Add or change'), findsOneWidget);
     await t.tap(find.text('Done'));
@@ -85,7 +86,7 @@ void main() {
     await t.pump(const Duration(milliseconds: 100));
     expect(fake.sentAnswers.last!.id, 'approve');
     expect(fake.sentContexts.last!.screen, 'goal');
-    fake.logDrafted(thread, 'x', const LogDraft(kind: 'Goal', summary: 'Squat 110 kg', at: 1700000000000, goal: 'Squat 110 kg', noEntry: true, changes: true, state: 'applied'));
+    fake.logDrafted(thread, 'x', const LogDraft(kind: 'Goal', summary: 'Squat 110 kg', at: 1700000000000, goalRows: <(String, String)>[('Target', '110 kg')], noEntry: true, changes: true, state: 'applied'));
     await t.pump();
     await t.pump(const Duration(milliseconds: 100));
     expect(find.text('Saved'), findsWidgets);
@@ -103,7 +104,11 @@ void main() {
     await t.pump();
     await t.pump(const Duration(milliseconds: 100));
     expect(find.text('New goal'), findsWidgets);
-    expect(find.text('Bench press 70 kg by spring, 70 kg'), findsOneWidget);
+    expect(find.descendant(of: find.byKey(const ValueKey<String>('log-draft')), matching: find.text('Bench press 70 kg by spring')), findsOneWidget); // the summary, once
+    expect(find.text('Exercise'), findsOneWidget);
+    expect(find.text('Target'), findsOneWidget);
+    expect(find.text('Bench press'), findsOneWidget);
+    expect(find.text('Is this right?'), findsOneWidget);
   });
 
   test('the chat context carries the goal, limit, note and part to the server', () {
@@ -127,6 +132,6 @@ void main() {
     expect(d!.noEntry, isTrue);
     expect(d.changes, isTrue);
     expect(d.kindLabel, 'Change limit');
-    expect(d.limit, 'Left knee');
+    expect(d.limitRows, <(String, String)>[('Body part', 'Left knee')]); // the title is the summary: not repeated
   });
 }

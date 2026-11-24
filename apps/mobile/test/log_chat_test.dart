@@ -31,8 +31,8 @@ const LogDraft _run = LogDraft(
     distanceKm: 8,
     exercises: <(String, String)>[('Strides', '4 x 20 s')],
   ),
-  goal: 'Run 10 km, 2 a week',
-  limit: 'Knee: sore (avoid deep squats)',
+  goalRows: <(String, String)>[('Goal', 'Run 10 km'), ('Per week', '2')],
+  limitRows: <(String, String)>[('Body part', 'Knee'), ('Avoid', 'deep squats')],
   note: 'Felt fine after the first km',
 );
 
@@ -124,8 +124,8 @@ void main() {
     expect(find.text('Run, Easy · 45 min · 8 km'), findsOneWidget);
     expect(find.text('Strides'), findsOneWidget);
     expect(find.text('4 x 20 s'), findsOneWidget);
-    expect(find.text('Run 10 km, 2 a week'), findsOneWidget);
-    expect(find.text('Knee: sore (avoid deep squats)'), findsOneWidget);
+    expect(find.text('Run 10 km'), findsOneWidget);
+    expect(find.text('deep squats'), findsOneWidget);
     expect(find.text('Felt fine after the first km'), findsOneWidget);
     expect(find.text('Done'), findsOneWidget);
     expect(find.text('Add or change'), findsOneWidget);

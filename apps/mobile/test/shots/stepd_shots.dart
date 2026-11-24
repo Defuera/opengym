@@ -87,7 +87,7 @@ void main() {
         kind: 'Goal',
         summary: 'Bench press 70 kg by spring',
         at: DateTime.now().millisecondsSinceEpoch,
-        goal: 'Bench press 70 kg by spring, 70 kg, 3 a week',
+        goalRows: const <(String, String)>[('Exercise', 'Bench press'), ('Target', '70 kg'), ('Per week', '3')],
         noEntry: true,
       ),
     );
@@ -112,7 +112,7 @@ void main() {
         kind: 'Limit',
         summary: 'Lower back',
         at: DateTime.now().millisecondsSinceEpoch,
-        limit: 'Lower back (avoid no deadlifts for a month)',
+        limitRows: const <(String, String)>[('Body part', 'Lower back'), ('Avoid', 'deadlifts for a month')],
         noEntry: true,
       ),
     );

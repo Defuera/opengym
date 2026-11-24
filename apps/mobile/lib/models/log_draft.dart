@@ -49,8 +49,8 @@ class LogDraft {
     required this.summary,
     required this.at,
     this.session,
-    this.goal,
-    this.limit,
+    this.goalRows = const <(String, String)>[],
+    this.limitRows = const <(String, String)>[],
     this.note,
     this.changes = false,
     this.noEntry = false,
@@ -67,9 +67,12 @@ class LogDraft {
   final int at;
   final LogDraftSession? session;
 
-  /// One plain line each, made from the parts the server sent.
-  final String? goal;
-  final String? limit;
+  /// The goal and the limit as separate labelled rows (Exercise, Target, Per
+  /// week; Body part, Avoid, ...), made from the structure the server sent.
+  /// Empty: the draft holds no such part. The title is a row only when it
+  /// says more than the summary does.
+  final List<(String, String)> goalRows;
+  final List<(String, String)> limitRows;
   final String? note;
 
   /// A goal, limit or note draft that changes one the person has, not a new one.
@@ -98,8 +101,8 @@ class LogDraft {
       summary: str(v['summary']),
       at: intOf(v['at']),
       session: LogDraftSession.fromJson(v['session']),
-      goal: _goalLine(v['goal']),
-      limit: _limitLine(v['limit']),
+      goalRows: _goalRows(v['goal'], str(v['summary'])),
+      limitRows: _limitRows(v['limit'], str(v['summary'])),
       note: v['note'] is Map ? strOrNull((v['note'] as Map)['text']) : null,
       changes: v['edits'] is Map && (v['edits'] as Map).isNotEmpty,
       noEntry: v['noEntry'] == true,
@@ -111,30 +114,33 @@ class LogDraft {
 
 String _num(num n) => n == n.truncate() ? n.toInt().toString() : n.toString();
 
-String? _goalLine(Object? v) {
+List<(String, String)> _goalRows(Object? v, String summary) {
   if (v is! Map) {
-    return null;
+    return const <(String, String)>[];
   }
-  final List<String> parts = <String>[
-    str(v['title']),
-    if (v['targetKg'] is num) '${_num(v['targetKg'] as num)} kg',
-    if (v['sessionsPerWeek'] is num) '${_num(v['sessionsPerWeek'] as num)} a week',
-  ].where((String s) => s.isNotEmpty).toList();
-  return parts.isEmpty ? null : parts.join(', ');
+  final String title = str(v['title']);
+  return <(String, String)>[
+    if (title.isNotEmpty && title != summary) ('Goal', title),
+    if (str(v['exercise']).isNotEmpty) ('Exercise', str(v['exercise'])),
+    if (v['targetKg'] is num) ('Target', '${_num(v['targetKg'] as num)} kg'),
+    if (v['sessionsPerWeek'] is num) ('Per week', _num(v['sessionsPerWeek'] as num)),
+  ];
 }
 
-String? _limitLine(Object? v) {
+List<(String, String)> _limitRows(Object? v, String summary) {
   if (v is! Map) {
-    return null;
+    return const <(String, String)>[];
   }
   final String key = str(v['part']);
-  final String part = key.isEmpty ? '' : partLabel(key);
   final String title = str(v['title']);
-  final String head = part.isEmpty ? title : (title.isEmpty || title == part ? part : '$part: $title');
-  final List<String> rules = <String>[
+  final String status = str(v['status']);
+  return <(String, String)>[
+    if (title.isNotEmpty && title != summary) ('Limit', title),
+    if (key.isNotEmpty) ('Body part', partLabel(key)),
+    if (status.isNotEmpty && status != 'active') ('Status', '${status[0].toUpperCase()}${status.substring(1)}'),
     for (final Object? r in asList(v['rules']))
-      if (r is Map && str(r['text']).isNotEmpty) '${str(r['kind'])} ${str(r['text'])}'.trim(),
+      if (r is Map && str(r['text']).isNotEmpty) (_cap(str(r['kind'], 'do')), str(r['text'])),
   ];
-  final String all = rules.isEmpty ? head : '$head (${rules.join('; ')})';
-  return all.isEmpty ? null : all;
 }
+
+String _cap(String s) => s.isEmpty ? s : '${s[0].toUpperCase()}${s.substring(1)}';

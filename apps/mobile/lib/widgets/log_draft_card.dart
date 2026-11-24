@@ -16,7 +16,7 @@ class LogDraftCard extends StatelessWidget {
     required this.kind,
     this.color,
     required this.summary,
-    required this.when,
+    this.when,
     this.rows = const <(String, String)>[],
     this.exercises = const <(String, String)>[],
     this.state = 'open',
@@ -33,8 +33,8 @@ class LogDraftCard extends StatelessWidget {
   final Color? color;
   final String summary;
 
-  /// "Today, 19:30".
-  final String when;
+  /// "Today, 19:30". Null: no time line (a goal, limit or note draft).
+  final String? when;
 
   /// (label, value) for the session, goal, limit and note parts, in order.
   final List<(String, String)> rows;
@@ -75,8 +75,10 @@ class LogDraftCard extends StatelessWidget {
             ),
             const SizedBox(height: 4),
             Text(summary, style: OG.body(weight: FontWeight.w700)),
-            const SizedBox(height: 2),
-            Text(when, key: const ValueKey<String>('log-draft-when'), style: OG.muted(size: 14)),
+            if (when != null) ...<Widget>[
+              const SizedBox(height: 2),
+              Text(when!, key: const ValueKey<String>('log-draft-when'), style: OG.muted(size: 14)),
+            ],
             const SizedBox(height: 8),
             for (final (String, String) r in rows) ...<Widget>[
               _Row(label: r.$1, value: r.$2),
@@ -114,7 +116,7 @@ class _Row extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          SizedBox(width: 64, child: Text(label, style: OG.muted(size: 14, weight: FontWeight.w600))),
+          SizedBox(width: 76, child: Text(label, style: OG.muted(size: 14, weight: FontWeight.w600))),
           Expanded(child: Text(value, style: OG.body(size: 15, weight: FontWeight.w600))),
         ],
       ),

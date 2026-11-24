@@ -66,7 +66,7 @@ export function assembleCoachContext(data: CoachData, files: AttachedFile[], sup
   }
   if (supportsImages && entryImages.length) {
     images.push(...entryImages);
-    parts.push("Photos from the user's log entries of the last day are shown to you (newest first).");
+    parts.push("Photos of the log entry the person has open are shown to you.");
   }
 
   for (const f of files) {

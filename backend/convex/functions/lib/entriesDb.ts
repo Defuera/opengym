@@ -2,7 +2,7 @@ import type { Doc } from "../_generated/dataModel";
 import { ConvexError } from "convex/values";
 import { internal } from "../_generated/api";
 import type { ActionCtx, DatabaseReader, MutationCtx } from "../_generated/server";
-import { entryRowByEntryId, liveEntryDocs, stableJson, toEntry, withoutSystemFields } from "./db";
+import { entryByEntryId, entryRowByEntryId, liveEntryDocs, stableJson, toEntry, withoutSystemFields } from "./db";
 import { parseOrThrow } from "./validate";
 import { EntrySchema } from "../model/schema";
 import { fileByFileId, loadAttachment, type FileDoc } from "./files";
@@ -37,7 +37,22 @@ export function entryRev(e: { text: string; fileIds: string[] }): string {
 
 const fileDoc = (f: Doc<"files">): FileDoc => ({ fileId: f.fileId, storageId: f.storageId, name: f.name, mime: f.mime, size: f.size, kind: f.kind, createdAt: f.createdAt });
 
-/** The image files of entries of the last 24 hours, newest entry first, at most 4. Bytes are read later, in an action. */
+/**
+ * The image files of the entry the person has open, at most COACH_IMAGE_MAX. No entry in view: none. Photos of other entries
+ * are not sent (their text and `seen` summary are already in the context). Bytes are read later, in an action.
+ */
+export async function entryInViewImageFiles(ctx: Reader, entryId: string | undefined): Promise<FileDoc[]> {
+  const entry = entryId ? await entryByEntryId(ctx, entryId) : null;
+  const out: FileDoc[] = [];
+  for (const id of entry?.fileIds ?? []) {
+    const f = await fileByFileId(ctx, id);
+    if (f && f.kind === "image") out.push(fileDoc(f));
+    if (out.length >= COACH_IMAGE_MAX) break;
+  }
+  return out;
+}
+
+/** The image files of entries of the last 24 hours, newest entry first, at most 4. Only for building a session, which reads the last day (not for a chat). */
 export async function entryImageFiles(ctx: Reader, now: number): Promise<FileDoc[]> {
   const docs = await liveEntryDocs(ctx, { order: "desc", from: now - COACH_IMAGE_HOURS * 3_600_000, to: now, limit: COACH_ENTRY_MAX });
   const out: FileDoc[] = [];

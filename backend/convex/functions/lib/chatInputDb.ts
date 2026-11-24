@@ -1,7 +1,7 @@
 import type { QueryCtx } from "../_generated/server";
 import { liveSessionDocs, toContextItem, toGoal, toSession, messageByMessageId, threadByThreadId } from "./db";
 import { activeLimits } from "./limitsDb";
-import { coachEntries, entryImageFiles } from "./entriesDb";
+import { coachEntries, entryInViewImageFiles } from "./entriesDb";
 import { fileByFileId } from "./files";
 import { CHAT_CONTEXT_ITEMS, CHAT_GOALS, CHAT_HISTORY_MESSAGES, CHAT_OTHER_THREADS, CHAT_RECENT_SESSIONS } from "../model/chatInput";
 
@@ -9,7 +9,7 @@ import { CHAT_CONTEXT_ITEMS, CHAT_GOALS, CHAT_HISTORY_MESSAGES, CHAT_OTHER_THREA
  * Bounded input for one coach turn, read in one transaction (ADR-012). Null if the thread or message is gone.
  * Read by the coach turn (jobs/coachTurn:input).
  */
-export async function readChatInput(ctx: Pick<QueryCtx, "db">, threadId: string, messageId: string) {
+export async function readChatInput(ctx: Pick<QueryCtx, "db">, threadId: string, messageId: string, entryId?: string) {
   const thread = await threadByThreadId(ctx, threadId);
   const trigger = await messageByMessageId(ctx, messageId);
   if (!thread || !trigger) return null;
@@ -40,7 +40,7 @@ export async function readChatInput(ctx: Pick<QueryCtx, "db">, threadId: string,
   }
   const now = Date.now();
   const entries = await coachEntries(ctx, now);
-  const entryImages = await entryImageFiles(ctx, now);
+  const entryImages = await entryInViewImageFiles(ctx, entryId);
   return {
     history,
     data: { otherThreads, sessions, goals, context, limits: await activeLimits(ctx), entries },

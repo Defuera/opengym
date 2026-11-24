@@ -287,4 +287,21 @@ describe("one prompt and the same data on every screen (owner's words 2026-11-24
     for (const c of turns(calls)) expect(c.input).toMatchObject({ today: expect.any(String), now: expect.any(String) });
     expect((await open()).session!.exercises.map((e) => e.id)).toEqual(["e1", "e2"]);
   });
+
+  it("photos of other entries are not sent; the photos of the entry in view are (aiCalls images)", async () => {
+    await world();
+    const storageId = await t.run((c) => c.storage.store(new Blob([new Uint8Array([1, 2, 3])], { type: "image/png" })));
+    for (const id of ["p1", "p2", "p3"]) await t.mutation(api.commands.files.register, { token: TOKEN, fileId: id, storageId, name: `${id}.png`, mime: "image/png", size: 3 });
+    const e = (entryId: string, fileIds: string[]) => t.mutation(api.commands.entries.save, { token: TOKEN, entry: { entryId, text: "x", fileIds, at: Date.now() - 3_600_000, createdAt: Date.now() - 3_600_000 } });
+    await e("eA", ["p1", "p2"]);
+    await e("eB", ["p3"]);
+    stubOpenAi(coach(() => ({ message: "ok", actions: [] })));
+    const images = async () => (await t.run((c) => c.db.query("aiCalls").withIndex("by_job", (q) => q.eq("job", "coach_turn")).order("desc").first()))!.images;
+    await send("m1", "what do you know about my knee?", { screen: "chat" });
+    await settle(t);
+    expect(await images()).toBe(0);
+    await send("m2", "what is in this entry?", { screen: "chat", entryId: "eA" });
+    await settle(t);
+    expect(await images()).toBe(2);
+  });
 });

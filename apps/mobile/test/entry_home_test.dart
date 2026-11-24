@@ -41,6 +41,17 @@ void main() {
     expect(r.map((RecentItem i) => i.entry?.id ?? i.session!.type), <String>['n2', 'Swim', 'n1', 'Run']);
   });
 
+  test('mergeRecent hides an entry that made a session which is in the list', () {
+    final LogEntry made = LogEntry(
+        id: 'm', text: 'ran', at: _t(1), createdAt: _t(1),
+        read: const EntryRead(status: 'ready', kind: 'training', made: EntryMade(sessionId: 'Run')));
+    final List<RecentItem> r = mergeRecent(<Session>[_s('Run', 1)], <LogEntry>[made, note('n', 'Mine', _t(2))]);
+    expect(r.map((RecentItem x) => x.entry?.id ?? x.session!.id).toList(), <String>['Run', 'n']);
+    // The session is not listed (older than the cut): the entry shows.
+    final List<RecentItem> r2 = mergeRecent(<Session>[], <LogEntry>[made]);
+    expect(r2.single.entry!.id, 'm');
+  });
+
   test('mergeRecent keeps the first five of the merge', () {
     final List<RecentItem> r = mergeRecent(
       <Session>[for (int i = 0; i < 4; i++) _s('S$i', 10.0 + i)],

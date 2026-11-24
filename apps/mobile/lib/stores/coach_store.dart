@@ -10,6 +10,9 @@ import '../planner.dart';
 
 const String chatOfflineMessage = 'Chat needs a connection. Nothing was sent.';
 
+/// The hint of an empty log chat.
+const String logChatHint = 'Write it, or add a photo or a file. I will work out what it is.';
+
 class _Attachment {
   _Attachment(this.item) : fileId = newId();
 
@@ -347,6 +350,25 @@ class CoachStore extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Opens the log chat (ADR-032): always a new thread, with the context
+  /// `screen: "log"`. The thread is made with the first message.
+  Future<void> openLog() async {
+    await startNewChat();
+    _setLogContext();
+    notifyListeners();
+  }
+
+  void _setLogContext() {
+    chatContext = const ChatContext(screen: 'log');
+    contextLine = 'New log';
+    contextHint = logChatHint;
+  }
+
+  bool get isLogChat => chatContext?.screen == 'log';
+
+  /// The open log chat holds a draft the person pressed Done on.
+  bool get logDone => isLogChat && _server.any((Message m) => m.entryId != null || (m.logDraft?.applied ?? false));
+
   /// The context a message of the open chat carries.
   ChatContext get _sendContext {
     final ChatContext? c = chatContext;
@@ -588,9 +610,8 @@ class CoachStore extends ChangeNotifier {
   /// sent. Returns false when nothing was accepted (empty, busy, offline), so
   /// the screen keeps the text. A failure after acceptance shows [retryReason].
   Future<bool> send(String text, {ChatAnswer? answer}) async {
-    final String? id = currentId;
     final String body = text.trim();
-    if (id == null || sending || (body.isEmpty && _pending.isEmpty)) {
+    if (currentId == null || sending || (body.isEmpty && _pending.isEmpty)) {
       return false;
     }
     if (!connected) {
@@ -598,10 +619,19 @@ class CoachStore extends ChangeNotifier {
       notifyListeners();
       return false;
     }
+    if (answer == null && logDone) {
+      // A new log starts a new thread; what was picked for it comes along.
+      final List<_Attachment> keep = List<_Attachment>.of(_pending);
+      await startNewChat();
+      _setLogContext();
+      _pending.addAll(keep);
+    }
+    final String id = currentId!;
     final _Outgoing out = _Outgoing(
       messageId: newId(),
       threadId: id,
-      text: body.isEmpty ? 'See attached.' : body,
+      // A log chat takes a message of files alone; elsewhere the text says so.
+      text: body.isEmpty ? (isLogChat ? '' : 'See attached.') : body,
       files: List<_Attachment>.of(_pending),
       context: _sendContext,
       answer: answer,

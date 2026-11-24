@@ -39,10 +39,35 @@ class EntryFile {
   }
 }
 
+/// The rows the log chat wrote with an entry when the person pressed Done.
+class EntryMade {
+  const EntryMade({this.sessionId, this.goalId, this.limitId, this.contextId});
+
+  final String? sessionId;
+  final String? goalId;
+  final String? limitId;
+  final String? contextId;
+
+  bool get any => sessionId != null || goalId != null || limitId != null || contextId != null;
+
+  static EntryMade? fromJson(Object? v) {
+    if (v is! Map) {
+      return null;
+    }
+    final EntryMade m = EntryMade(
+      sessionId: strOrNull(v['sessionId']),
+      goalId: strOrNull(v['goalId']),
+      limitId: strOrNull(v['limitId']),
+      contextId: strOrNull(v['contextId']),
+    );
+    return m.any ? m : null;
+  }
+}
+
 /// What the coach read in a note: what it is and one line about it. It is a
 /// label on the note, not a part of what the person wrote.
 class EntryRead {
-  const EntryRead({required this.status, this.kind, this.summary});
+  const EntryRead({required this.status, this.kind, this.summary, this.made});
 
   /// pending | ready | failed
   final String status;
@@ -50,6 +75,9 @@ class EntryRead {
   /// meal | training | body | goal | other. Set when [status] is ready.
   final String? kind;
   final String? summary;
+
+  /// What the log chat made with this entry, or null.
+  final EntryMade? made;
 
   bool get pending => status == 'pending';
   bool get ready => status == 'ready';
@@ -59,7 +87,7 @@ class EntryRead {
       return null;
     }
     final Map<String, dynamic> j = asMap(v);
-    return EntryRead(status: str(j['status'], 'failed'), kind: strOrNull(j['kind']), summary: strOrNull(j['summary']));
+    return EntryRead(status: str(j['status'], 'failed'), kind: strOrNull(j['kind']), summary: strOrNull(j['summary']), made: EntryMade.fromJson(j['made']));
   }
 }
 

@@ -9,12 +9,14 @@ import '../widgets/og_button.dart';
 import '../widgets/og_icon_button.dart';
 import 'session_recap_screen.dart';
 
-/// The log form of an activity (ADR-018): the activity name and one text,
-/// "What did you do?". Nothing else. "Log" saves the session at once with the
-/// text as its note and opens its recap; the server reads the text into
-/// minutes, distance and exercises and the recap updates by itself.
-class LogTextScreen extends StatefulWidget {
-  const LogTextScreen({super.key, required this.deps, required this.activity});
+/// The form of a time/distance activity (ADR-018): the activity name and one
+/// text, "What did you do?". Nothing else. "Log" saves the session at once
+/// with the text as its note and opens its recap; the server reads the text
+/// into minutes, distance and exercises and the recap updates by itself.
+/// It is reached only from the Start tab, when the coach answers a start
+/// request with a time/distance activity. The Log tab opens the log chat.
+class ActivityLogForm extends StatefulWidget {
+  const ActivityLogForm({super.key, required this.deps, required this.activity});
 
   final AppDeps deps;
 
@@ -22,10 +24,10 @@ class LogTextScreen extends StatefulWidget {
   final String activity;
 
   @override
-  State<LogTextScreen> createState() => _LogTextScreenState();
+  State<ActivityLogForm> createState() => _ActivityLogFormState();
 }
 
-class _LogTextScreenState extends State<LogTextScreen> {
+class _ActivityLogFormState extends State<ActivityLogForm> {
   final TextEditingController _text = TextEditingController();
 
   @override

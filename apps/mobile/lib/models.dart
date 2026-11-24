@@ -14,6 +14,7 @@ export 'models/dashboard.dart';
 export 'models/entry.dart';
 export 'models/exercise_art.dart';
 export 'models/goal.dart';
+export 'models/log_draft.dart';
 export 'models/misc.dart';
 export 'models/place.dart';
 export 'models/plan.dart';

@@ -20,19 +20,14 @@ import '../widgets/og_icon_button.dart';
 
 const String entryOfflineNote = 'Offline. Notes need a connection to save.';
 
-/// How a new note starts: with the keyboard, or with the camera or the photo
-/// library open at once.
-enum EntryStart { text, camera, library }
-
-/// The form of a note: new, or [entry] to change. The photos, one text field,
-/// three buttons to add a photo or a file, the time (now unless changed) and
-/// Save. A failed save keeps everything typed.
+/// The form that changes an existing [entry]: its photos and files (add or
+/// remove), one text field, the time and Save. A new note is made in the log
+/// chat, not here. A failed save keeps everything typed.
 class EntryFormScreen extends StatefulWidget {
-  const EntryFormScreen({super.key, required this.deps, this.entry, this.start = EntryStart.text});
+  const EntryFormScreen({super.key, required this.deps, required this.entry});
 
   final AppDeps deps;
-  final LogEntry? entry;
-  final EntryStart start;
+  final LogEntry entry;
 
   @override
   State<EntryFormScreen> createState() => _EntryFormScreenState();
@@ -52,24 +47,12 @@ class _EntryFormScreenState extends State<EntryFormScreen> {
   @override
   void initState() {
     super.initState();
-    final LogEntry? e = widget.entry;
-    _id = e?.id ?? newId();
-    _text.text = e?.text ?? '';
-    _at = DateTime.fromMillisecondsSinceEpoch(e?.at ?? DateTime.now().millisecondsSinceEpoch);
-    _existing = List<EntryFile>.of(e?.files ?? const <EntryFile>[]);
+    final LogEntry e = widget.entry;
+    _id = e.id;
+    _text.text = e.text;
+    _at = DateTime.fromMillisecondsSinceEpoch(e.at);
+    _existing = List<EntryFile>.of(e.files);
     _store.error = null;
-    WidgetsBinding.instance.addPostFrameCallback((Duration _) async {
-      if (!mounted) {
-        return;
-      }
-      if (widget.start != EntryStart.text) {
-        await _pick(widget.start == EntryStart.camera ? 'camera' : 'gallery');
-      }
-      // The keyboard comes up after the picker, so the comment is the next thing to do.
-      if (mounted && e == null) {
-        _focus.requestFocus();
-      }
-    });
   }
 
   @override
@@ -89,7 +72,7 @@ class _EntryFormScreenState extends State<EntryFormScreen> {
       entryId: _id,
       text: _text.text,
       at: _at.millisecondsSinceEpoch,
-      createdAt: widget.entry?.createdAt,
+      createdAt: widget.entry.createdAt,
       keep: <String>[for (final EntryFile f in _existing) f.id],
       added: _added,
     );
@@ -186,8 +169,7 @@ class _EntryFormScreenState extends State<EntryFormScreen> {
                           ),
                           const SizedBox(width: 12),
                           Expanded(
-                            child: Text(widget.entry == null ? 'New note' : 'Edit note',
-                                style: OG.display(32)),
+                            child: Text('Edit note', style: OG.display(32)),
                           ),
                         ],
                       ),

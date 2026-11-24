@@ -22,6 +22,7 @@ class ComposerBar extends StatelessWidget {
     this.offlineNote,
     this.hint = 'Message',
     this.onMic,
+    this.onCamera,
     this.recording = false,
     this.recordSeconds = 0,
     this.onCancelRecording,
@@ -44,6 +45,9 @@ class ComposerBar extends StatelessWidget {
   /// Starts a voice recording. Null: the composer has no mic button. The mic
   /// shows in the place of send while the field is empty and nothing is attached.
   final VoidCallback? onMic;
+
+  /// Opens the camera at once (one tap, no sheet). Null: no camera button.
+  final VoidCallback? onCamera;
 
   /// True: the composer is a recording bar (red dot, timer, cancel, stop and send).
   final bool recording;
@@ -120,6 +124,12 @@ class ComposerBar extends StatelessWidget {
                         icon: Icons.add,
                         onTap: off ? null : onAttach,
                       ),
+                      if (onCamera != null)
+                        _RoundTap(
+                          key: const ValueKey<String>('composer-camera'),
+                          icon: Icons.photo_camera_outlined,
+                          onTap: off ? null : onCamera,
+                        ),
                       const Spacer(),
                       ListenableBuilder(
                         listenable: controller,

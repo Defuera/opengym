@@ -40,3 +40,17 @@ Future<String?> runAttachFlow(
 List<StripItem> stripItems(List<UploadItem> items) => <StripItem>[
       for (final UploadItem u in items) StripItem(name: u.name, image: imageForUpload(u)),
     ];
+
+/// The camera button of the composer: opens the camera at once and hands the
+/// photo to [add]. Returns a short message when the camera failed, else null.
+Future<String?> runCameraFlow(Pickers pickers, void Function(UploadItem) add) async {
+  try {
+    final UploadItem? p = await pickers.pickPhoto(camera: true);
+    if (p != null) {
+      add(p);
+    }
+    return null;
+  } catch (_) {
+    return 'Could not open the camera or library.';
+  }
+}

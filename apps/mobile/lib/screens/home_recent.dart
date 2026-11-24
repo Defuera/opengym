@@ -24,9 +24,16 @@ class RecentItem {
 /// first, so the newest is read from the end; the notes are sorted by `at`.
 /// The two lines are merged by time. A tie puts the note first. Keeps the
 /// first [limit].
+///
+/// An entry that made a session (the log chat, `read.made.sessionId`) is not a
+/// row of its own while that session is in [sessions]: the session row is the
+/// training fact.
 List<RecentItem> mergeRecent(List<Session> sessions, List<LogEntry> entries, {int limit = 5}) {
-  final List<LogEntry> notes = List<LogEntry>.of(entries)
-    ..sort((LogEntry a, LogEntry b) => b.at.compareTo(a.at));
+  final Set<String> listed = <String>{for (final Session s in sessions) s.id};
+  final List<LogEntry> notes = <LogEntry>[
+    for (final LogEntry e in entries)
+      if (!listed.contains(e.read?.made?.sessionId)) e,
+  ]..sort((LogEntry a, LogEntry b) => b.at.compareTo(a.at));
   final List<RecentItem> out = <RecentItem>[];
   int s = sessions.length - 1;
   int n = 0;

@@ -13,7 +13,9 @@ import '../widgets/note_box.dart';
 import '../widgets/og_button.dart';
 import '../widgets/og_icon_button.dart';
 import '../widgets/recap_exercise_card.dart';
+import '../widgets/sheet_link.dart';
 import '../widgets/review_card.dart';
+import 'entry_screen.dart';
 import 'place_mark_view.dart';
 import 'session_edit_screen.dart';
 import 'session_screen.dart';
@@ -102,7 +104,7 @@ class _SessionRecapScreenState extends State<SessionRecapScreen> {
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: Listenable.merge(<Listenable>[widget.deps.store, _review, _load]),
+      listenable: Listenable.merge(<Listenable>[widget.deps.store, widget.deps.entries, _review, _load]),
       builder: (BuildContext context, Widget? child) {
         final Session? s = widget.deps.store.sessionById(widget.sessionId);
         return Scaffold(
@@ -139,6 +141,16 @@ class _SessionRecapScreenState extends State<SessionRecapScreen> {
     );
   }
 
+  /// The log entry that made this session, when the log chat did.
+  LogEntry? _fromEntry(Session s) {
+    for (final LogEntry e in widget.deps.entries.entries) {
+      if (e.read?.made?.sessionId == s.id) {
+        return e;
+      }
+    }
+    return null;
+  }
+
   List<Widget> _body(Session s) {
     final bool gym = s.kind == 'gym';
     final String? focus = s.focus;
@@ -171,6 +183,16 @@ class _SessionRecapScreenState extends State<SessionRecapScreen> {
         key: const ValueKey<String>('recap-when'),
         style: OG.muted(),
       ),
+      if (_fromEntry(s) case final LogEntry e) ...<Widget>[
+        const SizedBox(height: 6),
+        SheetLink(
+          key: const ValueKey<String>('recap-from-log'),
+          label: 'From your log',
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute<void>(builder: (BuildContext c) => EntryScreen(deps: widget.deps, entryId: e.id)),
+          ),
+        ),
+      ],
       PlaceMarkView(
         deps: widget.deps,
         placeId: s.placeId,

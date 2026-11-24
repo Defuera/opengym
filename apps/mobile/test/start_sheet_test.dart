@@ -4,7 +4,7 @@ import 'package:opengym/app/deps.dart';
 import 'package:opengym/data/convex_client.dart';
 import 'package:opengym/activity_log.dart';
 import 'package:opengym/models.dart';
-import 'package:opengym/screens/log_text_screen.dart';
+import 'package:opengym/screens/activity_log_form.dart';
 import 'package:opengym/screens/session_screen.dart';
 import 'package:opengym/widgets/og_button.dart';
 import 'support/fake_convex_client.dart';
@@ -92,19 +92,13 @@ void main() {
     expect(find.text('Anything for today? (optional)'), findsNothing);
   });
 
-  testWidgets('the note is limited to 2000 and survives a switch to the Log tab', (WidgetTester t) async {
+  testWidgets('the note is limited to 2000', (WidgetTester t) async {
     await openHome(t);
     await openStart(t);
     await pickType(t, 'Gym');
     await t.enterText(find.widgetWithText(TextField, noteHint), 'w' * 2300);
     await t.pump();
     expect(t.widget<TextField>(find.widgetWithText(TextField, 'w' * 2000)).controller!.text.length, 2000);
-    await t.enterText(find.widgetWithText(TextField, 'w' * 2000), 'go easy');
-    await t.tap(inSheet(find.text('Log')));
-    await t.pumpAndSettle();
-    await t.tap(inSheet(find.text('Start session')));
-    await t.pumpAndSettle();
-    expect(find.text('go easy'), findsOneWidget); // still on step 2, note kept
   });
 
   testWidgets('Start sends the fixed name and the note, shows Preparing, opens the proposal',
@@ -262,7 +256,7 @@ void main() {
     final (FakeConvexClient fake, AppDeps d) = await openHome(t);
     await openStart(t);
     await pickType(t, 'Run');
-    expect(find.byType(LogTextScreen), findsNothing);
+    expect(find.byType(ActivityLogForm), findsNothing);
     expect(find.text('Start'), findsOneWidget);
     expect(find.text('What did you do?'), findsNothing);
     expect(fake.startSent, isEmpty);
@@ -312,7 +306,7 @@ void main() {
       await t.pumpAndSettle();
       expect(find.byType(SessionScreen), findsOneWidget);
       expect(d.store.active!.exercises.single.name, 'Squat');
-      expect(find.byType(LogTextScreen), findsNothing);
+      expect(find.byType(ActivityLogForm), findsNothing);
     });
 
     testWidgets('offline: no request, an empty session named from the text before the first comma',
@@ -342,24 +336,5 @@ void main() {
       expect(d.store.active!.type, 'Wing sup');
       expect(d.store.active!.exercises, isEmpty);
     });
-
-    testWidgets('the typed text survives a switch to the Log tab', (WidgetTester t) async {
-      await openHome(t);
-      await openStart(t);
-      await openOther(t);
-      await t.enterText(field(), 'hotel gym');
-      await t.tap(inSheet(find.text('Log')));
-      await t.pumpAndSettle();
-      await t.tap(inSheet(find.text('Start session')));
-      await t.pumpAndSettle();
-      expect(find.text('hotel gym'), findsOneWidget);
-    });
-  });
-
-  testWidgets('the Log tab keeps its single Something new field', (WidgetTester t) async {
-    await openHome(t);
-    await openLog(t);
-    expect(find.text('Something new: "padel"'), findsOneWidget);
-    expect(find.text('New kind of session'), findsNothing);
   });
 }

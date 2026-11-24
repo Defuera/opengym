@@ -121,11 +121,13 @@ class _ChatBubbleState extends State<ChatBubble> {
     final List<Widget> body = <Widget>[];
     if (widget.media.isNotEmpty) {
       body.add(Wrap(spacing: 6, runSpacing: 6, children: widget.media));
-      body.add(const SizedBox(height: 8));
+      if (text.isNotEmpty || widget.voice != null) {
+        body.add(const SizedBox(height: 8));
+      }
     }
     if (widget.voice != null) {
       body.addAll(_voiceBody(fg));
-    } else {
+    } else if (text.isNotEmpty || widget.media.isEmpty) {
       body.add(Text(text, style: OG.body(color: fg)));
     }
     if (attachments.isNotEmpty && widget.media.isEmpty) {

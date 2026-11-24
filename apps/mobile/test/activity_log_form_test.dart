@@ -5,7 +5,9 @@ import 'package:opengym/data/outbox.dart';
 import 'package:opengym/data/outbox_ops.dart';
 import 'package:opengym/data/session_sync.dart';
 import 'package:opengym/models.dart';
-import 'package:opengym/screens/log_text_screen.dart';
+import 'package:opengym/screens/activity_log_form.dart';
+import 'package:opengym/screens/home_screen.dart';
+import 'package:opengym/screens/start_flow.dart';
 import 'package:opengym/screens/session_recap_screen.dart';
 import 'package:opengym/widgets/og_button.dart';
 import 'support/fake_convex_client.dart';
@@ -13,7 +15,8 @@ import 'support/sheet_fixtures.dart';
 
 Finder _logButton() => find.ancestor(of: find.text('Log'), matching: find.byType(OgButton));
 
-/// Home -> Log tab -> the Run row -> the log form.
+/// Home -> the form of the time/distance activity Run, as the Start tab opens it
+/// when the coach answers with an activity.
 Future<(FakeConvexClient, AppDeps)> _openRunForm(WidgetTester t, {bool connected = true}) async {
   t.view.physicalSize = const Size(800, 1600);
   t.view.devicePixelRatio = 1;
@@ -21,8 +24,7 @@ Future<(FakeConvexClient, AppDeps)> _openRunForm(WidgetTester t, {bool connected
   final (FakeConvexClient, AppDeps) r = await openHome(t, connected: connected);
   // The live session subscription, as compose starts it.
   SessionSync(client: r.$1, store: r.$2.store, outbox: r.$2.outbox).start();
-  await openLog(t);
-  await t.tap(inSheet(find.text('Run')));
+  openLogForm(Navigator.of(t.element(find.byType(HomeScreen))), r.$2, 'Run');
   await t.pumpAndSettle();
   return r;
 }
@@ -30,8 +32,8 @@ Future<(FakeConvexClient, AppDeps)> _openRunForm(WidgetTester t, {bool connected
 void main() {
   testWidgets('the form is the name and one text field; Log is off while it is empty', (WidgetTester t) async {
     await _openRunForm(t);
-    expect(find.byType(LogTextScreen), findsOneWidget);
-    expect(find.descendant(of: find.byType(LogTextScreen), matching: find.text('Run')), findsOneWidget);
+    expect(find.byType(ActivityLogForm), findsOneWidget);
+    expect(find.descendant(of: find.byType(ActivityLogForm), matching: find.text('Run')), findsOneWidget);
     expect(find.byType(TextField), findsOneWidget);
     expect(find.text('What did you do?'), findsOneWidget);
     expect(find.text('45 min, 8 km, easy pace'), findsOneWidget);
@@ -56,7 +58,7 @@ void main() {
     await t.tap(find.text('Log'));
     await t.pumpAndSettle();
     final Session s = d.store.sessions.last;
-    expect(find.byType(LogTextScreen), findsNothing);
+    expect(find.byType(ActivityLogForm), findsNothing);
     expect(find.byType(SessionRecapScreen), findsOneWidget);
     expect(s.type, 'Run');
     expect(s.note, '45 min, 8 km, easy pace');
@@ -98,20 +100,6 @@ void main() {
     expect(d.outbox.ops.single.type, OutboxOp.sessionLogText);
     expect(d.outbox.ops.single.args['text'], '1h easy');
     expect(d.outbox.pendingSessionIds, contains(s.id));
-  });
-
-  testWidgets('"Something new" opens the same form for the typed name', (WidgetTester t) async {
-    final (FakeConvexClient _, AppDeps d) = await openHome(t);
-    await openLog(t);
-    await t.enterText(find.byType(TextField), 'padel');
-    await t.tap(inSheet(find.widgetWithText(OgButton, 'Log')));
-    await t.pumpAndSettle();
-    expect(find.byType(LogTextScreen), findsOneWidget);
-    await t.enterText(find.byType(TextField), '60 min doubles');
-    await t.pump();
-    await t.tap(find.text('Log'));
-    await t.pumpAndSettle();
-    expect(d.store.sessions.last.type, 'padel');
   });
 
   testWidgets('a log with an activity named Other shows one "Other" row in Start: the free text',

@@ -4,7 +4,7 @@ import '../app/deps.dart';
 import '../models.dart';
 import '../stores/proposal_rebuild.dart';
 import '../stores/start_run.dart';
-import 'log_text_screen.dart';
+import 'activity_log_form.dart';
 import 'prepare_session_screen.dart';
 import 'program_screen.dart';
 import 'session_screen.dart';
@@ -49,10 +49,10 @@ void openEmpty(NavigatorState nav, AppDeps d, {String activity = gymType, StartF
   nav.push(_route(_session(d, fallback: fallback)));
 }
 
-/// The Log form (one text) of a time/distance activity named [activity].
+/// The form (one text) of a time/distance activity named [activity].
 void openLogForm(NavigatorState nav, AppDeps d, String activity) {
   final String n = activity.trim();
-  nav.push(_route(LogTextScreen(
+  nav.push(_route(ActivityLogForm(
     deps: d,
     activity: n.length > 40 ? n.substring(0, 40).trim() : n,
   )));

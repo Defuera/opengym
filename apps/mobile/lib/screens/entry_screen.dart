@@ -10,7 +10,10 @@ import '../widgets/entry_photo.dart';
 import '../widgets/note_box.dart';
 import '../widgets/og_button.dart';
 import '../widgets/og_icon_button.dart';
+import '../widgets/sheet_link.dart';
 import 'entry_form_screen.dart';
+import 'goals_screen.dart';
+import 'session_recap_screen.dart';
 
 /// One note: the full text, the photos, other files by name and the time.
 /// It reads the store, so a change from the form shows at once.
@@ -62,6 +65,47 @@ class EntryScreen extends StatelessWidget {
     }
   }
 
+  /// What the log chat made with this entry, with a link where a screen exists
+  /// (a session has its recap, a goal the goals list).
+  List<Widget> _made(BuildContext context, LogEntry e) {
+    final EntryMade? m = e.read?.made;
+    if (m == null) {
+      return const <Widget>[];
+    }
+    final bool session = m.sessionId != null && deps.store.sessionById(m.sessionId!) != null;
+    final List<(String, VoidCallback?)> rows = <(String, VoidCallback?)>[
+      if (m.sessionId != null)
+        (
+          'Session added',
+          session
+              ? () => Navigator.of(context).push(MaterialPageRoute<void>(
+                  builder: (BuildContext c) => SessionRecapScreen(deps: deps, sessionId: m.sessionId!)))
+              : null
+        ),
+      if (m.goalId != null)
+        (
+          'Goal added',
+          () => Navigator.of(context)
+              .push(MaterialPageRoute<void>(builder: (BuildContext c) => GoalsScreen(deps: deps)))
+        ),
+      if (m.limitId != null) ('Limit added', null),
+      if (m.contextId != null) ('Note added', null),
+    ];
+    return <Widget>[
+      Column(
+        key: const ValueKey<String>('entry-made'),
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          for (final (String, VoidCallback?) r in rows)
+            r.$2 == null
+                ? Padding(padding: const EdgeInsets.only(bottom: 8), child: Text(r.$1, style: OG.body(size: 15, weight: FontWeight.w600)))
+                : Padding(padding: const EdgeInsets.only(bottom: 8), child: SheetLink(label: r.$1, onTap: r.$2!)),
+        ],
+      ),
+      const SizedBox(height: 8),
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
@@ -109,6 +153,7 @@ class EntryScreen extends StatelessWidget {
                     EntryPhoto(url: f.url, name: f.name),
                     const SizedBox(height: 12),
                   ],
+                  ..._made(context, e),
                   Wrap(
                     spacing: 6,
                     runSpacing: 6,

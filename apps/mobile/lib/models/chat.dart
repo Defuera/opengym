@@ -1,4 +1,5 @@
 import 'json_util.dart';
+import 'log_draft.dart';
 
 /// What a thread is about: today only a program. Without [id] it is a new
 /// program that is still being talked through.
@@ -222,7 +223,7 @@ class CoachPlan {
   final List<(String, String)> rows;
 
   static CoachPlan? fromJson(Object? v) {
-    if (v is! Map) {
+    if (v is! Map || v['type'] == 'log') {
       return null;
     }
     final Object? raw = v['exercises'];
@@ -270,6 +271,8 @@ class Message {
     this.question,
     this.proposal,
     this.turnId,
+    this.logDraft,
+    this.entryId,
   });
 
   final String id;
@@ -280,6 +283,12 @@ class Message {
 
   /// A whole-workout proposal shown above the question buttons, when present.
   final CoachPlan? proposal;
+
+  /// A log the coach drafted in the log chat (`proposal.type == "log"`).
+  final LogDraft? logDraft;
+
+  /// Set on the fixed reply to Done: the entry the log wrote.
+  final String? entryId;
 
   /// What was open when the person sent it (user messages).
   final ChatContext? context;
@@ -338,7 +347,9 @@ class Message {
       ],
       question: CoachQuestion.fromJson(j['question']),
       proposal: CoachPlan.fromJson(j['proposal']),
+      logDraft: LogDraft.fromJson(j['proposal']),
       turnId: strOrNull(j['turnId']),
+      entryId: strOrNull(j['entryId']),
     );
   }
 }

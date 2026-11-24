@@ -54,6 +54,8 @@ class FakeConvexClient implements ConvexClient {
   final Map<String, ContextItem> serverContext = <String, ContextItem>{};
   final Map<String, ImportJob> serverImports = <String, ImportJob>{};
   final Map<String, Thread> serverThreads = <String, Thread>{};
+  /// The reader label of a server entry, with what the log chat made.
+  final Map<String, EntryRead> serverEntryReads = <String, EntryRead>{};
   final Map<String, List<Message>> serverMessages = <String, List<Message>>{};
   final Map<String, FileMeta> serverFiles = <String, FileMeta>{};
 
@@ -106,7 +108,7 @@ class FakeConvexClient implements ConvexClient {
     final List<LogEntry> e = <LogEntry>[
       for (final MapEntry<String, ({String text, List<String> fileIds, int at, int createdAt})> x
           in serverEntries.entries)
-        LogEntry(id: x.key, text: x.value.text, at: x.value.at, createdAt: x.value.createdAt, files: <EntryFile>[
+        LogEntry(id: x.key, text: x.value.text, at: x.value.at, createdAt: x.value.createdAt, read: serverEntryReads[x.key], files: <EntryFile>[
           for (final String f in x.value.fileIds)
             if (serverFiles[f] != null)
               EntryFile(
@@ -168,6 +170,48 @@ class FakeConvexClient implements ConvexClient {
           question: question,
           proposal: proposal,
           turnId: sentTurn(threadId)));
+      _setThread(threadId, status: 'idle', lastMessage: text);
+    });
+  }
+
+  /// The coach drafts a log in the log chat.
+  void logDrafted(String threadId, String text, LogDraft draft) {
+    serverChanged(() {
+      serverMessages.putIfAbsent(threadId, () => <Message>[]).add(Message(
+          id: 'a${++_clock}',
+          threadId: threadId,
+          role: 'assistant',
+          text: text,
+          createdAt: ++_clock,
+          logDraft: draft,
+          question: const CoachQuestion(text: 'Log this?', answers: <QuickAnswer>[
+            QuickAnswer(id: 'approve', label: 'Done'),
+            QuickAnswer(id: 'change', label: 'Add or change'),
+          ]),
+          turnId: sentTurn(threadId)));
+      _setThread(threadId, status: 'idle', lastMessage: text);
+    });
+  }
+
+  /// The server's reply to Done: the draft turns applied, a fixed reply holds the entry id.
+  void logDone(String threadId, String text, String entryId) {
+    serverChanged(() {
+      final List<Message> l = serverMessages[threadId]!;
+      for (int i = 0; i < l.length; i++) {
+        final LogDraft? d = l[i].logDraft;
+        if (d != null && d.open) {
+          l[i] = Message(
+              id: l[i].id,
+              threadId: threadId,
+              role: 'assistant',
+              text: l[i].text,
+              createdAt: l[i].createdAt,
+              logDraft: LogDraft(kind: d.kind, summary: d.summary, at: d.at, session: d.session, state: 'applied', entryId: entryId),
+              turnId: l[i].turnId);
+        }
+      }
+      l.add(Message(
+          id: 'a${++_clock}', threadId: threadId, role: 'assistant', text: text, createdAt: ++_clock, entryId: entryId));
       _setThread(threadId, status: 'idle', lastMessage: text);
     });
   }

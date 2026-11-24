@@ -7,9 +7,11 @@ import '../stores/coach_store.dart';
 import '../stores/voice_controller.dart';
 import '../theme.dart';
 import '../coach_action_text.dart';
+import '../log_draft_text.dart';
 import '../widgets/chat_bubble.dart';
 import '../widgets/coach_turn_parts.dart';
 import '../widgets/composer_bar.dart';
+import '../widgets/log_draft_card.dart';
 import '../widgets/note_box.dart';
 import '../widgets/og_button.dart';
 import '../widgets/og_icon_button.dart';
@@ -19,12 +21,16 @@ import 'attach_flow.dart';
 import 'chat_file_thumb.dart';
 import 'chat_proposal.dart';
 import 'chat_threads_sheet.dart';
+import 'entry_screen.dart';
 import 'program_screen.dart';
 
 class ChatScreen extends StatefulWidget {
-  const ChatScreen({super.key, required this.deps});
+  const ChatScreen({super.key, required this.deps, this.autofocus = false});
 
   final AppDeps deps;
+
+  /// Put the cursor in the composer when the screen opens (the log chat).
+  final bool autofocus;
 
   @override
   State<ChatScreen> createState() => _ChatScreenState();
@@ -43,6 +49,13 @@ class _ChatScreenState extends State<ChatScreen> {
   void initState() {
     super.initState();
     _voice = VoiceController(recorder: widget.deps.voice, onRecorded: _sendVoice);
+    if (widget.autofocus) {
+      WidgetsBinding.instance.addPostFrameCallback((Duration _) {
+        if (mounted) {
+          _focus.requestFocus();
+        }
+      });
+    }
   }
 
   Future<void> _sendVoice(UploadItem audio) async {
@@ -74,6 +87,19 @@ class _ChatScreenState extends State<ChatScreen> {
     if (mounted) {
       setState(() => _pickError = error);
     }
+  }
+
+  Future<void> _camera() async {
+    final String? error = await runCameraFlow(widget.deps.pickers, _coach.addAttachment);
+    if (mounted) {
+      setState(() => _pickError = error);
+    }
+  }
+
+  void _openEntry(String id) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(builder: (BuildContext c) => EntryScreen(deps: widget.deps, entryId: id)),
+    );
   }
 
   /// A tap on a quick answer is an ordinary message with the same context.
@@ -132,7 +158,7 @@ class _ChatScreenState extends State<ChatScreen> {
         voiceFailedText:
             c.isUnsentVoice(m.id) ? 'Could not send the recording.' : 'Could not read the recording.',
         onRetryVoice: c.sending ? null : () => c.retryVoice(m.id),
-        copyable: m.voice != 'pending' && m.voice != 'failed',
+        copyable: m.voice != 'pending' && m.voice != 'failed' && m.text.isNotEmpty,
         media: <Widget>[
           // The audio itself is never shown, only its text.
           for (final String id in (m.voice == null ? m.fileIds : const <String>[]))
@@ -140,7 +166,26 @@ class _ChatScreenState extends State<ChatScreen> {
         ],
       ));
       items.add(const SizedBox(height: 12));
-      if (!m.mine && m.actions.isNotEmpty) {
+      final LogDraft? draft = m.logDraft;
+      if (!m.mine && draft != null) {
+        // A log draft: one card (same frame as a whole-workout list), and the
+        // question under it only while the draft is open.
+        items.add(LogDraftCard(
+          kind: draft.kindLabel,
+          summary: draft.summary,
+          when: logDraftWhen(draft),
+          rows: logDraftRows(draft),
+          exercises: draft.session?.exercises ?? const <(String, String)>[],
+          state: draft.state,
+        ));
+        items.add(const SizedBox(height: 8));
+      }
+      final String? madeEntry = m.entryId;
+      if (!m.mine && madeEntry != null) {
+        items.add(LogEndLine(onClose: () => Navigator.of(context).pop(), onOpen: () => _openEntry(madeEntry)));
+        items.add(const SizedBox(height: 12));
+      }
+      if (!m.mine && draft == null && m.actions.isNotEmpty) {
         items.add(ActionLines(lines: <String>[for (final CoachAction a in m.actions) coachActionLine(a)]));
         items.add(const SizedBox(height: 8));
       }
@@ -150,7 +195,7 @@ class _ChatScreenState extends State<ChatScreen> {
         items.add(const SizedBox(height: 8));
       }
       final CoachQuestion? q = m.question;
-      if (!m.mine && q != null) {
+      if (!m.mine && q != null && (draft == null || draft.open)) {
         // The quick answers stay live only on the newest message.
         items.add(QuestionBlock(
           text: q.text,
@@ -302,7 +347,9 @@ class _ChatScreenState extends State<ChatScreen> {
                   ),
                 ),
                 ComposerBar(
-                  hint: about == null
+                  hint: c.isLogChat
+                      ? 'What did you do or eat?'
+                      : about == null
                       ? 'Message'
                       : about.id == null
                           ? 'Paste a program, or say what you want'
@@ -316,6 +363,7 @@ class _ChatScreenState extends State<ChatScreen> {
                   attachments: stripItems(c.attachments),
                   onRemoveAttachment: c.removeAttachment,
                   onAttach: _attach,
+                  onCamera: _camera,
                   onSend: _send,
                   onMic: _voice.start,
                   recording: _voice.recording,

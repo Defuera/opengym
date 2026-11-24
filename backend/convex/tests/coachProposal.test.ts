@@ -67,9 +67,9 @@ describe("a rebuild request is a proposal", () => {
       turnId: "m1",
       actions: [{ actionId: "a1", name: "rebuild_open_session", status: "drafted" }],
       question: { text: "Shall I go on?", answers: [{ id: "approve", label: "Approve" }, { id: "change", label: "Change something" }] },
-      proposal: { title: "Balance day", state: "open", exercises: [{ name: "Balance board stand", sets: "3 × 30 s" }, { name: "Squat", sets: "1 × 5 · 60 kg" }, { name: "Calf raise 1", sets: "3 × 12" }] },
+      proposal: { type: "session", title: "Balance day", state: "open", exercises: [{ name: "Balance board stand", sets: "3 × 30 s" }, { name: "Squat", sets: "1 × 5 · 60 kg" }, { name: "Calf raise 1", sets: "3 × 12" }] },
     });
-    expect(Object.keys(a.proposal!).sort()).toEqual(["exercises", "state", "title"]);
+    expect(Object.keys(a.proposal!).sort()).toEqual(["exercises", "state", "title", "type"]);
   });
 
   it("a proposal with no question from the model still gets a question with the two answers", async () => {

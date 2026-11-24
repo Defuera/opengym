@@ -39,7 +39,7 @@ export const save = internalMutation({
   handler: async (ctx, { entryId, read }) => {
     const d = await entryByEntryId(ctx, entryId);
     if (!pending(d, read.rev)) return;
-    await ctx.db.patch(d._id, { read });
+    await ctx.db.patch(d._id, { read: { ...read, ...(d.read?.made ? { made: d.read.made } : {}) } });
   },
 });
 

@@ -1,6 +1,6 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
-import { actionResult, coachProposal, coachQuestion, messageContext } from "./lib/messageFields";
+import { actionResult, coachQuestion, messageContext, storedProposal } from "./lib/messageFields";
 import { placeChangeFields, placeFields } from "./lib/placeFields";
 import { programFields, proposalFields, threadAbout } from "./lib/programFields";
 import { previousPlan, startProposal, startStatus, dashboardDays, feeling, limitRule, limitStatus, fileKind, threadStatus, goalKind, goalStatus, importCounts, importStatus, itemSource, moduleSpec, parseState, planExercise, prediction, proposalSource } from "./lib/validators";
@@ -137,6 +137,8 @@ export const entryRead = v.object({
   rev: v.string(),
   kind: v.optional(v.union(v.literal("meal"), v.literal("training"), v.literal("body"), v.literal("goal"), v.literal("other"))),
   summary: v.optional(v.string()),
+  /** The rows the log chat wrote with this entry when the person pressed Done (ADR-032). */
+  made: v.optional(v.object({ sessionId: v.optional(v.string()), goalId: v.optional(v.string()), limitId: v.optional(v.string()), contextId: v.optional(v.string()) })),
 });
 
 const openSet = v.object({
@@ -220,7 +222,7 @@ export default defineSchema({
   programs: defineTable(programFields).index("by_programId", ["programId"]).index("by_deletedAt", ["deletedAt"]),
   // A coach proposal waiting for the person (a new or changed program). Not a fact. Written by commands/proposals and jobs/programs. Removed after 7 days.
   proposals: defineTable(proposalFields).index("by_proposalId", ["proposalId"]).index("by_createdAt", ["createdAt"]).index("by_threadId", ["threadId"]),
-  limits: defineTable(limitFields).index("by_limitId", ["limitId"]),
+  limits: defineTable({ ...limitFields, importId: v.optional(v.string()) }).index("by_limitId", ["limitId"]),
   records: defineTable(recordFields).index("by_recordId", ["recordId"]).index("by_limitId", ["limitId"]),
   checkins: defineTable(checkinFields)
     .index("by_checkinId", ["checkinId"])
@@ -282,7 +284,11 @@ export default defineSchema({
     /** Only on an assistant message of a coach turn: the coach asks the person, with optional quick answers. */
     question: v.optional(coachQuestion),
     /** Only on an assistant message of a coach turn: the whole-session plan the coach proposes; applied when the person approves (ADR-032). */
-    proposal: v.optional(coachProposal),
+    proposal: v.optional(storedProposal),
+    /** Only on an assistant message that answers "Done" of a log draft: the entry it wrote. */
+    entryId: v.optional(v.string()),
+    /** Only on a user message that is a tap on a quick answer (ADR-032): the answered turn and the answer. */
+    answer: v.optional(v.object({ turnId: v.string(), id: v.string() })),
     createdAt: v.number(),
   })
     .index("by_messageId", ["messageId"])

@@ -1,13 +1,9 @@
-import { ConvexError, v } from "convex/values";
-import { internal } from "../_generated/api";
+import { v } from "convex/values";
 import { internalMutation, mutation } from "../_generated/server";
 import { requireToken } from "../lib/auth";
-import { entryRowByEntryId, stableJson, withoutSystemFields } from "../lib/db";
-import { deleteFile, entryRev } from "../lib/entriesDb";
+import { entryRowByEntryId, sessionRowBySessionId } from "../lib/db";
+import { storeEntry } from "../lib/entriesDb";
 import { markFactsChanged } from "../lib/factsChanged";
-import { fileByFileId } from "../lib/files";
-import { parseOrThrow } from "../lib/validate";
-import { EntrySchema } from "../model/schema";
 import { entryFields } from "../schema";
 
 /**
@@ -20,29 +16,7 @@ export const save = mutation({
   args: { token: v.string(), entry: v.object(entryFields) },
   handler: async (ctx, { token, entry }) => {
     requireToken(token);
-    const { entryId, ...rest } = entry;
-    parseOrThrow(EntrySchema, { id: entryId, ...rest }, "entry");
-    const old = await entryRowByEntryId(ctx, entryId);
-    if (old?.deletedAt !== undefined) return entryId; // marked as deleted (ADR-020): a late resend must not bring it back
-    for (const id of entry.fileIds) {
-      if (!(await fileByFileId(ctx, id))) throw new ConvexError(`entry.fileIds: no registered file "${id}"`);
-    }
-    if (old) {
-      const { read: _read, ...was } = withoutSystemFields(old);
-      void _read;
-      if (stableJson(was) === stableJson(entry)) return entryId; // resend, nothing changed
-    }
-    // The reader job labels the entry (ADR-031). A label is kept only while the text and the files it read are the same.
-    const rev = entryRev(entry);
-    const read = old?.read?.rev === rev ? old.read : { status: "pending" as const, rev };
-    if (old) {
-      await ctx.db.replace(old._id, { ...entry, read });
-      for (const id of old.fileIds) if (!entry.fileIds.includes(id)) await deleteFile(ctx, id);
-    } else {
-      await ctx.db.insert("entries", { ...entry, read });
-    }
-    if (read.status === "pending") await ctx.scheduler.runAfter(0, internal.jobs.readEntry.run, { entryId, rev });
-    return entryId;
+    return storeEntry(ctx, entry);
   },
 });
 
@@ -57,19 +31,27 @@ export const remove = mutation({
     requireToken(token);
     const old = await entryRowByEntryId(ctx, entryId);
     if (!old || old.deletedAt !== undefined) return false;
-    await ctx.db.patch(old._id, { deletedAt: Date.now() });
+    const now = Date.now();
+    await ctx.db.patch(old._id, { deletedAt: now });
+    // The session the log chat made with this entry goes with it (ADR-020). The goal, limit and note it made stay: nothing says cheaply whether the person edited them since.
+    const made = old.read?.made?.sessionId;
+    const session = made !== undefined ? await sessionRowBySessionId(ctx, made) : null;
+    if (session && session.deletedAt === undefined) await ctx.db.patch(session._id, { deletedAt: now });
     await markFactsChanged(ctx);
     return true;
   },
 });
 
-/** Operator tool (`npx convex run`): clears the mark of an entry, if it is not erased yet. Returns true when it brought one back. */
+/** Operator tool (`npx convex run`): clears the mark of an entry, and of the session it made, if not erased yet. Returns true when it brought one back. */
 export const restoreEntry = internalMutation({
   args: { entryId: v.string() },
   handler: async (ctx, { entryId }) => {
     const old = await entryRowByEntryId(ctx, entryId);
     if (!old || old.deletedAt === undefined) return false;
     await ctx.db.patch(old._id, { deletedAt: undefined });
+    const made = old.read?.made?.sessionId;
+    const session = made !== undefined ? await sessionRowBySessionId(ctx, made) : null;
+    if (session?.deletedAt !== undefined) await ctx.db.patch(session._id, { deletedAt: undefined });
     await markFactsChanged(ctx);
     return true;
   },

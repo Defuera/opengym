@@ -2,6 +2,8 @@ import type { PlanExercise } from "./schema";
 
 /** The whole-session plan the coach proposes, as stored on the assistant message (ADR-032). */
 export interface StoredProposal {
+  /** Absent on a proposal stored before the log draft existed. */
+  type?: "session";
   title?: string;
   exercises: PlanExercise[];
   focus?: string;
@@ -14,6 +16,7 @@ export interface StoredProposal {
 
 /** A proposal as the app receives it. `sets` is a short text. */
 export interface ProposalView {
+  type: "session";
   title?: string;
   exercises: { name: string; sets: string }[];
   state: "open" | "applied" | "stale";
@@ -51,5 +54,5 @@ function formatBase(e: PlanExercise): string {
 
 /** The proposal for the app. `state` is worked out by the caller (list query). */
 export function proposalView(p: StoredProposal, state: ProposalView["state"]): ProposalView {
-  return { ...(p.title ? { title: p.title } : {}), exercises: p.exercises.map((e) => ({ name: e.name, sets: formatSets(e) })), state };
+  return { type: "session", ...(p.title ? { title: p.title } : {}), exercises: p.exercises.map((e) => ({ name: e.name, sets: formatSets(e) })), state };
 }

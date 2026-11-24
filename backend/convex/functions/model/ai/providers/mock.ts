@@ -36,6 +36,28 @@ function extract(text: string) {
   return { goals, context };
 }
 
+/**
+ * Mock of the coach turn in the log chat: food words or a photo make a meal; "ran 5 km in 30 min" a run (with "yesterday" the day before);
+ * "it was 6 km" changes the distance of the draft held in currentLogDraft; anything else is a plain note. It always drafts.
+ */
+function mockLogTurn(text: string, d: Data, photo: boolean): string {
+  const now = Date.parse(String(d.now ?? new Date().toISOString()));
+  const at = new Date(/\byesterday\b/i.test(text) ? now - 86_400_000 : now).toISOString();
+  const km = text.match(/(\d+(?:\.\d+)?)\s*km/i);
+  const min = text.match(/(\d+)\s*min/i);
+  const was = d.currentLogDraft as Data | undefined;
+  if (was?.session && km && !min) {
+    const session = { ...was.session, distanceKm: Number(km[1]) };
+    return JSON.stringify({ message: `Mock log: ${km[1]} km now.`, actions: [{ id: "a1", name: "draft_log", arguments: { kind: was.kind, summary: `${session.type}, ${km[1]} km in ${session.minutes} min`, at: was.at, session } }] });
+  }
+  if (/\bran\b|\brun\b/i.test(text) && (km || min)) {
+    const session = { kind: "activity", type: "Run", ...(min ? { minutes: Number(min[1]) } : {}), ...(km ? { distanceKm: Number(km[1]) } : {}) };
+    return JSON.stringify({ message: "Mock log: a run.", actions: [{ id: "a1", name: "draft_log", arguments: { kind: "training", summary: `Run${km ? `, ${km[1]} km` : ""}${min ? ` in ${min[1]} min` : ""}`, at, session } }] });
+  }
+  const meal = photo || /\b(lunch|dinner|breakfast|ate|snack)\b/i.test(text);
+  return JSON.stringify({ message: `Mock log: ${meal ? "a meal" : "a note"}.`, actions: [{ id: "a1", name: "draft_log", arguments: { kind: meal ? "meal" : "other", summary: text.trim().slice(0, 100) || "A photo", at } }] });
+}
+
 /** The fixed valid answer of build_program: two weeks, one phase, sessions A and Bike (a week is A, Bike, A). */
 export const MOCK_PROGRAM = {
   title: "Mock program",
@@ -158,6 +180,7 @@ export class MockProvider implements AiProvider {
       case "coach_turn": {
         // Mock: "I have a <thing>" adds the thing to the session's place and swaps the exercise in view for one that uses it. Else a plain answer.
         const text = String([...req.messages].reverse().find((m) => m.role === "user")?.content ?? "").split("\n\nINPUT_JSON:")[0]!;
+        if (d.screen === "log") return mockLogTurn(text, d, (req.images?.length ?? 0) > 0);
         const thing = text.match(/\bI (?:do )?have an? ([a-z][a-z ]{1,40}?)(?:[.,!]|$| at | here)/i)?.[1]?.trim();
         const place = d.sessionPlace as Data | undefined;
         const current = (d.openSession?.exercises ?? []).find((e: Data) => e.id === d.currentExercise?.id && !e.personsWork);

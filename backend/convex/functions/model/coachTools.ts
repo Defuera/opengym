@@ -1,13 +1,15 @@
 import { z } from "zod";
 import { avoidedExercises } from "./rules/limits";
 import { normName } from "./rules/muscles";
+import { DraftLogArgs } from "./logDraft";
 import { PlanExerciseSchema, type Limit, type PlanExercise } from "./schema";
 import type { PlannedExercise } from "./openSession";
 
 /**
  * The functions the coach may call in one chat turn (ADR-032), as zod schemas, and the pure logic behind them.
  * The model only names an action; server code checks it again against the data and does it (lib/coachToolsDb.ts).
- * Single-exercise tools and update_place are "applied at once and reported". rebuild_open_session is a PROPOSAL: it is stored on the
+ * Single-exercise tools and update_place are "applied at once and reported". draft_log (the log chat) is a DRAFT until Done: stored on the message,
+ * written only when the person presses Done (lib/logDraftDb.ts). rebuild_open_session is a PROPOSAL: it is stored on the
  * message and applied only when the person approves (commands/messages:send with an answer). No tool changes the place of the session.
  */
 
@@ -28,6 +30,7 @@ export const CoachActionSchema = z.discriminatedUnion("name", [
   action("replace_open_exercise", z.object({ exerciseId: Id, exercise: PlanExerciseSchema })),
   action("add_open_exercise", z.object({ exercise: PlanExerciseSchema, afterExerciseId: Id.optional() })),
   action("remove_open_exercise", z.object({ exerciseId: Id })),
+  action("draft_log", DraftLogArgs),
   action("rebuild_open_session", z.object({ title: z.string().trim().min(1).max(60).optional(), exercises: z.array(PlanExerciseSchema).min(1), focus: z.string().trim().min(1).max(40).optional(), planNote: z.string().max(400).optional() })),
 ]);
 

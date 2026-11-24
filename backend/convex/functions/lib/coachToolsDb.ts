@@ -6,9 +6,11 @@ import { fileByFileId } from "./files";
 import { PLACE_QUOTE_MAX, PLACE_TEXT_MAX } from "./placeFields";
 import { placeByPlaceId, setPlaceText } from "./placesDb";
 import { requestExerciseArt } from "./exerciseArtDb";
+import { buildLogDraft } from "./logDraftDb";
 import { addDetail, placeDetail, proposeDetail, removeDetail, replaceDetail } from "../model/actionDetail";
 import { type ActionResult, type CoachAction, CoachActionSchema, editPlaceText, toPlanned } from "../model/coachTools";
 import { type OneChange, type OpenExercise, addOne, removeOne, replaceOne } from "../model/openSession";
+import { logDetail, type StoredLogDraft } from "../model/logDraft";
 import type { StoredProposal } from "../model/proposalText";
 import { finalizePlan } from "../model/proposals";
 import type { Limit, PlanExercise, Session } from "../model/schema";
@@ -49,7 +51,7 @@ async function evidenceProblem(ctx: Ctx, trigger: Doc<"messages"> | null, eviden
  * written once, with `rev + 1` and `updatedBy: "coach"`. A rebuild writes nothing: it is checked the same way and returned as a
  * proposal (status "drafted"), one per turn, for the message to hold until the person approves (lib/proposalDb.ts).
  */
-export async function executeActions(ctx: Ctx, base: TurnBase, actions: unknown[]): Promise<{ results: ActionResult[]; proposal?: StoredProposal }> {
+export async function executeActions(ctx: Ctx, base: TurnBase, actions: unknown[]): Promise<{ results: ActionResult[]; proposal?: StoredProposal | StoredLogDraft }> {
   const results: ActionResult[] = [];
   const row = await ctx.db.query("openSession").first();
   const problem = sessionProblem(row, base);
@@ -67,7 +69,7 @@ export async function executeActions(ctx: Ctx, base: TurnBase, actions: unknown[
   let n = 0;
   const newId = () => `${stamp}c${(n++).toString(36)}`;
   const art: string[] = [];
-  let proposal: StoredProposal | undefined;
+  let proposal: StoredProposal | StoredLogDraft | undefined;
 
   for (const raw of actions) {
     const rawObj = (raw ?? {}) as { id?: unknown; name?: unknown };
@@ -127,6 +129,20 @@ export async function executeActions(ctx: Ctx, base: TurnBase, actions: unknown[
         if (gone) detail = removeDetail(gone);
         change = removeOne(exercises, a.arguments.exerciseId);
         break;
+      }
+      case "draft_log": {
+        if (proposal) {
+          reject("one proposal per turn");
+          continue;
+        }
+        if (!trigger || trigger.role !== "user") {
+          reject("no message of the person in this turn");
+          continue;
+        }
+        const made = await buildLogDraft(ctx, a.arguments, Date.now());
+        proposal = made.draft;
+        results.push({ actionId: a.id, name: a.name, status: "drafted", detail: logDetail(made.draft, made.dropped) });
+        continue;
       }
       case "rebuild_open_session": {
         const list = await safe(a.arguments.exercises);

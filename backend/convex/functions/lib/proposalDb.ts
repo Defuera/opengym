@@ -23,7 +23,7 @@ type Reader = QueryCtx | MutationCtx;
 /** Why a stored proposal cannot be applied (a newer proposal in the thread, no open session, another session), or null. */
 export async function staleReason(ctx: Reader, message: Doc<"messages">): Promise<string | null> {
   const p = message.proposal;
-  if (!p) return "there is no proposal";
+  if (!p || p.type === "log") return "there is no proposal";
   const newer = await ctx.db
     .query("messages")
     .withIndex("by_threadId", (q) => q.eq("threadId", message.threadId).gt("_creationTime", message._creationTime))
@@ -45,7 +45,7 @@ export type ApplyOutcome = { status: "applied" | "already" | "refused"; text: st
  */
 export async function applyProposal(ctx: MutationCtx, message: Doc<"messages">): Promise<ApplyOutcome> {
   const p = message.proposal;
-  if (!p) return { status: "refused", text: "There is no plan to apply.", reason: "there is no proposal" };
+  if (!p || p.type === "log") return { status: "refused", text: "There is no plan to apply.", reason: "there is no proposal" };
   if (p.appliedAt !== undefined) return { status: "already", text: "This plan was applied already. Nothing more changed." };
   const stale = await staleReason(ctx, message);
   const refuse = (reason: string): ApplyOutcome => ({ status: "refused", text: `I could not apply this plan: ${reason}. Nothing was changed. Ask me again if you still want it.`, reason });

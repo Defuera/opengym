@@ -1,6 +1,10 @@
 import type { Doc } from "../_generated/dataModel";
+import { ConvexError } from "convex/values";
+import { internal } from "../_generated/api";
 import type { ActionCtx, DatabaseReader, MutationCtx } from "../_generated/server";
-import { liveEntryDocs, toEntry } from "./db";
+import { entryRowByEntryId, liveEntryDocs, stableJson, toEntry, withoutSystemFields } from "./db";
+import { parseOrThrow } from "./validate";
+import { EntrySchema } from "../model/schema";
 import { fileByFileId, loadAttachment, type FileDoc } from "./files";
 import type { ImageInput } from "../model/ai/provider";
 import type { CoachSourceEntry } from "../model/entryContext";
@@ -14,9 +18,12 @@ export const COACH_IMAGE_MAX = 4;
 
 type Reader = { db: DatabaseReader };
 
-/** Entries of the last 7 days that the coach reads: the newest 20, oldest first. */
+/**
+ * Entries of the last 7 days that the coach reads: the newest 20, oldest first. An entry that made a session (the log chat, ADR-032) is left out:
+ * the session is read as training, so the same words are not read twice.
+ */
 export async function coachEntries(ctx: Reader, now: number): Promise<CoachSourceEntry[]> {
-  const docs = await liveEntryDocs(ctx, { order: "desc", from: now - COACH_ENTRY_DAYS * DAY, to: now, limit: COACH_ENTRY_MAX });
+  const docs = (await liveEntryDocs(ctx, { order: "desc", from: now - COACH_ENTRY_DAYS * DAY, to: now, limit: COACH_ENTRY_MAX })).filter((d) => d.read?.made?.sessionId === undefined);
   return docs.reverse().map((d) => ({ ...toEntry(d), ...(d.fileIds.length > 0 && d.read?.status === "ready" && d.read.summary ? { seen: d.read.summary } : {}) }));
 }
 
@@ -60,4 +67,56 @@ export async function deleteFile(ctx: Pick<MutationCtx, "db" | "storage">, fileI
   if (!f) return;
   await ctx.storage.delete(f.storageId);
   await ctx.db.delete(f._id);
+}
+
+export interface EntryInput {
+  entryId: string;
+  text: string;
+  fileIds: string[];
+  at: number;
+  createdAt: number;
+  deletedAt?: number;
+}
+
+/** What the log chat knows when it writes an entry: the label is set by code and the reader job does not run (ADR-032). */
+export interface EntryLabel {
+  kind: "meal" | "training" | "body" | "goal" | "other";
+  summary: string;
+  made?: { sessionId?: string; goalId?: string; limitId?: string; contextId?: string };
+}
+
+/**
+ * The write of one log entry, shared by commands/entries:save and the log chat (ADR-017, ADR-032). Validated like EntrySchema, every file
+ * registered, a dropped file deleted, a resend changes nothing, an entry marked as deleted stays so (ADR-020). A new or changed text or
+ * file list starts the reader job (ADR-031), unless `label` is given: then the label is "ready" at once and no reader job is scheduled.
+ */
+export async function storeEntry(ctx: MutationCtx, entry: EntryInput, label?: EntryLabel): Promise<string> {
+  const { entryId, ...rest } = entry;
+  parseOrThrow(EntrySchema, { id: entryId, ...rest }, "entry");
+  const old = await entryRowByEntryId(ctx, entryId);
+  if (old?.deletedAt !== undefined) return entryId; // marked as deleted (ADR-020): a late resend must not bring it back
+  for (const id of entry.fileIds) {
+    if (!(await ctx.db.query("files").withIndex("by_fileId", (q) => q.eq("fileId", id)).unique())) throw new ConvexError(`entry.fileIds: no registered file "${id}"`);
+  }
+  if (old) {
+    const { read: _read, ...was } = withoutSystemFields(old);
+    void _read;
+    if (stableJson(was) === stableJson(entry)) return entryId; // resend, nothing changed
+  }
+  // The reader job labels the entry (ADR-031). A label is kept only while the text and the files it read are the same.
+  const rev = entryRev(entry);
+  const made = label?.made ?? old?.read?.made;
+  const read = label
+    ? { status: "ready" as const, rev, kind: label.kind, summary: label.summary, ...(made ? { made } : {}) }
+    : old?.read?.rev === rev
+      ? old.read
+      : { status: "pending" as const, rev, ...(made ? { made } : {}) };
+  if (old) {
+    await ctx.db.replace(old._id, { ...entry, read });
+    for (const id of old.fileIds) if (!entry.fileIds.includes(id)) await deleteFile(ctx, id);
+  } else {
+    await ctx.db.insert("entries", { ...entry, read });
+  }
+  if (read.status === "pending") await ctx.scheduler.runAfter(0, internal.jobs.readEntry.run, { entryId, rev });
+  return entryId;
 }

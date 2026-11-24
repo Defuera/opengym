@@ -263,4 +263,23 @@ void main() {
     expect(find.text('Balance Board'), findsWidgets);
     expect(find.text('Tandem Stand'), findsNothing);
   });
+
+  testWidgets('a log draft shows its card with Done and Add or change in the session chat; Done sends the same context', (WidgetTester t) async {
+    final (FakeConvexClient fake, _) = await _session(t);
+    await t.tap(find.byKey(const ValueKey<String>('chat-fab')));
+    await t.pumpAndSettle();
+    await _type(t, 'I ate pasta for lunch');
+    final String thread = fake.serverThreads.keys.single;
+    fake.logDrafted(thread, 'Lunch, pasta.', const LogDraft(kind: 'Meal', summary: 'Lunch, pasta', at: 1700000000000));
+    await t.pump();
+    await t.pump(const Duration(milliseconds: 100));
+    expect(find.text('Lunch, pasta'), findsOneWidget);
+    expect(find.text('Done'), findsOneWidget);
+    expect(find.text('Add or change'), findsOneWidget);
+    await t.tap(find.text('Done'));
+    await t.pump();
+    await t.pump(const Duration(milliseconds: 100));
+    expect(fake.sentAnswers.last!.id, 'approve');
+    expect(fake.sentContexts.last!.screen, 'exercise');
+  });
 }

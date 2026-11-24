@@ -137,7 +137,7 @@ class FakeConvexClient implements ConvexClient {
   int _clock = 1000;
 
   /// The coach answers: stores the assistant message, thread goes idle.
-  void coachAnswers(String threadId, String text, {List<String> sources = const <String>[], String? proposalId}) {
+  void coachAnswers(String threadId, String text, {List<String> sources = const <String>[], String? proposalId, List<CoachAction> actions = const <CoachAction>[]}) {
     serverChanged(() {
       serverMessages.putIfAbsent(threadId, () => <Message>[]).add(Message(
           id: 'a${++_clock}',
@@ -146,6 +146,7 @@ class FakeConvexClient implements ConvexClient {
           text: text,
           createdAt: ++_clock,
           sources: sources,
+          actions: actions,
           proposalId: proposalId));
       _setThread(threadId, status: 'idle', lastMessage: text);
     });

@@ -194,15 +194,13 @@ describe("the coach turn refuses what it may not do", () => {
     expect((await open()).session!.exercises.map((e) => e.id)).toEqual(["e1", "e2"]);
   });
 
-  it("rebuild keeps the person's work and the place", async () => {
+  it("a rebuild is a proposal: the open session is not changed (see coachProposal.test.ts)", async () => {
     await world();
     stubOpenAi(coach(() => ({ message: "New session.", actions: [{ id: "a1", name: "rebuild_open_session", arguments: { exercises: [BALANCE, { name: "Squat", sets: [{ reps: 5, kg: 60, max: false }] }], focus: "Balance" } }] })));
     await send("m1", "make the whole session about balance", { screen: "session", openSessionId: "s1" });
     await settle(t);
-    const s = (await open()).session!;
-    expect(s.exercises.map((e) => e.name)).toEqual(["Squat", "Balance board stand"]);
-    expect(s.exercises[0]).toEqual(EXERCISES[0]);
-    expect(s).toMatchObject({ focus: "Balance", placeId: "p-gym" });
+    expect(await open()).toMatchObject({ rev: 1, updatedBy: "app", session: { placeId: "p-gym", exercises: EXERCISES } });
+    expect((await messages())[1]!.actions).toEqual([{ actionId: "a1", name: "rebuild_open_session", status: "drafted" }]);
   });
 });
 

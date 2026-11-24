@@ -1,17 +1,14 @@
 import 'package:flutter/material.dart';
 
 import '../app/deps.dart';
-import '../data/upload_item.dart';
 import '../models.dart';
 import '../planner.dart';
 import '../stores/import_store.dart';
 import '../theme.dart';
-import '../widgets/attachment_chip.dart';
-import '../widgets/choice_sheet.dart';
-import '../widgets/cta_button.dart';
+import '../widgets/composer_bar.dart';
 import '../widgets/import_job_card.dart';
-import '../widgets/og_button.dart';
 import '../widgets/og_icon_button.dart';
+import 'attach_flow.dart';
 
 class ImportScreen extends StatefulWidget {
   const ImportScreen({super.key, required this.deps});
@@ -24,49 +21,29 @@ class ImportScreen extends StatefulWidget {
 
 class _ImportScreenState extends State<ImportScreen> {
   String? _pickError;
+  final TextEditingController _unused = TextEditingController();
 
   ImportStore get _imports => widget.deps.imports;
 
-  Future<void> _pickFiles() async {
-    try {
-      _imports.addAll(await widget.deps.pickers.pickFiles());
-      _clearPickError();
-    } catch (_) {
-      _setPickError('Could not open the file picker.');
-    }
+  @override
+  void dispose() {
+    _unused.dispose();
+    super.dispose();
   }
 
-  Future<void> _pickPhoto() async {
-    final String? src = await showChoiceSheet(
-      context,
-      title: 'Add a photo',
-      choices: const <SheetChoice>[
-        SheetChoice(value: 'camera', label: 'Take a photo'),
-        SheetChoice(value: 'gallery', label: 'Choose from library'),
-      ],
-    );
-    if (src == null) {
-      return;
-    }
-    try {
-      final UploadItem? p = await widget.deps.pickers.pickPhoto(camera: src == 'camera');
-      if (p != null) {
-        _imports.add(p);
-      }
-      _clearPickError();
-    } catch (_) {
-      _setPickError('Could not open the camera or library.');
-    }
+  /// The "+" and the camera of the shared composer: the picks wait to be imported.
+  Future<void> _attach() async {
+    final String? error = await runAttachFlow(context, widget.deps.pickers, _imports.add);
+    _setPickError(error);
   }
 
-  void _clearPickError() {
-    if (mounted && _pickError != null) {
-      setState(() => _pickError = null);
-    }
+  Future<void> _camera() async {
+    final String? error = await runCameraFlow(widget.deps.pickers, _imports.add);
+    _setPickError(error);
   }
 
-  void _setPickError(String m) {
-    if (mounted) {
+  void _setPickError(String? m) {
+    if (mounted && _pickError != m) {
       setState(() => _pickError = m);
     }
   }
@@ -115,41 +92,12 @@ class _ImportScreenState extends State<ImportScreen> {
   List<Widget> _uploadSection(ImportStore s) {
     final List<Widget> body = <Widget>[
       Text(
-        'Add a file or a photo, like a screenshot of your history or the '
-        'screen of a cycling machine.',
+        'Add files or photos with the buttons below, like a screenshot of your history '
+        'or the screen of a cycling machine. Then press send.',
         style: OG.muted(),
       ),
       const SizedBox(height: 14),
-      Row(
-        children: <Widget>[
-          Expanded(
-            child: OgButton(
-              onPressed: s.busy ? null : _pickFiles,
-              child: const Text('Files'),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: OgButton(
-              onPressed: s.busy ? null : _pickPhoto,
-              child: const Text('Photo'),
-            ),
-          ),
-        ],
-      ),
-      const SizedBox(height: 12),
     ];
-    if (s.picked.isNotEmpty) {
-      body.add(Wrap(
-        spacing: 6,
-        runSpacing: 6,
-        children: <Widget>[
-          for (int i = 0; i < s.picked.length; i++)
-            AttachmentChip(name: s.picked[i].name, onRemove: () => s.removeAt(i)),
-        ],
-      ));
-      body.add(const SizedBox(height: 12));
-    }
     final String err = s.error ?? _pickError ?? '';
     if (err.isNotEmpty) {
       body.add(Text(err, style: OG.body(size: 15, weight: FontWeight.w600)));
@@ -191,16 +139,18 @@ class _ImportScreenState extends State<ImportScreen> {
                 ],
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 18),
-              child: CtaButton(
-                label: s.picked.isEmpty
-                    ? 'Import'
-                    : 'Import ${s.picked.length} item${s.picked.length == 1 ? '' : 's'}',
-                icon: Icons.file_upload_outlined,
-                variant: OgVariant.accent,
-                onPressed: (s.picked.isEmpty || s.busy) ? null : s.start,
-              ),
+            // The same composer as every chat. An import has no text, so the
+            // field is off; the files wait in its strip and send starts the import.
+            ComposerBar(
+              controller: _unused,
+              showText: false,
+              sending: s.busy,
+              offlineNote: widget.deps.connection.connected ? null : 'Offline. Import needs a connection.',
+              attachments: stripItems(s.picked),
+              onRemoveAttachment: s.busy ? null : s.removeAt,
+              onAttach: _attach,
+              onCamera: _camera,
+              onSend: s.start,
             ),
           ],
         ),

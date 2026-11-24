@@ -10,19 +10,18 @@ import '../models.dart';
 import '../planner.dart';
 import '../stores/entries_store.dart';
 import '../theme.dart';
-import '../widgets/attachment_chip.dart';
-import '../widgets/attachment_thumb.dart';
-import '../widgets/cta_button.dart';
-import '../widgets/labeled_field.dart';
+import '../widgets/attachment_strip.dart';
+import '../widgets/composer_bar.dart';
 import '../widgets/note_box.dart';
-import '../widgets/og_button.dart';
 import '../widgets/og_icon_button.dart';
+import 'attach_flow.dart';
 
 const String entryOfflineNote = 'Offline. Notes need a connection to save.';
 
-/// The form that changes an existing [entry]: its photos and files (add or
-/// remove), one text field, the time and Save. A new note is made in the log
-/// chat, not here. A failed save keeps everything typed.
+/// The form that changes an existing [entry]: the time, and the shared composer
+/// ([ComposerBar]) with its photos and files (add or remove), its text and one
+/// button that saves. A new note is made in the log chat, not here. A failed
+/// save keeps everything typed.
 class EntryFormScreen extends StatefulWidget {
   const EntryFormScreen({super.key, required this.deps, required this.entry});
 
@@ -68,6 +67,9 @@ class _EntryFormScreenState extends State<EntryFormScreen> {
   bool get _canSave => _text.text.trim().isNotEmpty || _fileCount > 0;
 
   Future<void> _save() async {
+    if (!_canSave) {
+      return;
+    }
     final bool ok = await _store.save(
       entryId: _id,
       text: _text.text,
@@ -83,42 +85,45 @@ class _EntryFormScreenState extends State<EntryFormScreen> {
 
   void _add(UploadItem item) {
     if (_fileCount >= entryMaxFiles) {
-      setState(() => _pickError = 'A note holds up to $entryMaxFiles files.');
+      _pickError = 'A note holds up to $entryMaxFiles files.';
       return;
     }
     _added.add(NewEntryFile(item));
   }
 
-  /// [src] is camera, gallery or file.
-  Future<void> _pick(String src) async {
-    final bool file = src == 'file';
-    try {
-      if (file) {
-        for (final UploadItem f in await widget.deps.pickers.pickFiles()) {
-          _add(f);
-        }
-      } else {
-        final UploadItem? p = await widget.deps.pickers.pickPhoto(camera: src == 'camera');
-        if (p != null) {
-          _add(p);
-        }
-      }
-      if (!mounted) {
-        return;
-      }
-      setState(() => _pickError = _fileCount > entryMaxFiles ? _pickError : null);
-    } catch (_) {
-      if (!mounted) {
-        return;
-      }
-      setState(() => _pickError =
-          file ? 'Could not open the file picker.' : 'Could not open the camera or library.');
+  Future<void> _attach() async {
+    final String? error = await runAttachFlow(context, widget.deps.pickers, _add);
+    if (mounted) {
+      setState(() => _pickError = error ?? (_fileCount > entryMaxFiles ? _pickError : null));
+    }
+  }
+
+  Future<void> _camera() async {
+    final String? error = await runCameraFlow(widget.deps.pickers, _add);
+    if (mounted) {
+      setState(() => _pickError = error ?? (_fileCount > entryMaxFiles ? _pickError : null));
     }
   }
 
   ImageProvider _preview(UploadItem item) {
     final List<int>? b = item.bytes;
     return b != null ? MemoryImage(Uint8List.fromList(b)) : FileImage(File(item.path));
+  }
+
+  /// What is attached now, in the composer strip: the files the note has, then the new ones.
+  List<StripItem> _strip() => <StripItem>[
+        for (final EntryFile f in _existing) StripItem(name: f.name, image: f.isImage && f.url != null ? NetworkImage(f.url!) : null),
+        for (final NewEntryFile f in _added) StripItem(name: f.item.name, image: f.item.mime.startsWith('image/') ? _preview(f.item) : null),
+      ];
+
+  void _removeAt(int i) {
+    setState(() {
+      if (i < _existing.length) {
+        _existing.removeAt(i);
+      } else {
+        _added.removeAt(i - _existing.length);
+      }
+    });
   }
 
   Future<void> _pickDate() async {
@@ -174,69 +179,8 @@ class _EntryFormScreenState extends State<EntryFormScreen> {
                         ],
                       ),
                       const SizedBox(height: 18),
-                      if (_fileCount > 0) ...<Widget>[
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          crossAxisAlignment: WrapCrossAlignment.end,
-                          children: <Widget>[
-                            for (final EntryFile f in _existing)
-                              f.isImage
-                                  ? AttachmentThumb(
-                                      image: f.url == null ? null : NetworkImage(f.url!),
-                                      size: 96,
-                                      onRemove: busy ? null : () => setState(() => _existing.remove(f)),
-                                    )
-                                  : AttachmentChip(
-                                      name: f.name,
-                                      onRemove: busy ? null : () => setState(() => _existing.remove(f)),
-                                    ),
-                            for (final NewEntryFile f in _added)
-                              f.item.mime.startsWith('image/')
-                                  ? AttachmentThumb(
-                                      image: _preview(f.item),
-                                      size: 96,
-                                      onRemove: busy ? null : () => setState(() => _added.remove(f)),
-                                    )
-                                  : AttachmentChip(
-                                      name: f.item.name,
-                                      onRemove: busy ? null : () => setState(() => _added.remove(f)),
-                                    ),
-                          ],
-                        ),
-                        const SizedBox(height: 14),
-                      ],
-                      LabeledField(
-                        controller: _text,
-                        focusNode: _focus,
-                        hint: _fileCount > 0 ? 'Add a comment: "dinner"' : 'A meal, how you feel, anything.',
-                        minLines: 3,
-                        maxLines: 10,
-                        maxLength: entryMaxText,
-                        autocorrect: true,
-                        keyboardType: TextInputType.multiline,
-                        onChanged: (String v) => setState(() {}),
-                      ),
-                      const SizedBox(height: 14),
                       Row(
                         children: <Widget>[
-                          OgIconButton(
-                            key: const ValueKey<String>('entry-camera'),
-                            icon: Icons.photo_camera_outlined,
-                            onPressed: busy ? null : () => _pick('camera'),
-                          ),
-                          const SizedBox(width: 8),
-                          OgIconButton(
-                            key: const ValueKey<String>('entry-library'),
-                            icon: Icons.photo_library_outlined,
-                            onPressed: busy ? null : () => _pick('gallery'),
-                          ),
-                          const SizedBox(width: 8),
-                          OgIconButton(
-                            key: const ValueKey<String>('entry-file'),
-                            icon: Icons.attach_file,
-                            onPressed: busy ? null : () => _pick('file'),
-                          ),
                           const Spacer(),
                           _WhenLink(
                             key: const ValueKey<String>('entry-date'),
@@ -251,14 +195,10 @@ class _EntryFormScreenState extends State<EntryFormScreen> {
                           ),
                         ],
                       ),
-                      if (!online) ...<Widget>[
-                        const SizedBox(height: 14),
-                        const NoteBox(title: 'Offline', message: entryOfflineNote),
-                      ],
                       if (err.isNotEmpty) ...<Widget>[
                         const SizedBox(height: 14),
                         NoteBox(
-                          title: failed ? 'That did not work.' : 'Attach',
+                          title: failed ? 'That did not work. Press send to try again.' : 'Attach',
                           message: err,
                         ),
                       ],
@@ -280,14 +220,18 @@ class _EntryFormScreenState extends State<EntryFormScreen> {
                     ],
                   ),
                 ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 18),
-                  child: CtaButton(
-                    label: failed ? 'Try again' : 'Save',
-                    icon: Icons.check,
-                    variant: OgVariant.accent,
-                    onPressed: (_canSave && online && !busy) ? _save : null,
-                  ),
+                ComposerBar(
+                  controller: _text,
+                  focusNode: _focus,
+                  maxLength: entryMaxText,
+                  hint: _fileCount > 0 ? 'Add a comment: "dinner"' : 'A meal, how you feel, anything.',
+                  sending: busy,
+                  offlineNote: online ? null : entryOfflineNote,
+                  attachments: _strip(),
+                  onRemoveAttachment: busy ? null : _removeAt,
+                  onAttach: _attach,
+                  onCamera: _camera,
+                  onSend: _save,
                 ),
               ],
             ),

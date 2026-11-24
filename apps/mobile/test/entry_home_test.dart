@@ -8,7 +8,6 @@ import 'package:opengym/screens/home_recent.dart';
 import 'package:opengym/screens/home_screen.dart';
 import 'package:opengym/widgets/entry_list_item.dart';
 import 'package:opengym/widgets/attachment_thumb.dart';
-import 'package:opengym/widgets/og_button.dart';
 
 import 'support/entry_fixtures.dart';
 import 'support/fake_convex_client.dart';
@@ -166,7 +165,7 @@ void main() {
       expect(find.text('plan.pdf'), findsNothing);
       await t.enterText(find.byType(TextField), 'Pasta only');
       await t.pump();
-      await t.tap(find.widgetWithText(OgButton, 'Save'));
+      await t.tap(find.byKey(const ValueKey<String>('composer-send')));
       await t.pumpAndSettle();
       final e = fake.serverEntries['n1']!;
       expect(e.text, 'Pasta only');

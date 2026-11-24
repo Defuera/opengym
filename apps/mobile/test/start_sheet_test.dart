@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:opengym/widgets/composer_bar.dart';
 import 'package:opengym/app/deps.dart';
 import 'package:opengym/data/convex_client.dart';
 import 'package:opengym/activity_log.dart';
@@ -90,6 +91,17 @@ void main() {
     await t.pumpAndSettle();
     expect(inSheet(find.text('Home')), findsOneWidget);
     expect(find.text('Anything for today? (optional)'), findsNothing);
+  });
+
+  testWidgets('step 2 types the note in the shared composer: text only, with the Start button', (WidgetTester t) async {
+    await openHome(t);
+    await openStart(t);
+    await pickType(t, 'Gym');
+    expect(find.byType(ComposerBar), findsOneWidget);
+    for (final String k in <String>['composer-plus', 'composer-camera', 'composer-send']) {
+      expect(find.byKey(ValueKey<String>(k)), findsNothing, reason: k); // the start request holds one text
+    }
+    expect(inSheet(find.text('Start')), findsOneWidget);
   });
 
   testWidgets('the note is limited to 2000', (WidgetTester t) async {

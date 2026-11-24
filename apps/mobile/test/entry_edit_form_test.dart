@@ -8,15 +8,24 @@ import 'package:opengym/data/upload_item.dart';
 import 'package:opengym/models.dart';
 import 'package:opengym/screens/entry_form_screen.dart';
 import 'package:opengym/widgets/attachment_thumb.dart';
-import 'package:opengym/widgets/og_button.dart';
+import 'package:opengym/widgets/composer_bar.dart';
 
 import 'support/entry_fixtures.dart';
 import 'support/fake_convex_client.dart';
 import 'support/test_deps.dart';
 
-Finder _save() => find.widgetWithText(OgButton, 'Save');
+/// The one button of the shared composer saves the note.
+Finder _save() => find.byKey(const ValueKey<String>('composer-send'));
 
-bool _enabled(WidgetTester t) => t.widget<OgButton>(_save()).onPressed != null;
+bool _enabled(WidgetTester t) => t.widget<GestureDetector>(_save()).onTap != null;
+
+/// "+" opens the attach sheet; [label] is Photo library, Camera or File.
+Future<void> _attach(WidgetTester t, String label) async {
+  await t.tap(find.byKey(const ValueKey<String>('composer-plus')));
+  await t.pumpAndSettle();
+  await t.tap(find.text(label));
+  await t.pumpAndSettle();
+}
 
 /// The form that changes the existing entry n1 (a note with one photo).
 Future<(FakeConvexClient, AppDeps, FakePickers)> _open(WidgetTester t, {bool connected = true}) async {
@@ -45,6 +54,8 @@ void main() {
     expect(find.text('Edit note'), findsOneWidget);
     expect(find.text('Oats'), findsOneWidget);
     expect(find.byType(AttachmentThumb), findsOneWidget);
+    expect(find.byType(ComposerBar), findsOneWidget); // the same composer as every chat
+    expect(find.byKey(const ValueKey<String>('composer-camera')), findsOneWidget);
     expect(p.lastCamera, isNull);
     expect(fake.calls, isEmpty);
   });
@@ -65,8 +76,7 @@ void main() {
   testWidgets('a new file uploads first, then the entry is saved with the same id', (WidgetTester t) async {
     final (FakeConvexClient fake, _, FakePickers p) = await _open(t);
     p.files = <UploadItem>[upload('plan.pdf')];
-    await t.tap(find.byKey(const ValueKey<String>('entry-file')));
-    await t.pumpAndSettle();
+    await _attach(t, 'File');
     await t.tap(_save());
     await t.pumpAndSettle();
     expect(fake.calls[0], startsWith('uploadFile:'));
@@ -79,15 +89,14 @@ void main() {
     final (FakeConvexClient fake, AppDeps d, FakePickers p) = await _open(t);
     await t.enterText(find.byType(TextField), 'Dinner');
     p.photo = upload('d.jpg');
-    await t.tap(find.byKey(const ValueKey<String>('entry-library')));
-    await t.pumpAndSettle();
+    await _attach(t, 'Photo library');
     fake.failUpload = const ConvexCallException.unreachable();
     await t.tap(_save());
     await t.pumpAndSettle();
     expect(find.text('Could not reach the server.'), findsOneWidget);
     expect(find.text('Dinner'), findsOneWidget);
     expect(find.byType(AttachmentThumb), findsNWidgets(2));
-    await t.tap(find.widgetWithText(OgButton, 'Try again'));
+    await t.tap(_save());
     await t.pumpAndSettle();
     expect(fake.serverEntries['n1']!.text, 'Dinner');
     expect(d.entries.error, isNull);
@@ -96,8 +105,7 @@ void main() {
   testWidgets('progress shows while the upload runs', (WidgetTester t) async {
     final (FakeConvexClient fake, _, FakePickers p) = await _open(t);
     p.photo = upload('d.jpg');
-    await t.tap(find.byKey(const ValueKey<String>('entry-library')));
-    await t.pumpAndSettle();
+    await _attach(t, 'Photo library');
     fake.uploadGate = Completer<void>();
     await t.tap(_save());
     await t.pump();
@@ -107,13 +115,17 @@ void main() {
     await t.pumpAndSettle();
   });
 
-  testWidgets('offline: says so and Save is off; a picker that fails shows the chat wording', (WidgetTester t) async {
-    final (_, _, FakePickers p) = await _open(t, connected: false);
+  testWidgets('offline: the composer says so and is off', (WidgetTester t) async {
+    await _open(t, connected: false);
     expect(find.text(entryOfflineNote), findsOneWidget);
     expect(_enabled(t), isFalse);
+  });
+
+  testWidgets('a picker that fails shows the chat wording', (WidgetTester t) async {
+    final (_, _, FakePickers p) = await _open(t);
     p.fail = true;
-    await t.tap(find.byKey(const ValueKey<String>('entry-file')));
+    await t.tap(find.byKey(const ValueKey<String>('composer-camera')));
     await t.pumpAndSettle();
-    expect(find.text('Could not open the file picker.'), findsOneWidget);
+    expect(find.text('Could not open the camera or library.'), findsOneWidget);
   });
 }

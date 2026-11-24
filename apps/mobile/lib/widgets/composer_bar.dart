@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../theme.dart';
 import 'attachment_strip.dart';
@@ -14,8 +15,10 @@ class ComposerBar extends StatelessWidget {
     super.key,
     required this.controller,
     this.focusNode,
-    required this.onSend,
-    required this.onAttach,
+    this.onSend,
+    this.onAttach,
+    this.showText = true,
+    this.maxLength,
     this.attachments = const <StripItem>[],
     this.onRemoveAttachment,
     this.sending = false,
@@ -32,8 +35,17 @@ class ComposerBar extends StatelessWidget {
 
   final TextEditingController controller;
   final FocusNode? focusNode;
-  final VoidCallback onSend;
-  final VoidCallback onAttach;
+  /// Null: no send button. A screen that has its own action button (the Start step) uses this.
+  final VoidCallback? onSend;
+
+  /// Opens the attach sheet (library, camera, file). Null: no "+" button.
+  final VoidCallback? onAttach;
+
+  /// The most characters the field takes (no counter shows). Null: no limit.
+  final int? maxLength;
+
+  /// False: no text field. Only for a screen whose input has no text (the import of files).
+  final bool showText;
   final List<StripItem> attachments;
   final ValueChanged<int>? onRemoveAttachment;
   final bool sending;
@@ -96,34 +108,40 @@ class ComposerBar extends StatelessWidget {
             child: recording ? _recordingRow() : Column(
               mainAxisSize: MainAxisSize.min,
               children: <Widget>[
+                if (showText)
                 TextField(
                   controller: controller,
                   focusNode: focusNode,
                   enabled: !off,
                   minLines: 1,
                   maxLines: 5,
+                  maxLength: maxLength,
+                  maxLengthEnforcement: MaxLengthEnforcement.enforced,
                   textCapitalization: TextCapitalization.sentences,
                   style: OG.body(),
                   decoration: InputDecoration(
                     hintText: off ? 'Offline' : hint,
                     hintStyle: OG.muted(),
+                    counterText: '',
                     isDense: true,
-                    contentPadding: const EdgeInsets.fromLTRB(14, 12, 14, 4),
+                    contentPadding: EdgeInsets.fromLTRB(14, 12, 14, (onAttach != null || onCamera != null || onSend != null || onMic != null) ? 4 : 12),
                     border: InputBorder.none,
                     enabledBorder: InputBorder.none,
                     disabledBorder: InputBorder.none,
                     focusedBorder: InputBorder.none,
                   ),
                 ),
+                if (onAttach != null || onCamera != null || onSend != null || onMic != null)
                 Padding(
                   padding: const EdgeInsets.fromLTRB(4, 0, 4, 2),
                   child: Row(
                     children: <Widget>[
-                      _RoundTap(
-                        key: const ValueKey<String>('composer-plus'),
-                        icon: Icons.add,
-                        onTap: off ? null : onAttach,
-                      ),
+                      if (onAttach != null)
+                        _RoundTap(
+                          key: const ValueKey<String>('composer-plus'),
+                          icon: Icons.add,
+                          onTap: off ? null : onAttach,
+                        ),
                       if (onCamera != null)
                         _RoundTap(
                           key: const ValueKey<String>('composer-camera'),
@@ -131,12 +149,16 @@ class ComposerBar extends StatelessWidget {
                           onTap: off ? null : onCamera,
                         ),
                       const Spacer(),
+                      if (onSend != null || onMic != null)
                       ListenableBuilder(
                         listenable: controller,
                         builder: (BuildContext c, Widget? w) {
                           final bool ready =
                               controller.text.trim().isNotEmpty || attachments.isNotEmpty;
-                          if (!ready && !sending && onMic != null) {
+                          if (onSend == null || (!ready && !sending && onMic != null)) {
+                            if (onMic == null) {
+                              return const SizedBox.shrink();
+                            }
                             return _RoundTap(
                               key: const ValueKey<String>('composer-mic'),
                               icon: Icons.mic_none,

@@ -139,6 +139,13 @@ conversation (A01–A16). Wording is kept close to his.
 - The choice applies to plans, advice, reviews and chat from the next request. If the provider refuses the model, the app falls back to plain rules.
 - It needs a connection. Offline, the controls are off.
 
+## One chat with functions (ADR-032)
+- Confirmed 2026-11-24, the owner's words: "chat must be always the same interface. Always text, image, and photo. It should use the same UI always."
+- Confirmed 2026-11-24, the owner's words: "it should be the same chat everywhere, and chat is just with functions, and AI knows which functions to call."
+- Confirmed 2026-11-24, the owner's words: "When I open a chat, AI should know what is my current context and what I might want, but then I can report anything, and it can report anything in the app, and then the chat is the same. Super simple."
+- Confirmed 2026-11-24, the owner's words about a place description: "I didn't describe my gym at all. So AI should have known where information is coming from, and this is not a full information." A place description is partial. Equipment that is not named is unknown, not missing. The coach may ask.
+- Confirmed 2026-11-24: a comment on one exercise changes that exercise only. The owner's words: "I didn't need to completely change the session. I only needed to fix that one thing."
+
 ## Open questions (the owner's list, still undecided unless noted)
 - Which activities are in v1 besides gym
 - What context inputs exist beyond injuries

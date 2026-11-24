@@ -1,6 +1,7 @@
 import { hasDone, type OpenExercise } from "./openSession";
 import { type PlaceKnowledge, knowledgeOf } from "./placeKnowledge";
 import { fmtKg } from "./rules/util";
+import type { ContextItem, Goal, Limit } from "./schema";
 
 /**
  * The part of a coach turn's input that is about the screen the person is on (ADR-032). Pure: jobs/coachTurn:input reads the rows.
@@ -59,5 +60,26 @@ export function turnScreen(o: { screen?: string; row: OpenRow | null; exerciseId
     ...(place ? { sessionPlace: { placeId: place.placeId, name: place.name } } : {}),
     ...(asked && asked !== place ? { placeInView: { placeId: asked.placeId, name: asked.name } } : {}),
     places: placesForTurn(o.places, row?.placeId),
+  };
+}
+
+const EDITABLE_MAX = 30;
+
+/**
+ * What the coach may change by a draft (ADR-032, step D): the person's goals, limits and notes with their ids, and the one in view.
+ * A limit shows the kind and text of its rules only, never an exercise list or a record (ADR-015). Pure.
+ */
+export function editablesForTurn(o: { goals: Goal[]; limits: Limit[]; notes: ContextItem[]; goalId?: string; limitId?: string; noteId?: string; part?: string }) {
+  const goals = o.goals.filter((g) => g.status === "active").slice(0, EDITABLE_MAX).map((g) => ({ id: g.id, title: g.title, kind: g.kind, ...(g.exercise ? { exercise: g.exercise } : {}), ...(g.targetKg !== undefined ? { targetKg: g.targetKg } : {}), ...(g.sessionsPerWeek !== undefined ? { sessionsPerWeek: g.sessionsPerWeek } : {}) }));
+  const limits = o.limits.slice(0, EDITABLE_MAX).map((l) => ({ id: l.limitId, part: l.part, title: l.title, status: l.status, ...(l.since ? { since: l.since } : {}), rules: l.rules.map((r) => ({ kind: r.kind, text: r.text })) }));
+  const notes = o.notes.slice(0, EDITABLE_MAX).map((n) => ({ id: n.id, topic: n.topic, text: n.text, active: n.active }));
+  return {
+    ...(goals.length > 0 ? { goalsYouMayChange: goals } : {}),
+    ...(limits.length > 0 ? { limitsYouMayChange: limits } : {}),
+    ...(notes.length > 0 ? { notesYouMayChange: notes } : {}),
+    ...(o.goalId && goals.some((g) => g.id === o.goalId) ? { goalInView: o.goalId } : {}),
+    ...(o.limitId && limits.some((l) => l.id === o.limitId) ? { limitInView: o.limitId } : {}),
+    ...(o.noteId && notes.some((n) => n.id === o.noteId) ? { noteInView: o.noteId } : {}),
+    ...(o.part ? { bodyPartInView: o.part } : {}),
   };
 }

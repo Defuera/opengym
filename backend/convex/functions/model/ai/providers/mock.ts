@@ -1,4 +1,5 @@
 import type { AiProvider, CompleteRequest } from "../provider";
+import { goalFromText } from "../../goalDraft";
 
 /** The bytes the mock "draws": the 8-byte PNG signature, so tests need no image. */
 export const MOCK_IMAGE = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
@@ -181,6 +182,7 @@ export class MockProvider implements AiProvider {
         // Mock: "I have a <thing>" adds the thing to the session's place and swaps the exercise in view for one that uses it. Else a plain answer.
         const text = String([...req.messages].reverse().find((m) => m.role === "user")?.content ?? "").split("\n\nINPUT_JSON:")[0]!;
         if (d.screen === "log") return mockLogTurn(text, d, (req.images?.length ?? 0) > 0);
+        if (d.screen === "goal") return JSON.stringify({ message: "Mock coach: here is the goal.", actions: [{ id: "a1", name: "draft_log", arguments: { summary: text.slice(0, 120), goal: goalFromText(text) } }] });
         const thing = text.match(/\bI (?:do )?have an? ([a-z][a-z ]{1,40}?)(?:[.,!]|$| at | here)/i)?.[1]?.trim();
         const place = d.sessionPlace as Data | undefined;
         const current = (d.openSession?.exercises ?? []).find((e: Data) => e.id === d.currentExercise?.id && !e.personsWork);

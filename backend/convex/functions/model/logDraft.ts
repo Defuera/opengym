@@ -17,8 +17,15 @@ export type LimitDraft = z.infer<typeof LimitDraftSchema>;
 
 const IsoMoment = z.string().trim().refine((s) => !Number.isNaN(Date.parse(s)), { message: "at must be an ISO date-time" });
 
+const EditId = z.string().trim().min(1).max(100);
+
+/** Which existing row a part of the draft changes (a goal, a limit or a note) instead of adding a new one. Never a delete: AI deletes nothing. */
+export const DraftEditsSchema = z.object({ goalId: EditId.optional(), limitId: EditId.optional(), noteId: EditId.optional() });
+export type DraftEdits = z.infer<typeof DraftEditsSchema>;
+
 export const DraftLogArgs = z.object({
-  kind: z.string().trim().min(1).max(60),
+  /** The category. Needed in the log chat; any other chat has no entry and so no category. */
+  kind: z.string().trim().min(1).max(60).optional(),
   /** The colour for a new category, "#RRGGBB". Ignored for a category that exists. */
   color: z.string().trim().max(20).nullish(),
   summary: z.string().trim().min(1).max(120),
@@ -27,6 +34,7 @@ export const DraftLogArgs = z.object({
   goal: GoalInputSchema.optional(),
   limit: LimitDraftSchema.optional(),
   note: ContextInputSchema.optional(),
+  edits: DraftEditsSchema.optional(),
 });
 export type DraftLogArgs = z.infer<typeof DraftLogArgs>;
 
@@ -42,6 +50,10 @@ export interface StoredLogDraft {
   goal?: GoalInput;
   limit?: LimitDraft;
   note?: ContextInput;
+  /** Parts that change an existing goal, limit or note (by id) instead of adding one. */
+  edits?: DraftEdits;
+  /** Made outside the log chat: Done writes the parts only, no log entry (ADR-032, step D). Absent on drafts stored before step D: they make an entry. */
+  noEntry?: boolean;
   plain?: boolean;
   appliedAt?: number;
   entryId?: string;
@@ -60,6 +72,9 @@ export const LOG_NO_PHOTO = "I cannot read photos right now. Add a few words abo
 export const LOG_NO_AI = "The coach is not available right now. Press Done to save what you wrote as a plain note, or add more.";
 export const LOG_UNREAD = "I could not make a log of this just now, so nothing is drafted. Say it again, or add a few words.";
 
+/** The reply when the goal or note chat has no AI answer: code drafts the person's words as they are. */
+export const plainPartNoAi = (part: "goal" | "note") => `The coach is not available right now. Press Done to save your words as a ${part}, or add more.`;
+
 /** The draft code makes when no AI answer is possible: a plain note of kind "other". Summary from the person's first words. */
 export function plainLogDraft(text: string, files: number, now: number): StoredLogDraft {
   const first = text.trim().split("\n")[0]?.trim() ?? "";
@@ -68,8 +83,9 @@ export function plainLogDraft(text: string, files: number, now: number): StoredL
 
 /** One line of what the draft holds, for the action result (max 120). */
 export function logDetail(d: StoredLogDraft, dropped?: string): string {
-  const parts = [d.session ? "session" : "", d.goal ? "goal" : "", d.limit ? "limit" : "", d.note ? "note" : ""].filter(Boolean);
-  return cut(`Drafted a log (${d.kind}${parts.length ? `: ${parts.join(", ")}` : ""})${dropped ? `. ${dropped}` : ""}`);
+  const e = d.edits ?? {};
+  const parts = [d.session ? "session" : "", d.goal ? (e.goalId ? "goal change" : "goal") : "", d.limit ? (e.limitId ? "limit change" : "limit") : "", d.note ? (e.noteId ? "note change" : "note") : ""].filter(Boolean);
+  return cut(d.noEntry ? `Drafted: ${parts.join(", ")}${dropped ? `. ${dropped}` : ""}` : `Drafted a log (${d.kind}${parts.length ? `: ${parts.join(", ")}` : ""})${dropped ? `. ${dropped}` : ""}`);
 }
 
 const day = (at: number, now: number): string => {
@@ -81,11 +97,16 @@ const ymd = (ms: number): [number, number, number] => {
   return [d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()];
 };
 
-/** The fixed reply to Done, built by code from what was written: "Logged: dinner, pasta. Session added." Pure. */
-export function logDoneText(d: StoredLogDraft, wrote: { session: boolean; goal: boolean; limit: boolean; note: boolean }, now: number): string {
+/** What Done wrote for one part: added, changed an existing one, or nothing. */
+export type Wrote = "added" | "changed" | false;
+
+/** The fixed reply to Done, built by code from what was written: "Logged: dinner, pasta. Session added." Without an entry: "Goal added." Pure. */
+export function logDoneText(d: StoredLogDraft, wrote: { session: boolean; goal: Wrote; limit: Wrote; note: Wrote }, now: number): string {
+  const word = (name: string, w: Wrote) => (w === "added" ? `${name} added.` : w === "changed" ? `${name} changed.` : "");
+  const extra = [wrote.session ? "Session added." : "", word("Goal", wrote.goal), word("Limit", wrote.limit), word("Note", wrote.note)].filter(Boolean);
+  if (d.noEntry) return extra.length > 0 ? extra.join(" ") : "Nothing was changed: what it would change is gone.";
   const when = day(d.at, now);
   const base = d.summary.trim().replace(/[.\s]+$/, "");
-  const extra = [wrote.session ? "Session added." : "", wrote.goal ? "Goal added." : "", wrote.limit ? "Limit added." : "", wrote.note ? "Note added." : ""].filter(Boolean);
   const withDay = when && !base.toLowerCase().includes(when) ? `${base}, ${when}` : base;
   return [`Logged: ${withDay}.`, ...extra].join(" ");
 }
@@ -101,6 +122,10 @@ export interface LogView {
   goal?: GoalInput;
   limit?: LimitDraft;
   note?: ContextInput;
+  /** Which existing goal, limit or note a part changes. */
+  edits?: DraftEdits;
+  /** True when Done writes the parts only, with no log entry. */
+  noEntry?: boolean;
   state: "open" | "applied" | "stale";
   entryId?: string;
 }
@@ -128,6 +153,8 @@ export function logView(d: StoredLogDraft, state: LogView["state"]): LogView {
     ...(d.goal ? { goal: d.goal } : {}),
     ...(d.limit ? { limit: d.limit } : {}),
     ...(d.note ? { note: d.note } : {}),
+    ...(d.edits ? { edits: d.edits } : {}),
+    ...(d.noEntry ? { noEntry: true } : {}),
     state,
     ...(d.entryId ? { entryId: d.entryId } : {}),
   };

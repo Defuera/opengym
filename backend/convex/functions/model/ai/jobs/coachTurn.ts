@@ -33,7 +33,7 @@ An action is {"id": string (unique in this reply, e.g. "a1"), "name": one of the
 - "replace_open_exercise" {"exerciseId": string, "exercise": ${EXERCISE}}
 - "add_open_exercise" {"exercise": ${EXERCISE}, "afterExerciseId"?: string}
 - "remove_open_exercise" {"exerciseId": string}
-- "draft_log" {"kind": string (the category: 1 or 2 words, Title case, max 24), "color"?: "#RRGGBB" (only for a new category), "summary": string (1..120), "at"?: ISO date-time the log is about, "session"?: {"kind": "gym" | "activity", "type": string (max 40, the activity), "focus"?: string (max 40), "exercises": [${EXERCISE}] (only for kind gym), "minutes"?: int, "distanceKm"?: number, "note"?: string}, "goal"?: {"title": string (max 80), "kind": "strength" | "consistency" | "custom", "exercise"?: string, "targetKg"?: number, "sessionsPerWeek"?: int}, "limit"?: {"part": string, "title": string (max 40), "status": "active" | "improving" | "cleared", "since"?: "YYYY-MM", "rules": [{"kind": "avoid" | "light" | "do", "text": string (max 120), "exercises"?: [string]}]}, "note"?: {"text": string (max 300), "topic": string (max 30)}}  (a DRAFT, only in the log chat: nothing is written until the person presses Done; at most one of each part)
+- "draft_log" {"kind"?: string (the category: 1 or 2 words, Title case, max 24; needed in the log chat only), "color"?: "#RRGGBB" (only for a new category), "summary": string (1..120), "at"?: ISO date-time the log is about, "session"?: {"kind": "gym" | "activity", "type": string (max 40, the activity), "focus"?: string (max 40), "exercises": [${EXERCISE}] (only for kind gym), "minutes"?: int, "distanceKm"?: number, "note"?: string}, "goal"?: {"title": string (max 80), "kind": "strength" | "consistency" | "custom", "exercise"?: string, "targetKg"?: number, "sessionsPerWeek"?: int}, "limit"?: {"part": string, "title": string (max 40), "status": "active" | "improving" | "cleared", "since"?: "YYYY-MM", "rules": [{"kind": "avoid" | "light" | "do", "text": string (max 120), "exercises"?: [string]}]}, "note"?: {"text": string (max 300), "topic": string (max 30)}, "edits"?: {"goalId"?: string, "limitId"?: string, "noteId"?: string} (the id of the existing goal, limit or note that the goal, limit or note part CHANGES instead of adding)}  (a DRAFT in any chat: nothing is written until the person presses Done; at most one of each part)
 - "rebuild_open_session" {"title"?: string (max 60, a short name of the new plan), "exercises": [${EXERCISE}] (at least 1, at most 12), "focus"?: string (max 40), "planNote"?: string (max 400)}  (a PROPOSAL: nothing is written until the person approves)
 ${TIME_RULE}`;
 
@@ -52,6 +52,20 @@ Do what the person asks, and only that. Each function except rebuild_open_sessio
 - ${LIMITS_RULE}
 In message, say in a few short sentences what you changed (or, for a whole-session proposal, what you propose), or answer the question. Do not repeat advice you gave already.`;
 
+/**
+ * The drafts of a goal, a limit and a note (ADR-032, step D). In every chat except the log chat. Nothing is written until the person presses Done; code does it, with no AI call.
+ * The goal fields are the structure the old goal reading made: the same schema, so a goal from the chat has the same fields as before.
+ */
+const DRAFT_ROLE = `
+
+DRAFTS OF A GOAL, A LIMIT AND A NOTE. In this chat you may draft one goal, one limit and one note with draft_log (fill only goal, limit and note; no kind, no session, no log: for a meal, a workout or anything else to log, tell the person to use Log). A draft changes nothing until the person presses Done, so say in message what you understood and what you drafted, in one or two short sentences, and do not ask for approval in words: the app shows the buttons "Done" and "Add or change".
+- goal: the person's own words as title (max 120). Read its structure from those words only, never add a number they did not say. kind: "strength" (lift a weight or reach a target on one exercise), "consistency" (train a number of times in a period), else "custom". exercise: only a name of the person's log that the goal is about. targetKg: the target weight in kg. sessionsPerWeek: whole sessions a week.
+- limit: part is one of the body part keys the app uses (for example left_knee, lower_back, shoulders). title (max 40), status "active" or "improving" ("cleared" only when the person says it is over), rules in training words: "avoid" (may name exercises), "light" or "do". Write only what the person said. A limit is never applied without Done.
+- note: something the coach should keep in mind about the person (text max 300, topic max 30).
+- To change what exists, use the lists in INPUT_JSON (goalsYouMayChange, limitsYouMayChange, notesYouMayChange): put the id in edits (goalId, limitId or noteId) and send the WHOLE new value of that part, not only the change. goalInView, limitInView, noteInView and bodyPartInView say what the person opened. The person's own records and exercise lists are not shown to you; a limit change keeps them.
+- You never delete. When the person wants something removed, say where: a goal on the Goals screen (the delete button of its row), a limit in About me (open it, then Delete), a note in About me under Preferences (the cross on its row). Every delete asks the person first.
+- Ask one short question only when a needed fact is missing (for example which body part), and still draft what is known.`;
+
 /** The log chat (screen "log", ADR-032): the person logs something and the coach drafts it. Nothing is written until the person presses Done. */
 const LOG_ROLE = `
 
@@ -63,7 +77,7 @@ THE LOG CHAT. The person is logging something now (screen is "log"). They give w
 - Training told in words, or shown on a photo of a machine screen or a tracker: fill session. For a gym session name the exercises; give sets only when the person gave them. An exercise with no sets takes its usual sets in code: never make sets up. A run, a ride or a swim is kind activity with minutes and distanceKm when given.
 - A limitation or pain the person states as lasting ("I must avoid deep squats for a month"): fill limit with its rules. A passing remark ("knee a bit sore today"): kind body and no limit. A target the person states: fill goal. Something the coach should keep in mind about the person: fill note.
 - Never invent. Use only the words, photos and files of this chat.
-- The screen is a hint. When the person asks for something else in this chat (change a place, a question), do that with the other functions and do not draft a log for it.`;
+- The screen is a hint. When the person asks for something else in this chat (change a place, a question) with the other functions; to change an existing goal, limit or note, put its id in edits, do that with the other functions and do not draft a log for it.`;
 
 /** The person's new message carries the screen data as INPUT_JSON, so the history stays plain text. */
 function withTurnData(history: ChatMessage[], turn: Record<string, unknown>): ChatMessage[] {
@@ -85,7 +99,7 @@ export const coachTurnJob: JobDef<CoachTurnInput, CoachTurn> = {
   output: CoachTurnSchema,
   check: (t, i) => checkTurn(t, i.limits),
   build: (i) => ({
-    system: `${systemPrompt("coach_turn", `${ROLE}${i.turn.screen === "log" ? LOG_ROLE : ""}`, SHAPE)}\n\nWhat you know about this person (do not invent logged facts beyond it):\n${i.contextBlock}`,
+    system: `${systemPrompt("coach_turn", `${ROLE}${i.turn.screen === "log" ? LOG_ROLE : DRAFT_ROLE}`, SHAPE)}\n\nWhat you know about this person (do not invent logged facts beyond it):\n${i.contextBlock}`,
     messages: withTurnData(i.history, i.turn),
     images: i.images,
   }),

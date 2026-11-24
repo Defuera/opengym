@@ -214,11 +214,11 @@ describe("question, context and the old path", () => {
     expect((await open()).rev).toBe(1);
   });
 
-  it("a send without context, or from another screen, keeps the old chat reply", async () => {
+  it("a send without context, or from the start or program screen, keeps the old chat reply", async () => {
     vi.stubEnv("AI_PROVIDER", "mock");
     await world();
     await send("m1", "hello");
-    await send("m2", "hello again", { screen: "chat" });
+    await send("m2", "hello again", { screen: "start" });
     await settle(t);
     const as = (await messages()).filter((m) => m.role === "assistant");
     expect(as).toHaveLength(2);

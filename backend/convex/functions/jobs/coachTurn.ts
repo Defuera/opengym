@@ -3,7 +3,8 @@ import type { QueryCtx } from "../_generated/server";
 import { internal } from "../_generated/api";
 import { internalAction, internalMutation, internalQuery } from "../_generated/server";
 import { providerFor, runAiJob } from "../lib/ai";
-import { allSessions, entryByEntryId, messageByMessageId, threadByThreadId } from "../lib/db";
+import { allContext, allGoals, allSessions, entryByEntryId, messageByMessageId, threadByThreadId } from "../lib/db";
+import { toLimit } from "../lib/limitsDb";
 import { readChatInput } from "../lib/chatInputDb";
 import { executeActions } from "../lib/coachToolsDb";
 import { logThreadContent } from "../lib/logDraftDb";
@@ -16,8 +17,9 @@ import { allPlaces } from "../lib/placesDb";
 import { liveProgramDocs } from "../lib/programsDb";
 import { coachTurnJob } from "../model/ai/jobs/coachTurn";
 import { type AttachedFile, assembleCoachContext } from "../model/coachContext";
-import { turnScreen } from "../model/coachTurnInput";
-import { LOG_NO_AI, LOG_NO_PHOTO, LOG_UNREAD, type StoredLogDraft, logQuestion, plainLogDraft } from "../model/logDraft";
+import { editablesForTurn, turnScreen } from "../model/coachTurnInput";
+import { goalFromText } from "../model/goalDraft";
+import { LOG_NO_AI, LOG_NO_PHOTO, LOG_UNREAD, type StoredLogDraft, logQuestion, plainLogDraft, plainPartNoAi } from "../model/logDraft";
 import { dayWithWeekday } from "../model/logDate";
 import { localDate } from "../model/program";
 import { programsForCoach } from "../model/programForCoach";
@@ -58,14 +60,16 @@ export const input = internalQuery({
     const programs = programsForCoach(await liveProgramDocs(ctx), await allSessions(ctx), localDate(Date.now()));
     const isLog = hint.screen === "log";
     const log = isLog ? await logInput(ctx, threadId, trigger._creationTime) : null;
+    const editables = editablesForTurn({ goals: await allGoals(ctx), limits: (await ctx.db.query("limits").collect()).map(toLimit), notes: await allContext(ctx), goalId: hint.goalId, limitId: hint.limitId, noteId: hint.noteId, part: hint.part });
     const turn = {
       ...screen,
+      ...editables,
       ...(log ? { today: dayWithWeekday(Date.now()), now: new Date().toISOString(), ...(log.draft ? { currentLogDraft: log.draft } : {}), ...(log.categories.length > 0 ? { categoriesInUse: log.categories } : {}) } : {}),
       ...(entry ? { entryInView: { entryId: entry.entryId, text: entry.text, at: new Date(entry.at).toISOString(), files: entry.fileIds.length } } : {}),
       ...(programs.length > 0 ? { programsThePersonFollows: programs } : {}),
       ...(trigger.fileIds.length > 0 ? { attachedToThisMessage: chat.files.filter((f) => trigger.fileIds.includes(f.fileId)).map((f) => f.name) } : {}),
     };
-    return { chat: log ? { ...chat, files: log.files } : chat, turn, log: log ? { photosOnly: log.photosOnly } : null, base: { turnId: messageId, ...(row ? { openSessionId: row.id, rev: row.rev } : {}) } };
+    return { chat: log ? { ...chat, files: log.files } : chat, turn, log: log ? { photosOnly: log.photosOnly } : null, base: { turnId: messageId, screen: screen.screen, ...(row ? { openSessionId: row.id, rev: row.rev } : {}) } };
   },
 });
 
@@ -86,8 +90,12 @@ export const save = internalMutation({
     sources: v.array(v.string()),
     /** The log chat had no AI answer: code makes the draft, a plain note of kind "other" (ADR-032). */
     plainLog: v.optional(v.boolean()),
+    /** The screen the message came from ("log" makes an entry on Done; any other draft writes its parts only). */
+    screen: v.optional(v.string()),
+    /** The goal or note chat had no AI answer: code drafts the person's words as a goal or a note. */
+    plainPart: v.optional(v.union(v.literal("goal"), v.literal("note"))),
   },
-  handler: async (ctx, { threadId, turnId, openSessionId, rev, message, actions, question, sources, plainLog }) => {
+  handler: async (ctx, { threadId, turnId, openSessionId, rev, message, actions, question, sources, plainLog, screen, plainPart }) => {
     const thread = await threadByThreadId(ctx, threadId);
     if (!thread) return null;
     const now = Date.now();
@@ -97,7 +105,7 @@ export const save = internalMutation({
       await ctx.db.patch(thread._id, { pending, status: pending > 0 ? "thinking" : "idle" });
       return done.actions ?? [];
     }
-    const made = await executeActions(ctx, { turnId, ...(openSessionId !== undefined ? { openSessionId } : {}), ...(rev !== undefined ? { rev } : {}) }, actions);
+    const made = await executeActions(ctx, { turnId, ...(screen !== undefined ? { screen } : {}), ...(openSessionId !== undefined ? { openSessionId } : {}), ...(rev !== undefined ? { rev } : {}) }, actions);
     const { results } = made;
     let proposal = made.proposal;
     let questionText = question?.text;
@@ -105,6 +113,13 @@ export const save = internalMutation({
       const content = await logThreadContent(ctx, threadId);
       proposal = plainLogDraft(content.text, content.fileIds.length, now);
       questionText = "Save this as a plain note?";
+    }
+    if (plainPart && !proposal) {
+      const said = (await messageByMessageId(ctx, turnId))?.text.trim() ?? "";
+      if (said) {
+        proposal = { type: "log", kind: plainPart === "goal" ? "Goal" : "Note", summary: said.slice(0, 120), at: now, noEntry: true, plain: true, ...(plainPart === "goal" ? { goal: goalFromText(said) } : { note: { text: said.slice(0, 300), topic: "general" } }) };
+        questionText = undefined;
+      }
     }
     // A proposal always carries its two fixed answers; the model's own answers are dropped (ADR-032).
     const asked = proposal ? (proposal.type === "log" ? logQuestion(questionText) : proposalQuestion(questionText)) : question;
@@ -124,6 +139,7 @@ export const run = internalAction({
       const provider = await providerFor(ctx);
       const supportsImages = !!provider?.supportsImages;
       const isLog = data.turn.screen === "log";
+      const plainPart = data.turn.screen === "goal" ? ("goal" as const) : data.turn.screen === "note" ? ("note" as const) : undefined;
       if (isLog && data.log?.photosOnly && !supportsImages) {
         // Only photos and none can be read: a fixed message, and Done still saves a plain note.
         await ctx.runMutation(internal.jobs.coachTurn.save, { threadId, ...data.base, message: LOG_NO_PHOTO, actions: [], sources: [], plainLog: true });
@@ -140,9 +156,10 @@ export const run = internalAction({
       await ctx.runMutation(internal.jobs.coachTurn.save, {
         threadId,
         ...data.base,
-        message: isLog && r.path !== "ai" ? (provider ? LOG_UNREAD : LOG_NO_AI) : r.value.message,
+        message: isLog && r.path !== "ai" ? (provider ? LOG_UNREAD : LOG_NO_AI) : plainPart && !provider ? plainPartNoAi(plainPart) : r.value.message,
         actions: r.path === "ai" ? r.value.actions : [],
         ...(isLog && r.path !== "ai" && !provider ? { plainLog: true } : {}),
+        ...(plainPart && r.path !== "ai" && !provider ? { plainPart } : {}),
         ...(r.value.question ? { question: r.value.question } : {}),
         sources: r.path === "ai" ? coach.sources : [],
       });

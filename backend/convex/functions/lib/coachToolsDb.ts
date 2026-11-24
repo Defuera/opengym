@@ -20,6 +20,8 @@ export interface TurnBase {
   turnId: string;
   openSessionId?: string;
   rev?: number;
+  /** The screen the person sent the message from. "log" is the log chat: its drafts make an entry. Any other screen drafts a goal, a limit or a note only (ADR-032, step D). */
+  screen?: string;
 }
 
 type Ctx = MutationCtx;
@@ -139,7 +141,11 @@ export async function executeActions(ctx: Ctx, base: TurnBase, actions: unknown[
           reject("no message of the person in this turn");
           continue;
         }
-        const made = await buildLogDraft(ctx, a.arguments, Date.now());
+        const made = await buildLogDraft(ctx, a.arguments, Date.now(), base.screen === "log");
+        if ("reject" in made) {
+          reject(made.reject);
+          continue;
+        }
         proposal = made.draft;
         results.push({ actionId: a.id, name: a.name, status: "drafted", detail: logDetail(made.draft, made.dropped) });
         continue;

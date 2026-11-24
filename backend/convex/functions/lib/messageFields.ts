@@ -2,9 +2,12 @@ import { v } from "convex/values";
 import { planExercise } from "./validators";
 
 /** The screens a chat message can be sent from (ADR-032). */
-export const CONTEXT_SCREENS = ["chat", "log", "session", "exercise", "program", "start"] as const;
-/** Screens whose messages run the coach turn with functions (ADR-032): the session, an exercise and the log chat. Every other send keeps the old reply. */
-export const COACH_TURN_SCREENS = new Set<string>(["session", "exercise", "log"]);
+export const CONTEXT_SCREENS = ["chat", "log", "session", "exercise", "goal", "limit", "note", "program", "start"] as const;
+/**
+ * Screens whose messages run the coach turn with functions (ADR-032): the general chat, the log chat, the session, an exercise, and the goal, limit and note chats (step D).
+ * A send with no screen, from "program" or from "start" keeps the old reply until those screens move (ADR-032, proposed next steps).
+ */
+export const COACH_TURN_SCREENS = new Set<string>(["chat", "log", "session", "exercise", "goal", "limit", "note"]);
 
 /**
  * What was open when the person sent a message (ADR-032). A hint from the app, never permission: the server reads the real
@@ -17,6 +20,12 @@ export const messageContext = v.object({
   placeId: v.optional(v.string()),
   entryId: v.optional(v.string()),
   programId: v.optional(v.string()),
+  /** The goal, limit or note the person wants to change (ADR-032, step D). */
+  goalId: v.optional(v.string()),
+  limitId: v.optional(v.string()),
+  noteId: v.optional(v.string()),
+  /** The body part key of a new limit ("left_knee"), from a tap on the body figure. */
+  part: v.optional(v.string()),
 });
 
 /** What one function of a coach turn did. Stored on the assistant message, in the order the coach gave. */
@@ -60,6 +69,9 @@ export const logProposal = v.object({
   goal: v.optional(v.any()),
   limit: v.optional(v.any()),
   note: v.optional(v.any()),
+  edits: v.optional(v.object({ goalId: v.optional(v.string()), limitId: v.optional(v.string()), noteId: v.optional(v.string()) })),
+  /** Made outside the log chat: Done writes the parts only, no entry. */
+  noEntry: v.optional(v.boolean()),
   plain: v.optional(v.boolean()),
   appliedAt: v.optional(v.number()),
   entryId: v.optional(v.string()),

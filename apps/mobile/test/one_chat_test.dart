@@ -113,6 +113,29 @@ void main() {
     expect(d2.coach.isDraft, isTrue);
   });
 
+  testWidgets('an old session chat without openSessionId is not found: the session chat opens a new one, with no error', (WidgetTester t) async {
+    final (FakeConvexClient fake, AppDeps d) = await _session(t);
+    // A thread made before the server stored openSessionId: it has no id of any session.
+    await fake.createThread(threadId: 'old', title: 'Old session chat');
+    expect(fake.serverThreads['old']!.openSessionId, isNull);
+    final AppDeps d2 = await testDeps(fake);
+    d2.coach.start();
+    await t.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 20)));
+    expect(d2.coach.sessionThreadId(d.store.active!.id), isNull);
+    await t.runAsync(() => d2.coach.openWithContext(
+          context: ChatContext(screen: 'session', openSessionId: d.store.active!.id),
+          line: 'Gym, Legs',
+          hint: 'What do you want to change?',
+        ));
+    expect(d2.coach.isDraft, isTrue);
+    expect(d2.coach.currentId, isNot('old'));
+    expect(d2.coach.error, isNull);
+    // The memory of this run points at a thread that is gone: also a new chat, no error.
+    await t.runAsync(() => d2.coach.openWithContext(context: ChatContext(screen: 'session', openSessionId: d.store.active!.id), line: 'x', hint: 'y'));
+    expect(d2.coach.error, isNull);
+    expect(d2.coach.isDraft, isTrue);
+  });
+
   testWidgets('the action lines show the server detail; a proposal row shows the weight the server gives',
       (WidgetTester t) async {
     final (FakeConvexClient fake, _) = await _session(t);

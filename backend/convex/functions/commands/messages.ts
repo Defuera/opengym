@@ -8,17 +8,28 @@ import { parseOrThrow } from "../lib/validate";
 import { MessageInputSchema } from "../model/schema";
 import { MAX_VOICE_BYTES } from "../model/voice";
 import { titleFromMessage } from "../model/threadTitle";
+import { COACH_TURN_SCREENS, messageContext } from "../lib/messageFields";
+
+const CONTEXT_ID_MAX = 100;
+
+/** True for a message sent from the session or an exercise: the coach turn with functions answers it (ADR-032). */
+const isCoachTurn = (context: { screen?: string } | undefined) => !!context?.screen && COACH_TURN_SCREENS.has(context.screen);
+/** The job that answers a message: the coach turn, else the chat reply. */
+const replyJob = (context: { screen?: string } | undefined) => (isCoachTurn(context) ? internal.jobs.coachTurn.run : internal.jobs.chat.reply);
 
 /**
  * Store the user's message at once and start the coach reply in the background.
  * The answer is NOT returned: the app subscribes to queries/messages:list and queries/threads:list
  * (the thread status is `thinking` until the reply is stored). Resending the same messageId changes nothing, except after a failed reply, where it runs the coach again.
+ * `context` (optional, ADR-032) says what was open when the person sent it; it is stored on the message. From the screen "session" or
+ * "exercise" the coach turn with functions answers (jobs/coachTurn:run); every other message keeps the chat reply.
  */
 export const send = mutation({
-  args: { token: v.string(), threadId: v.string(), messageId: v.string(), text: v.string(), fileIds: v.optional(v.array(v.string())) },
-  handler: async (ctx, { token, threadId, messageId, text, fileIds }) => {
+  args: { token: v.string(), threadId: v.string(), messageId: v.string(), text: v.string(), fileIds: v.optional(v.array(v.string())), context: v.optional(messageContext) },
+  handler: async (ctx, { token, threadId, messageId, text, fileIds, context }) => {
     requireToken(token);
     if (!messageId || messageId.length > 100) throw new ConvexError("messageId: must be 1 to 100 characters");
+    for (const [k, id] of Object.entries(context ?? {})) if (k !== "screen" && typeof id === "string" && (id.length < 1 || id.length > CONTEXT_ID_MAX)) throw new ConvexError(`context.${k}: must be 1 to ${CONTEXT_ID_MAX} characters`);
     const valid = parseOrThrow(MessageInputSchema, { text, fileIds }, "message");
     const thread = await threadByThreadId(ctx, threadId);
     if (!thread) throw new ConvexError(`thread not found: ${threadId}`);
@@ -31,18 +42,19 @@ export const send = mutation({
       const answered = stored.role !== "user" || (await ctx.db.query("messages").withIndex("by_threadId", (q) => q.eq("threadId", threadId).gt("_creationTime", stored._creationTime)).filter((q) => q.eq(q.field("role"), "assistant")).first());
       if (thread.status === "failed" && !answered) {
         await ctx.db.patch(thread._id, { status: "thinking", error: undefined, pending: thread.pending + 1, updatedAt: now });
-        await ctx.scheduler.runAfter(0, internal.jobs.chat.reply, { threadId, messageId });
+        await ctx.scheduler.runAfter(0, replyJob(stored.context), { threadId, messageId });
       }
       return messageId;
     }
     // First user message of a thread the user has not named: name it now by plain code. The coach job may improve it later.
     const first = !(await ctx.db.query("messages").withIndex("by_threadId", (q) => q.eq("threadId", threadId)).filter((q) => q.eq(q.field("role"), "user")).first());
     const title = thread.titleSource === "auto" && first && !thread.about ? { title: titleFromMessage(valid.text) } : {};
-    await ctx.db.insert("messages", { messageId, threadId, role: "user", text: valid.text, fileIds: valid.fileIds ?? [], sources: [], createdAt: now });
+    await ctx.db.insert("messages", { messageId, threadId, role: "user", text: valid.text, fileIds: valid.fileIds ?? [], sources: [], ...(context ? { context } : {}), createdAt: now });
     await ctx.db.patch(thread._id, { ...title, status: "thinking", error: undefined, pending: thread.pending + 1, updatedAt: now });
-    await ctx.scheduler.runAfter(0, internal.jobs.chat.reply, { threadId, messageId });
+    await ctx.scheduler.runAfter(0, replyJob(context), { threadId, messageId });
     // A thread about a place (ADR-021): the background job may learn from what the user says. It never blocks the reply.
-    if (thread.placeId !== undefined) await ctx.scheduler.runAfter(0, internal.jobs.places.learn, { placeId: thread.placeId, source: "chat", sentence: valid.text, ...(valid.fileIds?.length ? { fileIds: valid.fileIds } : {}) });
+    // The coach turn updates places itself (update_place), so the background job does not run for it.
+    if (thread.placeId !== undefined && !isCoachTurn(context)) await ctx.scheduler.runAfter(0, internal.jobs.places.learn, { placeId: thread.placeId, source: "chat", sentence: valid.text, ...(valid.fileIds?.length ? { fileIds: valid.fileIds } : {}) });
     return messageId;
   },
 });

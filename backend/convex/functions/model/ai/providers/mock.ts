@@ -155,6 +155,18 @@ export class MockProvider implements AiProvider {
         if (!/\b(dumbbells?|barbells?|kettlebells?|bands?|rack|bench|machines?|bar|mat|rower|treadmill)\b/i.test(sentence)) return JSON.stringify({ changed: false, equipment: now });
         return JSON.stringify({ changed: true, equipment: (now ? `${now}. ${sentence}` : sentence).slice(0, 1500) });
       }
+      case "coach_turn": {
+        // Mock: "I have a <thing>" adds the thing to the session's place and swaps the exercise in view for one that uses it. Else a plain answer.
+        const text = String([...req.messages].reverse().find((m) => m.role === "user")?.content ?? "").split("\n\nINPUT_JSON:")[0]!;
+        const thing = text.match(/\bI (?:do )?have an? ([a-z][a-z ]{1,40}?)(?:[.,!]|$| at | here)/i)?.[1]?.trim();
+        const place = d.sessionPlace as Data | undefined;
+        const current = (d.openSession?.exercises ?? []).find((e: Data) => e.id === d.currentExercise?.id && !e.personsWork);
+        if (!thing || !place) return JSON.stringify({ message: "Mock coach: noted.", actions: [] });
+        const name = thing.charAt(0).toUpperCase() + thing.slice(1);
+        const actions: Data[] = [{ id: "a1", name: "update_place", arguments: { placeId: place.placeId, add: name, evidence: "person_said" } }];
+        if (current) actions.push({ id: "a2", name: "replace_open_exercise", arguments: { exerciseId: current.id, exercise: { name: `${name} stand`, measure: "time", sets: [{ minutes: 1 }], note: `Mock: uses the ${thing}.` } } });
+        return JSON.stringify({ message: `Mock coach: noted the ${thing} at ${place.name}.`, actions });
+      }
       case "match_exercise": {
         // Mock: the first candidate whose name equals the exercise name (ignoring case and punctuation), else none.
         const same = (s: unknown) => String(s).toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();

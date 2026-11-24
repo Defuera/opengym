@@ -2,6 +2,7 @@ import type { BuildSessionInput } from "./ai/jobs/buildSession";
 import { coachPicture } from "./ai/jobs/coachPicture";
 import { knownActivities } from "./ai/jobs/inputs";
 import { lastPlaceIdFor } from "./places";
+import { type PlaceKnowledge, knowledgeOf } from "./placeKnowledge";
 import { localDate } from "./program";
 import { type ProgramForCoach, programsForCoach } from "./programForCoach";
 import { dropAvoided } from "./rules/limits";
@@ -24,7 +25,7 @@ export interface StartData {
   goals: Goal[];
   context: ContextItem[];
   limits: Limit[];
-  places: { placeId: string; name: string; text: string }[];
+  places: { placeId: string; name: string; text: string; knowledgeState?: PlaceKnowledge }[];
   entries: Entry[];
   /** Every live program. Absent in old callers: then the coach gets none. */
   programs?: ProgramForCoach[];
@@ -41,7 +42,7 @@ export function buildStartInput(doc: StartDoc, d: StartData) {
   const rules: PlanDraft | null = match?.kind === "gym" ? dropAvoided(rulesPlan(d.sessions, match.type), d.limits) : null;
   // The places the coach knows (ADR-021): all of them, with the one last used for this activity marked. Only places go here, never records.
   const lastPlaceId = doc.name ? lastPlaceIdFor(d.sessions, doc.name) : undefined;
-  const placesTheCoachKnows = d.places.map((p) => ({ name: p.name, equipment: p.text, lastUsedForThisActivity: p.placeId === lastPlaceId }));
+  const placesTheCoachKnows = d.places.map((p) => ({ name: p.name, equipment: p.text, knowledge: knowledgeOf(p), lastUsedForThisActivity: p.placeId === lastPlaceId }));
   // The focus names of the log (bounded): of the named activity, or of every activity with sets when the coach names it.
   const withSets = known.filter((a) => a.kind === "gym" && (!doc.name || activityKey(a.type) === activityKey(doc.name)));
   const fociTheUserUses = withSets.map((a) => ({ activity: a.type, foci: fociByUse(d.sessions, a.type).slice(0, 8) })).filter((a) => a.foci.length > 0).slice(0, 6);

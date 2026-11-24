@@ -43,7 +43,9 @@ describe("build_session and places", () => {
     const p = buildSessionJob.build({ ...input, placesTheCoachKnows: given });
     expect(JSON.parse(p.messages[0]!.content.split("INPUT_JSON:\n")[1]!).placesTheCoachKnows).toEqual(given);
     expect(p.system.match(/placesTheCoachKnows/g)).toHaveLength(2); // one in the role, one in the output shape note
-    expect(p.system).toContain("only equipment that place has");
+    expect(p.system).toContain("plan with the equipment that place names");
+    expect(p.system).toContain("never a full list");
+    expect(p.system).toContain("Balance board if your gym has one; otherwise tandem stand");
     expect(p.system).toContain("empty equipment text is unknown");
     expect(buildSessionJob.build(input).messages[0]!.content).not.toContain("placesTheCoachKnows");
   });
@@ -74,8 +76,8 @@ describe("the place of a proposal", () => {
     await start("r1", "Home");
     await settle(t);
     expect(builds(calls)[0]!.input.placesTheCoachKnows).toEqual([
-      { name: "Gym", equipment: "Rack, barbell, machines", lastUsedForThisActivity: false },
-      { name: "Home", equipment: "Two dumbbells", lastUsedForThisActivity: true },
+      { name: "Gym", equipment: "Rack, barbell, machines", knowledge: "partial", lastUsedForThisActivity: false },
+      { name: "Home", equipment: "Two dumbbells", knowledge: "partial", lastUsedForThisActivity: true },
     ]);
   });
 

@@ -6,6 +6,7 @@ import { nameFromText } from "../../startFallback";
 import { type Limit, type StartProposal, StartProposalSchema } from "../../schema";
 import type { coachPicture } from "./coachPicture";
 import { TIME_RULE } from "./shared";
+import { PLACE_KNOWLEDGE_RULE, SESSION_PLACE_RULE, type PlaceKnowledge } from "../../placeKnowledge";
 
 export interface BuildSessionInput {
   /** The activity the user chose. Fixed. Null when the user typed a free request: the coach names the activity. */
@@ -18,7 +19,7 @@ export interface BuildSessionInput {
   previousPlan?: unknown;
   feedbackFromThePerson?: string[];
   /** Every place the person has, with its equipment note ("" = unknown) and whether it was the place of the last session of this activity (ADR-021). */
-  placesTheCoachKnows?: { name: string; equipment: string; lastUsedForThisActivity: boolean }[];
+  placesTheCoachKnows?: { name: string; equipment: string; knowledge?: PlaceKnowledge; lastUsedForThisActivity: boolean }[];
   /** The foci the log holds, per activity with sets, with how often each was logged (most used first). The coach reuses one of these names. */
   fociTheUserUses?: { activity: string; foci: { focus: string; timesLogged: number }[] }[];
   /** The active programs that run today, with the week, the open slots and the sessions as written (ADR-030). */
@@ -47,7 +48,7 @@ What you write is what the person does. Every set in the list is meant to be don
 
 When previousPlan and feedbackFromThePerson are present, the person saw that plan and asked for a change: rebuild the session so that the feedback holds.
 
-placesTheCoachKnows says where the person trains and what is there; choose today's place (the note may say it, otherwise the one last used for this activity) and use only equipment that place has. A place with an empty equipment text is unknown: prefer bodyweight and what the person's log shows there.
+placesTheCoachKnows says where the person trains and what is there; choose today's place (the note may say it, otherwise the one last used for this activity) and plan with the equipment that place names. A place with an empty equipment text is unknown: prefer bodyweight and what the person's log shows there. ${PLACE_KNOWLEDGE_RULE} When an exercise needs equipment that the place does not name, you may still give it, and name the fallback in the note of that exercise (for example \"Balance board if your gym has one; otherwise tandem stand\"). Choose another place only when the note or the feedback says the person is there. ${SESSION_PLACE_RULE}
 
 The focus is the short name of the kind of session (Upper, Legs, Full body), one or two words. fociTheUserUses lists the names this person already has for each activity, with how often each was logged: use one of them, the closest one, and prefer the names logged often. Give a new focus only when the session is truly a different kind from all of them. What is special about today (a goal, a mix, a place) goes in reason, not in focus. Never put the request or the note in focus.
 

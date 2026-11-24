@@ -22,7 +22,7 @@ export interface LearnPlaceInput {
 export const LearnPlaceSchema = z.object({ changed: z.boolean(), equipment: z.string().max(1500) });
 export type LearnPlaceOutput = z.infer<typeof LearnPlaceSchema>;
 
-const ROLE = `You keep a short note about one place where a person trains. The note is a plain list of what is and what is not at this place. Change it only when the sentence, or a photo that came with it, says or shows something about the equipment or the room of THIS place (not of another place in otherPlaces); never invent anything; otherwise set changed to false and return the note as it is.`;
+const ROLE = `You keep a short note about one place where a person trains. The note is a plain list of what is and what is not at this place. Change it only when the sentence, or a photo that came with it, says or shows something about the equipment or the room of THIS place (not of another place in otherPlaces); never invent anything; write that something is not at this place only when the person said so; otherwise set changed to false and return the note as it is.`;
 
 export const learnPlaceJob: JobDef<LearnPlaceInput, LearnPlaceOutput> = {
   name: "learn_place",

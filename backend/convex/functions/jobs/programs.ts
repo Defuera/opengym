@@ -7,6 +7,7 @@ import { loadAttachment } from "../lib/files";
 import { attachmentsForPrompt } from "../model/attachedFiles";
 import { allGoals, allSessions } from "../lib/db";
 import { activeLimits } from "../lib/limitsDb";
+import { knowledgeOf } from "../model/placeKnowledge";
 import { allPlaces } from "../lib/placesDb";
 import { threadUserFiles, todayLabel } from "../lib/programChatDb";
 import { programValue } from "../lib/programFields";
@@ -37,7 +38,7 @@ export const input = internalQuery({
       ...(program ? { currentProgram: programValueOf(program) } : {}),
       goalsInOrderOfPriority: picture.goalsInOrderOfPriority,
       limits,
-      placesTheCoachKnows: (await allPlaces(ctx)).map((p) => ({ name: p.name, equipment: p.text })),
+      placesTheCoachKnows: (await allPlaces(ctx)).map((p) => ({ name: p.name, equipment: p.text, knowledge: knowledgeOf(p) })),
       exercisesTheUserKnows: picture.exercisesTheUserKnows.slice(0, KNOWN_EXERCISES_MAX).map((e) => ({ name: e.name, lastSets: e.lastSets, bestKg: e.bestKg })),
     };
   },

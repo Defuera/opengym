@@ -1,5 +1,6 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
+import { actionResult, coachQuestion, messageContext } from "./lib/messageFields";
 import { placeChangeFields, placeFields } from "./lib/placeFields";
 import { programFields, proposalFields, threadAbout } from "./lib/programFields";
 import { previousPlan, startProposal, startStatus, dashboardDays, feeling, limitRule, limitStatus, fileKind, threadStatus, goalKind, goalStatus, importCounts, importStatus, itemSource, moduleSpec, parseState, planExercise, prediction, proposalSource } from "./lib/validators";
@@ -270,10 +271,19 @@ export default defineSchema({
     voice: v.optional(v.union(v.literal("pending"), v.literal("done"), v.literal("failed"))),
     /** Only on an assistant message: the proposal the coach made with this message (ADR-026). The proposal may be gone after 7 days. */
     proposalId: v.optional(v.string()),
+    /** Only on a user message: what was open when it was sent (ADR-032). */
+    context: v.optional(messageContext),
+    /** Only on an assistant message of a coach turn (ADR-032): the user message it answers. One answer per turn. */
+    turnId: v.optional(v.string()),
+    /** Only on an assistant message of a coach turn: what each function did, in order. */
+    actions: v.optional(v.array(actionResult)),
+    /** Only on an assistant message of a coach turn: the coach asks the person, with optional quick answers. */
+    question: v.optional(coachQuestion),
     createdAt: v.number(),
   })
     .index("by_messageId", ["messageId"])
-    .index("by_threadId", ["threadId"]),
+    .index("by_threadId", ["threadId"])
+    .index("by_turnId", ["turnId"]),
   files: defineTable({
     fileId: v.string(),
     storageId: v.id("_storage"),

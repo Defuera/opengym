@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { internalMutation } from "../_generated/server";
-import { mergePlan } from "../model/openSession";
+import { rebuiltPlan } from "../model/openSession";
 
 const plannedExercise = v.object({
   name: v.string(),
@@ -23,9 +23,7 @@ export const replacePlan = internalMutation({
     const stamp = Date.now().toString(36);
     const rev = row.rev + 1;
     await ctx.db.patch(row._id, {
-      exercises: mergePlan(row.exercises, exercises, () => `${stamp}s${(n++).toString(36)}`),
-      ...(focus !== undefined ? { focus: focus.trim().slice(0, 40) } : {}),
-      ...(planNote !== undefined ? { planNote: planNote.slice(0, 400) } : {}),
+      ...rebuiltPlan(row.exercises, exercises, () => `${stamp}s${(n++).toString(36)}`, focus, planNote),
       rev,
       updatedAt: Date.now(),
       updatedBy: by,

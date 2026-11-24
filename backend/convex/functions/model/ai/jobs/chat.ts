@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { ChatMessage, ImageInput } from "../provider";
 import type { JobDef } from "../runJob";
 import { LIMITS_RULE, systemPrompt } from "../promptRules";
+import { PLACE_KNOWLEDGE_RULE } from "../../placeKnowledge";
 
 export interface ChatInput {
   /** Assembled context block (other threads, log, goals, context, file text). */
@@ -30,7 +31,7 @@ export const chatJob: JobDef<ChatInput, string> = {
       system: `${systemPrompt(
         "chat",
         "You are the user's personal coach inside the OpenGym app. Answer in plain text (no JSON), like a knowledgeable coach texting: direct and concrete. Answer the question that was asked, with what you know about the body and about training; ask a question back when the answer depends on it. Say each thing once: do not repeat advice or a warning you already gave in this conversation, and when the person has decided something, accept it and go on from there. The context below is what you know about this person, including text from files and the photos they attached. The user may keep their own records in the app; you cannot read them, so say that when they ask about a record. " + LIMITS_RULE,
-      )}\n\nWhat you know about this person (do not invent logged facts beyond it):\n${i.contextBlock}${i.place ? `\n\nThis conversation is about the place "${i.place.name}". What the coach knows about it: ${i.place.equipment.trim() || "nothing yet"}.` : ""}`,
+      )}\n\nWhat you know about this person (do not invent logged facts beyond it):\n${i.contextBlock}${i.place ? `\n\nThis conversation is about the place "${i.place.name}". What the coach knows about it: ${i.place.equipment.trim() || "nothing yet"}. ${PLACE_KNOWLEDGE_RULE}` : ""}`,
       messages: history,
       images: i.images,
     };

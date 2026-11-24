@@ -18,7 +18,6 @@ import '../widgets/segmented_toggle.dart';
 import 'about_preferences.dart';
 import 'limit_detail_screen.dart';
 import 'part_chat.dart';
-import 'program_chat.dart';
 import 'program_screen.dart';
 import 'program_text.dart';
 
@@ -133,7 +132,7 @@ class _AboutMeScreenState extends State<AboutMeScreen> {
               key: const ValueKey<String>('program-new'),
               child: NewKindRow(
                 label: 'New program',
-                onTap: () => openProgramChat(context, d),
+                onTap: () => openProgramChat(Navigator.of(context), d),
               ),
             ),
           ],

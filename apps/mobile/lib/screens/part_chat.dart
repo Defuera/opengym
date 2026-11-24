@@ -20,6 +20,14 @@ Future<void> _open(
   await nav.push(MaterialPageRoute<void>(builder: (BuildContext c) => ChatScreen(deps: deps, autofocus: true)));
 }
 
+/// The chat about a program: [program] null is a new program. The same chat
+/// as every other, opened with the context `program` (ADR-032, step E). The
+/// coach proposes the program or the change; the person agrees on the card.
+Future<void> openProgramChat(NavigatorState nav, AppDeps deps, {Program? program}) async {
+  await deps.coach.openAboutProgram(programId: program?.programId, title: program?.title);
+  await nav.push(MaterialPageRoute<void>(builder: (BuildContext c) => ChatScreen(deps: deps)));
+}
+
 /// A new goal, or the goal [change] when given.
 Future<void> openGoalChat(NavigatorState nav, AppDeps deps, {Goal? change}) => _open(
       nav,

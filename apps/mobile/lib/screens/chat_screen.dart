@@ -264,7 +264,6 @@ class _ChatScreenState extends State<ChatScreen> {
       listenable: Listenable.merge(<Listenable>[_coach, widget.deps.connection, _voice]),
       builder: (BuildContext context, Widget? child) {
         final CoachStore c = _coach;
-        final ThreadAbout? about = c.currentAbout;
         // A send problem is shown with its retry action, not twice.
         final String err = c.retryReason != null ? (_pickError ?? '') : (c.error ?? _pickError ?? '');
         return Scaffold(
@@ -333,12 +332,7 @@ class _ChatScreenState extends State<ChatScreen> {
                             child: Padding(
                               padding: const EdgeInsets.symmetric(horizontal: 40),
                               child: Text(
-                                c.contextHint ??
-                                    (about == null
-                                    ? 'Ask anything about your training, or say what you did.'
-                                    : about.id == null
-                                        ? 'Tell the coach what program you want, or paste one. The coach writes it here for you to agree.'
-                                        : 'Ask about this program, or say what should change. The coach shows the change here for you to agree.'),
+                                c.contextHint ?? 'Ask anything about your training, or say what you did.',
                                 key: const ValueKey<String>('chat-hint'),
                                 textAlign: TextAlign.center,
                                 style: OG.muted(size: 16),
@@ -355,12 +349,7 @@ class _ChatScreenState extends State<ChatScreen> {
                   ),
                 ),
                 ComposerBar(
-                  hint: c.composerHint ??
-                      (about == null
-                      ? 'Message'
-                      : about.id == null
-                          ? 'Paste a program, or say what you want'
-                          : 'Ask, or say what should change'),
+                  hint: c.composerHint ?? 'Message',
                   controller: _text,
                   focusNode: _focus,
                   sending: c.sending,

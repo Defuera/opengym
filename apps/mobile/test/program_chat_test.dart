@@ -4,7 +4,7 @@ import 'package:opengym/app/deps.dart';
 import 'package:opengym/data/convex_client.dart';
 import 'package:opengym/models.dart';
 import 'package:opengym/screens/chat_screen.dart';
-import 'package:opengym/screens/program_chat.dart';
+import 'package:opengym/screens/part_chat.dart';
 import 'package:opengym/screens/program_screen.dart';
 
 import 'support/chat_fixtures.dart';
@@ -96,14 +96,14 @@ void main() {
       expect(d.coach.proposalById('gone'), isNull);
     });
 
-    test('an ordinary chat does not subscribe to proposals', () async {
+    test('every chat subscribes to its proposals: a program proposal can come from any chat', () async {
       final FakeConvexClient fake = FakeConvexClient();
       await fake.createThread(threadId: 'plain', title: 'Squats');
       final AppDeps d = await testDeps(fake);
       d.coach.start();
       await _settle();
       await d.coach.openThread('plain');
-      expect(fake.threadProposals, isEmpty);
+      expect(fake.threadProposals.keys, <String>['plain']);
     });
 
     test('the chat list hides chats that are about something until Show all chats', () async {
@@ -268,7 +268,7 @@ void main() {
     await t.pumpWidget(MaterialApp(
       home: Builder(
         builder: (BuildContext c) => TextButton(
-          onPressed: () => openProgramChat(c, d, program: kneeProgram()),
+          onPressed: () => openProgramChat(Navigator.of(c), d, program: kneeProgram()),
           child: const Text('go'),
         ),
       ),

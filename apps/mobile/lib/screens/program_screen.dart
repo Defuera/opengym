@@ -7,7 +7,7 @@ import '../widgets/choice_sheet.dart';
 import '../widgets/og_button.dart';
 import '../widgets/og_icon_button.dart';
 import '../widgets/sheet_link.dart';
-import 'program_chat.dart';
+import 'part_chat.dart';
 import 'program_text.dart';
 
 /// One program: its purpose, dates, phases (the current one marked), this
@@ -19,7 +19,7 @@ class ProgramScreen extends StatelessWidget {
   final AppDeps deps;
   final String programId;
 
-  Future<void> _change(BuildContext context, Program p) => openProgramChat(context, deps, program: p);
+  Future<void> _change(BuildContext context, Program p) => openProgramChat(Navigator.of(context), deps, program: p);
 
   Future<void> _set(BuildContext context, String status) async {
     try {

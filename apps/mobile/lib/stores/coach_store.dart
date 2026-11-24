@@ -423,10 +423,25 @@ class CoachStore extends ChangeNotifier {
       final ThreadAbout? a = t.about;
       if (a != null && a.isProgram && a.id == programId) {
         await openThread(t.id);
+        _setProgramContext(programId);
+        notifyListeners();
         return;
       }
     }
     await startNewChat(about: ThreadAbout(id: programId), title: title ?? 'New program');
+    _setProgramContext(programId);
+    notifyListeners();
+  }
+
+  /// The context of the program chat (ADR-032, step E): the same chat as every
+  /// other, with the screen `program`, a hint and a composer hint.
+  void _setProgramContext(String? programId) {
+    chatContext = ChatContext(screen: 'program', programId: programId);
+    contextLine = null; // the title of the chat is the program
+    contextHint = programId == null
+        ? 'Tell the coach what program you want, or paste one. The coach writes it here for you to agree.'
+        : 'Ask about this program, or say what should change. The coach shows the change here for you to agree.';
+    composerHint = programId == null ? 'Paste a program, or say what you want' : 'Ask, or say what should change';
   }
 
   /// Creates a thread and returns its id. The list updates through the
@@ -515,8 +530,10 @@ class CoachStore extends ChangeNotifier {
     error = null;
     notifyListeners();
     _subscribeMessages(id);
-    if (currentThread?.about != null) {
-      _subscribeProposals(id);
+    _subscribeProposals(id); // a program proposal can come from any chat (ADR-032, step E)
+    final ThreadAbout? about = currentThread?.about;
+    if (about != null && about.isProgram) {
+      _setProgramContext(about.id);
     }
   }
 
@@ -780,9 +797,7 @@ class CoachStore extends ChangeNotifier {
       error = null;
       loadingMessages = true;
       _subscribeMessages(id);
-      if (about != null) {
-        _subscribeProposals(id);
-      }
+      _subscribeProposals(id);
       return id;
     } on ConvexCallException catch (e) {
       error = e.message;

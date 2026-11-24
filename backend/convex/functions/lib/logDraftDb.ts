@@ -1,12 +1,13 @@
 import type { Doc } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import { allSessions, contextByItemId, fromSession, goalByGoalId } from "./db";
-import { storeEntry } from "./entriesDb";
+import { knownCategories, storeEntry } from "./entriesDb";
 import { markFactsChanged, scheduleReview } from "./factsChanged";
 import { fileByFileId } from "./files";
 import { limitByLimitId } from "./limitsDb";
 import { writeImportItems } from "./importWrite";
 import { finalizeLogExercises, usualSets } from "../model/ai/jobs/parseLog";
+import { normaliseCategory } from "../model/entryCategory";
 import { draftToSession } from "../model/importUnits";
 import { type DraftLogArgs, type StoredLogDraft, logContent, logDoneText } from "../model/logDraft";
 import type { ImportSessionDraft } from "../model/schema";
@@ -38,7 +39,7 @@ export async function logThreadContent(ctx: Reader, threadId: string, upTo?: num
 export async function buildLogDraft(ctx: Reader, a: DraftLogArgs, now: number): Promise<{ draft: StoredLogDraft; dropped?: string }> {
   const given = a.at ? Date.parse(a.at) : NaN;
   const at = Number.isNaN(given) || given > now + FUTURE_SLACK_MS ? now : Math.max(0, Math.round(given));
-  const draft: StoredLogDraft = { type: "log", kind: a.kind, summary: a.summary, at };
+  const draft: StoredLogDraft = { type: "log", kind: normaliseCategory(a.kind, await knownCategories(ctx)), summary: a.summary, at };
   let dropped: string | undefined;
   if (a.session) {
     const s = a.session;

@@ -8,7 +8,7 @@ import { readChatInput } from "../lib/chatInputDb";
 import { executeActions } from "../lib/coachToolsDb";
 import { logThreadContent } from "../lib/logDraftDb";
 import { proposalQuestion } from "../lib/proposalDb";
-import { loadEntryImages } from "../lib/entriesDb";
+import { knownCategories, loadEntryImages } from "../lib/entriesDb";
 import { fileByFileId, loadAttachment } from "../lib/files";
 import { coachQuestion } from "../lib/messageFields";
 import { allPlaces } from "../lib/placesDb";
@@ -40,7 +40,7 @@ async function logInput(ctx: QueryCtx, threadId: string, upTo: number) {
   const last = (await ctx.db.query("messages").withIndex("by_threadId", (q) => q.eq("threadId", threadId)).order("desc").filter((q) => q.neq(q.field("proposal"), undefined)).first())?.proposal;
   const open = last && last.type === "log" && last.appliedAt === undefined ? (last as StoredLogDraft) : null;
   const draft = open ? { kind: open.kind, summary: open.summary, at: new Date(open.at).toISOString(), ...(open.session ? { session: open.session } : {}), ...(open.goal ? { goal: open.goal } : {}), ...(open.limit ? { limit: open.limit } : {}), ...(open.note ? { note: open.note } : {}) } : null;
-  return { files, draft, photosOnly: !content.text.trim() && files.length > 0 && files.every((f) => f.kind === "image") };
+  return { files, draft, categories: await knownCategories(ctx), photosOnly: !content.text.trim() && files.length > 0 && files.every((f) => f.kind === "image") };
 }
 
 export const input = internalQuery({
@@ -59,7 +59,7 @@ export const input = internalQuery({
     const log = isLog ? await logInput(ctx, threadId, trigger._creationTime) : null;
     const turn = {
       ...screen,
-      ...(log ? { today: dayWithWeekday(Date.now()), now: new Date().toISOString(), ...(log.draft ? { currentLogDraft: log.draft } : {}) } : {}),
+      ...(log ? { today: dayWithWeekday(Date.now()), now: new Date().toISOString(), ...(log.draft ? { currentLogDraft: log.draft } : {}), ...(log.categories.length > 0 ? { categoriesInUse: log.categories } : {}) } : {}),
       ...(entry ? { entryInView: { entryId: entry.entryId, text: entry.text, at: new Date(entry.at).toISOString(), files: entry.fileIds.length } } : {}),
       ...(programs.length > 0 ? { programsThePersonFollows: programs } : {}),
       ...(trigger.fileIds.length > 0 ? { attachedToThisMessage: chat.files.filter((f) => trigger.fileIds.includes(f.fileId)).map((f) => f.name) } : {}),

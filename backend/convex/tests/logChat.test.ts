@@ -46,13 +46,13 @@ describe("a draft writes nothing", () => {
     await send("m1", "dinner", ["f1"]);
     await settle(t);
     const a = await lastAssistant();
-    expect(a).toMatchObject({ turnId: "m1", actions: [{ name: "draft_log", status: "drafted" }], question: { answers: [{ id: "approve", label: "Done" }, { id: "change", label: "Add or change" }] }, proposal: { type: "log", kind: "meal", state: "open" } });
+    expect(a).toMatchObject({ turnId: "m1", actions: [{ name: "draft_log", status: "drafted" }], question: { answers: [{ id: "approve", label: "Done" }, { id: "change", label: "Add or change" }] }, proposal: { type: "log", kind: "Meal", state: "open" } });
     expect(await entries()).toHaveLength(0);
     expect(await sessions()).toHaveLength(0);
     await done("m2", "m1");
     await settle(t);
     const [e] = await entries();
-    expect(e).toMatchObject({ text: "dinner", fileIds: ["f1"], read: { status: "ready", kind: "meal", summary: "dinner, pasta with tomato sauce" } });
+    expect(e).toMatchObject({ text: "dinner", fileIds: ["f1"], read: { status: "ready", kind: "Meal", summary: "dinner, pasta with tomato sauce" } });
     expect(e!.read!.made).toBeUndefined();
     expect(await sessions()).toHaveLength(0);
     expect(calls.filter((c) => c.job === "read_entry")).toHaveLength(0);
@@ -66,7 +66,7 @@ describe("a draft writes nothing", () => {
     stubOpenAi(reply(() => draft(RUN(5))));
     await send("m1", "ran 5 km in 30 min yesterday");
     await settle(t);
-    expect((await lastAssistant()).proposal).toMatchObject({ type: "log", kind: "training", session: { type: "Run", minutes: 30, distanceKm: 5, exercises: [] } });
+    expect((await lastAssistant()).proposal).toMatchObject({ type: "log", kind: "Training", session: { type: "Run", minutes: 30, distanceKm: 5, exercises: [] } });
     expect(await sessions()).toHaveLength(0);
     await done("m2", "m1");
     await done("m3", "m1");
@@ -154,7 +154,7 @@ describe("bad drafts and no AI", () => {
     await send("m1", "did mystery lift");
     await settle(t);
     const a = await lastAssistant();
-    expect(a.proposal).toMatchObject({ type: "log", kind: "training" });
+    expect(a.proposal).toMatchObject({ type: "log", kind: "Training" });
     expect((a.proposal as { session?: unknown }).session).toBeUndefined();
     expect(a.actions![0]!.detail).toContain("left out");
   });

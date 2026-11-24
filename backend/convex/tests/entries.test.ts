@@ -166,12 +166,29 @@ describe("the reader job labels an entry (ADR-031)", () => {
   const read = async () => (await recent())[0]!.read;
 
   it("labels a new entry with a kind and one line", async () => {
-    const calls = stubOpenAi(() => JSON.stringify({ kind: "meal", summary: "Rice and chicken for lunch." }));
+    const calls = stubOpenAi(() => JSON.stringify({ kind: "Meal", summary: "Rice and chicken for lunch." }));
     await save(entry("e1"));
     await settle(t);
-    expect(await read()).toEqual({ status: "ready", kind: "meal", summary: "Rice and chicken for lunch." });
+    expect(await read()).toEqual({ status: "ready", kind: "Meal", summary: "Rice and chicken for lunch." });
     expect(calls.filter((c) => c.job === "read_entry")).toHaveLength(1);
     expect(calls[0]!.input).toMatchObject({ text: "Lunch: rice and chicken", photos: 0 });
+  });
+
+  it("gives the AI the categories in use and keeps one spelling per category", async () => {
+    const calls = stubOpenAi(() => JSON.stringify({ kind: "walk", summary: "A walk." }));
+    await save(entry("e1", { text: "walked" }));
+    await settle(t);
+    expect(await read()).toMatchObject({ kind: "Walk" });
+    expect(calls[0]!.input).toMatchObject({ categoriesInUse: [] });
+    stubOpenAi(() => JSON.stringify({ kind: "WALK", summary: "Another walk." }));
+    await save(entry("e2", { text: "walked again" }));
+    await settle(t);
+    const rows = await entryRows();
+    expect(rows.find((r) => r.entryId === "e2")!.read).toMatchObject({ kind: "Walk" });
+    const calls3 = stubOpenAi(() => JSON.stringify({ kind: "Meal", summary: "Rice." }));
+    await save(entry("e3", { text: "rice" }));
+    await settle(t);
+    expect(calls3[0]!.input).toMatchObject({ categoriesInUse: ["Walk"] });
   });
 
   it("writes no session, goal or note", async () => {

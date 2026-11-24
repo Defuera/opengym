@@ -51,7 +51,7 @@ export const coachProposal = v.object({
  */
 export const logProposal = v.object({
   type: v.literal("log"),
-  kind: v.union(v.literal("meal"), v.literal("training"), v.literal("body"), v.literal("goal"), v.literal("other")),
+  kind: v.string(),
   summary: v.string(),
   at: v.number(),
   session: v.optional(v.any()),

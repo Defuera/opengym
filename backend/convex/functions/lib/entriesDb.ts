@@ -7,6 +7,7 @@ import { parseOrThrow } from "./validate";
 import { EntrySchema } from "../model/schema";
 import { fileByFileId, loadAttachment, type FileDoc } from "./files";
 import type { ImageInput } from "../model/ai/provider";
+import { usedCategories } from "../model/entryCategory";
 import type { CoachSourceEntry } from "../model/entryContext";
 
 const DAY = 86_400_000;
@@ -15,6 +16,8 @@ export const COACH_ENTRY_DAYS = 7;
 export const COACH_ENTRY_MAX = 20;
 export const COACH_IMAGE_HOURS = 24;
 export const COACH_IMAGE_MAX = 4;
+/** How many recent entries are scanned for the categories in use. */
+const CATEGORY_SCAN = 200;
 
 type Reader = { db: DatabaseReader };
 
@@ -25,6 +28,12 @@ type Reader = { db: DatabaseReader };
 export async function coachEntries(ctx: Reader, now: number): Promise<CoachSourceEntry[]> {
   const docs = (await liveEntryDocs(ctx, { order: "desc", from: now - COACH_ENTRY_DAYS * DAY, to: now, limit: COACH_ENTRY_MAX })).filter((d) => d.read?.made?.sessionId === undefined);
   return docs.reverse().map((d) => ({ ...toEntry(d), ...(d.fileIds.length > 0 && d.read?.status === "ready" && d.read.summary ? { seen: d.read.summary } : {}) }));
+}
+
+/** The categories the person's recent entries use, most used first (ADR-031). The AI reuses one when it fits. */
+export async function knownCategories(ctx: Reader): Promise<string[]> {
+  const docs = await liveEntryDocs(ctx, { order: "desc", limit: CATEGORY_SCAN });
+  return usedCategories(docs.map((d) => (d.read?.status === "ready" ? d.read.kind : undefined)));
 }
 
 /** Names the text and the files of an entry: the reader job's label holds for exactly this pair (ADR-031). */
@@ -80,7 +89,7 @@ export interface EntryInput {
 
 /** What the log chat knows when it writes an entry: the label is set by code and the reader job does not run (ADR-032). */
 export interface EntryLabel {
-  kind: "meal" | "training" | "body" | "goal" | "other";
+  kind: string;
   summary: string;
   made?: { sessionId?: string; goalId?: string; limitId?: string; contextId?: string };
 }

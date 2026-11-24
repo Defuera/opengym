@@ -4,7 +4,9 @@ import type { Doc } from "../_generated/dataModel";
 import { internalAction, internalMutation, internalQuery } from "../_generated/server";
 import { providerFor, runAiJob } from "../lib/ai";
 import { entryByEntryId } from "../lib/db";
+import { knownCategories } from "../lib/entriesDb";
 import { fileByFileId, loadAttachment, type FileDoc } from "../lib/files";
+import { normaliseCategory } from "../model/entryCategory";
 import { readEntryJob } from "../model/ai/jobs/readEntry";
 import { localTime } from "../model/ai/jobs/shared";
 import type { ImageInput } from "../model/ai/provider";
@@ -29,7 +31,7 @@ export const input = internalQuery({
       const f = await fileByFileId(ctx, id);
       if (f) files.push(fileDoc(f));
     }
-    return { text: d.text, at: d.at, files };
+    return { text: d.text, at: d.at, files, categories: await knownCategories(ctx) };
   },
 });
 
@@ -69,10 +71,10 @@ export const run = internalAction({
         return;
       }
       const when = `${new Date(i.at).toISOString().slice(0, 10)} ${localTime(i.at)}`;
-      const r = await runAiJob(ctx, readEntryJob, { text: i.text, when, files, images }, { timeoutMs: BUDGET_MS });
+      const r = await runAiJob(ctx, readEntryJob, { text: i.text, when, files, images, categories: i.categories }, { timeoutMs: BUDGET_MS });
       await ctx.runMutation(internal.jobs.readEntry.save, {
         entryId,
-        read: r.path === "ai" ? { status: "ready", rev, kind: r.value.kind, summary: r.value.summary } : { status: "failed", rev },
+        read: r.path === "ai" ? { status: "ready", rev, kind: normaliseCategory(r.value.kind, i.categories), summary: r.value.summary } : { status: "failed", rev },
       });
     } catch (e) {
       console.error(`[entry] read failed: ${(e as Error).message}`);

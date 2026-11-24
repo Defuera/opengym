@@ -135,7 +135,8 @@ export const entryFields = {
 export const entryRead = v.object({
   status: v.union(v.literal("pending"), v.literal("ready"), v.literal("failed")),
   rev: v.string(),
-  kind: v.optional(v.union(v.literal("meal"), v.literal("training"), v.literal("body"), v.literal("goal"), v.literal("other"))),
+  /** A short category label ("Meal", "Sleep", ...; at most 24 characters). Old rows hold "meal", "training", "body", "goal" or "other". */
+  kind: v.optional(v.string()),
   summary: v.optional(v.string()),
   /** The rows the log chat wrote with this entry when the person pressed Done (ADR-032). */
   made: v.optional(v.object({ sessionId: v.optional(v.string()), goalId: v.optional(v.string()), limitId: v.optional(v.string()), contextId: v.optional(v.string()) })),

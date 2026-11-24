@@ -8,8 +8,8 @@ import { ContextInputSchema, GoalInputSchema, ImportSessionDraftSchema, LimitSch
  * Pure: the executor (lib/logDraftDb.ts) reads the data and writes the rows.
  */
 
-export const LOG_KINDS = ["meal", "training", "body", "goal", "other"] as const;
-export type LogKind = (typeof LOG_KINDS)[number];
+/** The category of the log: a short label chosen by the coach and tidied in code (model/entryCategory.ts). */
+export type LogKind = string;
 
 /** A limit as the coach drafts it: the existing limit shape, with no id (the server makes it). */
 export const LimitDraftSchema = LimitSchema.omit({ limitId: true });
@@ -18,7 +18,7 @@ export type LimitDraft = z.infer<typeof LimitDraftSchema>;
 const IsoMoment = z.string().trim().refine((s) => !Number.isNaN(Date.parse(s)), { message: "at must be an ISO date-time" });
 
 export const DraftLogArgs = z.object({
-  kind: z.enum(LOG_KINDS),
+  kind: z.string().trim().min(1).max(60),
   summary: z.string().trim().min(1).max(120),
   at: IsoMoment.optional(),
   session: ImportSessionDraftSchema.optional(),

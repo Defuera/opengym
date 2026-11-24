@@ -13,28 +13,6 @@ class OG {
   static const Color done = Color(0xFFDCE3FF);
   static const Color white = Color(0xFFFFFFFF);
 
-  /// Category colours (ADR-031, proposed). Each reads on white at 4.5:1 or better.
-  static const List<Color> categoryPalette = <Color>[
-    Color(0xFF2B4FD6), // blue
-    Color(0xFF1F7A45), // green
-    Color(0xFFB45309), // orange
-    Color(0xFF6D35C9), // purple
-    Color(0xFFC0392B), // red
-    Color(0xFF0F766E), // teal
-    Color(0xFFBE185D), // pink
-    Color(0xFF8A6A00), // gold
-  ];
-
-  /// The colour of a category: a stable hash (FNV-1a) of the lower-cased label,
-  /// so one category has one colour on every device.
-  static Color categoryColor(String label) {
-    int h = 0x811C9DC5;
-    for (final int c in label.trim().toLowerCase().codeUnits) {
-      h = ((h ^ c) * 0x01000193) & 0xFFFFFFFF;
-    }
-    return categoryPalette[h % categoryPalette.length];
-  }
-
   /// Null: the system font. Only the screenshot test sets it, to render real glyph widths.
   static String? fontFamily;
 

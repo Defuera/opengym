@@ -4,6 +4,7 @@ import 'package:opengym/entry_category.dart';
 import 'package:opengym/entry_text.dart';
 import 'package:opengym/models.dart';
 import 'package:opengym/widgets/entry_list_item.dart';
+import 'package:opengym/widgets/log_draft_card.dart';
 import 'package:opengym/theme.dart';
 
 import 'support/entry_fixtures.dart';
@@ -84,22 +85,40 @@ void main() {
     expect(t.getSize(find.byType(EntryListItem)).height, lessThan(tall * 0.7));
   });
 
-  test('a category has one colour, whatever its case; old values read as labels', () {
-    expect(OG.categoryColor('Meal'), OG.categoryColor('  meal '));
-    expect(OG.categoryPalette, contains(OG.categoryColor('Sleep')));
-    expect(<String>{for (final String c in <String>['Meal', 'Sleep', 'Walk', 'Body', 'Goal']) OG.categoryColor(c).toString()}.length, greaterThan(2));
+  test('the colour comes from the server: parsed safely, none when missing or malformed', () {
+    expect(parseHexColor('#1F7A45'), const Color(0xFF1F7A45));
+    expect(parseHexColor(' #1f7a45 '), const Color(0xFF1F7A45));
+    for (final String? bad in <String?>[null, '', '1F7A45', '#1F7A4', '#GGGGGG', 'red']) {
+      expect(parseHexColor(bad), isNull);
+    }
     expect(categoryLabel('meal'), 'Meal');
     expect(categoryLabel('other'), isNull);
     expect(categoryLabel('Sleep'), 'Sleep');
+    final LogEntry e = _e(read: const EntryRead(status: 'ready', kind: 'Sleep', color: '#6D35C9'));
+    expect(entryCategoryColor(e), const Color(0xFF6D35C9));
+    expect(entryCategoryColor(_e(read: const EntryRead(status: 'ready', kind: 'Sleep'))), isNull);
+    expect(EntryRead.fromJson(<String, Object?>{'status': 'ready', 'kind': 'Walk', 'color': '#0F766E'})!.color, '#0F766E');
   });
 
-  testWidgets('the row border and the label take the category colour', (WidgetTester t) async {
+  testWidgets('the row border and the label take the colour the server sent', (WidgetTester t) async {
+    const Color teal = Color(0xFF0F766E);
     await t.pumpWidget(const MaterialApp(
-      home: Scaffold(body: SingleChildScrollView(child: EntryListItem(title: 'nap', subtitle: 'Today, 14:00', category: 'Sleep'))),
+      home: Scaffold(body: SingleChildScrollView(child: EntryListItem(title: 'nap', subtitle: 'Today, 14:00', category: 'Sleep', categoryColor: teal))),
     ));
     expect(find.text('Today, 14:00 · Sleep'), findsOneWidget);
     final Container box = t.widget<Container>(find.descendant(of: find.byType(EntryListItem), matching: find.byType(Container)).first);
-    final BoxDecoration d = box.decoration! as BoxDecoration;
-    expect((d.border! as Border).top.color, OG.categoryColor('Sleep'));
+    expect(((box.decoration! as BoxDecoration).border! as Border).top.color, teal);
+    await t.pumpWidget(const MaterialApp(
+      home: Scaffold(body: SingleChildScrollView(child: EntryListItem(title: 'nap', subtitle: 'Today, 14:00', category: 'Sleep'))),
+    ));
+    final Container plain = t.widget<Container>(find.descendant(of: find.byType(EntryListItem), matching: find.byType(Container)).first);
+    expect(((plain.decoration! as BoxDecoration).border! as Border).top.color, OG.ink);
+  });
+
+  testWidgets('the log draft card shows the category in the server colour', (WidgetTester t) async {
+    await t.pumpWidget(const MaterialApp(
+      home: Scaffold(body: LogDraftCard(kind: 'Sleep', color: Color(0xFF6D35C9), summary: 'Slept badly', when: 'Today, 07:00')),
+    ));
+    expect(t.widget<Text>(find.byKey(const ValueKey<String>('log-draft-kind'))).style!.color, const Color(0xFF6D35C9));
   });
 }

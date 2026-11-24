@@ -5,10 +5,13 @@ import '../theme.dart';
 /// A muted time with the category after it, in the category's colour:
 /// "Today, 10:46 · Meal". Without a category it is the time alone.
 class CategoryWhen extends StatelessWidget {
-  const CategoryWhen({super.key, required this.when, this.category, this.size = 17});
+  const CategoryWhen({super.key, required this.when, this.category, this.color, this.size = 17});
 
   final String when;
   final String? category;
+
+  /// The label colour from the server. Null: the plain muted colour.
+  final Color? color;
   final double size;
 
   @override
@@ -22,7 +25,7 @@ class CategoryWhen extends StatelessWidget {
         style: OG.muted(size: size),
         children: <InlineSpan>[
           TextSpan(text: '$when · '),
-          TextSpan(text: c, style: OG.body(size: size, weight: FontWeight.w700, color: OG.categoryColor(c))),
+          TextSpan(text: c, style: OG.body(size: size, weight: FontWeight.w700, color: color ?? OG.mute)),
         ],
       ),
     );

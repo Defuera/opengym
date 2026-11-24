@@ -14,6 +14,7 @@ class LogDraftCard extends StatelessWidget {
   const LogDraftCard({
     super.key,
     required this.kind,
+    this.color,
     required this.summary,
     required this.when,
     this.rows = const <(String, String)>[],
@@ -23,6 +24,9 @@ class LogDraftCard extends StatelessWidget {
 
   /// "Meal", "Training", "Body", "Goal" or "Note".
   final String kind;
+
+  /// The category colour from the server. Null: the muted grey.
+  final Color? color;
   final String summary;
 
   /// "Today, 19:30".
@@ -50,7 +54,7 @@ class LogDraftCard extends StatelessWidget {
           children: <Widget>[
             Row(
               children: <Widget>[
-                Text(kind, key: const ValueKey<String>('log-draft-kind'), style: OG.muted(size: 14, weight: FontWeight.w700)),
+                Text(kind, key: const ValueKey<String>('log-draft-kind'), style: OG.body(size: 14, weight: FontWeight.w700, color: color ?? OG.mute)),
                 const Spacer(),
                 if (applied)
                   Row(

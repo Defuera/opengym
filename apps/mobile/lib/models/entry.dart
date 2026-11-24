@@ -67,13 +67,17 @@ class EntryMade {
 /// What the coach read in a note: what it is and one line about it. It is a
 /// label on the note, not a part of what the person wrote.
 class EntryRead {
-  const EntryRead({required this.status, this.kind, this.summary, this.made});
+  const EntryRead({required this.status, this.kind, this.color, this.summary, this.made});
 
   /// pending | ready | failed
   final String status;
 
-  /// meal | training | body | goal | other. Set when [status] is ready.
+  /// The category label ("Meal", "Sleep", ...; old: meal | training | body |
+  /// goal | other). Set when [status] is ready.
   final String? kind;
+
+  /// The colour of the category, "#RRGGBB", from the server. Null: none yet.
+  final String? color;
   final String? summary;
 
   /// What the log chat made with this entry, or null.
@@ -87,7 +91,7 @@ class EntryRead {
       return null;
     }
     final Map<String, dynamic> j = asMap(v);
-    return EntryRead(status: str(j['status'], 'failed'), kind: strOrNull(j['kind']), summary: strOrNull(j['summary']), made: EntryMade.fromJson(j['made']));
+    return EntryRead(status: str(j['status'], 'failed'), kind: strOrNull(j['kind']), color: strOrNull(j['color']), summary: strOrNull(j['summary']), made: EntryMade.fromJson(j['made']));
   }
 }
 

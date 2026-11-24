@@ -44,6 +44,7 @@ class LogDraftSession {
 class LogDraft {
   const LogDraft({
     required this.kind,
+    this.color,
     required this.summary,
     required this.at,
     this.session,
@@ -54,8 +55,11 @@ class LogDraft {
     this.entryId,
   });
 
-  /// meal | training | body | goal | other
+  /// The category label (old: meal | training | body | goal | other).
   final String kind;
+
+  /// The category colour, "#RRGGBB", from the server. Null: none.
+  final String? color;
   final String summary;
   final int at;
   final LogDraftSession? session;
@@ -81,6 +85,7 @@ class LogDraft {
     }
     return LogDraft(
       kind: str(v['kind'], 'other'),
+      color: strOrNull(v['color']),
       summary: str(v['summary']),
       at: intOf(v['at']),
       session: LogDraftSession.fromJson(v['session']),

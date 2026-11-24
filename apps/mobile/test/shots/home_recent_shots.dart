@@ -26,18 +26,18 @@ void main() {
   });
   tearDownAll(() => OG.fontFamily = null);
 
-  testWidgets('Home Recent: three categories above two sessions', (WidgetTester t) async {
-    t.view.physicalSize = const Size(390 * 3, 520 * 3);
+  testWidgets('Home Recent: five categories above two sessions', (WidgetTester t) async {
+    t.view.physicalSize = const Size(390 * 3, 860 * 3);
     t.view.devicePixelRatio = 3;
     addTearDown(t.view.reset);
     final GlobalKey key = GlobalKey();
-    LogEntry e(String id, String text, double hoursAgo, String kind) => LogEntry(
+    LogEntry e(String id, String text, double hoursAgo, String kind, String color) => LogEntry(
           id: id,
           text: text,
           at: homeNow - (hoursAgo * 3600000).round(),
           createdAt: homeNow,
           files: id == 'm' ? <EntryFile>[imageFile('f1')] : const <EntryFile>[],
-          read: EntryRead(status: 'ready', kind: kind),
+          read: EntryRead(status: 'ready', kind: kind, color: color),
         );
     await t.pumpWidget(RepaintBoundary(
       key: key,
@@ -48,14 +48,17 @@ void main() {
           body: Padding(
             padding: const EdgeInsets.all(16),
             child: HomeRecent(
+              limit: 7,
               sessions: <Session>[
                 homeGym('s4', 2, 'Legs', <String, double>{'Leg Press': 30, 'Hip Adduction': 35}),
                 homeGym('s5', 1, 'Upper', <String, double>{'Row': 42, 'Bench Press': 47.5}),
               ],
               entries: <LogEntry>[
-                e('m', 'Breakfast granola with yogurt', 1, 'Meal'),
-                e('s', 'Sore left knee after the stairs', 5, 'Body'),
-                e('w', 'Slept badly, woke up twice', 9, 'Sleep'),
+                e('m', 'Breakfast granola with yogurt', 1, 'Meal', '#B45309'),
+                e('b', 'Sore left knee after the stairs', 3, 'Body', '#0F766E'),
+                e('s', 'Slept badly, woke up twice', 5, 'Sleep', '#6D35C9'),
+                e('w', 'Walk by the river, 40 minutes', 9, 'Walk', '#1F7A45'),
+                e('g', 'Ski trip on 19 December', 12, 'Goal', '#BE185D'),
               ],
             ),
           ),
@@ -68,7 +71,7 @@ void main() {
       final ui.Image img = await b.toImage(pixelRatio: 3);
       final ByteData? bytes = await img.toByteData(format: ui.ImageByteFormat.png);
       await Directory(_out).create(recursive: true);
-      await File('$_out/categories.png').writeAsBytes(bytes!.buffer.asUint8List());
+      await File('$_out/categories-dynamic.png').writeAsBytes(bytes!.buffer.asUint8List());
     });
   });
 

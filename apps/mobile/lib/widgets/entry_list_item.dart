@@ -13,6 +13,7 @@ class EntryListItem extends StatelessWidget {
     this.detail,
     this.attachments = 0,
     this.category,
+    this.categoryColor,
     this.compact = false,
     this.onTap,
   });
@@ -28,8 +29,11 @@ class EntryListItem extends StatelessWidget {
   final bool compact;
 
   /// The category label. Set: the border and the label take its colour, and
-  /// [subtitle] is the time alone. Null: the plain ink border.
+  /// [subtitle] is the time alone.
   final String? category;
+
+  /// The colour of [category] from the server. Null: the ink border.
+  final Color? categoryColor;
   final VoidCallback? onTap;
 
   @override
@@ -39,7 +43,7 @@ class EntryListItem extends StatelessWidget {
       onTap: onTap,
       child: Container(
         decoration: ogBox(shadow: false).copyWith(
-          border: Border.all(color: category == null ? OG.ink : OG.categoryColor(category!), width: compact ? 1.5 : OG.borderWidth),
+          border: Border.all(color: categoryColor ?? OG.ink, width: compact ? 1.5 : OG.borderWidth),
         ),
         padding: EdgeInsets.symmetric(horizontal: 16, vertical: compact ? 8 : 14),
         child: Row(
@@ -56,7 +60,7 @@ class EntryListItem extends StatelessWidget {
                         ? OG.body(size: 15, weight: FontWeight.w600)
                         : OG.body(size: 18, weight: FontWeight.w700),
                   ),
-                  CategoryWhen(when: subtitle, category: category, size: compact ? 13 : 17),
+                  CategoryWhen(when: subtitle, category: category, color: categoryColor, size: compact ? 13 : 17),
                   if (detail != null && !compact) ...<Widget>[
                     const SizedBox(height: 4),
                     Text(

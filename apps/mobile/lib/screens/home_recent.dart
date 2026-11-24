@@ -53,6 +53,7 @@ class HomeRecent extends StatelessWidget {
     this.onOpenEntry,
     this.onOpenSession,
     this.title = 'Recent',
+    this.limit = 5,
   });
 
   final List<Session> sessions;
@@ -63,19 +64,23 @@ class HomeRecent extends StatelessWidget {
   final ValueChanged<Session>? onOpenSession;
   final String title;
 
+  /// How many rows show.
+  final int limit;
+
   @override
   Widget build(BuildContext context) {
     final List<Widget> rows = <Widget>[
       Text(title, style: OG.display(24)),
       const SizedBox(height: 10),
     ];
-    for (final RecentItem r in mergeRecent(sessions, entries)) {
+    for (final RecentItem r in mergeRecent(sessions, entries, limit: limit)) {
       final LogEntry? e = r.entry;
       rows.add(e != null
           ? EntryListItem(
               title: entryTitle(e),
               subtitle: entryWhen(e.at),
               category: entryKindLabel(e),
+              categoryColor: entryCategoryColor(e),
               compact: true,
               attachments: e.files.length,
               onTap: onOpenEntry == null ? null : () => onOpenEntry!(e),

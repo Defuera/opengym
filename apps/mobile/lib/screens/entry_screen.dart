@@ -139,7 +139,7 @@ class EntryScreen extends StatelessWidget {
                 if (e == null)
                   const NoteBox(title: 'This note is gone.', message: 'It was deleted.')
                 else ...<Widget>[
-                  CategoryWhen(key: const ValueKey<String>('entry-when'), when: entryWhen(e.at), category: entryKindLabel(e)),
+                  CategoryWhen(key: const ValueKey<String>('entry-when'), when: entryWhen(e.at), category: entryKindLabel(e), color: entryCategoryColor(e)),
                   const SizedBox(height: 12),
                   if (e.text.trim().isNotEmpty) ...<Widget>[
                     Text(e.text, key: const ValueKey<String>('entry-text'), style: OG.body()),

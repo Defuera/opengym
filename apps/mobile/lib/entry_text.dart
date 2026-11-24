@@ -1,6 +1,8 @@
 /// Words for a note in lists and screens. Pure Dart.
 library;
 
+import 'package:flutter/painting.dart' show Color;
+
 import 'entry_category.dart';
 import 'models.dart';
 import 'planner.dart';
@@ -57,6 +59,9 @@ String? entryKindLabel(LogEntry e) {
   }
   return categoryLabel(r.kind);
 }
+
+/// The colour of the note's category from the server, or null.
+Color? entryCategoryColor(LogEntry e) => categoryLabel(e.read?.ready == true ? e.read?.kind : null) == null ? null : parseHexColor(e.read?.color);
 
 /// The line under a note in a list: what the coach saw in its photos or
 /// files, or "Reading…" while it reads them. Null for a note with words

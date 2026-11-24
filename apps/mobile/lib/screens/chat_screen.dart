@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../app/deps.dart';
 import '../models.dart';
+import '../entry_category.dart';
 import '../data/upload_item.dart';
 import '../stores/coach_store.dart';
 import '../stores/voice_controller.dart';
@@ -172,6 +173,7 @@ class _ChatScreenState extends State<ChatScreen> {
         // question under it only while the draft is open.
         items.add(LogDraftCard(
           kind: draft.kindLabel,
+          color: parseHexColor(draft.color),
           summary: draft.summary,
           when: logDraftWhen(draft),
           rows: logDraftRows(draft),

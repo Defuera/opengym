@@ -233,26 +233,6 @@ void main() {
       expect(encodeSession(d.store.sessionById(id)!)['placeId'], 'home');
     });
 
-    testWidgets(
-        'a rebuilt proposal with no place keeps the place the person chose',
-        (WidgetTester t) async {
-      final (FakeConvexClient fake, AppDeps d) = await _openProposal(
-          t, _proposal(place: const PlaceRef(id: 'home', name: 'Home')));
-      await _openSheet(t);
-      await t.tap(find.text('Gym').last);
-      await t.pumpAndSettle();
-      await t.tap(find.text('Change plan'));
-      await t.pumpAndSettle();
-      await t.enterText(find.byType(TextField).last, 'no bottles');
-      await t.pump();
-      await t.tap(find.text('Rebuild'));
-      await t.pump();
-      fake.answerStart(StartRequest(
-          requestId: fake.lastStartId, status: 'ready', proposal: _proposal()));
-      await t.pumpAndSettle();
-      expect(d.store.active!.placeId, 'gym');
-    });
-
     testWidgets('a failing places subscription breaks nothing',
         (WidgetTester t) async {
       await _big(t);

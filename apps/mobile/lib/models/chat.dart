@@ -109,6 +109,102 @@ class Thread {
   }
 }
 
+/// What was open when a message was sent (ADR-032). A hint for the coach: the
+/// server reads the real data itself.
+class ChatContext {
+  const ChatContext({
+    this.screen = 'chat',
+    this.openSessionId,
+    this.exerciseId,
+    this.placeId,
+    this.entryId,
+    this.programId,
+  });
+
+  /// chat | log | session | exercise | program | start
+  final String screen;
+  final String? openSessionId;
+  final String? exerciseId;
+  final String? placeId;
+  final String? entryId;
+  final String? programId;
+
+  Map<String, dynamic> toJson() => <String, dynamic>{
+        'screen': screen,
+        if (openSessionId != null) 'openSessionId': openSessionId,
+        if (exerciseId != null) 'exerciseId': exerciseId,
+        if (placeId != null) 'placeId': placeId,
+        if (entryId != null) 'entryId': entryId,
+        if (programId != null) 'programId': programId,
+      };
+
+  static ChatContext? fromJson(Object? v) {
+    if (v is! Map) {
+      return null;
+    }
+    return ChatContext(
+      screen: str(v['screen'], 'chat'),
+      openSessionId: strOrNull(v['openSessionId']),
+      exerciseId: strOrNull(v['exerciseId']),
+      placeId: strOrNull(v['placeId']),
+      entryId: strOrNull(v['entryId']),
+      programId: strOrNull(v['programId']),
+    );
+  }
+}
+
+/// What one function of a coach turn did: applied | drafted | rejected.
+class CoachAction {
+  const CoachAction({required this.actionId, required this.name, required this.status, this.reason});
+
+  final String actionId;
+  final String name;
+  final String status;
+  final String? reason;
+
+  static CoachAction? fromJson(Object? v) {
+    if (v is! Map) {
+      return null;
+    }
+    return CoachAction(
+      actionId: str(v['actionId']),
+      name: str(v['name']),
+      status: str(v['status'], 'rejected'),
+      reason: strOrNull(v['reason']),
+    );
+  }
+}
+
+/// A question of the coach, with optional quick answers.
+class CoachQuestion {
+  const CoachQuestion({required this.text, this.answers = const <QuickAnswer>[]});
+
+  final String text;
+  final List<QuickAnswer> answers;
+
+  static CoachQuestion? fromJson(Object? v) {
+    if (v is! Map) {
+      return null;
+    }
+    final Object? raw = v['answers'];
+    return CoachQuestion(
+      text: str(v['text']),
+      answers: <QuickAnswer>[
+        if (raw is List)
+          for (final Object? a in raw)
+            if (a is Map) QuickAnswer(id: str(a['id']), label: str(a['label'])),
+      ],
+    );
+  }
+}
+
+class QuickAnswer {
+  const QuickAnswer({required this.id, required this.label});
+
+  final String id;
+  final String label;
+}
+
 class Message {
   const Message({
     required this.id,
@@ -120,10 +216,20 @@ class Message {
     this.sources = const <String>[],
     this.voice,
     this.proposalId,
+    this.context,
+    this.actions = const <CoachAction>[],
+    this.question,
   });
 
   final String id;
   final String threadId;
+
+  /// What was open when the person sent it (user messages).
+  final ChatContext? context;
+
+  /// What the functions of a coach turn did (assistant messages).
+  final List<CoachAction> actions;
+  final CoachQuestion? question;
 
   /// user | assistant
   final String role;
@@ -167,6 +273,13 @@ class Message {
       sources: strList(j['sources']),
       voice: strOrNull(j['voice']),
       proposalId: strOrNull(j['proposalId']),
+      context: ChatContext.fromJson(j['context']),
+      actions: <CoachAction>[
+        if (j['actions'] is List)
+          for (final Object? a in j['actions'] as List)
+            if (CoachAction.fromJson(a) case final CoachAction x) x,
+      ],
+      question: CoachQuestion.fromJson(j['question']),
     );
   }
 }

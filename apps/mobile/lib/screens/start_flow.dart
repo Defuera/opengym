@@ -62,7 +62,7 @@ void openLogForm(NavigatorState nav, AppDeps d, String activity) {
 /// "activity") the log form of that activity.
 ///
 /// [requestId] is the request that made [p]. With it the session screen offers
-/// feedback and a rebuild, until the first set is done.
+/// the coach's late plan, when there is one.
 void openProposal(NavigatorState nav, AppDeps d, StartProposal p, {String? requestId}) {
   if (p.kind == 'activity') {
     openLogForm(nav, d, p.type);
@@ -72,16 +72,11 @@ void openProposal(NavigatorState nav, AppDeps d, StartProposal p, {String? reque
   nav.push(_route(SessionScreen(store: d.store, deps: d, rebuild: rebuildFor(d, requestId: requestId))));
 }
 
-/// The feedback loop of the open session. With [requestId] the coach gets the
-/// plan it made before; without it the feedback is the note of a new request.
+/// What the session screen shows of the coach's plan: the notice and the late
+/// offer of [fallback]. [requestId] is kept for the callers; it is not used.
 ProposalRebuild rebuildFor(AppDeps d, {String? requestId, StartFallback? fallback}) => ProposalRebuild(
-      plans: d.plans,
-      requestId: requestId,
-      note: fallback?.note,
       notice: fallback?.notice,
       late: fallback?.late,
-      activity: () => d.store.active?.type ?? gymType,
-      exercises: () => d.store.active?.exercises ?? <Exercise>[],
       onProposal: (StartProposal n) => _replaceProposal(d, n),
     );
 

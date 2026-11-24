@@ -10,13 +10,12 @@ import '../widgets/exercise_picker.dart';
 import '../widgets/og_button.dart';
 import '../widgets/og_icon_button.dart';
 import '../widgets/og_sheet.dart';
-import '../widgets/preparing_card.dart';
-import '../widgets/proposal_feedback.dart';
 import '../widgets/session_meta_row.dart';
 import '../stores/exercise_art_store.dart';
 import '../stores/proposal_rebuild.dart';
 import 'place_mark_view.dart';
 import 'session_parts.dart';
+import 'session_chat.dart';
 import 'session_recap_screen.dart';
 
 class SessionScreen extends StatefulWidget {
@@ -32,7 +31,7 @@ class SessionScreen extends StatefulWidget {
   /// With [deps], finishing a session ends on its recap. Without, on Home.
   final AppDeps? deps;
 
-  /// Set on a coach proposal: "Change plan" shows until a set is done.
+  /// Set on a session from a start request: the notice and the coach's late plan.
   final ProposalRebuild? rebuild;
 
   @override
@@ -40,8 +39,6 @@ class SessionScreen extends StatefulWidget {
 }
 
 class _SessionScreenState extends State<SessionScreen> with WidgetsBindingObserver {
-  final TextEditingController _feedback = TextEditingController();
-  bool _wasBusy = false;
 
   /// What the planned session works (muscle key -> level), for the figure at
   /// the title. Null until known, and offline.
@@ -72,14 +69,11 @@ class _SessionScreenState extends State<SessionScreen> with WidgetsBindingObserv
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    rebuild?.addListener(_onRebuild);
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    rebuild?.removeListener(_onRebuild);
-    _feedback.dispose();
     super.dispose();
   }
 
@@ -90,15 +84,6 @@ class _SessionScreenState extends State<SessionScreen> with WidgetsBindingObserv
     if (state == AppLifecycleState.resumed) {
       store.countdown.tick();
     }
-  }
-
-  /// The typed text is cleared after a rebuild went through, kept after a failure.
-  void _onRebuild() {
-    final ProposalRebuild r = rebuild!;
-    if (_wasBusy && !r.busy && !r.failed) {
-      _feedback.clear();
-    }
-    _wasBusy = r.busy;
   }
 
   void _minimise(BuildContext context) {
@@ -173,24 +158,10 @@ class _SessionScreenState extends State<SessionScreen> with WidgetsBindingObserv
     );
   }
 
-  Future<void> _showChangePlan(BuildContext context) {
-    final ProposalRebuild r = rebuild!;
-    return showOgSheet<void>(
-      context,
-      (BuildContext c) => ListenableBuilder(
-        listenable: Listenable.merge(<Listenable?>[r, deps?.connection].whereType<Listenable>().toList()),
-        builder: (BuildContext c, Widget? w) => ProposalFeedback(
-          controller: _feedback,
-          failed: r.failed,
-          online: deps?.connection.connected ?? true,
-          onRebuild: (String t) {
-            Navigator.of(c).pop();
-            r.rebuild(t);
-          },
-        ),
-      ),
-      title: 'Change plan',
-    );
+  /// "Change plan": the one chat, about the whole session. The server keeps
+  /// the done sets, so this is open until the session ends.
+  Future<void> _changePlan(BuildContext context, Session a) {
+    return openSessionChat(context, deps!, a);
   }
 
   void _leave(BuildContext context, {String? recapId}) {
@@ -323,8 +294,8 @@ class _SessionScreenState extends State<SessionScreen> with WidgetsBindingObserv
           _lastEx = store.curEx;
         }
         final bool still = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
-        final bool canChange = rebuild != null && !store.hasDoneSet;
-        final bool busy = canChange && rebuild!.busy;
+        final bool canChat = deps != null && a.kind == 'gym';
+        final bool canOffer = rebuild != null;
         final bool why = a.focus != null || a.planNote != null || a.exercises.isNotEmpty;
         return PopScope<Object?>(
             canPop: false,
@@ -384,23 +355,22 @@ class _SessionScreenState extends State<SessionScreen> with WidgetsBindingObserv
                                   const SizedBox(height: 8),
                                 ],
                                 SessionMetaRow(
-                                  note: (rebuild?.failed ?? false) && !busy
-                                      ? 'Could not rebuild. Try again.'
-                                      : canChange && !busy
-                                          ? (rebuild!.offer != null
-                                              ? 'The plan of the coach is ready.'
-                                              : rebuild!.notice)
-                                          : null,
+                                  note: canOffer
+                                      ? (rebuild!.offer != null
+                                          ? 'The plan of the coach is ready.'
+                                          : rebuild!.notice)
+                                      : null,
                                   items: <Widget>[
                                     if (deps != null)
                                       PlaceMarkView(
                                           deps: deps!, placeId: a.placeId, onPick: store.setActivePlace, chip: true),
-                                    if (canChange)
+                                    if (canChat)
                                       MetaItem(
+                                          key: const ValueKey<String>('change-plan'),
                                           label: 'Change plan',
                                           icon: Icons.tune,
-                                          onTap: () => _showChangePlan(context)),
-                                    if (canChange && !busy && rebuild!.offer != null)
+                                          onTap: () => _changePlan(context, a)),
+                                    if (canOffer && rebuild!.offer != null)
                                       MetaItem(
                                         key: const ValueKey<String>('use-coach-plan'),
                                         label: 'Use the coach plan',
@@ -424,19 +394,7 @@ class _SessionScreenState extends State<SessionScreen> with WidgetsBindingObserv
                       ),
                     ),
                     const SizedBox(height: 10),
-                    if (busy)
-                      Expanded(
-                        child: SingleChildScrollView(
-                          padding: const EdgeInsets.symmetric(horizontal: 20),
-                          child: PreparingCard(
-                            title: 'Rebuilding…',
-                            message: 'The coach changes the session with your feedback.',
-                            actionLabel: 'Keep this session',
-                            onAction: rebuild!.cancel,
-                          ),
-                        ),
-                      )
-                    else ...<Widget>[
+                    ...<Widget>[
                       ExerciseStrip(
                         store: store,
                         onAdd: () => _addExercise(context),
@@ -461,8 +419,13 @@ class _SessionScreenState extends State<SessionScreen> with WidgetsBindingObserv
                                   ? SessionPanel(store: store)
                                   : ListenableBuilder(
                                       listenable: deps!.art,
-                                      builder: (BuildContext c, Widget? w) =>
-                                          SessionPanel(store: store, art: deps!.art),
+                                      builder: (BuildContext c, Widget? w) => SessionPanel(
+                                        store: store,
+                                        art: deps!.art,
+                                        onAskCoach: canChat
+                                            ? () => openSessionChat(context, deps!, a, exercise: store.currentExercise)
+                                            : null,
+                                      ),
                                     ),
                             ),
                           ),

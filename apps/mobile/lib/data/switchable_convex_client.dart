@@ -345,9 +345,10 @@ class SwitchableConvexClient implements ConvexClient {
     required String messageId,
     required String text,
     List<String> fileIds = const <String>[],
+    ChatContext? context,
   }) {
-    return _call((ConvexClient c) =>
-        c.sendMessage(threadId: threadId, messageId: messageId, text: text, fileIds: fileIds));
+    return _call((ConvexClient c) => c.sendMessage(
+        threadId: threadId, messageId: messageId, text: text, fileIds: fileIds, context: context));
   }
 
   @override

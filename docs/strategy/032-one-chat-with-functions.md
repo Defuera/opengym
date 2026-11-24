@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted (step A built: backend only; the later steps Proposed)
+Accepted (step A built: backend; step B built: the app chat; the later steps Proposed)
 
 Note: the owner asked for this in the session of 2026-11-24. A session was open at the place "Gym". The note of one exercise said "No balance board at the gym". That was false: the text of the Gym did not list a balance board, and that text is learned from the log and the chat; it is not a full list. He typed "I do have a balance board" in "Change plan". The coach rebuilt the whole session as a home session (only the place "Home" lists a balance board) and did not update the Gym. His words:
 
@@ -43,6 +43,13 @@ ADR-026 made every conversation with the coach the chat, with JSON replies and n
 - The assistant message holds `turnId`, `actions` (the results) and `question`. `queries/messages:list` returns them.
 - `places.knowledgeState?` and `placeChanges.evidence?`. The place rule is in `build_session`, `build_program`, `chat`, `learn_place` and `coach_turn`.
 - The old "Change plan" (`commands/start` with feedback, `commands/proposals`) still works.
+
+## Built in step B (mobile app)
+
+- One chat screen and one composer (text, camera, library, file, thumbnails, offline line). The chat opens with a context: from the session ("Change plan", `screen: "session"`) or from one exercise ("Change this exercise", `screen: "exercise"` with the exercise id). Every send carries the context; a plain chat sends `chat`, a program chat sends `program`.
+- A chat opened from a session shows a context line and the hint "What do you want to change?". The thread is reused while the session is open, for the run of the app (not stored on the phone).
+- Replies show one plain line per action and a question with quick-answer buttons. The result of an action holds no arguments, so a line names the kind of change ("Changed: one exercise"), not the exercise.
+- The old "Change plan" sheet and its rebuild call are gone from the session screen. The Start step still has its own note field.
 
 ## Proposed next steps (not built, not confirmed by the owner)
 

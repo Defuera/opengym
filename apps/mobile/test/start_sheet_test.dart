@@ -7,7 +7,6 @@ import 'package:opengym/models.dart';
 import 'package:opengym/screens/log_text_screen.dart';
 import 'package:opengym/screens/session_screen.dart';
 import 'package:opengym/widgets/og_button.dart';
-import 'package:opengym/widgets/session_meta_row.dart';
 import 'support/fake_convex_client.dart';
 import 'support/sheet_fixtures.dart';
 
@@ -200,24 +199,6 @@ void main() {
     expect(d.store.active!.exercises.single.name, 'Wall Sit');
     expect(find.byKey(const ValueKey<String>('use-coach-plan')), findsNothing);
     expect(find.textContaining('did not answer in time'), findsNothing);
-  });
-
-  testWidgets('feedback on the rules plan after a late coach keeps the note for today', (WidgetTester t) async {
-    final (FakeConvexClient fake, AppDeps _) = await openHome(t);
-    await openStart(t);
-    await pickAndStart(t, 'Home', note: '2 hours session');
-    await t.pump(const Duration(seconds: 41));
-    await t.pumpAndSettle();
-    await t.tap(find.widgetWithText(MetaItem, 'Change plan'));
-    await t.pumpAndSettle();
-    await t.enterText(find.byType(TextField).last, 'too short');
-    await t.pump();
-    await t.tap(find.widgetWithText(OgButton, 'Rebuild'));
-    await t.pump();
-    await t.pump(const Duration(seconds: 1));
-    expect(fake.startSent.last.$2, '2 hours session');
-    expect(fake.startFeedback.last.$1, 'too short');
-    await t.pump(const Duration(seconds: 41)); // the rebuild gives up; no timer is left
   });
 
   testWidgets('request error: the rules plan opens', (WidgetTester t) async {

@@ -185,6 +185,7 @@ abstract class ConvexClient {
     required String messageId,
     required String text,
     List<String> fileIds = const <String>[],
+    ChatContext? context,
   });
 
   /// Sends a recorded voice message: the audio file [fileId] is already
@@ -663,12 +664,14 @@ class DartvexConvexClient implements ConvexClient {
     required String messageId,
     required String text,
     List<String> fileIds = const <String>[],
+    ChatContext? context,
   }) {
     return _mutate('commands/messages:send', <String, dynamic>{
       'threadId': threadId,
       'messageId': messageId,
       'text': text,
       if (fileIds.isNotEmpty) 'fileIds': fileIds,
+      if (context != null) 'context': context.toJson(),
     });
   }
 

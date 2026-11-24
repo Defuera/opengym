@@ -6,15 +6,16 @@ import '../data/upload_item.dart';
 import '../stores/coach_store.dart';
 import '../stores/voice_controller.dart';
 import '../theme.dart';
-import '../widgets/attach_sheet.dart';
-import '../widgets/attachment_strip.dart';
+import '../coach_action_text.dart';
 import '../widgets/chat_bubble.dart';
+import '../widgets/coach_turn_parts.dart';
 import '../widgets/composer_bar.dart';
 import '../widgets/note_box.dart';
 import '../widgets/og_button.dart';
 import '../widgets/og_icon_button.dart';
 import '../widgets/saved_chips.dart';
 import '../widgets/text_sheet.dart';
+import 'attach_flow.dart';
 import 'chat_file_thumb.dart';
 import 'chat_proposal.dart';
 import 'chat_threads_sheet.dart';
@@ -69,35 +70,14 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Future<void> _attach() async {
-    final AttachChoice? choice = await showAttachSheet(context);
-    if (choice == null) {
-      return;
-    }
-    try {
-      if (choice == AttachChoice.file) {
-        for (final UploadItem f in await widget.deps.pickers.pickFiles()) {
-          _coach.addAttachment(f);
-        }
-      } else {
-        final UploadItem? p =
-            await widget.deps.pickers.pickPhoto(camera: choice == AttachChoice.camera);
-        if (p != null) {
-          _coach.addAttachment(p);
-        }
-      }
-      if (!mounted) {
-        return;
-      }
-      setState(() => _pickError = null);
-    } catch (_) {
-      if (!mounted) {
-        return;
-      }
-      setState(() => _pickError = choice == AttachChoice.file
-          ? 'Could not open the file picker.'
-          : 'Could not open the camera or library.');
+    final String? error = await runAttachFlow(context, widget.deps.pickers, _coach.addAttachment);
+    if (mounted) {
+      setState(() => _pickError = error);
     }
   }
+
+  /// A tap on a quick answer is an ordinary message with the same context.
+  Future<void> _answer(String label) => _coach.send(label);
 
   Future<void> _rename(Thread t) async {
     final String? title = await showTextSheet(
@@ -159,6 +139,21 @@ class _ChatScreenState extends State<ChatScreen> {
         ],
       ));
       items.add(const SizedBox(height: 12));
+      if (!m.mine && m.actions.isNotEmpty) {
+        items.add(ActionLines(lines: <String>[for (final CoachAction a in m.actions) coachActionLine(a)]));
+        items.add(const SizedBox(height: 8));
+      }
+      final CoachQuestion? q = m.question;
+      if (!m.mine && q != null) {
+        // The quick answers stay live only on the newest message.
+        items.add(QuestionBlock(
+          text: q.text,
+          answers: <String>[for (final QuickAnswer a in q.answers) a.label],
+          enabled: identical(m, c.messages.last) && !c.sending && !c.thinking,
+          onAnswer: _answer,
+        ));
+        items.add(const SizedBox(height: 12));
+      }
       final String? pid = m.proposalId;
       if (pid != null && !m.mine) {
         final Proposal? p = c.proposalById(pid);
@@ -262,6 +257,7 @@ class _ChatScreenState extends State<ChatScreen> {
                   ),
                   ),
                 ),
+                if (c.contextLine != null) Align(alignment: Alignment.centerLeft, child: ContextLine(text: c.contextLine!)),
                 if (err.isNotEmpty)
                   Padding(
                     padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
@@ -278,11 +274,12 @@ class _ChatScreenState extends State<ChatScreen> {
                             child: Padding(
                               padding: const EdgeInsets.symmetric(horizontal: 40),
                               child: Text(
-                                about == null
+                                c.contextHint ??
+                                    (about == null
                                     ? 'Ask anything about your training, or say what you did.'
                                     : about.id == null
                                         ? 'Tell the coach what program you want, or paste one. The coach writes it here for you to agree.'
-                                        : 'Ask about this program, or say what should change. The coach shows the change here for you to agree.',
+                                        : 'Ask about this program, or say what should change. The coach shows the change here for you to agree.'),
                                 key: const ValueKey<String>('chat-hint'),
                                 textAlign: TextAlign.center,
                                 style: OG.muted(size: 16),
@@ -310,10 +307,7 @@ class _ChatScreenState extends State<ChatScreen> {
                   offlineNote: widget.deps.connection.connected
                       ? null
                       : 'Offline. Chat needs a connection to send.',
-                  attachments: <StripItem>[
-                    for (final UploadItem u in c.attachments)
-                      StripItem(name: u.name, image: imageForUpload(u)),
-                  ],
+                  attachments: stripItems(c.attachments),
                   onRemoveAttachment: c.removeAttachment,
                   onAttach: _attach,
                   onSend: _send,

@@ -27,6 +27,7 @@ class _Outgoing {
     required this.text,
     required this.files,
     this.voice = false,
+    this.context,
   }) : createdAt = DateTime.now().millisecondsSinceEpoch;
 
   final String messageId;
@@ -37,6 +38,9 @@ class _Outgoing {
 
   /// A recorded voice message: the text is empty, the one file is the audio.
   final bool voice;
+
+  /// What was open when the person sent it.
+  final ChatContext? context;
 
   /// The send call failed (after the user pressed send). Retry is offered.
   bool unsent = false;
@@ -80,6 +84,18 @@ class CoachStore extends ChangeNotifier {
 
   /// Set on a draft chat about a program (the server names the thread).
   ThreadAbout? draftAbout;
+
+  /// What the open chat was opened from (ADR-032). Null: a plain chat.
+  ChatContext? chatContext;
+
+  /// The small line at the top of a chat opened with a context, and the hint
+  /// shown while it is empty. Null on a plain chat.
+  String? contextLine;
+  String? contextHint;
+
+  /// The chat thread of each open session, for the run of the app: opening
+  /// the chat again from the same session reuses its thread.
+  final Map<String, String> _sessionThreads = <String, String>{};
 
   /// The chat list shows chats that are about something (a program) too.
   /// Kept for the run of the app; off at first.
@@ -276,6 +292,7 @@ class CoachStore extends ChangeNotifier {
     await _msgSub?.cancel();
     _msgSub = null;
     await _closeProposals();
+    _clearContext();
     currentId = newId();
     isDraft = true;
     draftPlaceId = placeId;
@@ -286,6 +303,51 @@ class CoachStore extends ChangeNotifier {
     loadingMessages = false;
     error = null;
     notifyListeners();
+  }
+
+  /// Opens the one chat with a [context]. From an open session it is the
+  /// thread of that session (a new one the first time), so the person comes
+  /// back to the same talk while the session is open.
+  Future<void> openWithContext({
+    required ChatContext context,
+    required String line,
+    required String hint,
+  }) async {
+    final String? sid = context.openSessionId;
+    final String? known = sid == null ? null : _sessionThreads[sid];
+    if (known != null && threads.any((Thread t) => t.id == known)) {
+      await openThread(known);
+    } else if (known != null && currentId == known && isDraft) {
+      // The draft is still open and nothing was sent: keep it.
+    } else {
+      await startNewChat();
+      if (sid != null) {
+        _sessionThreads[sid] = currentId!;
+      }
+    }
+    chatContext = context;
+    contextLine = line;
+    contextHint = hint;
+    notifyListeners();
+  }
+
+  /// The context a message of the open chat carries.
+  ChatContext get _sendContext {
+    final ChatContext? c = chatContext;
+    if (c != null) {
+      return c;
+    }
+    final ThreadAbout? a = currentAbout;
+    if (a != null && a.isProgram) {
+      return ChatContext(screen: 'program', programId: a.id);
+    }
+    return const ChatContext(screen: 'chat');
+  }
+
+  void _clearContext() {
+    chatContext = null;
+    contextLine = null;
+    contextHint = null;
   }
 
   /// Opens the chat about a program. [programId] null: a new program. It
@@ -380,6 +442,7 @@ class CoachStore extends ChangeNotifier {
   Future<void> openThread(String id) async {
     await _msgSub?.cancel();
     await _closeProposals();
+    _clearContext();
     currentId = id;
     isDraft = false;
     draftPlaceId = null;
@@ -482,6 +545,7 @@ class CoachStore extends ChangeNotifier {
     await _msgSub?.cancel();
     _msgSub = null;
     await _closeProposals();
+    _clearContext();
     currentId = null;
     isDraft = false;
     draftAbout = null;
@@ -523,6 +587,7 @@ class CoachStore extends ChangeNotifier {
       threadId: id,
       text: body.isEmpty ? 'See attached.' : body,
       files: List<_Attachment>.of(_pending),
+      context: _sendContext,
     );
     if (isDraft) {
       // First message of a new chat: create the thread, then send.
@@ -684,7 +749,11 @@ class CoachStore extends ChangeNotifier {
         notifyListeners();
         try {
           await _client.sendMessage(
-              threadId: m.threadId, messageId: m.id, text: m.text, fileIds: m.fileIds);
+              threadId: m.threadId,
+              messageId: m.id,
+              text: m.text,
+              fileIds: m.fileIds,
+              context: m.context);
         } on ConvexCallException catch (e) {
           error = e.message;
         } catch (_) {
@@ -726,6 +795,7 @@ class CoachStore extends ChangeNotifier {
           messageId: out.messageId,
           text: out.text,
           fileIds: <String>[for (final _Attachment f in out.files) f.fileId],
+          context: out.context,
         );
       }
     } on ConvexCallException catch (e) {

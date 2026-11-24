@@ -149,6 +149,22 @@ class FakeConvexClient implements ConvexClient {
     });
   }
 
+  /// The coach answers a coach turn: text, what its functions did, and a question.
+  void coachTurnAnswers(String threadId, String text,
+      {List<CoachAction> actions = const <CoachAction>[], CoachQuestion? question}) {
+    serverChanged(() {
+      serverMessages.putIfAbsent(threadId, () => <Message>[]).add(Message(
+          id: 'a${++_clock}',
+          threadId: threadId,
+          role: 'assistant',
+          text: text,
+          createdAt: ++_clock,
+          actions: actions,
+          question: question));
+      _setThread(threadId, status: 'idle', lastMessage: text);
+    });
+  }
+
   /// The coach job failed.
   void coachFails(String threadId, String error) {
     serverChanged(() => _setThread(threadId, status: 'failed', error: error));
@@ -599,14 +615,19 @@ class FakeConvexClient implements ConvexClient {
     _publish();
   }
 
+  /// The context of each sent message (null when none).
+  final List<ChatContext?> sentContexts = <ChatContext?>[];
+
   @override
   Future<void> sendMessage({
     required String threadId,
     required String messageId,
     required String text,
     List<String> fileIds = const <String>[],
+    ChatContext? context,
   }) async {
     _command('sendMessage:$messageId');
+    sentContexts.add(context);
     final Completer<void>? gate = sendGate;
     if (gate != null) {
       await gate.future;
@@ -621,7 +642,8 @@ class FakeConvexClient implements ConvexClient {
         role: 'user',
         text: text,
         createdAt: ++_clock,
-        fileIds: fileIds));
+        fileIds: fileIds,
+        context: context));
     if (list.length == 1) {
       final Thread t = serverThreads[threadId]!;
       if (t.titleSource == 'auto' && t.about == null) {

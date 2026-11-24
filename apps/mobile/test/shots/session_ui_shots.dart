@@ -1,7 +1,7 @@
 // Visual proof of the session screen. Not part of the normal suite (the file
 // name has no _test suffix). Run by path:
 //   flutter test test/shots/session_ui_shots.dart
-// It writes a.png (main), b.png ("Change plan" sheet), c.png ("Why this
+// It writes a.png (main), c.png ("Why this
 // session" sheet with the figure), d.png (rep/kg exercise, set 1 done), e.png
 // (time exercise), f.png (all sets done), g.png (leave sheet) and h.png
 // (bodyweight exercise) at 390x844
@@ -94,13 +94,6 @@ void main() {
   testWidgets('a: main screen', (WidgetTester t) async {
     final (AppDeps _, GlobalKey key) = await _open(t);
     await _save(t, key, 'a');
-  });
-
-  testWidgets('b: Change plan sheet', (WidgetTester t) async {
-    final (AppDeps _, GlobalKey key) = await _open(t);
-    await t.tap(find.text('Change plan'));
-    await t.pumpAndSettle();
-    await _save(t, key, 'b');
   });
 
   testWidgets('c: Why this session sheet', (WidgetTester t) async {

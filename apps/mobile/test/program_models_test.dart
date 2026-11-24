@@ -2,7 +2,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:opengym/data/convex_codec.dart';
 import 'package:opengym/models.dart';
 import 'package:opengym/screens/program_text.dart';
-import 'package:opengym/stores/proposal_rebuild.dart';
 import 'package:opengym/widgets/program_view.dart';
 
 import 'support/program_fixtures.dart';
@@ -144,29 +143,6 @@ void main() {
     expect(old.program, isNull);
     expect(encodeSession(old).keys.where((String k) => k.startsWith('program')), isEmpty);
     expect(Session.fromJson(<String, dynamic>{'id': 'o', 'kind': 'gym', 'type': 'Gym', 'startedAt': 1, 'programId': 'p'}).program, isNull);
-  });
-
-  test('compactPlan: names with sets, no notes; time exercises keep minutes; an empty exercise is left out', () {
-    final List<Map<String, dynamic>> plan = compactPlan(<Exercise>[
-      Exercise(id: 'a', name: 'Squat', note: 'slow', sets: <SetEntry>[SetEntry(reps: 8, kg: 60, isMax: true)]),
-      Exercise(id: 'b', name: 'Bike', measure: measureTime, sets: <SetEntry>[SetEntry.time(25, distanceKm: 10)]),
-      Exercise(id: 'c', name: 'Empty', sets: <SetEntry>[]),
-    ]);
-    expect(plan, <Map<String, dynamic>>[
-      <String, dynamic>{
-        'name': 'Squat',
-        'sets': <Map<String, dynamic>>[
-          <String, dynamic>{'reps': 8, 'kg': 60.0, 'max': true},
-        ],
-      },
-      <String, dynamic>{
-        'name': 'Bike',
-        'measure': 'time',
-        'sets': <Map<String, dynamic>>[
-          <String, dynamic>{'minutes': 25.0, 'distanceKm': 10.0},
-        ],
-      },
-    ]);
   });
 
   test('words: dates, weeks, status line, start line and exercise lines', () {

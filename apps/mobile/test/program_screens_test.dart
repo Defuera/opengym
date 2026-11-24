@@ -10,8 +10,6 @@ import 'package:opengym/screens/program_screen.dart';
 import 'package:opengym/screens/session_screen.dart';
 import 'package:opengym/screens/start_flow.dart';
 import 'package:opengym/stores/context_store.dart';
-import 'package:opengym/widgets/og_button.dart';
-import 'package:opengym/widgets/session_meta_row.dart';
 
 import 'support/about_fixtures.dart';
 import 'support/fake_convex_client.dart';
@@ -89,37 +87,6 @@ void main() {
       expect(wire['programKey'], 'B');
     });
 
-    testWidgets('a rebuilt plan with no link keeps the link of the open session', (WidgetTester t) async {
-      t.view.physicalSize = const Size(800, 2000);
-      t.view.devicePixelRatio = 1;
-      addTearDown(t.view.reset);
-      final (FakeConvexClient fake, AppDeps d) = await openHome(t);
-      openProposal(t.state<NavigatorState>(find.byType(Navigator).first), d, fromProgram);
-      await t.pumpAndSettle();
-      await t.tap(find.widgetWithText(MetaItem, 'Change plan'));
-      await t.pumpAndSettle();
-      await t.enterText(find.byType(TextField), 'no step-ups, my knee hurts');
-      await t.pump();
-      await t.tap(find.widgetWithText(OgButton, 'Rebuild'));
-      await t.pump();
-      await t.pump(const Duration(seconds: 1));
-      expect(fake.startFeedback.last, ('no step-ups, my knee hurts', null));
-      fake.answerStart(StartRequest(
-        requestId: fake.lastStartId,
-        status: 'ready',
-        proposal: const StartProposal(
-          kind: 'gym',
-          type: 'Gym',
-          plan: Plan(id: 'x', focus: '', createdAt: 1, source: 'ai', rationale: 'Easier', exercises: <PlanExercise>[
-            PlanExercise(name: 'Glute bridge', sets: <PlanSet>[PlanSet(reps: 12, kg: 0)]),
-          ]),
-        ),
-      ));
-      await t.pumpAndSettle();
-      expect(d.store.active!.exercises.single.name, 'Glute bridge');
-      expect(d.store.active!.program!.programId, 'prog-1');
-      expect(d.store.active!.program!.key, 'B');
-    });
   });
 
   group('program screen', () {

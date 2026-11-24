@@ -1,10 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api, internal } from "../functions/_generated/api";
-import { NOT_CONFIGURED_REPLY } from "../functions/model/ai/jobs/chat";
+import { COACH_TURN_FALLBACK } from "../functions/model/ai/jobs/coachTurn";
 import { MOCK_PROGRAM } from "../functions/model/ai/providers/mock";
 import { TOKEN, setup, settle, stubOpenAi, type T } from "./helpers";
 
-/** ADR-026: a program is asked for, discussed and changed in a chat thread that is about the program. */
+/** ADR-026 and ADR-032 (step E): a program is asked for, discussed and changed in the one chat (the coach turn, function propose_program). */
 const NOW = Date.UTC(2026, 10, 19, 12);
 let t: T;
 beforeEach(() => {
@@ -19,25 +19,33 @@ afterEach(() => {
 });
 
 const create = (threadId: string, extra: Record<string, unknown> = { about: { kind: "program" } }) => t.mutation(api.commands.threads.create, { token: TOKEN, threadId, ...extra } as never);
-const send = (messageId: string, text: string, threadId = "th1", fileIds?: string[]) => t.mutation(api.commands.messages.send, { token: TOKEN, threadId, messageId, text, fileIds });
+const send = (messageId: string, text: string, threadId = "th1", fileIds?: string[], context: object = PROGRAM_CONTEXT) => t.mutation(api.commands.messages.send, { token: TOKEN, threadId, messageId, text, fileIds, context });
 const thread = (threadId = "th1") => t.run((c) => c.db.query("threads").withIndex("by_threadId", (q) => q.eq("threadId", threadId)).unique());
 const messages = (threadId = "th1") => t.query(api.queries.messages.list, { token: TOKEN, threadId });
 const proposals = () => t.run((c) => c.db.query("proposals").collect());
 const forThread = (threadId = "th1") => t.query(api.queries.proposals.forThread, { token: TOKEN, threadId });
 const accept = (proposalId: string) => t.mutation(api.commands.proposals.accept, { token: TOKEN, proposalId });
 const BRIEF = "Write a two-week knee program.";
+/** A user message `turnId` in the thread and the stored answer of that turn with the given actions (the step the coach turn ends with). */
+async function saveTurn(threadId: string, turnId: string, actions: object[] = [{ id: "a1", name: "propose_program", arguments: { brief: BRIEF } }], context: object | undefined = PROGRAM_CONTEXT) {
+  if (!(await t.run((c) => c.db.query("messages").withIndex("by_messageId", (q) => q.eq("messageId", turnId)).unique()))) {
+    await t.run((c) => c.db.insert("messages", { messageId: turnId, threadId, role: "user", text: "hello", fileIds: [], sources: [], ...(context ? { context } : {}), createdAt: Date.now() }));
+  }
+  return t.mutation(internal.jobs.coachTurn.save, { threadId, turnId, message: "On it.", actions, sources: [] });
+}
 
-/** The stubbed AI: chat_program answers come from `replies` in order (the last one repeats); build_program gives the mock program. */
+/** The stubbed AI: coach_turn answers come from `replies` in order (the last one repeats); build_program gives the mock program. */
 function stub(replies: string[]) {
   let n = 0;
   return stubOpenAi((job) => {
-    if (job === "chat_program") return replies[Math.min(n++, replies.length - 1)]!;
+    if (job === "coach_turn") return replies[Math.min(n++, replies.length - 1)]!;
     if (job === "build_program") return JSON.stringify(MOCK_PROGRAM);
     if (job === "summarise_thread") return '{"summary":"s"}';
     return "{}";
   });
 }
-const propose = (text = "I will write the program now.", brief = BRIEF) => JSON.stringify({ text, proposeProgram: { brief } });
+const propose = (text = "I will write the program now.", brief = BRIEF, programId?: string) => JSON.stringify({ message: text, actions: [{ id: "a1", name: "propose_program", arguments: { brief, ...(programId ? { programId } : {}) } }] });
+const PROGRAM_CONTEXT = { screen: "program" as const };
 /** A program that exists: asked for through the old request path and agreed, with the mock provider. */
 async function existingProgram() {
   vi.stubEnv("AI_PROVIDER", "mock");
@@ -95,7 +103,7 @@ describe("the coach reply in a program thread", () => {
     expect(p!.ask.text).toBe(`I want to bench press 80 kg. Please write me a program for my knee.\n\nThe coach's summary of what to write: ${BRIEF}`);
     expect(p!.ask.feedback).toBeUndefined();
     const jobs = calls.map((c) => c.job);
-    expect(jobs).toEqual(expect.arrayContaining(["chat_program", "build_program", "summarise_thread"]));
+    expect(jobs).toEqual(expect.arrayContaining(["coach_turn", "build_program", "summarise_thread"]));
     expect(jobs).not.toContain("title_thread");
     expect(jobs).not.toContain("extract_from_chat");
     expect(await t.query(api.queries.goals.list, { token: TOKEN })).toHaveLength(0);
@@ -103,19 +111,19 @@ describe("the coach reply in a program thread", () => {
     expect((await thread())).toMatchObject({ status: "idle", pending: 0, summary: "s" });
   });
 
-  it("saveReply with proposeProgram stores a `building` proposal in the same step and schedules the build", async () => {
+  it("propose_program stores a `building` proposal in the same step and schedules the build", async () => {
     stub([propose()]);
     await create("th1");
-    await t.mutation(internal.jobs.chat.saveReply, { threadId: "th1", text: "On it.", sources: [], proposeProgram: { brief: BRIEF } });
+    expect(await saveTurn("th1", "u1")).toMatchObject([{ actionId: "a1", name: "propose_program", status: "drafted", detail: "New program: being written" }]);
     const [p] = await proposals();
-    expect(p).toMatchObject({ status: "building", threadId: "th1", ask: { text: `The coach's summary of what to write: ${BRIEF}` } });
-    expect((await messages())[0]).toMatchObject({ role: "assistant", proposalId: p!.proposalId });
+    expect(p).toMatchObject({ status: "building", threadId: "th1", ask: { text: `hello\n\nThe coach's summary of what to write: ${BRIEF}` } });
+    expect((await messages())[1]).toMatchObject({ role: "assistant", proposalId: p!.proposalId });
     await settle(t);
     expect((await proposals())[0]!.status).toBe("ready");
-    // In an ordinary thread the brief is ignored.
+    // In an ordinary thread (screen "chat") it starts a new program the same way.
     await create("th2", {});
-    await t.mutation(internal.jobs.chat.saveReply, { threadId: "th2", text: "Hi.", sources: [], proposeProgram: { brief: BRIEF } });
-    expect(await proposals()).toHaveLength(1);
+    await saveTurn("th2", "u2", undefined, { screen: "chat" });
+    expect(await proposals()).toHaveLength(2);
   });
 
   it("the request text is cut from the start: the newest text stays, the whole is at most 8000 characters", async () => {
@@ -125,7 +133,7 @@ describe("the coach reply in a program thread", () => {
       await c.db.insert("messages", { messageId: "a", threadId: "th1", role: "user", text: `OLDEST ${"o".repeat(7000)}`, fileIds: [], sources: [], createdAt: base });
       await c.db.insert("messages", { messageId: "b", threadId: "th1", role: "user", text: `${"x".repeat(7000)} NEWEST`, fileIds: [], sources: [], createdAt: base + 1 });
     });
-    await t.mutation(internal.jobs.chat.saveReply, { threadId: "th1", text: "On it.", sources: [], proposeProgram: { brief: BRIEF } });
+    await saveTurn("th1", "b");
     const text = (await proposals())[0]!.ask.text!;
     expect(text.length).toBeLessThanOrEqual(8000);
     expect(text.endsWith(`NEWEST\n\nThe coach's summary of what to write: ${BRIEF}`)).toBe(true);
@@ -153,7 +161,7 @@ describe("the coach reply in a program thread", () => {
   });
 
   it("a reply without proposeProgram creates nothing", async () => {
-    stub([JSON.stringify({ text: "Three sets is fine." })]);
+    stub([JSON.stringify({ message: "Three sets is fine." })]);
     await create("th1");
     await send("m1", "are three sets enough?");
     await settle(t);
@@ -168,9 +176,9 @@ describe("the coach reply in a program thread", () => {
     await create("th1");
     await send("m1", "write a program");
     await settle(t);
-    expect(calls.filter((c) => c.job === "chat_program")).toHaveLength(2);
+    expect(calls.filter((c) => c.job === "coach_turn")).toHaveLength(2);
     expect(await proposals()).toHaveLength(0);
-    expect((await messages())[1]).toMatchObject({ text: NOT_CONFIGURED_REPLY });
+    expect((await messages())[1]).toMatchObject({ text: COACH_TURN_FALLBACK });
   });
 
   it("with the AI off the fallback text is stored and no proposal is made", async () => {
@@ -178,7 +186,7 @@ describe("the coach reply in a program thread", () => {
     await send("m1", "write a program");
     await settle(t);
     expect(await proposals()).toHaveLength(0);
-    expect((await messages())[1]).toMatchObject({ text: NOT_CONFIGURED_REPLY });
+    expect((await messages())[1]).toMatchObject({ text: COACH_TURN_FALLBACK });
   });
 
   it("the mock provider proposes when the last message says \"program\", and a voice message works the same way", async () => {
@@ -213,16 +221,88 @@ describe("the coach reply in a program thread", () => {
     expect(calls.find((c) => c.job === "build_program")!.input).toMatchObject({ currentProgram: { title: MOCK_PROGRAM.title } });
   });
 
-  it("an ordinary thread behaves as before: title and extract jobs run, no proposal", async () => {
-    const calls = stubOpenAi((job) => (job === "chat" ? "Fine." : job === "summarise_thread" ? '{"summary":"s"}' : job === "title_thread" ? '{"title":"Bench"}' : '{"goals":[],"context":[]}'));
+  it("an ordinary chat answers with the coach turn only: no program, no title or extract job", async () => {
+    const calls = stub([JSON.stringify({ message: "Fine." })]);
     await create("th1", {});
-    await send("m1", "write me a program");
+    await send("m1", "write me a program", "th1", undefined, { screen: "chat" });
     await settle(t);
     const jobs = calls.map((c) => c.job);
-    expect(jobs).toEqual(expect.arrayContaining(["chat", "title_thread", "extract_from_chat", "summarise_thread"]));
+    expect(jobs).toEqual(expect.arrayContaining(["coach_turn", "summarise_thread"]));
+    expect(jobs).not.toContain("chat");
     expect(jobs).not.toContain("chat_program");
+    expect(jobs).not.toContain("title_thread");
+    expect(jobs).not.toContain("extract_from_chat");
     expect(await proposals()).toHaveLength(0);
     expect((await messages())[1]!.proposalId).toBeUndefined();
+  });
+
+  it("the coach of a program chat reads today, the program in view and the proposal the person sees", async () => {
+    const programId = await existingProgram();
+    const calls = stub([propose("Changing it.", "Make it lighter.")]);
+    await create("th1", { about: { kind: "program", id: programId } });
+    await send("m1", "make the program lighter", "th1", undefined, { screen: "program", programId });
+    await settle(t);
+    await send("m2", "a bit more", "th1", undefined, { screen: "program", programId });
+    await settle(t);
+    const turns = calls.filter((c) => c.job === "coach_turn");
+    expect(turns[0]!.input).toMatchObject({ screen: "program", today: "2026-11-19 (Thursday)", programInView: { programId, title: MOCK_PROGRAM.title } });
+    expect(turns[0]!.input.programYouProposedAndThePersonSees).toBeUndefined();
+    expect(turns[1]!.input).toMatchObject({ programYouProposedAndThePersonSees: { title: MOCK_PROGRAM.title } });
+  });
+});
+
+describe("propose_program rules (ADR-032 write class: a proposal)", () => {
+  it("is drafted, and the program is stored only when the person agrees; a second agree changes nothing", async () => {
+    stub([propose()]);
+    await create("th1");
+    await send("m1", "write me a program");
+    await settle(t);
+    expect(await t.query(api.queries.programs.list, { token: TOKEN })).toHaveLength(0); // nothing is written by the turn
+    const [p] = await proposals();
+    expect((await messages())[1]!.actions).toMatchObject([{ name: "propose_program", status: "drafted" }]);
+    expect(await accept(p!.proposalId)).toEqual({ programId: p!.proposalId });
+    expect(await accept(p!.proposalId)).toEqual({ programId: p!.proposalId }); // no-op
+    const rows = await t.run((c) => c.db.query("programs").collect());
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ rev: 1, status: "active" });
+    expect((await proposals())[0]!.status).toBe("applied");
+  });
+
+  it("a second agree of a change does not change the program again", async () => {
+    const programId = await existingProgram();
+    stub([propose("Changing it.", "Make it lighter.", programId)]);
+    await create("th1", { about: { kind: "program", id: programId } });
+    await send("m1", "lighter please");
+    await settle(t);
+    const p = (await proposals()).find((x) => x.threadId === "th1")!;
+    expect(await accept(p.proposalId)).toEqual({ programId });
+    expect(await accept(p.proposalId)).toEqual({ programId });
+    expect((await t.run((c) => c.db.query("programs").collect()))[0]).toMatchObject({ rev: 2 });
+  });
+
+  it("rejects a program that does not exist, a bad brief and a second proposal in the turn, and writes nothing", async () => {
+    await create("th1");
+    const results = await saveTurn("th1", "u1", [
+      { id: "a1", name: "propose_program", arguments: { brief: BRIEF, programId: "nope" } },
+      { id: "a2", name: "propose_program", arguments: { brief: "" } },
+      { id: "a3", name: "propose_program", arguments: { brief: BRIEF } },
+      { id: "a4", name: "propose_program", arguments: { brief: "Again." } },
+    ]);
+    expect(results).toMatchObject([
+      { actionId: "a1", status: "rejected", reason: "no such program" },
+      { actionId: "a2", status: "rejected", reason: "invalid action" },
+      { actionId: "a3", status: "drafted" },
+      { actionId: "a4", status: "rejected", reason: "one proposal per turn" },
+    ]);
+    expect(await proposals()).toHaveLength(1);
+  });
+
+  it("a repeated turn starts no second proposal", async () => {
+    await create("th1");
+    await saveTurn("th1", "u1");
+    await saveTurn("th1", "u1");
+    expect(await proposals()).toHaveLength(1);
+    expect((await messages()).filter((m) => m.role === "assistant")).toHaveLength(1);
   });
 });
 
@@ -291,7 +371,7 @@ describe("accept, forThread, files, remove", () => {
       const b = JSON.parse(init.body as string);
       bodies.push(b);
       const job = b.messages[0].content.match(/^JOB: (\w+)/m)?.[1];
-      const content = job === "chat_program" ? propose() : job === "build_program" ? JSON.stringify(MOCK_PROGRAM) : '{"summary":"s"}';
+      const content = job === "coach_turn" ? propose() : job === "build_program" ? JSON.stringify(MOCK_PROGRAM) : '{"summary":"s"}';
       return new Response(JSON.stringify({ choices: [{ message: { content } }] }), { status: 200 });
     });
     await create("th1");

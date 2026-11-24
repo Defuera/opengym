@@ -226,7 +226,8 @@ describe("commands/proposals:accept, decline and the open list", () => {
     expect(p!.tests.map((x) => x.text)).toEqual(["Squat 10 reps", "One-leg hop"]);
     expect(new Set(p!.tests.map((x) => x.testId)).size).toBe(2);
     expect(await prop("p1")).toMatchObject({ status: "applied", decidedAt: expect.any(Number) });
-    await expect(accept("p1")).rejects.toThrow(/not ready/);
+    expect(await accept("p1")).toEqual({ programId: "p1" }); // a second agree is a no-op
+    expect(await programs()).toHaveLength(1);
     await settle(t);
   });
 

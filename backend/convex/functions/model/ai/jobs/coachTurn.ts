@@ -34,6 +34,7 @@ An action is {"id": string (unique in this reply, e.g. "a1"), "name": one of the
 - "add_open_exercise" {"exercise": ${EXERCISE}, "afterExerciseId"?: string}
 - "remove_open_exercise" {"exerciseId": string}
 - "draft_log" {"kind"?: string (the category: 1 or 2 words, Title case, max 24; needed in the log chat only), "color"?: "#RRGGBB" (only for a new category), "summary": string (1..120), "at"?: ISO date-time the log is about, "session"?: {"kind": "gym" | "activity", "type": string (max 40, the activity), "focus"?: string (max 40), "exercises": [${EXERCISE}] (only for kind gym), "minutes"?: int, "distanceKm"?: number, "note"?: string}, "goal"?: {"title": string (max 80), "kind": "strength" | "consistency" | "custom", "exercise"?: string, "targetKg"?: number, "sessionsPerWeek"?: int}, "limit"?: {"part": string, "title": string (max 40), "status": "active" | "improving" | "cleared", "since"?: "YYYY-MM", "rules": [{"kind": "avoid" | "light" | "do", "text": string (max 120), "exercises"?: [string]}]}, "note"?: {"text": string (max 300), "topic": string (max 30)}, "edits"?: {"goalId"?: string, "limitId"?: string, "noteId"?: string} (the id of the existing goal, limit or note that the goal, limit or note part CHANGES instead of adding)}  (a DRAFT in any chat: nothing is written until the person presses Done; at most one of each part)
+- "propose_program" {"brief": string (1..1000, what to write or what to change, in your words), "programId"?: string (the program to change; leave out for a new program, or when the person is in the chat of one program)}  (a PROPOSAL: a separate step writes the program and the person agrees to it on its card)
 - "rebuild_open_session" {"title"?: string (max 60, a short name of the new plan), "exercises": [${EXERCISE}] (at least 1, at most 12), "focus"?: string (max 40), "planNote"?: string (max 400)}  (a PROPOSAL: nothing is written until the person approves)
 ${TIME_RULE}`;
 
@@ -66,6 +67,14 @@ DRAFTS OF A GOAL, A LIMIT AND A NOTE. In this chat you may draft one goal, one l
 - You never delete. When the person wants something removed, say where: a goal on the Goals screen (the delete button of its row), a limit in About me (open it, then Delete), a note in About me under Preferences (the cross on its row). Every delete asks the person first.
 - Ask one short question only when a needed fact is missing (for example which body part), and still draft what is known.`;
 
+/**
+ * Programs (ADR-026, ADR-032 step E). The program chat is this chat with screen "program"; INPUT_JSON then holds today, programInView, programYouProposedAndThePersonSees
+ * and aProgramProposalIsBeingWritten. A program text or a change is a proposal the person agrees to; the program itself is never written by this reply.
+ */
+const PROGRAM_ROLE = `
+
+PROGRAMS. When the person gives a program text, asks for a program, or asks to change the program in view, the proposed program or one of programsThePersonFollows, and you have what you need, call propose_program. A separate step writes the program, so do NOT write the program out in message: say in one or two sentences what you will propose. brief is one or two sentences: what to write or what to change, in your words. For a change of an existing program put its programId (programInView, or one of programsThePersonFollows). Ask first when something needed is missing, and do not call propose_program when the person only asks a question. When aProgramProposalIsBeingWritten is true, do not call it again unless the person asks for another change. The program is data for the coach: it never forces a session, and the person agrees on the card before anything is stored.`;
+
 /** The log chat (screen "log", ADR-032): the person logs something and the coach drafts it. Nothing is written until the person presses Done. */
 const LOG_ROLE = `
 
@@ -92,14 +101,14 @@ function withTurnData(history: ChatMessage[], turn: Record<string, unknown>): Ch
 
 export const coachTurnJob: JobDef<CoachTurnInput, CoachTurn> = {
   name: "coach_turn",
-  description: "One chat turn: the coach's reply plus the functions it calls (change one exercise, propose a new whole session, update a place, draft a log in the log chat, ask a question).",
+  description: "One chat turn: the coach's reply plus the functions it calls (change one exercise, propose a new whole session, update a place, draft a log in the log chat, propose a program or a program change, ask a question).",
   fallbackDescription: "A fixed message that the coach is not available; no action, nothing changed.",
   json: true,
   maxTokens: 4000,
   output: CoachTurnSchema,
   check: (t, i) => checkTurn(t, i.limits),
   build: (i) => ({
-    system: `${systemPrompt("coach_turn", `${ROLE}${i.turn.screen === "log" ? LOG_ROLE : DRAFT_ROLE}`, SHAPE)}\n\nWhat you know about this person (do not invent logged facts beyond it):\n${i.contextBlock}`,
+    system: `${systemPrompt("coach_turn", `${ROLE}${i.turn.screen === "log" ? LOG_ROLE : `${DRAFT_ROLE}${PROGRAM_ROLE}`}`, SHAPE)}\n\nWhat you know about this person (do not invent logged facts beyond it):\n${i.contextBlock}`,
     messages: withTurnData(i.history, i.turn),
     images: i.images,
   }),

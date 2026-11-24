@@ -3,7 +3,7 @@ import type { Doc } from "../_generated/dataModel";
 import type { DatabaseReader, MutationCtx } from "../_generated/server";
 import { PROPOSAL_FEEDBACK_KEEP, PROPOSAL_TEXT_MAX } from "./constants";
 import { fileByFileId, type FileDoc } from "./files";
-import { programByProgramId } from "./programsDb";
+import { programByProgramId, programValueOf } from "./programsDb";
 import { localDate } from "../model/program";
 import { approvalFor } from "../model/proposalPolicy";
 
@@ -29,13 +29,13 @@ export async function requestText(ctx: { db: DatabaseReader }, threadId: string,
 }
 
 /**
- * The coach said "write the program now" in a thread about a program (ADR-026). In the caller's mutation: the thread's `building` and
+ * The coach called propose_program in a chat (ADR-026, ADR-032 step E). `programIdOverride` is the program it changes (else the thread's program, else a new one). In the caller's mutation: the thread's `building` and
  * `ready` proposals become `declined`; a new `building` proposal is inserted, linked to the thread and to the assistant message (which gets
  * its `proposalId`); jobs/programs:build is scheduled. The new proposal carries the newest `ready` proposal as `previousProposalId` and
  * the feedback rounds so far, so the build knows what the person saw. Does nothing when the thread's program is gone. Returns the proposalId.
  */
-export async function startProgramProposal(ctx: MutationCtx, thread: Doc<"threads">, messageDocId: Doc<"messages">["_id"], messageId: string, brief: string, now: number): Promise<string | null> {
-  const programId = thread.about?.id;
+export async function startProgramProposal(ctx: MutationCtx, thread: Doc<"threads">, messageDocId: Doc<"messages">["_id"], messageId: string, brief: string, now: number, programIdOverride?: string): Promise<string | null> {
+  const programId = programIdOverride ?? thread.about?.id;
   const program = programId !== undefined ? await programByProgramId(ctx, programId) : null;
   if (programId !== undefined && !program) return null;
   const mine = await ctx.db.query("proposals").withIndex("by_threadId", (q) => q.eq("threadId", thread.threadId)).collect();
@@ -74,4 +74,20 @@ export async function threadUserFiles(ctx: { db: DatabaseReader }, threadId: str
     if (f && f.kind !== "audio") out.push({ fileId: f.fileId, storageId: f.storageId, name: f.name, mime: f.mime, size: f.size, kind: f.kind, createdAt: f.createdAt });
   }
   return out.reverse();
+}
+
+/**
+ * What the coach of the program chat knows besides the chat context (ADR-032, step E): today, the program in view, the program it proposed that the person
+ * looks at now (the newest `ready` proposal of the thread) and whether one is being written. Plain reads, no records (ADR-015).
+ */
+export async function programTurnState(ctx: { db: DatabaseReader }, threadId: string, programId: string | undefined, now: number) {
+  const program = programId !== undefined ? await programByProgramId(ctx, programId) : null;
+  const mine = await ctx.db.query("proposals").withIndex("by_threadId", (q) => q.eq("threadId", threadId)).collect();
+  const open = mine.filter((p) => p.status === "ready" && p.value).sort((a, b) => b.createdAt - a.createdAt)[0];
+  return {
+    today: todayLabel(now),
+    ...(program ? { programInView: { programId: program.programId, ...programValueOf(program) } } : {}),
+    ...(open?.value ? { programYouProposedAndThePersonSees: open.value } : {}),
+    ...(mine.some((p) => p.status === "building") ? { aProgramProposalIsBeingWritten: true } : {}),
+  };
 }

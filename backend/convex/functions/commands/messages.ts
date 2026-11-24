@@ -8,23 +8,18 @@ import { parseOrThrow } from "../lib/validate";
 import { MessageInputSchema } from "../model/schema";
 import { MAX_VOICE_BYTES } from "../model/voice";
 import { titleFromMessage } from "../model/threadTitle";
-import { COACH_TURN_SCREENS, messageContext } from "../lib/messageFields";
+import { messageContext } from "../lib/messageFields";
 import { applyLogDraft } from "../lib/logDraftDb";
 import { applyProposal } from "../lib/proposalDb";
 import { truncate } from "../model/rules/util";
 
 const CONTEXT_ID_MAX = 100;
 
-/** True for a message sent from a screen the coach turn answers (COACH_TURN_SCREENS, ADR-032). */
-const isCoachTurn = (context: { screen?: string } | undefined) => !!context?.screen && COACH_TURN_SCREENS.has(context.screen);
-/** The job that answers a message: the coach turn (also for an answer to a question of the coach), else the chat reply. */
-const replyJob = (context: { screen?: string } | undefined, answered = false) => (isCoachTurn(context) || answered ? internal.jobs.coachTurn.run : internal.jobs.chat.reply);
-
 /**
  * Store the user's message at once and start the coach reply in the background.
  * The answer is NOT returned: the app subscribes to queries/messages:list and queries/threads:list
  * (the thread status is `thinking` until the reply is stored). Resending the same messageId changes nothing, except after a failed reply, where it runs the coach again.
- * `context` (optional, ADR-032) says what was open when the person sent it; it is stored on the message. From the screen "chat", "log", "session", "exercise", "goal", "limit" or "note" the coach turn with functions answers (jobs/coachTurn:run); a message with no screen, or from "program" or "start", keeps the chat reply.
+ * `context` (optional, ADR-032) says what was open when the person sent it; it is stored on the message. Every message is answered by the coach turn with functions (jobs/coachTurn:run); a message with no screen, or from "start", counts as "chat".
  * `answer` (optional, ADR-032) says the message is a tap on a quick answer of the coach: `turnId` is the `turnId` of the assistant message
  * that asked and `id` the answer. "approve" on a message that holds a whole-session proposal applies it in plain code, with NO AI call, and
  * stores a short fixed reply; on a log draft of the log chat ("Done") it writes the entry and the rows of the draft the same way (lib/logDraftDb.ts)
@@ -52,7 +47,7 @@ export const send = mutation({
       const answered = stored.role !== "user" || (await ctx.db.query("messages").withIndex("by_threadId", (q) => q.eq("threadId", threadId).gt("_creationTime", stored._creationTime)).filter((q) => q.eq(q.field("role"), "assistant")).first());
       if (thread.status === "failed" && !answered) {
         await ctx.db.patch(thread._id, { status: "thinking", error: undefined, pending: thread.pending + 1, updatedAt: now });
-        await ctx.scheduler.runAfter(0, replyJob(stored.context), { threadId, messageId });
+        await ctx.scheduler.runAfter(0, internal.jobs.coachTurn.run, { threadId, messageId });
       }
       return messageId;
     }
@@ -82,10 +77,7 @@ export const send = mutation({
     await ctx.db.insert("messages", { messageId, threadId, role: "user", text: valid.text, fileIds: valid.fileIds ?? [], sources: [], ...(context ? { context } : {}), ...(answer ? { answer } : {}), createdAt: now });
     const session = first && context?.openSessionId !== undefined && thread.openSessionId === undefined ? { openSessionId: context.openSessionId } : {};
     await ctx.db.patch(thread._id, { ...title, ...session, status: "thinking", error: undefined, pending: thread.pending + 1, updatedAt: now });
-    await ctx.scheduler.runAfter(0, replyJob(context, !!answer), { threadId, messageId });
-    // A thread about a place (ADR-021): the background job may learn from what the user says. It never blocks the reply.
-    // The coach turn updates places itself (update_place), so the background job does not run for it.
-    if (thread.placeId !== undefined && !isCoachTurn(context) && !answer) await ctx.scheduler.runAfter(0, internal.jobs.places.learn, { placeId: thread.placeId, source: "chat", sentence: valid.text, ...(valid.fileIds?.length ? { fileIds: valid.fileIds } : {}) });
+    await ctx.scheduler.runAfter(0, internal.jobs.coachTurn.run, { threadId, messageId });
     return messageId;
   },
 });

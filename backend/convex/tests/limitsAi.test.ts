@@ -136,12 +136,12 @@ describe("hard check on avoid rules (stubbed network)", () => {
   });
 
   it("the chat coach reads the limits, not the record", async () => {
-    const bodies = stub((job) => (job === "chat" ? "ok" : "{}"));
+    const bodies = stub((job) => (job === "coach_turn" ? '{"message":"ok"}' : "{}"));
     await setupData();
     await t.mutation(api.commands.threads.create, { token: TOKEN, threadId: "th", title: "T" });
     await t.mutation(api.commands.messages.send, { token: TOKEN, threadId: "th", messageId: "m1", text: "What next?" });
     await settle(t);
-    const chat = bodies.filter((b) => b.job === "chat");
+    const chat = bodies.filter((b) => b.job === "coach_turn");
     expect(chat).toHaveLength(1);
     expect(chat[0]!.text).toContain("No deep squats");
     for (const b of bodies) expect(b.text, b.job).not.toContain(MARKER);

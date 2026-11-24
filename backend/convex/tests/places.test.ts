@@ -144,17 +144,13 @@ describe("a chat thread about a place", () => {
     await expect(create("th3", "x".repeat(101))).rejects.toThrow(/placeId/);
   });
 
-  it("the coach input of the thread has the place; the prompt names the place and its note", async () => {
+  it("the coach turn of the thread reads the place in view and every place with its note", async () => {
     await savePlace("p-home", "Home", "A pair of 10 kg dumbbells");
     await create("th1", "p-home");
     await t.mutation(api.commands.messages.send, { token: TOKEN, threadId: "th1", messageId: "m1", text: "I also have a pull-up bar" });
-    const input = await t.query(internal.jobs.chat.input, { threadId: "th1", messageId: "m1" });
-    expect(input!.place).toEqual({ name: "Home", equipment: "A pair of 10 kg dumbbells" });
-    const p = chatJob.build({ contextBlock: "CTX", history: [{ role: "user", content: "hi" }], place: input!.place! });
-    expect(p.system).toContain('about the place "Home"');
-    expect(p.system).toContain("A pair of 10 kg dumbbells");
-    expect(chatJob.build({ contextBlock: "CTX", history: [{ role: "user", content: "hi" }] }).system).not.toContain("the place");
-    expect(chatJob.build({ contextBlock: "CTX", history: [{ role: "user", content: "hi" }], place: { name: "Hotel", equipment: "" } }).system).toContain("nothing yet");
+    const input = await t.query(internal.jobs.coachTurn.input, { threadId: "th1", messageId: "m1" });
+    expect(input!.turn).toMatchObject({ placeInView: { placeId: "p-home", name: "Home" } });
+    expect(input!.turn.places).toContainEqual({ placeId: "p-home", name: "Home", equipment: "A pair of 10 kg dumbbells", knowledge: "partial" });
   });
 
   it("a thread without a place, or with a place that is gone, gives the coach no place", async () => {
@@ -162,38 +158,32 @@ describe("a chat thread about a place", () => {
     await create("th2", "gone");
     await t.mutation(api.commands.messages.send, { token: TOKEN, threadId: "th1", messageId: "m1", text: "hello" });
     await t.mutation(api.commands.messages.send, { token: TOKEN, threadId: "th2", messageId: "m2", text: "hello" });
-    expect((await t.query(internal.jobs.chat.input, { threadId: "th1", messageId: "m1" }))!.place).toBeNull();
-    expect((await t.query(internal.jobs.chat.input, { threadId: "th2", messageId: "m2" }))!.place).toBeNull();
+    expect((await t.query(internal.jobs.coachTurn.input, { threadId: "th1", messageId: "m1" }))!.turn.placeInView).toBeUndefined();
+    expect((await t.query(internal.jobs.coachTurn.input, { threadId: "th2", messageId: "m2" }))!.turn.placeInView).toBeUndefined();
   });
 
-  it("a user message in the thread schedules learn_place (source chat); a thread with no place does not", async () => {
+  it("a message in a place thread runs no learn_place job: the coach turn updates the place itself, with the person's words as evidence", async () => {
     await savePlace("p-home", "Home");
     await create("th1", "p-home");
-    await create("th2");
-    const calls = stubOpenAi((job) => (job === "learn_place" ? JSON.stringify({ changed: true, equipment: "Pull-up bar, dumbbells" }) : job === "chat" ? "ok" : "{}"));
-    await t.mutation(api.commands.messages.send, { token: TOKEN, threadId: "th2", messageId: "m0", text: "I have a rack" });
-    await settle(t);
-    expect(calls.filter((c) => c.job === "learn_place")).toHaveLength(0);
+    const calls = stubOpenAi((job) => (job === "coach_turn" ? JSON.stringify({ message: "Noted the bar.", actions: [{ id: "a1", name: "update_place", arguments: { placeId: "p-home", add: "Pull-up bar", evidence: "person_said" } }] }) : "{}"));
     await t.mutation(api.commands.messages.send, { token: TOKEN, threadId: "th1", messageId: "m1", text: "x".repeat(400) });
     await settle(t);
-    const learn = calls.filter((c) => c.job === "learn_place");
-    expect(learn).toHaveLength(1);
-    expect(learn[0]!.input).toMatchObject({ place: { name: "Home", equipment: "" }, otherPlaces: [] });
-    expect((await list())[0]).toMatchObject({ text: "Pull-up bar, dumbbells" });
+    expect(calls.filter((c) => c.job === "learn_place")).toHaveLength(0);
+    expect((await list())[0]).toMatchObject({ text: "Pull-up bar" });
     const log = await changes();
-    expect(log).toMatchObject([{ placeId: "p-home", source: "chat", before: "", after: "Pull-up bar, dumbbells" }]);
+    expect(log).toMatchObject([{ placeId: "p-home", source: "chat", evidence: "person_said", before: "", after: "Pull-up bar" }]);
     expect(log[0]!.quote).toBe("x".repeat(300));
   });
 
-  it("with the mock provider a sentence about equipment is learned and any other sentence changes nothing", async () => {
+  it("with the mock provider a sentence that names equipment updates the place and any other sentence changes nothing", async () => {
     vi.stubEnv("AI_PROVIDER", "mock");
     await savePlace("p-home", "Home", "Two dumbbells");
     await create("th1", "p-home");
     await t.mutation(api.commands.messages.send, { token: TOKEN, threadId: "th1", messageId: "m1", text: "How are you today?" });
     await settle(t);
     expect((await list())[0]!.text).toBe("Two dumbbells");
-    await t.mutation(api.commands.messages.send, { token: TOKEN, threadId: "th1", messageId: "m2", text: "There is a pull-up bar in the door" });
+    await t.mutation(api.commands.messages.send, { token: TOKEN, threadId: "th1", messageId: "m2", text: "I have a rack here" });
     await settle(t);
-    expect((await list())[0]!.text).toBe("Two dumbbells. There is a pull-up bar in the door");
+    expect((await list())[0]!.text).toBe("Two dumbbells\nRack");
   });
 });

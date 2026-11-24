@@ -1,13 +1,14 @@
 import type { MutationCtx } from "../_generated/server";
 import type { Doc } from "../_generated/dataModel";
-import { allSessions, messageByMessageId } from "./db";
+import { allSessions, messageByMessageId, threadByThreadId } from "./db";
+import { programByProgramId } from "./programsDb";
 import { activeLimits } from "./limitsDb";
 import { fileByFileId } from "./files";
 import { PLACE_QUOTE_MAX, PLACE_TEXT_MAX } from "./placeFields";
 import { placeByPlaceId, setPlaceText } from "./placesDb";
 import { requestExerciseArt } from "./exerciseArtDb";
 import { buildLogDraft } from "./logDraftDb";
-import { addDetail, placeDetail, proposeDetail, removeDetail, replaceDetail } from "../model/actionDetail";
+import { addDetail, placeDetail, programDetail, proposeDetail, removeDetail, replaceDetail } from "../model/actionDetail";
 import { type ActionResult, type CoachAction, CoachActionSchema, editPlaceText, toPlanned } from "../model/coachTools";
 import { type OneChange, type OpenExercise, addOne, removeOne, replaceOne } from "../model/openSession";
 import { logDetail, type StoredLogDraft } from "../model/logDraft";
@@ -53,7 +54,7 @@ async function evidenceProblem(ctx: Ctx, trigger: Doc<"messages"> | null, eviden
  * written once, with `rev + 1` and `updatedBy: "coach"`. A rebuild writes nothing: it is checked the same way and returned as a
  * proposal (status "drafted"), one per turn, for the message to hold until the person approves (lib/proposalDb.ts).
  */
-export async function executeActions(ctx: Ctx, base: TurnBase, actions: unknown[]): Promise<{ results: ActionResult[]; proposal?: StoredProposal | StoredLogDraft }> {
+export async function executeActions(ctx: Ctx, base: TurnBase, actions: unknown[]): Promise<{ results: ActionResult[]; proposal?: StoredProposal | StoredLogDraft; program?: { brief: string; programId?: string } }> {
   const results: ActionResult[] = [];
   const row = await ctx.db.query("openSession").first();
   const problem = sessionProblem(row, base);
@@ -72,6 +73,7 @@ export async function executeActions(ctx: Ctx, base: TurnBase, actions: unknown[
   const newId = () => `${stamp}c${(n++).toString(36)}`;
   const art: string[] = [];
   let proposal: StoredProposal | StoredLogDraft | undefined;
+  let program: { brief: string; programId?: string } | undefined;
 
   for (const raw of actions) {
     const rawObj = (raw ?? {}) as { id?: unknown; name?: unknown };
@@ -133,7 +135,7 @@ export async function executeActions(ctx: Ctx, base: TurnBase, actions: unknown[
         break;
       }
       case "draft_log": {
-        if (proposal) {
+        if (proposal || program) {
           reject("one proposal per turn");
           continue;
         }
@@ -150,13 +152,32 @@ export async function executeActions(ctx: Ctx, base: TurnBase, actions: unknown[
         results.push({ actionId: a.id, name: a.name, status: "drafted", detail: logDetail(made.draft, made.dropped) });
         continue;
       }
+      case "propose_program": {
+        if (proposal || program) {
+          reject("one proposal per turn");
+          continue;
+        }
+        if (!trigger || trigger.role !== "user") {
+          reject("no message of the person in this turn");
+          continue;
+        }
+        const thread = await threadByThreadId(ctx, trigger.threadId);
+        const target = a.arguments.programId ?? trigger.context?.programId ?? thread?.about?.id;
+        if (target !== undefined && !(await programByProgramId(ctx, target))) {
+          reject("no such program");
+          continue;
+        }
+        program = { brief: a.arguments.brief, ...(target !== undefined ? { programId: target } : {}) };
+        results.push({ actionId: a.id, name: a.name, status: "drafted", detail: programDetail(target !== undefined) });
+        continue;
+      }
       case "rebuild_open_session": {
         const list = await safe(a.arguments.exercises);
         if (list.length === 0) {
           reject("no exercise is left after the limits");
           continue;
         }
-        if (proposal) {
+        if (proposal || program) {
           reject("one proposal per turn");
           continue;
         }
@@ -185,5 +206,5 @@ export async function executeActions(ctx: Ctx, base: TurnBase, actions: unknown[
 
   if (changed && row) await ctx.db.patch(row._id, { exercises, rev: row.rev + 1, updatedAt: Date.now(), updatedBy: "coach" });
   if (art.length > 0) await requestExerciseArt(ctx, [...new Set(art)].filter((x) => x.length > 0).slice(0, 12));
-  return { results, ...(proposal ? { proposal } : {}) };
+  return { results, ...(proposal ? { proposal } : {}), ...(program ? { program } : {}) };
 }

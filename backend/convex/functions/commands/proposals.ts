@@ -90,7 +90,7 @@ export const request = mutation({
  * and tests with fresh ids. A change needs the program to exist with `rev === base`; else this throws "The program changed. Ask again."
  * (a thrown mutation keeps no write, so the row stays `ready`; queries/proposals reports it as `stale`, see lib/programsDb isStale) The change replaces the value and keeps programId, status, createdAt and the done day of a test
  * whose text did not change; rev + 1. When the proposal came from a chat thread (`threadId`) whose `about.id` is not set, the thread is now about the
- * program (`about.id`) and an automatic title becomes the program title. Returns { programId }.
+ * program (`about.id`) and an automatic title becomes the program title. A proposal that is `applied` already is not applied again: it returns the same { programId }. Returns { programId }.
  */
 export const accept = mutation({
   args: { token: v.string(), proposalId: v.string() },
@@ -98,6 +98,8 @@ export const accept = mutation({
     requireToken(token);
     const p = await proposalByProposalId(ctx, proposalId);
     if (!p) throw new ConvexError("proposal not found");
+    // A second agree changes nothing and gives the same program (ADR-032: approve is done once).
+    if (p.status === "applied") return { programId: p.target.id ?? p.proposalId };
     if (p.status !== "ready" || !p.value) throw new ConvexError("This proposal is not ready.");
     const bad = checkProgramValue(p.value, await activeLimits(ctx));
     if (bad) throw new ConvexError(bad);

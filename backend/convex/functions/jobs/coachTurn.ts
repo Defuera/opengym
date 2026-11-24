@@ -3,6 +3,7 @@ import type { QueryCtx } from "../_generated/server";
 import { internal } from "../_generated/api";
 import { internalAction, internalMutation, internalQuery } from "../_generated/server";
 import { providerFor, runAiJob } from "../lib/ai";
+import { programTurnState, startProgramProposal } from "../lib/programChatDb";
 import { allContext, allGoals, allSessions, entryByEntryId, messageByMessageId, threadByThreadId } from "../lib/db";
 import { toLimit } from "../lib/limitsDb";
 import { readChatInput } from "../lib/chatInputDb";
@@ -55,7 +56,12 @@ export const input = internalQuery({
     const hint = trigger.context ?? {};
     const row = await ctx.db.query("openSession").first();
     const places = await allPlaces(ctx);
-    const screen = turnScreen({ screen: hint.screen, row, exerciseId: hint.exerciseId, places, placeId: hint.placeId });
+    const thread = await threadByThreadId(ctx, threadId);
+    // A thread about a program is the program chat whatever the message says (a voice message carries no context).
+    const aboutProgram = thread?.about?.kind === "program";
+    const screen = turnScreen({ screen: aboutProgram ? "program" : hint.screen, row, exerciseId: hint.exerciseId, places, placeId: hint.placeId ?? thread?.placeId });
+    const programId = hint.programId ?? thread?.about?.id;
+    const program = screen.screen === "program" ? await programTurnState(ctx, threadId, programId, Date.now()) : null;
     const entry = hint.entryId ? await entryByEntryId(ctx, hint.entryId) : null;
     const programs = programsForCoach(await liveProgramDocs(ctx), await allSessions(ctx), localDate(Date.now()));
     const isLog = hint.screen === "log";
@@ -64,6 +70,7 @@ export const input = internalQuery({
     const turn = {
       ...screen,
       ...editables,
+      ...(program ?? {}),
       ...(log ? { today: dayWithWeekday(Date.now()), now: new Date().toISOString(), ...(log.draft ? { currentLogDraft: log.draft } : {}), ...(log.categories.length > 0 ? { categoriesInUse: log.categories } : {}) } : {}),
       ...(entry ? { entryInView: { entryId: entry.entryId, text: entry.text, at: new Date(entry.at).toISOString(), files: entry.fileIds.length } } : {}),
       ...(programs.length > 0 ? { programsThePersonFollows: programs } : {}),
@@ -123,7 +130,10 @@ export const save = internalMutation({
     }
     // A proposal always carries its two fixed answers; the model's own answers are dropped (ADR-032).
     const asked = proposal ? (proposal.type === "log" ? logQuestion(questionText) : proposalQuestion(questionText)) : question;
-    await ctx.db.insert("messages", { messageId: crypto.randomUUID(), threadId, role: "assistant", text: message, fileIds: [], sources, turnId, actions: results, ...(asked ? { question: asked } : {}), ...(proposal ? { proposal } : {}), createdAt: now });
+    const messageId = crypto.randomUUID();
+    const messageDocId = await ctx.db.insert("messages", { messageId, threadId, role: "assistant", text: message, fileIds: [], sources, turnId, actions: results, ...(asked ? { question: asked } : {}), ...(proposal ? { proposal } : {}), createdAt: now });
+    // propose_program: the proposal is started with this message (the program card shows under it); the job build_program writes it (ADR-026).
+    if (made.program) await startProgramProposal(ctx, thread, messageDocId, messageId, made.program.brief, now, made.program.programId);
     await ctx.db.patch(thread._id, { pending, status: pending > 0 ? "thinking" : "idle", error: undefined, updatedAt: now, lastMessage: truncate(message, 200) });
     return results;
   },

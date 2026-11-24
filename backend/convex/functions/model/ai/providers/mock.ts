@@ -182,9 +182,10 @@ export class MockProvider implements AiProvider {
         // Mock: "I have a <thing>" adds the thing to the session's place and swaps the exercise in view for one that uses it. Else a plain answer.
         const text = String([...req.messages].reverse().find((m) => m.role === "user")?.content ?? "").split("\n\nINPUT_JSON:")[0]!;
         if (d.screen === "log") return mockLogTurn(text, d, (req.images?.length ?? 0) > 0);
+        if (d.screen === "program") return JSON.stringify(/\bprogram\b/i.test(text) ? { message: "Mock coach: I will write that program for you now.", actions: [{ id: "a1", name: "propose_program", arguments: { brief: "Write the program the person asked for." } }] } : { message: "Mock coach: noted. Tell me when you want a program.", actions: [] });
         if (d.screen === "goal") return JSON.stringify({ message: "Mock coach: here is the goal.", actions: [{ id: "a1", name: "draft_log", arguments: { summary: text.slice(0, 120), goal: goalFromText(text) } }] });
         const thing = text.match(/\bI (?:do )?have an? ([a-z][a-z ]{1,40}?)(?:[.,!]|$| at | here)/i)?.[1]?.trim();
-        const place = d.sessionPlace as Data | undefined;
+        const place = (d.sessionPlace ?? d.placeInView) as Data | undefined;
         const current = (d.openSession?.exercises ?? []).find((e: Data) => e.id === d.currentExercise?.id && !e.personsWork);
         if (!thing || !place) return JSON.stringify({ message: "Mock coach: noted.", actions: [] });
         const name = thing.charAt(0).toUpperCase() + thing.slice(1);

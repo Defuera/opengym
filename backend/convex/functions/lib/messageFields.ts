@@ -3,11 +3,7 @@ import { planExercise } from "./validators";
 
 /** The screens a chat message can be sent from (ADR-032). */
 export const CONTEXT_SCREENS = ["chat", "log", "session", "exercise", "goal", "limit", "note", "program", "start"] as const;
-/**
- * Screens whose messages run the coach turn with functions (ADR-032): the general chat, the log chat, the session, an exercise, and the goal, limit and note chats (step D).
- * A send with no screen, from "program" or from "start" keeps the old reply until those screens move (ADR-032, proposed next steps).
- */
-export const COACH_TURN_SCREENS = new Set<string>(["chat", "log", "session", "exercise", "goal", "limit", "note"]);
+/** Every message runs the coach turn with functions (ADR-032, step E). A message with no screen, or from "start", is treated as "chat". */
 
 /**
  * What was open when the person sent a message (ADR-032). A hint from the app, never permission: the server reads the real

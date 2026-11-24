@@ -214,7 +214,7 @@ describe("question, context and the old path", () => {
     expect((await open()).rev).toBe(1);
   });
 
-  it("a send without context, or from the start or program screen, keeps the old chat reply", async () => {
+  it("a send without context, or from the start screen, is a chat turn: the coach turn answers and no old reply runs", async () => {
     vi.stubEnv("AI_PROVIDER", "mock");
     await world();
     await send("m1", "hello");
@@ -223,11 +223,13 @@ describe("question, context and the old path", () => {
     const as = (await messages()).filter((m) => m.role === "assistant");
     expect(as).toHaveLength(2);
     for (const a of as) {
-      expect(a.text).toMatch(/^Mock coach: noted\. Keep/);
-      expect(a.turnId).toBeUndefined();
-      expect(a.actions).toBeUndefined();
+      expect(a.text).toBe("Mock coach: noted.");
+      expect(a.actions).toEqual([]);
     }
-    expect(await t.run((c) => c.db.query("aiCalls").withIndex("by_job", (q) => q.eq("job", "coach_turn")).collect())).toHaveLength(0);
+    expect(as.map((a) => a.turnId)).toEqual(["m1", "m2"]);
+    const calls = await t.run((c) => c.db.query("aiCalls").withIndex("by_job", (q) => q.eq("job", "coach_turn")).collect());
+    expect(calls).toHaveLength(2);
+    expect(await t.run((c) => c.db.query("aiCalls").withIndex("by_job", (q) => q.eq("job", "chat")).collect())).toHaveLength(0);
   });
 
   it("rejects a context id that is too long", async () => {

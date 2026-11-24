@@ -29,6 +29,7 @@ export function replaceDetail(before: OpenExercise, after: PlanExercise): string
 
 export const addDetail = (e: PlanExercise): string => cut(`Added: ${e.name.trim()}${formatSets(e) ? `, ${formatSets(e)}` : ""}`);
 export const removeDetail = (e: OpenExercise): string => cut(`Removed: ${e.name}`);
+export const programDetail = (change: boolean): string => (change ? "Program change: being written" : "New program: being written");
 export const proposeDetail = (n: number): string => `Proposed: ${n} exercise${n === 1 ? "" : "s"}`;
 
 /** "Gym: added balance board", "Gym: removed second bike", or both. */

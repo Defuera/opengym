@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api, internal } from "../functions/_generated/api";
-import { NOT_CONFIGURED_REPLY } from "../functions/model/ai/jobs/chat";
-import { CHAT_HISTORY_MESSAGES } from "../functions/jobs/chat";
+import { COACH_TURN_FALLBACK } from "../functions/model/ai/jobs/coachTurn";
+import { CHAT_HISTORY_MESSAGES } from "../functions/model/chatInput";
 import { TOKEN, setup, settle, type T } from "./helpers";
 
 let t: T;
@@ -23,7 +23,7 @@ const threads = () => t.query(api.queries.threads.list, { token: TOKEN });
 const messages = (threadId = "th1") => t.query(api.queries.messages.list, { token: TOKEN, threadId });
 
 describe("chat round trip (mock provider)", () => {
-  it("stores the user message at once, then the answer, proposals and summary arrive", async () => {
+  it("stores the user message at once, then the answer and the summary arrive", async () => {
     vi.stubEnv("AI_PROVIDER", "mock");
     await create();
     expect((await threads())[0]).toMatchObject({ threadId: "th1", status: "idle", summary: "" });
@@ -43,18 +43,17 @@ describe("chat round trip (mock provider)", () => {
     expect(th.error).toBeUndefined();
     expect(th.summary).toMatch(/^Mock summary: I want to bench/);
 
-    // Proposals: tagged as AI, with the thread. Never sessions.
-    const goals = await t.query(api.queries.goals.list, { token: TOKEN });
-    expect(goals).toMatchObject([{ title: "Bench press 80 kg", kind: "strength", targetKg: 80, status: "active", source: "ai", threadId: "th1" }]);
-    const ctxItems = await t.query(api.queries.context.list, { token: TOKEN });
-    expect(ctxItems).toMatchObject([{ topic: "wrist", active: true, source: "ai", threadId: "th1" }]);
+    // Nothing is written silently from a chat (ADR-032): no goal, no note, no session.
+    expect(await t.query(api.queries.goals.list, { token: TOKEN })).toHaveLength(0);
+    expect(await t.query(api.queries.context.list, { token: TOKEN })).toHaveLength(0);
     expect(await t.run((c) => c.db.query("sessions").collect())).toHaveLength(0);
-    expect(await t.run((c) => c.db.query("rebuilds").first())).toMatchObject({ runs: 1 }); // new facts -> one rebuild
   });
 
-  it("the second message reads the goal, context and other threads' summaries and does not repeat proposals", async () => {
+  it("the second thread reads the goal, the notes and the other thread's summary", async () => {
     vi.stubEnv("AI_PROVIDER", "mock");
     await create();
+    await t.mutation(api.commands.goals.create, { token: TOKEN, goalId: "g1", title: "Bench press 80 kg", kind: "strength", exercise: "Bench press", targetKg: 80 });
+    await t.mutation(api.commands.context.create, { token: TOKEN, itemId: "c1", text: "Left wrist dislikes straight bars", topic: "wrist" });
     await send("m1");
     await settle(t);
     await create("th2", "Other");
@@ -142,7 +141,7 @@ describe("chat round trip (mock provider)", () => {
     expect((await threads())[0]).toMatchObject({ status: "idle", pending: 0 });
   });
 
-  it("remove deletes the thread and its messages but keeps proposals", async () => {
+  it("remove deletes the thread and its messages", async () => {
     vi.stubEnv("AI_PROVIDER", "mock");
     await create();
     await send("m1");
@@ -151,7 +150,6 @@ describe("chat round trip (mock provider)", () => {
     expect(await t.run((c) => c.db.query("messages").collect())).toHaveLength(0);
     expect(await threads()).toHaveLength(0);
     expect(await t.mutation(api.commands.threads.remove, { token: TOKEN, threadId: "th1" })).toBe(false);
-    expect(await t.query(api.queries.goals.list, { token: TOKEN })).toHaveLength(1);
   });
 
   it("a thread deleted while the job runs leaves no stray rows", async () => {
@@ -200,29 +198,23 @@ describe("thread titles", () => {
     await settle(t);
   });
 
-  it("the AI title replaces the code title: no quotes, no period, max 40", async () => {
+  it("with the mock provider the code title stays: the coach turn runs no title job", async () => {
     vi.stubEnv("AI_PROVIDER", "mock");
     await create("th1", null);
     await send("m1", TEXT);
     const code = (await row()).title;
     await settle(t);
-    const th = await row();
-    expect(th.title).toBe("Mock title: I want to bench pres");
-    expect(th.title).not.toBe(code);
-    expect(th.titleSource).toBe("auto");
+    expect(await row()).toMatchObject({ title: code, titleSource: "auto" });
   });
 
-  it("a rename wins and stays, also against a late AI title", async () => {
+  it("a rename wins and stays", async () => {
     vi.stubEnv("AI_PROVIDER", "mock");
     await create("th1", null);
     await send("m1", TEXT);
-    const code = (await row()).title;
     expect(await rename("  My bench plan ")).toBe(true);
     expect(await row()).toMatchObject({ title: "My bench plan", titleSource: "user" });
     await settle(t); // the job finishes after the rename
     expect(await row()).toMatchObject({ title: "My bench plan", titleSource: "user" });
-    // a late result for the old code title is refused too
-    expect(await t.mutation(internal.jobs.chat.saveTitle, { threadId: "th1", expectedTitle: code, title: "Late" })).toBe(false);
     await send("m2", "more");
     await settle(t);
     expect((await row()).title).toBe("My bench plan");
@@ -248,12 +240,12 @@ describe("thread titles", () => {
 });
 
 describe("chat without AI (AI_PROVIDER=none)", () => {
-  it("stores the message, answers with the fixed reply, extracts nothing, summary is the last user message", async () => {
+  it("stores the message, answers with the fixed reply, summary is the last user message", async () => {
     await create();
     await send("m1");
     await settle(t);
     const ms = await messages();
-    expect(ms).toMatchObject([{ role: "user", text: TEXT }, { role: "assistant", text: NOT_CONFIGURED_REPLY, sources: [] }]);
+    expect(ms).toMatchObject([{ role: "user", text: TEXT }, { role: "assistant", text: COACH_TURN_FALLBACK, sources: [] }]);
     expect((await threads())[0]).toMatchObject({ status: "idle", summary: TEXT.slice(0, 400) });
     expect(await t.query(api.queries.goals.list, { token: TOKEN })).toHaveLength(0);
     expect(await t.query(api.queries.context.list, { token: TOKEN })).toHaveLength(0);
@@ -268,11 +260,11 @@ describe("chat limits and failure", () => {
       await t.run((c) => c.db.insert("messages", { messageId: `h${i}`, threadId: "th1", role: i % 2 ? "assistant" : "user", text: `msg ${i}`, fileIds: [], sources: [], createdAt: base + i }));
     }
     await t.run((c) => c.db.insert("messages", { messageId: "last", threadId: "th1", role: "user", text: "newest", fileIds: [], sources: [], createdAt: base + 99 }));
-    const inp = await t.query(internal.jobs.chat.input, { threadId: "th1", messageId: "last" });
-    expect(inp!.history).toHaveLength(CHAT_HISTORY_MESSAGES);
-    expect(inp!.history.at(-1)).toEqual({ role: "user", content: "newest" });
-    expect(inp!.history[0]!.content).toBe("msg 11");
-    expect(await t.query(internal.jobs.chat.input, { threadId: "th1", messageId: "ghost" })).toBeNull();
+    const inp = await t.query(internal.jobs.coachTurn.input, { threadId: "th1", messageId: "last" });
+    expect(inp!.chat.history).toHaveLength(CHAT_HISTORY_MESSAGES);
+    expect(inp!.chat.history.at(-1)).toEqual({ role: "user", content: "newest" });
+    expect(inp!.chat.history[0]!.content).toBe("msg 11");
+    expect(await t.query(internal.jobs.coachTurn.input, { threadId: "th1", messageId: "ghost" })).toBeNull();
   });
 
   it("an image attachment goes to the model when the provider takes images, and the file is a source", async () => {
@@ -284,7 +276,7 @@ describe("chat limits and failure", () => {
       const b = JSON.parse(init.body as string);
       bodies.push(b);
       const job = b.messages[0].content.match(/^JOB: (\w+)/m)?.[1];
-      const content = job === "chat" ? "Looks good." : job === "summarise_thread" ? '{"summary":"s"}' : '{"goals":[],"context":[]}';
+      const content = job === "coach_turn" ? '{"message":"Looks good."}' : job === "summarise_thread" ? '{"summary":"s"}' : '{"goals":[],"context":[]}';
       return new Response(JSON.stringify({ choices: [{ message: { content } }] }), { status: 200 });
     });
     await create();
@@ -292,7 +284,7 @@ describe("chat limits and failure", () => {
     await t.mutation(api.commands.files.register, { token: TOKEN, fileId: "img1", storageId, name: "machine.png", mime: "image/png", size: 3 });
     await send("m1", "what do you see", "th1", ["img1"]);
     await settle(t);
-    const chat = bodies.find((b) => b.messages[0].content.includes("JOB: chat"));
+    const chat = bodies.find((b) => b.messages[0].content.includes("JOB: coach_turn"));
     const last = chat.messages.at(-1);
     expect(JSON.stringify(last.content)).toContain("data:image/png;base64,AQID");
     expect((await messages())[1]).toMatchObject({ text: "Looks good.", sources: ["file: machine.png"] });

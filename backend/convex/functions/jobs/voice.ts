@@ -37,8 +37,7 @@ export const saveTranscript = internalMutation({
     const firstUser = await ctx.db.query("messages").withIndex("by_threadId", (q) => q.eq("threadId", m.threadId)).filter((q) => q.eq(q.field("role"), "user")).first();
     const title = thread.titleSource === "auto" && !thread.about && firstUser?.messageId === messageId ? { title: titleFromMessage(clean) } : {};
     await ctx.db.patch(thread._id, { ...title, updatedAt: Date.now() });
-    await ctx.scheduler.runAfter(0, internal.jobs.chat.reply, { threadId: m.threadId, messageId });
-    if (thread.placeId !== undefined) await ctx.scheduler.runAfter(0, internal.jobs.places.learn, { placeId: thread.placeId, source: "chat", sentence: clean });
+    await ctx.scheduler.runAfter(0, internal.jobs.coachTurn.run, { threadId: m.threadId, messageId });
     return true;
   },
 });

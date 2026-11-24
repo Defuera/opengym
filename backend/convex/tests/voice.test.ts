@@ -67,7 +67,7 @@ describe("transcribe", () => {
     expect(ms[0]).toMatchObject({ text: MOCK_TRANSCRIPT, voice: "done" });
     expect(ms[1]!.text).toMatch(/^Mock coach/);
     expect(ms[1]!.sources.some((s) => s.startsWith("file:"))).toBe(false);
-    expect(await thread()).toMatchObject({ status: "idle", pending: 0, title: expect.stringContaining("Mock title") });
+    expect(await thread()).toMatchObject({ status: "idle", pending: 0, title: "Mock voice: my left knee felt tight on" });
   });
 
   it("an empty transcript fails the message, frees the thread and gives no reply", async () => {
@@ -153,7 +153,7 @@ describe("audio and the coach", () => {
       chatBodies.push(body);
       const system: string = JSON.parse(body).messages[0].content;
       const job = system.match(/^JOB: (\w+)/m)?.[1];
-      const reply = job === "chat" ? "Rest it." : job === "extract_from_chat" ? '{"goals":[],"context":[]}' : job === "title_thread" ? '{"title":"Knee"}' : '{"summary":"s"}';
+      const reply = job === "coach_turn" ? '{"message":"Rest it."}' : '{"summary":"s"}';
       return new Response(JSON.stringify({ choices: [{ message: { content: reply } }] }), { status: 200 });
     });
     await create();
@@ -163,7 +163,7 @@ describe("audio and the coach", () => {
     const ms = await messages();
     expect(ms[0]).toMatchObject({ text: "my knee hurts", voice: "done" });
     expect(ms[1]).toMatchObject({ text: "Rest it.", sources: [] });
-    const chat = chatBodies.find((b) => b.includes("JOB: chat"))!;
+    const chat = chatBodies.find((b) => b.includes("JOB: coach_turn"))!;
     expect(chat).toContain("my knee hurts");
     expect(chat).not.toContain("secret-recording");
     expect(chat).not.toContain("image_url");

@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:opengym/models.dart';
-import 'package:opengym/screens/goal_form_sheet.dart';
 import 'package:opengym/theme.dart';
 import 'package:opengym/widgets/choice_sheet.dart';
 import 'package:opengym/widgets/exercise_picker.dart';
@@ -18,8 +16,6 @@ final Map<String, Opener> sheets = <String, Opener>{
       showOgSheet<void>(c, (BuildContext _) => const Text('content')),
   'showOgSheet unscrolled': (BuildContext c) =>
       showOgSheet<void>(c, (BuildContext _) => const Text('content'), scroll: false),
-  'goal sheet': (BuildContext c) => showGoalForm(c),
-  'goal edit sheet': (BuildContext c) => showGoalForm(c, initialText: 'Bench 70 kg'),
   'text sheet': (BuildContext c) =>
       showTextSheet(c, title: 'Name', label: 'Name', actionLabel: 'Save'),
   'choice sheet': (BuildContext c) => showChoiceSheet(
@@ -114,85 +110,9 @@ void main() {
     tester.view.physicalSize = const Size(400, 800);
     tester.view.viewInsets = const FakeViewPadding(bottom: 300);
     addTearDown(tester.view.reset);
-    await open(tester, (BuildContext c) => showGoalForm(c));
+    await open(tester, (BuildContext c) => showTextSheet(c, title: 'Name', label: 'Name', actionLabel: 'Save'));
     final double fieldBottom = tester.getBottomLeft(find.byType(TextField)).dy;
     expect(fieldBottom,
         lessThan(tester.view.physicalSize.height / tester.view.devicePixelRatio - 300));
-  });
-
-  group('goal sheet', () {
-    testWidgets('is one text field and one button; no kind buttons or steppers',
-        (WidgetTester tester) async {
-      await open(tester, sheets['goal sheet']!);
-      expect(find.text('New goal'), findsOneWidget);
-      expect(find.byType(TextField), findsOneWidget);
-      expect(find.text('What do you want?'), findsOneWidget);
-      expect(find.text('Bench press 70 kg by spring'), findsOneWidget); // the hint
-      expect(find.text('Add goal'), findsOneWidget);
-      for (final String gone in <String>[
-        'Strength',
-        'Consistency',
-        'Work around',
-        'Custom',
-        'Exercise (optional)'
-      ]) {
-        expect(find.text(gone), findsNothing);
-      }
-    });
-
-    testWidgets('returns the typed text, trimmed', (WidgetTester tester) async {
-      String? result;
-      await tester.pumpWidget(MaterialApp(
-        home: Builder(
-          builder: (BuildContext context) => TextButton(
-            onPressed: () async => result = await showGoalForm(context),
-            child: const Text('open'),
-          ),
-        ),
-      ));
-      await tester.tap(find.text('open'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Add goal')); // empty: nothing happens
-      await tester.pumpAndSettle();
-      expect(find.text('Add goal'), findsOneWidget);
-      await tester.enterText(find.byType(TextField), '  Squat 100 kg, 2 times a week \n');
-      await tester.tap(find.text('Add goal'));
-      await tester.pumpAndSettle();
-      expect(result, 'Squat 100 kg, 2 times a week');
-      expect(close, findsNothing);
-    });
-
-    testWidgets('the field takes at most goalTitleMax characters', (WidgetTester tester) async {
-      await open(tester, sheets['goal sheet']!);
-      await tester.enterText(find.byType(TextField), 'x' * 200);
-      await tester.pump();
-      final TextField f = tester.widget(find.byType(TextField));
-      expect(f.controller!.text.length, goalTitleMax);
-      expect(goalTitleMax, 120);
-    });
-
-    testWidgets('edit shows the text and "Save goal"', (WidgetTester tester) async {
-      await open(tester, sheets['goal edit sheet']!);
-      expect(find.text('Edit goal'), findsOneWidget);
-      expect(find.text('Bench 70 kg'), findsOneWidget);
-      expect(find.text('Save goal'), findsOneWidget);
-    });
-
-    testWidgets('the X returns nothing', (WidgetTester tester) async {
-      String? result = 'unset';
-      await tester.pumpWidget(MaterialApp(
-        home: Builder(
-          builder: (BuildContext context) => TextButton(
-            onPressed: () async => result = await showGoalForm(context),
-            child: const Text('open'),
-          ),
-        ),
-      ));
-      await tester.tap(find.text('open'));
-      await tester.pumpAndSettle();
-      await tester.tap(close);
-      await tester.pumpAndSettle();
-      expect(result, isNull);
-    });
   });
 }

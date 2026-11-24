@@ -256,7 +256,7 @@ void main() {
     expect(goals.goals.single.done, isTrue);
 
     // A new goal made offline shows too, then the server confirms it.
-    await goals.add(title: 'Run 5k', kind: 'custom');
+    await o.createGoal(goalId: 'g2', title: 'Run 5k', kind: 'custom');
     expect(goals.goals.length, 2);
     await goals.remove(goals.goals.first);
     expect(goals.goals.length, 1);

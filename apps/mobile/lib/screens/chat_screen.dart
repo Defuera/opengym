@@ -179,8 +179,14 @@ class _ChatScreenState extends State<ChatScreen> {
           rows: logDraftRows(draft),
           exercises: draft.session?.exercises ?? const <(String, String)>[],
           state: draft.state,
+          appliedLabel: draft.noEntry ? 'Saved' : 'Logged',
         ));
         items.add(const SizedBox(height: 8));
+        if (draft.noEntry && draft.applied) {
+          // A goal, limit or note was saved: nothing else to open, so only Close.
+          items.add(LogEndLine(label: 'Saved', onClose: () => Navigator.of(context).pop()));
+          items.add(const SizedBox(height: 12));
+        }
       }
       final String? madeEntry = m.entryId;
       if (!m.mine && madeEntry != null) {
@@ -349,13 +355,12 @@ class _ChatScreenState extends State<ChatScreen> {
                   ),
                 ),
                 ComposerBar(
-                  hint: c.isLogChat
-                      ? 'What did you do or eat?'
-                      : about == null
+                  hint: c.composerHint ??
+                      (about == null
                       ? 'Message'
                       : about.id == null
                           ? 'Paste a program, or say what you want'
-                          : 'Ask, or say what should change',
+                          : 'Ask, or say what should change'),
                   controller: _text,
                   focusNode: _focus,
                   sending: c.sending,

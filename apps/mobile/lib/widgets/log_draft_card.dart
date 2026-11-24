@@ -20,7 +20,11 @@ class LogDraftCard extends StatelessWidget {
     this.rows = const <(String, String)>[],
     this.exercises = const <(String, String)>[],
     this.state = 'open',
+    this.appliedLabel = 'Logged',
   });
+
+  /// The mark of an applied card: "Logged" for a log, "Saved" for a goal, limit or note.
+  final String appliedLabel;
 
   /// "Meal", "Training", "Body", "Goal" or "Note".
   final String kind;
@@ -63,7 +67,7 @@ class LogDraftCard extends StatelessWidget {
                     children: <Widget>[
                       const Icon(Icons.check, size: 16, color: OG.ink),
                       const SizedBox(width: 4),
-                      Text('Logged', style: OG.body(size: 14, weight: FontWeight.w700)),
+                      Text(appliedLabel, style: OG.body(size: 14, weight: FontWeight.w700)),
                     ],
                   ),
                 if (stale) Text('Replaced', style: OG.muted(size: 14, weight: FontWeight.w600)),
@@ -121,10 +125,13 @@ class _Row extends StatelessWidget {
 /// The end of a log chat: "Logged" and two actions. Close goes back to where
 /// the person came from; Open shows the entry.
 class LogEndLine extends StatelessWidget {
-  const LogEndLine({super.key, required this.onClose, required this.onOpen});
+  const LogEndLine({super.key, this.label = 'Logged', required this.onClose, this.onOpen});
 
+  final String label;
   final VoidCallback onClose;
-  final VoidCallback onOpen;
+
+  /// Null: there is nothing to open (a goal, limit or note), so only Close shows.
+  final VoidCallback? onOpen;
 
   @override
   Widget build(BuildContext context) {
@@ -136,7 +143,7 @@ class LogEndLine extends StatelessWidget {
           children: <Widget>[
             const Icon(Icons.check_circle_outline, size: 20, color: OG.ink),
             const SizedBox(width: 8),
-            Text('Logged', style: OG.body(weight: FontWeight.w700)),
+            Text(label, style: OG.body(weight: FontWeight.w700)),
           ],
         ),
         const SizedBox(height: 10),
@@ -151,16 +158,18 @@ class LogEndLine extends StatelessWidget {
                 child: const Text('Close'),
               ),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: OgButton(
-                key: const ValueKey<String>('log-open'),
-                variant: OgVariant.accent,
-                minHeight: 48,
-                onPressed: onOpen,
-                child: const Text('Open'),
+            if (onOpen != null) ...<Widget>[
+              const SizedBox(width: 12),
+              Expanded(
+                child: OgButton(
+                  key: const ValueKey<String>('log-open'),
+                  variant: OgVariant.accent,
+                  minHeight: 48,
+                  onPressed: onOpen,
+                  child: const Text('Open'),
+                ),
               ),
-            ),
+            ],
           ],
         ),
       ],

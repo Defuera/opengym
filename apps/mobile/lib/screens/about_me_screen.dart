@@ -17,7 +17,7 @@ import '../widgets/section_header.dart';
 import '../widgets/segmented_toggle.dart';
 import 'about_preferences.dart';
 import 'limit_detail_screen.dart';
-import 'limit_sheets.dart';
+import 'part_chat.dart';
 import 'program_chat.dart';
 import 'program_screen.dart';
 import 'program_text.dart';
@@ -53,24 +53,23 @@ class _AboutMeScreenState extends State<AboutMeScreen> {
   AboutStore get _about => widget.about;
 
   void _openLimit(Limit l) {
+    final AppDeps? d = widget.deps;
     Navigator.of(context).push(MaterialPageRoute<void>(
-      builder: (BuildContext c) =>
-          LimitDetailScreen(about: _about, limitId: l.id, exercises: widget.exercises),
+      builder: (BuildContext c) => LimitDetailScreen(
+        about: _about,
+        limitId: l.id,
+        exercises: widget.exercises,
+        onAskCoach: d == null ? null : () => openLimitChat(Navigator.of(c), d, change: l),
+      ),
     ));
   }
 
+  /// A new limit is a chat (ADR-032, step D): the coach drafts it, the person
+  /// presses Done. [part] is the body part picked on the figure.
   Future<void> _addLimit({String? part}) async {
-    final LimitDraft? d = await showAddLimitSheet(context, initialPart: part);
-    if (d == null) {
-      return;
-    }
-    final String id = await _about.addLimit(part: d.part, title: d.title, status: d.status);
-    if (mounted) {
-      setState(() => _selected = d.part);
-      final Limit? l = _about.limit(id);
-      if (l != null) {
-        _openLimit(l);
-      }
+    final AppDeps? d = widget.deps;
+    if (d != null) {
+      await openLimitChat(Navigator.of(context), d, part: part);
     }
   }
 
@@ -105,7 +104,7 @@ class _AboutMeScreenState extends State<AboutMeScreen> {
     return PartCard(
       title: partLabel(key),
       text: muscle == null ? 'No limit here.' : loadWords(data.loadFor(_days)[muscle] ?? 0),
-      actionLabel: 'Add a limit here',
+      actionLabel: widget.deps == null ? null : 'Add a limit here',
       onAction: () => _addLimit(part: key),
     );
   }
@@ -197,7 +196,7 @@ class _AboutMeScreenState extends State<AboutMeScreen> {
                   _partCard(data, sel),
                 ],
                 const Footnote('Tap a body part to see what the coach knows about it.'),
-                SectionHeader(title: 'Limits', action: '+ Add', onAction: () => _addLimit()),
+                SectionHeader(title: 'Limits', action: widget.deps == null ? null : '+ Add', onAction: () => _addLimit()),
                 if (data.limits.isEmpty)
                   NoteBox(
                     title: _about.loading ? 'Loading…' : 'No limits yet.',
@@ -217,7 +216,11 @@ class _AboutMeScreenState extends State<AboutMeScreen> {
                   const SizedBox(height: 10),
                 ],
                 if (widget.deps != null) _programs(widget.deps!),
-                AboutPreferences(notes: widget.notes),
+                AboutPreferences(
+                  notes: widget.notes,
+                  onAdd: widget.deps == null ? null : () => openNoteChat(Navigator.of(context), widget.deps!),
+                  onChange: widget.deps == null ? null : (ContextItem c) => openNoteChat(Navigator.of(context), widget.deps!, change: c),
+                ),
                 const Footnote('The coach uses everything on this screen. It never changes your log.'),
               ],
             ),

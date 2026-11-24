@@ -1,18 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:opengym/data/in_memory_about_repository.dart';
+import 'package:opengym/app/deps.dart';
 import 'package:opengym/screens/about_me_screen.dart';
+import 'package:opengym/screens/chat_screen.dart';
 import 'package:opengym/stores/about_store.dart';
 import 'package:opengym/stores/context_store.dart';
 import 'package:opengym/widgets/body_figure.dart';
 
 import 'support/about_fixtures.dart';
+import 'support/fake_convex_client.dart';
+import 'support/test_deps.dart';
+
+AppDeps? _deps;
 
 Future<(InMemoryAboutRepository, AboutStore, ContextStore)> _open(WidgetTester t) async {
+  _deps = await testDeps(FakeConvexClient());
   final InMemoryAboutRepository repo = InMemoryAboutRepository(initial: sampleAbout());
   final AboutStore about = storeOn(repo);
   final ContextStore notes = await sampleNotes();
-  await launch(t, AboutMeScreen(about: about, notes: notes, exercises: AboutStore.knownExercises(const <String>[])));
+  await launch(t, AboutMeScreen(about: about, notes: notes, deps: _deps, exercises: AboutStore.knownExercises(const <String>[])));
   return (repo, about, notes);
 }
 
@@ -68,58 +75,70 @@ void main() {
     expect(find.text('Trained a little in this period.'), findsOneWidget);
   });
 
-  testWidgets('Add a limit here opens the add flow with the part chosen', (WidgetTester t) async {
-    final (InMemoryAboutRepository repo, AboutStore _, ContextStore _) = await _open(t);
+  testWidgets('Add a limit here opens the chat for a limit with the part chosen', (WidgetTester t) async {
+    await _open(t);
     await _tapFigure(t, 'back', 'lower_back', 'c');
     await t.tap(find.text('Add a limit here'));
     await t.pumpAndSettle();
-    expect(find.text('Add a limit'), findsOneWidget);
-    expect(find.widgetWithText(TextField, 'Lower back'), findsOneWidget);
-    await t.tap(find.text('Add limit'));
-    await t.pumpAndSettle();
-    expect(repo.data.limits.map((l) => l.part), contains('lower_back'));
-    // The new limit's detail opens.
-    expect(find.text('RULES FOR THE COACH'), findsOneWidget);
+    expect(find.byType(ChatScreen), findsOneWidget);
+    expect(_deps!.coach.chatContext?.screen, 'limit');
+    expect(_deps!.coach.chatContext?.part, 'lower_back');
+    expect(find.text('New limit \u00b7 Lower back'), findsOneWidget);
+    expect(find.text('My left knee hurts on deep squats'), findsOneWidget); // the hint in the composer
+    expect(find.byType(TextField), findsOneWidget); // no form: the one composer
   });
 
-  testWidgets('+ Add under Limits picks a part from the list', (WidgetTester t) async {
-    final (InMemoryAboutRepository repo, AboutStore _, ContextStore _) = await _open(t);
+  testWidgets('+ Add under Limits opens the same chat with no part', (WidgetTester t) async {
+    await _open(t);
     await t.tap(find.text('+ Add').first);
     await t.pumpAndSettle();
-    await t.tap(find.text('Right elbow'));
-    await t.pumpAndSettle();
-    await t.tap(find.text('Improving').last);
-    await t.pumpAndSettle();
-    await t.tap(find.text('Add limit'));
-    await t.pumpAndSettle();
-    final limit = repo.data.limits.singleWhere((l) => l.part == 'right_elbow');
-    expect(limit.title, 'Right elbow');
-    expect(limit.status, 'improving');
+    expect(find.byType(ChatScreen), findsOneWidget);
+    expect(_deps!.coach.chatContext?.screen, 'limit');
+    expect(_deps!.coach.chatContext?.part, isNull);
+    expect(find.text('New limit'), findsOneWidget);
   });
 
-  testWidgets('preferences: add, switch off, remove', (WidgetTester t) async {
+  testWidgets('the limit detail offers a change with the coach', (WidgetTester t) async {
+    await _open(t);
+    await _tapFigure(t, 'front', 'left_knee', 'r');
+    await t.tap(find.byKey(const ValueKey<String>('part-action')));
+    await t.pumpAndSettle();
+    await t.tap(find.byKey(const ValueKey<String>('limit-ask-coach')));
+    await t.pumpAndSettle();
+    expect(_deps!.coach.chatContext?.screen, 'limit');
+    expect(_deps!.coach.chatContext?.limitId, 'knee');
+  });
+
+  testWidgets('preferences: + Add opens the note chat; a row opens it for that note; switch off and remove stay exact', (WidgetTester t) async {
     final (InMemoryAboutRepository _, AboutStore _, ContextStore notes) = await _open(t);
     await t.tap(find.byKey(const ValueKey<String>('pref-switch-n1')));
     await t.pumpAndSettle();
     expect(notes.items.single.active, isFalse);
 
+    await t.tap(find.byKey(const ValueKey<String>('pref-change-n1')));
+    await t.pumpAndSettle();
+    expect(find.byType(ChatScreen), findsOneWidget);
+    expect(_deps!.coach.chatContext?.screen, 'note');
+    expect(_deps!.coach.chatContext?.noteId, 'n1');
+    await t.tap(find.byIcon(Icons.chevron_left).first);
+    await t.pumpAndSettle();
+
     await t.tap(find.text('+ Add').last);
     await t.pumpAndSettle();
-    await t.enterText(find.widgetWithText(TextField, 'General'), 'Gym');
-    await t.enterText(find.byType(TextField).last, 'Technogym machines.');
-    await t.tap(find.text('Add preference'));
+    expect(find.byType(ChatScreen), findsOneWidget);
+    expect(_deps!.coach.chatContext?.screen, 'note');
+    expect(_deps!.coach.chatContext?.noteId, isNull);
+    expect(find.text('I always warm up for 10 minutes'), findsOneWidget);
+    await t.tap(find.byIcon(Icons.chevron_left).first);
     await t.pumpAndSettle();
-    expect(find.text('Technogym machines.'), findsOneWidget);
-    expect(notes.items.length, 2);
 
     await t.tap(find.byKey(const ValueKey<String>('pref-remove-n1')));
     await t.pumpAndSettle();
     expect(find.text('Delete this note?'), findsOneWidget);
-    expect(notes.items.length, 2);
+    expect(notes.items.length, 1);
     await t.tap(find.byKey(const ValueKey<String>('confirm-delete')));
     await t.pumpAndSettle();
-    expect(notes.items.length, 1);
-    expect(find.text('Rowing 2.5 min, then wrist work.'), findsNothing);
+    expect(notes.items.length, 0);
   });
 
   testWidgets('preferences: Keep it and closing the sheet keep the note', (WidgetTester t) async {

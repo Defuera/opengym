@@ -11,6 +11,7 @@ import '../planner.dart';
 const String chatOfflineMessage = 'Chat needs a connection. Nothing was sent.';
 
 /// The hint of an empty log chat.
+const String logComposerHint = 'What did you do or eat?';
 const String logChatHint = 'Write it, or add a photo or a file. I will work out what it is.';
 
 class _Attachment {
@@ -99,6 +100,9 @@ class CoachStore extends ChangeNotifier {
   /// shown while it is empty. Null on a plain chat.
   String? contextLine;
   String? contextHint;
+
+  /// The hint text inside the composer for this chat (null: the default one).
+  String? composerHint;
 
   /// The chat thread this run made for each open session, until the server
   /// list shows it (see [sessionThreadId]).
@@ -350,6 +354,23 @@ class CoachStore extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Opens the one chat for a goal, a limit or a note (ADR-032, step D): always a
+  /// new thread, with the context of the thing, a line about it and the hints.
+  /// The coach drafts; nothing is written until the person presses Done.
+  Future<void> openPart({
+    required ChatContext context,
+    required String line,
+    required String hint,
+    required String composerHint,
+  }) async {
+    await startNewChat();
+    chatContext = context;
+    contextLine = line;
+    contextHint = hint;
+    this.composerHint = composerHint;
+    notifyListeners();
+  }
+
   /// Opens the log chat (ADR-032): always a new thread, with the context
   /// `screen: "log"`. The thread is made with the first message.
   Future<void> openLog() async {
@@ -362,6 +383,7 @@ class CoachStore extends ChangeNotifier {
     chatContext = const ChatContext(screen: 'log');
     contextLine = 'New log';
     contextHint = logChatHint;
+    composerHint = logComposerHint;
   }
 
   bool get isLogChat => chatContext?.screen == 'log';
@@ -386,6 +408,7 @@ class CoachStore extends ChangeNotifier {
     chatContext = null;
     contextLine = null;
     contextHint = null;
+    composerHint = null;
   }
 
   /// Opens the chat about a program. [programId] null: a new program. It

@@ -6,20 +6,18 @@ import '../theme.dart';
 import '../widgets/choice_sheet.dart';
 import '../widgets/note_box.dart';
 import '../widgets/section_header.dart';
-import 'record_sheets.dart';
 
 /// The coach notes, shown as Preferences: add, switch off or on, remove.
 class AboutPreferences extends StatelessWidget {
-  const AboutPreferences({super.key, required this.notes});
+  const AboutPreferences({super.key, required this.notes, this.onAdd, this.onChange});
 
   final ContextStore notes;
 
-  Future<void> _add(BuildContext context) async {
-    final NoteDraft? d = await showNoteSheet(context);
-    if (d != null) {
-      await notes.add(text: d.text, topic: d.topic);
-    }
-  }
+  /// Opens the chat for a new note (ADR-032, step D). Null: no add action.
+  final VoidCallback? onAdd;
+
+  /// Opens the chat to change one note. Null: a row is not tappable.
+  final void Function(ContextItem)? onChange;
 
   @override
   Widget build(BuildContext context) {
@@ -30,7 +28,7 @@ class AboutPreferences extends StatelessWidget {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
-            SectionHeader(title: 'Preferences', action: '+ Add', onAction: () => _add(context)),
+            SectionHeader(title: 'Preferences', action: onAdd == null ? null : '+ Add', onAction: onAdd),
             if (notes.error != null)
               NoteBox(title: 'Preferences are not available.', message: notes.error!)
             else if (items.isEmpty)
@@ -71,7 +69,11 @@ class AboutPreferences extends StatelessWidget {
       child: Row(
         children: <Widget>[
           Expanded(
-            child: Column(
+            child: GestureDetector(
+              key: ValueKey<String>('pref-change-${c.id}'),
+              behavior: HitTestBehavior.opaque,
+              onTap: onChange == null ? null : () => onChange!(c),
+              child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
                 Text(
@@ -85,6 +87,7 @@ class AboutPreferences extends StatelessWidget {
                   ),
                 ),
               ],
+              ),
             ),
           ),
           Switch(

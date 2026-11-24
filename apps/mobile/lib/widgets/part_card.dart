@@ -10,16 +10,17 @@ class PartCard extends StatelessWidget {
     super.key,
     required this.title,
     required this.text,
-    required this.actionLabel,
-    required this.onAction,
+    this.actionLabel,
+    this.onAction,
     this.status,
     this.statusLabel,
   });
 
   final String title;
   final String text;
-  final String actionLabel;
-  final VoidCallback onAction;
+  /// Null: the card has no action link.
+  final String? actionLabel;
+  final VoidCallback? onAction;
 
   /// active | improving | cleared, or null for a plain muscle.
   final String? status;
@@ -45,6 +46,7 @@ class PartCard extends StatelessWidget {
             const SizedBox(height: 6),
             Text(text, style: OG.muted(size: 14)),
           ],
+          if (actionLabel != null)
           GestureDetector(
             key: const ValueKey<String>('part-action'),
             behavior: HitTestBehavior.opaque,
@@ -52,7 +54,7 @@ class PartCard extends StatelessWidget {
             child: Container(
               constraints: const BoxConstraints(minHeight: 44),
               alignment: Alignment.centerLeft,
-              child: Text(actionLabel, style: OG.body(size: 14, weight: FontWeight.w800, color: OG.accent)),
+              child: Text(actionLabel!, style: OG.body(size: 14, weight: FontWeight.w800, color: OG.accent)),
             ),
           ),
         ],

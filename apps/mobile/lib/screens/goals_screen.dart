@@ -12,7 +12,18 @@ import '../widgets/goal_row.dart';
 import '../widgets/note_box.dart';
 import '../widgets/og_button.dart';
 import '../widgets/og_icon_button.dart';
-import 'goal_form_sheet.dart';
+import 'part_chat.dart';
+
+String _kindLabel(String kind) {
+  switch (kind) {
+    case 'strength':
+      return 'Strength';
+    case 'consistency':
+      return 'Consistency';
+    default:
+      return 'Custom';
+  }
+}
 
 class GoalsScreen extends StatefulWidget {
   const GoalsScreen({super.key, required this.deps});
@@ -24,22 +35,11 @@ class GoalsScreen extends StatefulWidget {
 }
 
 class _GoalsScreenState extends State<GoalsScreen> {
-  Future<void> _add() async {
-    final String? text = await showGoalForm(context);
-    if (text == null) {
-      return;
-    }
-    // Saved as typed; the backend reads the structure from the text a moment later.
-    await widget.deps.goals.add(title: text, kind: 'custom');
-  }
+  /// A new goal, and a change of one, are a chat (ADR-032, step D): the coach
+  /// drafts the goal, the person presses Done. Done and delete stay exact taps.
+  Future<void> _add() => openGoalChat(Navigator.of(context), widget.deps);
 
-  Future<void> _edit(Goal g) async {
-    final String? text = await showGoalForm(context, initialText: g.title);
-    if (text == null || text == g.title) {
-      return;
-    }
-    await widget.deps.goals.retitle(g, text);
-  }
+  Future<void> _edit(Goal g) => openGoalChat(Navigator.of(context), widget.deps, change: g);
 
   Future<void> _delete(Goal g) async {
     final bool ok = await confirmDelete(context, title: 'Delete this goal?', label: 'Delete goal');
@@ -49,7 +49,7 @@ class _GoalsScreenState extends State<GoalsScreen> {
   }
 
   String _detail(Goal g) {
-    final List<String> parts = <String>[goalKindLabel(g.kind)];
+    final List<String> parts = <String>[_kindLabel(g.kind)];
     if (g.exercise != null) {
       parts.add(g.exercise!);
     }

@@ -13,6 +13,7 @@ import '../widgets/record_card.dart';
 import '../widgets/rule_row.dart';
 import '../widgets/section_header.dart';
 import '../widgets/segmented_toggle.dart';
+import '../widgets/sheet_link.dart';
 import 'limit_sheets.dart';
 import 'record_sheets.dart';
 
@@ -23,7 +24,11 @@ class LimitDetailScreen extends StatelessWidget {
     required this.about,
     required this.limitId,
     required this.exercises,
+    this.onAskCoach,
   });
+
+  /// Opens the chat to change this limit (ADR-032, step D). Null: no link.
+  final VoidCallback? onAskCoach;
 
   final AboutStore about;
   final String limitId;
@@ -153,6 +158,11 @@ class LimitDetailScreen extends StatelessWidget {
           selectedIndex: limitStatuses.indexOf(l.status).clamp(0, 2),
           onChanged: (int i) => about.setStatus(l, limitStatuses[i]),
         ),
+        if (onAskCoach != null)
+          KeyedSubtree(
+            key: const ValueKey<String>('limit-ask-coach'),
+            child: SheetLink(label: 'Change with the coach', onTap: onAskCoach!),
+          ),
         SectionHeader(title: 'Rules for the coach', action: '+ Add', onAction: () => _editRule(context, l)),
         if (l.rules.isEmpty)
           const NoteBox(title: 'No rules yet.', message: 'Add what to avoid, keep light or do.')

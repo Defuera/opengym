@@ -51,6 +51,8 @@ class LogDraft {
     this.goal,
     this.limit,
     this.note,
+    this.changes = false,
+    this.noEntry = false,
     this.state = 'open',
     this.entryId,
   });
@@ -68,6 +70,12 @@ class LogDraft {
   final String? goal;
   final String? limit;
   final String? note;
+
+  /// A goal, limit or note draft that changes one the person has, not a new one.
+  final bool changes;
+
+  /// Made outside the log chat (ADR-032, step D): Done writes the parts only, no log entry.
+  final bool noEntry;
   final String state;
   final String? entryId;
 
@@ -76,7 +84,7 @@ class LogDraft {
   bool get stale => state == 'stale';
 
   /// The category ("Meal", "Sleep", ...), or "Note" when there is none.
-  String get kindLabel => categoryLabel(kind) ?? 'Note';
+  String get kindLabel => noEntry ? '${changes ? 'Change' : 'New'} ${kind.toLowerCase()}' : (categoryLabel(kind) ?? 'Note');
 
   /// Reads `proposal` when its `type` is `log`; null for anything else.
   static LogDraft? fromJson(Object? v) {
@@ -92,6 +100,8 @@ class LogDraft {
       goal: _goalLine(v['goal']),
       limit: _limitLine(v['limit']),
       note: v['note'] is Map ? strOrNull((v['note'] as Map)['text']) : null,
+      changes: v['edits'] is Map && (v['edits'] as Map).isNotEmpty,
+      noEntry: v['noEntry'] == true,
       state: const <String>['open', 'applied', 'stale'].contains(v['state']) ? v['state'] as String : 'open',
       entryId: strOrNull(v['entryId']),
     );

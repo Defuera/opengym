@@ -6,7 +6,6 @@ import '../data/convex_client.dart';
 import '../data/outbox.dart';
 import '../data/outbox_ops.dart';
 import '../models.dart';
-import '../planner.dart';
 
 /// Context notes the coach reads as training preferences. Same shape as
 /// [GoalsStore]: live subscription, writes through the outbox.
@@ -45,9 +44,6 @@ class ContextStore extends ChangeNotifier {
     items = overlayContext(_server, _outbox.ops);
     notifyListeners();
   }
-
-  Future<void> add({required String text, required String topic}) =>
-      _outbox.createContext(itemId: newId(), text: text, topic: topic);
 
   Future<void> setActive(ContextItem item, bool active) =>
       _outbox.updateContext(item.id, ContextPatch(active: active));

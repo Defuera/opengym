@@ -129,15 +129,27 @@ class ChatContext {
     this.placeId,
     this.entryId,
     this.programId,
+    this.goalId,
+    this.limitId,
+    this.noteId,
+    this.part,
   });
 
-  /// chat | log | session | exercise | program | start
+  /// chat | log | session | exercise | goal | limit | note | program | start
   final String screen;
   final String? openSessionId;
   final String? exerciseId;
   final String? placeId;
   final String? entryId;
   final String? programId;
+
+  /// The goal, limit or note the person wants to change (screens goal, limit, note).
+  final String? goalId;
+  final String? limitId;
+  final String? noteId;
+
+  /// The body part key of a new limit, from a tap on the body figure.
+  final String? part;
 
   Map<String, dynamic> toJson() => <String, dynamic>{
         'screen': screen,
@@ -146,6 +158,10 @@ class ChatContext {
         if (placeId != null) 'placeId': placeId,
         if (entryId != null) 'entryId': entryId,
         if (programId != null) 'programId': programId,
+        if (goalId != null) 'goalId': goalId,
+        if (limitId != null) 'limitId': limitId,
+        if (noteId != null) 'noteId': noteId,
+        if (part != null) 'part': part,
       };
 
   static ChatContext? fromJson(Object? v) {
@@ -159,6 +175,10 @@ class ChatContext {
       placeId: strOrNull(v['placeId']),
       entryId: strOrNull(v['entryId']),
       programId: strOrNull(v['programId']),
+      goalId: strOrNull(v['goalId']),
+      limitId: strOrNull(v['limitId']),
+      noteId: strOrNull(v['noteId']),
+      part: strOrNull(v['part']),
     );
   }
 }

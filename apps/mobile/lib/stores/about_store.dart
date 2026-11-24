@@ -63,15 +63,6 @@ class AboutStore extends ChangeNotifier {
 
   // ---------- writes ----------
 
-  /// Returns the new limit's id.
-  Future<String> addLimit({required String part, required String title, String status = 'active'}) async {
-    final String id = newId();
-    final DateTime now = DateTime.now();
-    final String since = '${now.year}-${now.month.toString().padLeft(2, '0')}';
-    await _repo.saveLimit(Limit(id: id, part: part, title: title, status: status, since: since));
-    return id;
-  }
-
   Future<void> setStatus(Limit l, String status) => _repo.saveLimit(l.copyWith(status: status));
 
   Future<void> setRules(Limit l, List<LimitRule> rules) => _repo.saveLimit(l.copyWith(rules: rules));

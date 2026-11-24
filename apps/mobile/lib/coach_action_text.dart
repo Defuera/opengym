@@ -2,13 +2,18 @@ import 'models.dart';
 
 /// One plain line for what a function of a coach turn did.
 ///
-/// Applied: "Changed: one exercise". Drafted: "Draft: ...". Rejected:
-/// "Not changed: " and the reason the server gave. The result holds no
-/// arguments, so the line names the kind of change, not the exercise.
+/// The server's `detail` is the line when it has one and the action was not
+/// rejected ("Tandem Stand → Balance Board"). A rejected action is "Not
+/// changed: " and the reason. Without a detail (an old reply) the line names
+/// the kind of change: "Changed: one exercise".
 String coachActionLine(CoachAction a) {
   final String? reason = a.reason == null || a.reason!.trim().isEmpty ? null : a.reason!.trim();
+  final String? detail = a.detail == null || a.detail!.trim().isEmpty ? null : a.detail!.trim();
   if (a.status == 'rejected') {
     return 'Not changed: ${reason ?? _what(a.name)}';
+  }
+  if (detail != null) {
+    return detail;
   }
   if (a.status == 'applied' && reason != null) {
     return _capital(reason);

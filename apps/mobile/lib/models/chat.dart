@@ -34,10 +34,15 @@ class Thread {
     this.titleSource = 'user',
     this.placeId,
     this.about,
+    this.openSessionId,
   });
 
   final String id;
   final String title;
+
+  /// The open session this chat was opened from, as the server holds it. Null
+  /// for a chat that was not opened from a session.
+  final String? openSessionId;
 
   /// What this thread is about (a program), or null for an ordinary chat.
   final ThreadAbout? about;
@@ -82,6 +87,9 @@ class Thread {
     if (about != null) {
       m['about'] = about!.toJson();
     }
+    if (openSessionId != null) {
+      m['openSessionId'] = openSessionId;
+    }
     if (lastMessage != null) {
       m['lastMessage'] = lastMessage;
     }
@@ -105,6 +113,7 @@ class Thread {
       titleSource: str(j['titleSource'], 'user'),
       placeId: strOrNull(j['placeId']),
       about: ThreadAbout.fromJson(j['about']),
+      openSessionId: strOrNull(j['openSessionId']),
     );
   }
 }
@@ -155,12 +164,16 @@ class ChatContext {
 
 /// What one function of a coach turn did: applied | drafted | rejected.
 class CoachAction {
-  const CoachAction({required this.actionId, required this.name, required this.status, this.reason});
+  const CoachAction({required this.actionId, required this.name, required this.status, this.reason, this.detail});
 
   final String actionId;
   final String name;
   final String status;
   final String? reason;
+
+  /// A plain line from the server of what the function did, e.g. "Tandem Stand
+  /// -> Balance Board". Null on an old reply.
+  final String? detail;
 
   static CoachAction? fromJson(Object? v) {
     if (v is! Map) {
@@ -171,6 +184,7 @@ class CoachAction {
       name: str(v['name']),
       status: str(v['status'], 'rejected'),
       reason: strOrNull(v['reason']),
+      detail: strOrNull(v['detail']),
     );
   }
 }

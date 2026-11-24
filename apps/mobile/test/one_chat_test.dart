@@ -86,6 +86,56 @@ void main() {
     expect(fake.sentContexts.last!.exerciseId, isNull);
   });
 
+  testWidgets('the chat of an open session is the same thread after an app restart', (WidgetTester t) async {
+    final (FakeConvexClient fake, AppDeps d) = await _session(t);
+    await t.tap(find.byKey(const ValueKey<String>('chat-fab')));
+    await t.pumpAndSettle();
+    await _type(t, 'first');
+    final String thread = fake.serverThreads.keys.single;
+    expect(fake.serverThreads[thread]!.openSessionId, d.store.active!.id);
+    // A chat that is not about a session, newer than the first one.
+    await fake.createThread(threadId: 'other', title: 'Other');
+    await fake.sendMessage(threadId: 'other', messageId: 'o1', text: 'hi', context: const ChatContext(screen: 'chat'));
+    // A new app run: a new store, an empty memory, the same server.
+    final AppDeps d2 = await testDeps(fake);
+    d2.coach.start();
+    await t.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 20)));
+    await t.runAsync(() => d2.coach.openWithContext(
+          context: ChatContext(screen: 'session', openSessionId: d.store.active!.id),
+          line: 'Gym, Legs',
+          hint: 'What do you want to change?',
+        ));
+    expect(d2.coach.currentId, thread);
+    expect(d2.coach.isDraft, isFalse);
+    // Another session id gets its own new chat.
+    await t.runAsync(() => d2.coach.openWithContext(context: const ChatContext(screen: 'session', openSessionId: 'else'), line: 'x', hint: 'y'));
+    expect(d2.coach.currentId, isNot(thread));
+    expect(d2.coach.isDraft, isTrue);
+  });
+
+  testWidgets('the action lines show the server detail; a proposal row shows the weight the server gives',
+      (WidgetTester t) async {
+    final (FakeConvexClient fake, _) = await _session(t);
+    await t.tap(find.byKey(const ValueKey<String>('chat-fab')));
+    await t.pumpAndSettle();
+    await _type(t, 'swap it');
+    fake.coachTurnAnswers(
+      fake.serverThreads.keys.single,
+      'Done.',
+      actions: const <CoachAction>[
+        CoachAction(actionId: 'a1', name: 'replace_open_exercise', status: 'applied', detail: 'Tandem Stand \u2192 Balance Board'),
+        CoachAction(actionId: 'a2', name: 'remove_open_exercise', status: 'rejected', reason: 'a set is done', detail: 'ignored'),
+      ],
+      proposal: const CoachPlan(rows: <(String, String)>[('Squat', '3 \u00d7 10 \u00b7 40 kg'), ('Calf Raise', '3 \u00d7 15')]),
+    );
+    await t.pump();
+    await t.pump(const Duration(milliseconds: 100));
+    expect(find.text('Tandem Stand \u2192 Balance Board'), findsOneWidget);
+    expect(find.text('Not changed: a set is done'), findsOneWidget);
+    expect(find.text('3 \u00d7 10 \u00b7 40 kg'), findsOneWidget);
+    expect(find.text('3 \u00d7 15'), findsOneWidget);
+  });
+
   testWidgets('the button stays when a set is done and does not cover the set controls', (WidgetTester t) async {
     final (_, AppDeps d) = await _session(t);
     d.store.toggleSet(0);

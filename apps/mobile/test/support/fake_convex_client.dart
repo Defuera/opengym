@@ -192,6 +192,7 @@ class FakeConvexClient implements ConvexClient {
       pending: status == 'thinking' ? 1 : 0,
       placeId: t.placeId,
       about: t.about,
+      openSessionId: t.openSessionId,
     );
   }
 
@@ -611,6 +612,7 @@ class FakeConvexClient implements ConvexClient {
       pending: t.pending,
       placeId: t.placeId,
       about: t.about,
+      openSessionId: t.openSessionId,
     );
   }
 
@@ -656,9 +658,22 @@ class FakeConvexClient implements ConvexClient {
         context: context));
     if (list.length == 1) {
       final Thread t = serverThreads[threadId]!;
+      // As the server does: the first message of a chat opened from a session ties the thread to it.
+      if (context?.openSessionId != null && t.openSessionId == null) {
+        serverThreads[threadId] = Thread(
+          id: t.id,
+          title: t.title,
+          titleSource: t.titleSource,
+          createdAt: t.createdAt,
+          updatedAt: t.updatedAt,
+          placeId: t.placeId,
+          about: t.about,
+          openSessionId: context!.openSessionId,
+        );
+      }
       if (t.titleSource == 'auto' && t.about == null) {
         final String cut = text.length > 40 ? text.substring(0, 40) : text;
-        _replaceThread(t, title: cut[0].toUpperCase() + cut.substring(1), titleSource: 'auto');
+        _replaceThread(serverThreads[threadId]!, title: cut[0].toUpperCase() + cut.substring(1), titleSource: 'auto');
       }
     }
     _setThread(threadId, status: 'thinking');

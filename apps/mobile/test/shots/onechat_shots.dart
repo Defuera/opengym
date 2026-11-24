@@ -80,17 +80,17 @@ void main() {
       fake.serverThreads.keys.single,
       'Got it. I swapped Tandem Stand for a floor version and noted what your gym has.',
       actions: const <CoachAction>[
-        CoachAction(actionId: 'a1', name: 'replace_open_exercise', status: 'applied'),
-        CoachAction(actionId: 'a2', name: 'update_place', status: 'applied'),
+        CoachAction(actionId: 'a1', name: 'replace_open_exercise', status: 'applied', detail: 'Tandem Stand \u2192 Balance Board'),
+        CoachAction(actionId: 'a2', name: 'update_place', status: 'applied', detail: 'Gym: added balance board'),
       ],
       question: const CoachQuestion(
         text: 'Do you approve this workout?',
         answers: <QuickAnswer>[QuickAnswer(id: 'approve', label: 'Approve'), QuickAnswer(id: 'change', label: 'Change something')],
       ),
       proposal: const CoachPlan(title: 'Proposed workout', rows: <(String, String)>[
-        ('Goblet Squat', '3 x 10'),
-        ('Floor Tandem Stand', '2 x 30 s'),
-        ('Calf Raise', '3 x 15'),
+        ('Goblet Squat', '3 \u00d7 10 \u00b7 40 kg'),
+        ('Floor Tandem Stand', '2 \u00d7 30 s'),
+        ('Calf Raise', '3 \u00d7 15'),
       ]),
     );
     await t.pump();

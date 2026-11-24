@@ -2,8 +2,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:opengym/coach_action_text.dart';
 import 'package:opengym/models.dart';
 
-CoachAction _a(String name, String status, {String? reason}) =>
-    CoachAction(actionId: 'x', name: name, status: status, reason: reason);
+CoachAction _a(String name, String status, {String? reason, String? detail}) =>
+    CoachAction(actionId: 'x', name: name, status: status, reason: reason, detail: detail);
 
 void main() {
   test('an applied function is one plain line by its name', () {
@@ -52,5 +52,18 @@ void main() {
     expect(m.question!.answers.single.label, 'Gym');
     expect(const ChatContext(screen: 'session', openSessionId: 's').toJson(),
         <String, dynamic>{'screen': 'session', 'openSessionId': 's'});
+  });
+
+  test('the server detail is the line when there is one', () {
+    expect(coachActionLine(_a('replace_open_exercise', 'applied', detail: 'Tandem Stand \u2192 Balance Board')),
+        'Tandem Stand \u2192 Balance Board');
+    expect(coachActionLine(_a('update_place', 'applied', detail: 'Gym: added balance board')), 'Gym: added balance board');
+    expect(coachActionLine(_a('rebuild_open_session', 'drafted', detail: 'Proposed: 7 exercises')), 'Proposed: 7 exercises');
+  });
+
+  test('a rejected action never shows the detail; an empty detail falls back', () {
+    expect(coachActionLine(_a('replace_open_exercise', 'rejected', reason: 'the session changed', detail: 'x')),
+        'Not changed: the session changed');
+    expect(coachActionLine(_a('replace_open_exercise', 'applied', detail: '  ')), 'Changed: one exercise');
   });
 }

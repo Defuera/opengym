@@ -97,8 +97,8 @@ class CoachStore extends ChangeNotifier {
   String? contextLine;
   String? contextHint;
 
-  /// The chat thread of each open session, for the run of the app: opening
-  /// the chat again from the same session reuses its thread.
+  /// The chat thread this run made for each open session, until the server
+  /// list shows it (see [sessionThreadId]).
   final Map<String, String> _sessionThreads = <String, String>{};
 
   /// The chat list shows chats that are about something (a program) too.
@@ -309,6 +309,18 @@ class CoachStore extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// The thread of an open session. The server fact first: the newest thread
+  /// whose `openSessionId` is [sessionId] (it survives an app restart). Else
+  /// the thread made in this run that the list does not show yet.
+  String? sessionThreadId(String sessionId) {
+    for (final Thread t in threads) {
+      if (t.openSessionId == sessionId) {
+        return t.id;
+      }
+    }
+    return _sessionThreads[sessionId];
+  }
+
   /// Opens the one chat with a [context]. From an open session it is the
   /// thread of that session (a new one the first time), so the person comes
   /// back to the same talk while the session is open.
@@ -318,7 +330,7 @@ class CoachStore extends ChangeNotifier {
     required String hint,
   }) async {
     final String? sid = context.openSessionId;
-    final String? known = sid == null ? null : _sessionThreads[sid];
+    final String? known = sid == null ? null : sessionThreadId(sid);
     if (known != null && threads.any((Thread t) => t.id == known)) {
       await openThread(known);
     } else if (known != null && currentId == known && isDraft) {

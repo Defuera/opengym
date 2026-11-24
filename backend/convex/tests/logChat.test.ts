@@ -148,15 +148,42 @@ describe("bad drafts and no AI", () => {
     expect(a.proposal).toBeUndefined();
   });
 
-  it("a gym session with unknown exercises and no sets drops the session part, not the draft", async () => {
+  it("a gym session told in words keeps an exercise that has no sets and no usual sets, and Done writes it with no sets", async () => {
     await world();
     stubOpenAi(reply(() => draft({ kind: "training", summary: "legs", session: { kind: "gym", type: "Gym", exercises: [{ name: "Mystery lift", sets: [] }] } })));
     await send("m1", "did mystery lift");
     await settle(t);
     const a = await lastAssistant();
-    expect(a.proposal).toMatchObject({ type: "log", kind: "Training" });
-    expect((a.proposal as { session?: unknown }).session).toBeUndefined();
-    expect(a.actions![0]!.detail).toContain("left out");
+    expect(a.proposal).toMatchObject({ type: "log", kind: "Training", session: { type: "Gym", exercises: [{ name: "Mystery lift", sets: "" }] } });
+    expect(a.actions![0]).toMatchObject({ status: "drafted", detail: "Drafted a log (Training: session)" });
+    expect(a.actions![0]!.reason).toBeUndefined(); // nothing was dropped
+    await done("m2", "m1");
+    await settle(t);
+    const [s] = await sessions();
+    expect(s).toMatchObject({ kind: "gym", type: "Gym", source: "import", exercises: [{ name: "Mystery lift", sets: [] }] });
+  });
+
+  it("an exercise with no sets takes the usual sets of the log; one with sets stays as given; a time exercise with no sets stays too", async () => {
+    await world();
+    await t.mutation(api.commands.sessions.save, { token: TOKEN, session: { sessionId: "old", kind: "gym", type: "Gym", startedAt: NOW - 8 * 86_400_000, endedAt: NOW - 8 * 86_400_000 + 3_600_000, exercises: [{ name: "Bench press", sets: [{ reps: 8, kg: 60, max: false }] }], source: "app" } });
+    stubOpenAi(reply(() => draft({ kind: "training", summary: "push", session: { kind: "gym", type: "Gym", exercises: [{ name: "bench press", sets: [] }, { name: "Dips", sets: [{ reps: 10, kg: 0 }] }, { name: "Plank", measure: "time", sets: [] }] } })));
+    await send("m1", "bench, dips and a plank");
+    await settle(t);
+    expect((await lastAssistant()).proposal).toMatchObject({ session: { exercises: [{ name: "Bench press", sets: expect.stringContaining("8") }, { name: "Dips" }, { name: "Plank", sets: "" }] } });
+    await done("m2", "m1");
+    await settle(t);
+    const s = (await sessions()).find((x) => x.sessionId !== "old")!;
+    expect(s.exercises.map((e) => e.name)).toEqual(["Bench press", "Dips", "Plank"]);
+    expect(s.exercises[0]!.sets).toEqual([{ reps: 8, kg: 60, max: false }]);
+    expect(s.exercises[2]).toMatchObject({ measure: "time", sets: [] });
+  });
+
+  it("a gym session with no exercise at all is not dropped either", async () => {
+    await world();
+    stubOpenAi(reply(() => draft({ kind: "training", summary: "went to the gym", session: { kind: "gym", type: "Gym", exercises: [] } })));
+    await send("m1", "went to the gym");
+    await settle(t);
+    expect((await lastAssistant()).proposal).toMatchObject({ session: { type: "Gym", exercises: [] } });
   });
 
   it("with no AI: a fixed message, and Done saves a plain note of kind other", async () => {

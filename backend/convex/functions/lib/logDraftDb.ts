@@ -33,10 +33,18 @@ export async function logThreadContent(ctx: Reader, threadId: string, upTo?: num
   return logContent((await logThreadMessages(ctx, threadId, upTo)).map((m) => ({ role: m.role, text: m.text, fileIds: m.fileIds, ...(m.voice ? { voice: m.voice } : {}), answered: m.answer !== undefined })));
 }
 
+type DraftExercise = ImportSessionDraft["exercises"][number];
+
+/** An exercise the person named with no sets: the usual sets of the log when it is there, else the exercise with no sets. */
+function withUsualSets(e: DraftExercise, usual: Parameters<typeof finalizeLogExercises>[1]): DraftExercise[] {
+  const [filled] = finalizeLogExercises([{ name: e.name, measure: e.measure === "time" ? ("time" as const) : undefined, sets: undefined }], usual);
+  return [filled ? (filled as unknown as DraftExercise) : (e.measure === "time" ? { name: e.name, measure: "time", sets: [] } : { name: e.name, sets: [] })];
+}
+
 /**
  * Checks the draft_log arguments again against the data (the zod shape passed already) and makes the stored draft.
  * `at`: the moment the log is about; an unreadable or far-future one becomes now. A gym session: an exercise with no sets takes the usual
- * sets of the log, or is left out ("reported without sets = the usual sets", as parse_log does); the model never makes sets up here.
+ * sets of the log, or stays in the session with no sets (never dropped, never made up); the session is dropped only when it does not validate, and then the action says so.
  * A goal keeps its exercise only when it is a name of the log (as the old goal reading did). An edit names an existing goal, limit or note; one that is gone drops that part.
  * A part that cannot be written is dropped and `dropped` says why; the rest of the draft stays.
  * `inLog` is true in the log chat: the draft has a category and Done writes a log entry. Anywhere else (ADR-032, step D) only a goal, a limit
@@ -76,11 +84,12 @@ export async function buildLogDraft(ctx: MutationCtx, a: DraftLogArgs, now: numb
   if (a.session && inLog) {
     const s = a.session;
     const usual = usualSets(await allSessions(ctx));
-    const exercises = s.kind === "gym" ? s.exercises.flatMap((e) => (e.sets.length > 0 ? [e] : (finalizeLogExercises([{ name: e.name, measure: e.measure === "time" ? ("time" as const) : undefined, sets: undefined }], usual) as unknown as ImportSessionDraft["exercises"]))) : [];
+    // An exercise with no sets takes its usual sets; when the log has none it is KEPT with no sets (the person's word, never invented sets).
+    const exercises = s.kind === "gym" ? s.exercises.flatMap((e) => (e.sets.length > 0 ? [e] : withUsualSets(e, usual))) : [];
     const candidate: ImportSessionDraft = { ...s, exercises, date: new Date(at).toISOString() };
-    const ok = (s.kind === "activity" || exercises.length > 0) && draftToSession(candidate, { name: "log", createdAt: at }, "check", () => "check", new Set());
+    const ok = draftToSession(candidate, { name: "log", createdAt: at }, "check", () => "check", new Set());
     if (ok) draft.session = candidate;
-    else drops.push("The session was left out: no exercise with sets is known.");
+    else drops.push("The session was left out: it did not validate.");
   } else if (a.session) drops.push("The session was left out: log it in the Log chat.");
   if (goal) {
     const names = [...new Set((await allSessions(ctx)).flatMap((s) => s.exercises.map((e) => e.name)))];

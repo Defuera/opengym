@@ -10,7 +10,7 @@ Status: design, not built. Written on 2026-11-18 by the owner's assistant (Claud
 
 ## What is measured
 
-Four jobs: `build_session` (today's session, place, rebuild from feedback), `chat`, `parse_log` (free text to session structure), `learn_place` (equipment note of a place).
+Four jobs: `build_session` (today's session, place, rebuild from feedback), `chat` (the coach turn on a plain chat, ADR-032; only its message is judged), `parse_log` (free text to session structure), `learn_place` (equipment note of a place).
 
 The result of a run is not one number. It is four numbers per job, read in this order:
 

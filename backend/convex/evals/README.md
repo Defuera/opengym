@@ -18,7 +18,7 @@ Names: `AI_PROVIDER` (`anthropic`, `openai`, `deepseek`, `mock`), `<PROVIDER>_AP
 Flags (after `--`):
 
 - `--samples N`: answers per case. Default 1.
-- `--job NAME`: `build_session`, `chat`, `parse_log` or `learn_place`.
+- `--job NAME`: `build_session`, `chat` (the coach turn on a plain chat; only its message is judged), `parse_log` or `learn_place`.
 - `--case ID`: one case.
 - `--concurrency N`: cases at the same time. Default 4.
 - `--max-calls N`: a hard cap on provider calls, retries included. Default 150. When it is spent, the run stops and the rest is marked `skipped` or `aborted`.

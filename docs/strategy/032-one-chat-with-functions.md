@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted (step A built: backend; step B built: the app chat; the log draft built in the backend; step D built: goals, limits and notes in the chat; the later steps Proposed)
+Accepted (steps A to G built; every decision after step A is Proposed: the owner has not confirmed them one by one)
 
 Note: the owner asked for this in the session of 2026-11-24. A session was open at the place "Gym". The note of one exercise said "No balance board at the gym". That was false: the text of the Gym did not list a balance board, and that text is learned from the log and the chat; it is not a full list. He typed "I do have a balance board" in "Change plan". The coach rebuilt the whole session as a home session (only the place "Home" lists a balance board) and did not update the Gym. His words:
 
@@ -43,7 +43,7 @@ ADR-026 made every conversation with the coach the chat, with JSON replies and n
 - The turn reads what the chat reply reads (`lib/chatInputDb.ts`, `model/coachContext.ts`) plus the open session with exercise ids, done flags and rev, the exercise in view, the session's place, all places, the entry in view and the programs.
 - The assistant message holds `turnId`, `actions` (the results) and `question`. `queries/messages:list` returns them.
 - `places.knowledgeState?` and `placeChanges.evidence?`. The place rule is in `build_session`, `build_program`, `chat`, `learn_place` and `coach_turn`.
-- The old "Change plan" (`commands/start` with feedback, `commands/proposals`) still works.
+- The Start flow still has its own note and feedback (frozen).
 
 ## Built in step B (mobile app)
 
@@ -79,13 +79,28 @@ The owner, 2026-11-24: "ok, continue and clean up everyting". Decisions below ar
 - **One composer widget.** The note on Start step 2, the Home import screen and the form that changes an existing log entry use the same composer widget as every chat. The widget can hide the parts a use cannot take: Start step 2 holds one text, so it shows the text field only and keeps its own Start button; an import has no text, so it shows no text field and the files wait in the strip until send; the entry form shows everything and send saves. (Proposed. The owner's rule is the same UI with text, photo, file and camera. The start request takes only a text and an import takes only files, so those two cannot use every part until the backend takes them.)
 - **What the coach no longer does in the general chat.** The old reply job also ran `title_thread` and `extract_from_chat` (which wrote goals and notes at once, with no Done). The coach turn runs neither: a thread keeps the title code made from its first message, and a goal or note comes only through a draft the person approves.
 
-## Proposed next steps (not built, not confirmed by the owner)
+## Built in steps E, F and G (2026-11-24)
 
-- The app sends every message through the one chat with its context; "Change plan" and the exercise comment open that chat.
-- The app's Log button opens this chat (built in the app).
-- The program and start screens move to the coach turn.
-- `learn_place`, `chat_program` and the separate start rebuild fold into the coach turn; the old routes go.
-- The trace of a turn also stores the result of each action.
+The owner, 2026-11-24: "ok, continue and clean up everyting, let me know when it's done and I can test it". Every decision below is Proposed.
+
+- **Step E: the program chat is the same chat.** Every message runs the coach turn. A message with no screen, or from `start`, counts as `chat`; a thread about a program is the screen `program` whatever the message says. The new function `propose_program { brief, programId? }` is a PROPOSAL: it starts the existing program proposal (`startProgramProposal`, the job `build_program`, ADR-026) with the message; it writes no program. The target is `programId`, else `context.programId`, else the thread's program, else a new program. The person agrees on the program card (`commands/proposals:accept`: plain code, no AI call, once; a second agree is a no-op that returns the same program). The program chat reads `today`, the program in view, the proposal the person sees and whether one is being written. The management screen and ADR-030 are unchanged. The proposal card shows under any chat, so the app now watches the proposals of every thread. The separate program chat screen and job are gone. (Proposed)
+- **Step F: what was deleted.** The old reply job (`jobs/chat:reply`, `saveReply`, `saveTitle`, `saveExtracted`, `input`), `jobs/programChat.ts`, and the AI jobs `chat`, `chat_program`, `extract_from_chat` and `title_thread`; their prompt files, mock answers, validators and contract rows. A thread keeps the title made by code from its first message. The eval runner for `chat` now runs the coach turn and judges its message. A voice message goes to the coach turn too. (Proposed)
+- **Step F: what was kept, and why.** `jobs/chat.ts` keeps `fail`, `summarise` and the summary helpers (the coach turn uses them). `learn_place` and `jobs/places.ts`: the Start request still calls them (frozen). `parse_log`: the Start tab's time and distance form logs its text through it. `commands/goals:create` and `commands/context:create`: the offline outbox can still replay queued `goal.create` and `context.create`. `commands/proposals:request`, `queries/proposals:get` and `:open`: no caller in the app, but a 7-day proposal clean-up lives in `request` and about twenty tests build proposals with it; removing them is a separate, owner-visible step. `jobs/rebuild.ts` is the read-model rebuild, not the old "Change plan". Imports are kept. The Start flow is untouched.
+- **Step G.** The goal, limit and note draft card has no time line and shows labelled rows (Exercise, Target, Per week; Body part, Avoid); the title is not repeated. A gym session in words keeps an exercise with no sets (the usual sets of the log when known, else none) and is never dropped for that. A part left out of a draft is said in the action `reason` and shown under the card. The trace in `aiCalls` has `ref` (the turn id) and `actions` (the result of each action). An old session thread with no `openSessionId` is not found and the session chat opens a new one with no error (this already held; a test pins it).
+
+## Schema change
+
+`aiCalls.ref?` and `aiCalls.actions?`, both optional. No table or field was dropped. No function has to run after the deploy.
+
+## Still NOT on the one-chat architecture
+
+- **The Start request and the prepare screens** (`startRequest`, `build_session`, the Start note and the "Change plan" feedback of the Start flow). Frozen by the owner's requirements. They take one text and build a session; they do not run the coach turn.
+- **The Start tab's time and distance form** logs one text and reads it with `parse_log`; it is a form, not a chat.
+- **Imports of large files** (`jobs/imports.ts`, `importFiles.ts`). A large file sent in the Log chat is still read by the coach turn from its bounded text, not by the chunked import. Routing it through the import behind the chat is not a contained change (it needs an async job whose result becomes a draft), so it was left.
+- **Voice messages carry no context**, so a voice message in a session chat is answered as a plain chat (a thread about a program is still the program chat).
+- **Exact edits stay forms and taps by design**: set ticks, deletes, goal status, limit records, the switch of a note.
+- **The old proposal request path** (`commands/proposals:request`) and the offline `goal.create` / `context.create` ops remain until a later cleanup.
+- **Not verified against a real provider**: how a real model chooses `propose_program`; the tests use the mock and a stubbed provider.
 
 ## Consequences
 

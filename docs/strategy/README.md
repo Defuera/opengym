@@ -29,7 +29,7 @@ This directory holds the Architecture Decision Records (ADRs) for Gym Days (Open
 | [012](012-convex-backend.md) | Hosted Convex Backend With Separate Commands and Read Models | Accepted |
 | [013](013-activity-first-focus-is-advice.md) | Activity First, Focus Is Advice | Partly replaced by 016 |
 | [014](014-work-on-main.md) | Work on Main Directly, No Pull Requests for Now | Accepted |
-| [015](015-own-records-and-limits.md) | The User May Store Own Records; Limits Become Rules | Accepted |
+| [015](015-own-records-and-limits.md) | The User May Store Own Records; Limits Become Rules | Accepted (one clause superseded by 033) |
 | [016](016-start-or-log-vocabulary-from-the-log.md) | Start or Log; the Vocabulary Comes From the Log | Accepted |
 | [017](017-log-entries.md) | Log Entries Are Free Notes With Attachments | Proposed |
 | [018](018-log-by-text.md) | Log an Activity as One Text; the AI Fills the Structure | Proposed |
@@ -47,3 +47,4 @@ This directory holds the Architecture Decision Records (ADRs) for Gym Days (Open
 | [030](030-program-is-data-for-the-coach.md) | A Program Is Data for the Coach | Accepted |
 | [031](031-one-general-log-entry.md) | One General Log Entry, and the AI Says What It Is | Accepted (step 1 built; next steps Proposed) |
 | [032](032-one-chat-with-functions.md) | One Chat With Functions | Accepted (steps A to G built; decisions after step A Proposed) |
+| [033](033-coach-reads-records.md) | The Coach Reads the Person's Records | Accepted (supersedes one clause of 015) |

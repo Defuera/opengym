@@ -1,4 +1,5 @@
 import type { Limit, PlanDraft, PromptLimit, Session } from "../schema";
+import { type LimitForAi, RECORDS_PER_LIMIT_MAX, RECORD_PROMPT_MAX_CHARS } from "../schema/limits";
 import { type MuscleKey, allMusclesFor, normName } from "./muscles";
 
 type Loaders = { muscles: MuscleKey[]; activities: string[]; anyActivity?: boolean };
@@ -49,9 +50,17 @@ export function sessionLoadsPart(session: Session, part: string): boolean {
 export const limitsLoadedBy = <L extends { part: string; status: string }>(session: Session, limits: L[]): L[] =>
   limits.filter((l) => l.status !== "cleared" && sessionLoadsPart(session, l.part));
 
-/** What an AI job may read of a limit: never the records, never the exercise lists. Cleared limits are left out. */
-export const limitsForPrompt = (limits: Limit[]): PromptLimit[] =>
-  limits.filter((l) => l.status !== "cleared").map((l) => ({ part: l.part, title: l.title, status: l.status, rules: l.rules.map((r) => ({ kind: r.kind, text: r.text })) }));
+/**
+ * What an AI job reads of a limit (ADR-033): the rules as kind and text (no exercise lists) and the person's records, word for word.
+ * A cleared limit gives no rules; it is kept only when it has records, so the coach can still report them.
+ */
+export const limitsForPrompt = (limits: LimitForAi[]): PromptLimit[] =>
+  limits.flatMap((l) => {
+    const records = (l.records ?? []).slice(0, RECORDS_PER_LIMIT_MAX).map((r) => (r.text.length > RECORD_PROMPT_MAX_CHARS ? { ...r, text: r.text.slice(0, RECORD_PROMPT_MAX_CHARS), textWasCut: true as const } : r));
+    const cleared = l.status === "cleared";
+    if (cleared && records.length === 0) return [];
+    return [{ part: l.part, title: l.title, status: l.status, rules: cleared ? [] : l.rules.map((r) => ({ kind: r.kind, text: r.text })), ...(records.length > 0 ? { records } : {}) }];
+  });
 
 /** Exercise names (normalised) that a non-cleared limit says to avoid. */
 export function avoidedExercises(limits: Limit[]): Set<string> {

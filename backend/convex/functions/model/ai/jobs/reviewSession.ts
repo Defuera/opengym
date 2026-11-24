@@ -1,6 +1,6 @@
 import type { JobDef } from "../runJob";
 import { LIMITS_RULE, dataPrompt, systemPrompt } from "../promptRules";
-import { type Limit, type ReviewDraft, ReviewDraftSchema, type Session } from "../../schema";
+import { type LimitForAi, type ReviewDraft, ReviewDraftSchema, type Session } from "../../schema";
 import { timeText } from "../../rules/util";
 import type { coachPicture } from "./coachPicture";
 import { limitsForPrompt, localTime, logForPrompt } from "./shared";
@@ -9,8 +9,8 @@ export interface ReviewInput {
   session: Session;
   /** The session plus the recent sessions of the same activity and focus before it, oldest first (bounded, see inputs.ts). */
   sessions: Session[];
-  /** Non-cleared limits. Never holds records. */
-  limits: Limit[];
+  /** The limits with their records, cleared ones too (ADR-033). */
+  limits: LimitForAi[];
   /** The picture of the person as it was BEFORE this session (goals, notes, recent sessions, every exercise with its last sets). Absent in old callers. */
   picture?: ReturnType<typeof coachPicture>;
   /** Plain-code review, computed by the caller from the FULL history. */

@@ -2,7 +2,7 @@ import type { ImageInput } from "./ai/provider";
 import { contextForPrompt, goalsForPrompt, limitsForPrompt, logForPrompt } from "./ai/jobs/shared";
 import { CHUNK_CHARS } from "./fileText";
 import { entriesForPrompt } from "./entryContext";
-import type { ContextItem, Entry, FileMeta, Goal, Limit, Session } from "./schema";
+import type { ContextItem, Entry, FileMeta, Goal, LimitForAi, Session } from "./schema";
 
 export interface CoachContext {
   contextBlock: string;
@@ -24,8 +24,8 @@ export interface CoachData {
   sessions: Session[];
   goals: Goal[];
   context: ContextItem[];
-  /** Non-cleared limits; no records. Optional so old callers keep working. */
-  limits?: Limit[];
+  /** The limits with their records, cleared ones too (ADR-033). Optional so old callers keep working. */
+  limits?: LimitForAi[];
   /** Log entries of the last week, oldest first. Optional so old callers keep working. */
   entries?: Entry[];
 }
@@ -57,7 +57,7 @@ export function assembleCoachContext(data: CoachData, files: AttachedFile[], sup
   }
   const limits = limitsForPrompt(data.limits ?? []);
   if (limits.length) {
-    parts.push(`Limits the user trains around:\n${JSON.stringify(limits)}`);
+    parts.push(`Limits the user trains around (with the records of the person, when there are any):\n${JSON.stringify(limits)}`);
     sources.push("limits");
   }
   if (data.entries?.length) {

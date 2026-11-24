@@ -3,7 +3,7 @@ import { internal } from "../_generated/api";
 import { internalAction, internalMutation, internalQuery } from "../_generated/server";
 import { runAiJob } from "../lib/ai";
 import { allContext, allGoals, allSessions, planFor, planKey } from "../lib/db";
-import { activeLimits } from "../lib/limitsDb";
+import { activeLimits, limitsForAi } from "../lib/limitsDb";
 import { planExercise, proposalSource } from "../lib/validators";
 import { buildPlanInput } from "../model/ai/jobs/inputs";
 import { planSessionJob } from "../model/ai/jobs/planSession";
@@ -13,7 +13,7 @@ import { loggedName } from "../model/rules/foci";
 /** Bounded model input for one plan. Reads the full history, returns the small input. */
 export const input = internalQuery({
   args: { activity: v.string(), focus: v.optional(v.string()) },
-  handler: async (ctx, { activity, focus }) => buildPlanInput(await allSessions(ctx), await allGoals(ctx), await allContext(ctx), activity, focus, await activeLimits(ctx)),
+  handler: async (ctx, { activity, focus }) => buildPlanInput(await allSessions(ctx), await allGoals(ctx), await allContext(ctx), activity, focus, await limitsForAi(ctx)),
 });
 
 /** Applies the safety limits against the FULL history, then replaces the stored plan for the activity and focus. */

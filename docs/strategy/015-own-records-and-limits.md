@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted
+Accepted. The clause "A record is never sent to an AI provider" is superseded by ADR-033 (2026-11-24).
 
 ## Date
 
@@ -24,5 +24,5 @@ ADR-010 says: no medical wording in the app copy, the docs, the code or the AI p
 ## Consequences
 
 - ADR-010 is partly replaced: user-entered records are exempt from the wording rule; everything the app or the AI writes is not.
-- Prompt builders must take rules from limits and must not read records. A test must check this.
+- Prompt builders must take rules from limits and must not read records. A test must check this. (Superseded by ADR-033: the coach and the planning jobs now read records.)
 - Coach notes about body limits move into limits. Other coach notes become preferences in "About me".

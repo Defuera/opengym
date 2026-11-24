@@ -126,8 +126,8 @@ conversation (A01–A16). Wording is kept close to his.
 - The owner can list body parts he trains around. Each is a limit with a status: active, improving or cleared.
 - A limit has rules in training words: avoid, light or do. An avoid rule may name exercises.
 - A plan that holds an exercise from an avoid rule is rejected. The code fallback drops it too.
-- The AI gets the rules of non-cleared limits. It never gets a record.
-- The owner can store his own records for a limit, word for word. The app does not read or judge them.
+- The AI gets the rules of non-cleared limits and the owner's records of every limit, cleared ones too. Owner's words, 2026-11-24: "What is the point of records of ai cannot read them?" (ADR-033).
+- The owner can store his own records for a limit, word for word. The app keeps the text word for word and never edits or rewrites it; the AI reads it when he asks, and no AI function writes or changes a record.
 - After a session that loaded a limited part, the app asks how it felt: fine, noticed or bad.
 - The screen shows a load level per muscle for 14 and 90 days, and the muscles his goals name.
 - See ADR-015. Backend contract: `backend/convex/functions/commands/limits.ts` and `queries/aboutMe.ts`.

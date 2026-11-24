@@ -3,7 +3,7 @@ import type { JobDef } from "../runJob";
 import { JSON_ONLY } from "../promptRules";
 import { avoidedInPlan } from "../../rules/limits";
 import { nameFromText } from "../../startFallback";
-import { type Limit, type StartProposal, StartProposalSchema } from "../../schema";
+import { type LimitForAi, type StartProposal, StartProposalSchema } from "../../schema";
 import type { coachPicture } from "./coachPicture";
 import { TIME_RULE } from "./shared";
 import { PLACE_KNOWLEDGE_RULE, SESSION_PLACE_RULE, type PlaceKnowledge } from "../../placeKnowledge";
@@ -25,7 +25,7 @@ export interface BuildSessionInput {
   /** The active programs that run today, with the week, the open slots and the sessions as written (ADR-030). */
   programsThePersonFollows?: unknown[];
   picture: ReturnType<typeof coachPicture>;
-  limits: Limit[];
+  limits: LimitForAi[];
   /** Photos of the log entries of the last day. Sent only when the provider takes images. */
   images?: ImageInput[];
 }

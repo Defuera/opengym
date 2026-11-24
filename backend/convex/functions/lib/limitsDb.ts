@@ -1,6 +1,7 @@
 import type { Doc } from "../_generated/dataModel";
 import type { DatabaseReader } from "../_generated/server";
 import type { Limit } from "../model/schema";
+import { type LimitForAi, RECORDS_PER_LIMIT_MAX } from "../model/schema/limits";
 
 type Reader = { db: DatabaseReader };
 
@@ -13,7 +14,7 @@ export const recordByRecordId = (ctx: Reader, recordId: string) =>
 export const checkinByCheckinId = (ctx: Reader, checkinId: string) =>
   ctx.db.query("checkins").withIndex("by_checkinId", (q) => q.eq("checkinId", checkinId)).unique();
 
-/** A stored limit as the model sees it. No records here, by design (ADR-015). */
+/** A stored limit without its records. Records are added by `limitsForAi` (ADR-033). */
 export function toLimit(d: Doc<"limits">): Limit {
   return {
     limitId: d.limitId,
@@ -29,4 +30,19 @@ export function toLimit(d: Doc<"limits">): Limit {
 export async function activeLimits(ctx: Reader): Promise<Limit[]> {
   const docs = await ctx.db.query("limits").collect();
   return docs.filter((d) => d.status !== "cleared").map(toLimit);
+}
+
+/**
+ * Every limit, cleared ones too, each with its newest records (date, then written, newest first), for the jobs that read the
+ * person's records (ADR-033). Hard checks still use only the non-cleared rules: they skip a cleared limit by its status.
+ */
+export async function limitsForAi(ctx: Reader): Promise<LimitForAi[]> {
+  const out: LimitForAi[] = [];
+  for (const d of await ctx.db.query("limits").collect()) {
+    const rows = (await ctx.db.query("records").withIndex("by_limitId", (q) => q.eq("limitId", d.limitId)).collect())
+      .sort((a, b) => (b.date ?? "").localeCompare(a.date ?? "") || b._creationTime - a._creationTime)
+      .slice(0, RECORDS_PER_LIMIT_MAX);
+    out.push({ ...toLimit(d), ...(rows.length > 0 ? { records: rows.map((r) => ({ title: r.title, ...(r.date !== undefined ? { date: r.date } : {}), text: r.text })) } : {}) });
+  }
+  return out;
 }

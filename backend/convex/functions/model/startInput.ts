@@ -8,7 +8,7 @@ import { type ProgramForCoach, programsForCoach } from "./programForCoach";
 import { dropAvoided } from "./rules/limits";
 import { fociByUse } from "./rules/foci";
 import { rulesPlan } from "./rules/planner";
-import type { ContextItem, Entry, Goal, Limit, PlanDraft, Session } from "./schema";
+import type { ContextItem, Entry, Goal, LimitForAi, PlanDraft, Session } from "./schema";
 import { activityKey } from "./sessionShape";
 
 /** What the start request holds (the fields the input reads). */
@@ -24,7 +24,7 @@ export interface StartData {
   sessions: Session[];
   goals: Goal[];
   context: ContextItem[];
-  limits: Limit[];
+  limits: LimitForAi[];
   places: { placeId: string; name: string; text: string; knowledgeState?: PlaceKnowledge }[];
   entries: Entry[];
   /** Every live program. Absent in old callers: then the coach gets none. */

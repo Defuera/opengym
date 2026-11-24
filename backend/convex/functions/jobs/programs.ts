@@ -6,7 +6,7 @@ import { PROGRAM_BUILD_BUDGET_MS } from "../lib/constants";
 import { loadAttachment } from "../lib/files";
 import { attachmentsForPrompt } from "../model/attachedFiles";
 import { allGoals, allSessions } from "../lib/db";
-import { activeLimits } from "../lib/limitsDb";
+import { limitsForAi } from "../lib/limitsDb";
 import { knowledgeOf } from "../model/placeKnowledge";
 import { allPlaces } from "../lib/placesDb";
 import { threadUserFiles, todayLabel } from "../lib/programChatDb";
@@ -18,14 +18,14 @@ import { coachPicture } from "../model/ai/jobs/coachPicture";
 /** The most exercises of the log that go to the model. */
 const KNOWN_EXERCISES_MAX = 60;
 
-/** Bounded model input for one program proposal, or null when it is gone or no longer `building`. Never reads records (ADR-015). */
+/** Bounded model input for one program proposal, or null when it is gone or no longer `building`. Reads the limits with their records (ADR-033). */
 export const input = internalQuery({
   args: { proposalId: v.string() },
   handler: async (ctx, { proposalId }): Promise<BuildProgramInput | null> => {
     const doc = await proposalByProposalId(ctx, proposalId);
     if (!doc || doc.status !== "building") return null;
     const now = Date.now();
-    const limits = await activeLimits(ctx);
+    const limits = await limitsForAi(ctx);
     const goals = (await allGoals(ctx)).filter((g) => g.status === "active").sort((a, b) => a.createdAt - b.createdAt);
     // The picture of the user is the same one the session coach reads; only the parts a program needs are kept.
     const picture = coachPicture(await allSessions(ctx), goals, [], limits, [], now);

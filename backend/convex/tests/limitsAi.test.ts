@@ -9,8 +9,10 @@ import { planSessionJob } from "../functions/model/ai/jobs/planSession";
 import { reviewSessionJob } from "../functions/model/ai/jobs/reviewSession";
 import { summariseThreadJob } from "../functions/model/ai/jobs/summariseThread";
 import { LIMITS_RULE } from "../functions/model/ai/promptRules";
+import { RECORD_PROMPT_MAX_CHARS } from "../functions/model/schema/limits";
+import { limitsForPrompt } from "../functions/model/rules/limits";
 import { assembleCoachContext } from "../functions/model/coachContext";
-import type { Limit, Session } from "../functions/model/schema";
+import type { Limit, LimitForAi, Session } from "../functions/model/schema";
 import { TOKEN, setup, settle, type T } from "./helpers";
 
 const MARKER = "ZX-RECORD-MARKER-4471";
@@ -18,14 +20,14 @@ const session = (id: string, names: string[]): Session => ({
   id, kind: "gym", type: "Gym", focus: "Legs", startedAt: 1_000_000, endedAt: 5_000_000, source: "app",
   exercises: names.map((name) => ({ name, sets: [{ reps: 8, kg: 50, max: false }] })),
 });
-const limit: Limit & { records: unknown[] } = {
+const limit: LimitForAi = {
   limitId: "k1", part: "left_knee", title: "Left knee", status: "active",
   rules: [{ kind: "avoid", text: "No deep squats", exercises: ["Squat"] }, { kind: "do", text: "Leg press, short range" }],
-  records: [{ recordId: "r1", title: "Scan", text: MARKER }], // a caller that leaks a record by mistake
+  records: [{ title: "Scan report", date: "2026-10-12", text: MARKER }],
 };
 const cleared: Limit = { limitId: "k2", part: "wrists", title: "Wrists", status: "cleared", rules: [{ kind: "light", text: "CLEARED-RULE" }] };
 
-describe("prompts carry limits and never records", () => {
+describe("prompts carry limits and the records of the person (ADR-033)", () => {
   const log = [session("a", ["Squat", "Leg Press"])];
   const prompts = (limits: Limit[]) => {
     const plan = buildPlanInput(log, [], [], "Gym", "Legs", limits);
@@ -42,13 +44,29 @@ describe("prompts carry limits and never records", () => {
   };
   const whole = (p: { system: string; messages: { content: string }[] }) => `${p.system}\n${p.messages.map((m) => m.content).join("\n")}`;
 
-  it("no job prompt holds a record, even when a limit object carries one", () => {
-    for (const [name, p] of Object.entries(prompts([limit, cleared]))) expect(whole(p), name).not.toContain(MARKER);
+  it("the jobs that carry limits hold the records of a limit; the others do not", () => {
+    const all = prompts([limit, cleared]);
+    for (const name of ["plan", "review", "session", "chat"] as const) expect(whole(all[name]), name).toContain(MARKER);
+    for (const name of ["dashboard", "summarise"] as const) expect(whole(all[name]), name).not.toContain(MARKER);
+    expect(whole(all.chat)).toContain("2026-10-12");
   });
 
-  it("plan, review, session and chat get non-cleared limits as {part,title,status,rules:[{kind,text}]} and the one-sentence rule", () => {
+  it("a cleared limit gives its records with the status and no rules; one without records is left out", () => {
+    const data = limitsForPrompt([{ ...cleared, records: [{ title: "Old scan", text: "old text" }] }, { ...cleared, limitId: "k3", title: "Bare" }]);
+    expect(data).toEqual([{ part: "wrists", title: "Wrists", status: "cleared", rules: [], records: [{ title: "Old scan", text: "old text" }] }]);
+  });
+
+  it("a record is cut at the cap and says so; at most five per limit", () => {
+    const long = "x".repeat(RECORD_PROMPT_MAX_CHARS + 50);
+    const [l] = limitsForPrompt([{ ...limit, records: [{ title: "Long", text: long }, ...Array.from({ length: 6 }, (_, i) => ({ title: `r${i}`, text: "t" }))] }]);
+    expect(l!.records).toHaveLength(5);
+    expect(l!.records![0]).toMatchObject({ title: "Long", textWasCut: true });
+    expect(l!.records![0]!.text).toHaveLength(RECORD_PROMPT_MAX_CHARS);
+  });
+
+  it("plan, review, session and chat get non-cleared limits as {part,title,status,rules:[{kind,text}],records} and the one-sentence rule", () => {
     const p = prompts([limit, cleared]);
-    const expected = [{ part: "left_knee", title: "Left knee", status: "active", rules: [{ kind: "avoid", text: "No deep squats" }, { kind: "do", text: "Leg press, short range" }] }];
+    const expected = [{ part: "left_knee", title: "Left knee", status: "active", rules: [{ kind: "avoid", text: "No deep squats" }, { kind: "do", text: "Leg press, short range" }], records: [{ title: "Scan report", date: "2026-10-12", text: MARKER }] }];
     for (const name of ["plan", "review", "session"] as const) {
       const data = JSON.parse(p[name].messages[0]!.content.split("INPUT_JSON:\n")[1]!);
       expect(data.limits, name).toEqual(expected);
@@ -107,9 +125,9 @@ describe("hard check on avoid rules (stubbed network)", () => {
     expect(p.exercises.map((e) => e.name)).toEqual(["Leg Press"]);
     // The retry turn tells the model what was wrong.
     expect(bodies.filter((b) => b.job === "plan_session")[1]!.text).toContain("marked avoid");
-    // No request of any job holds the record text.
-    expect(bodies.length).toBeGreaterThan(3);
-    for (const b of bodies) expect(b.text, b.job).not.toContain(MARKER);
+    // The jobs that carry limits hold the record text (ADR-033).
+    expect(bodies.filter((b) => b.job === "plan_session").every((b) => b.text.includes(MARKER))).toBe(true);
+    expect(bodies.filter((b) => b.job === "review_session").every((b) => b.text.includes(MARKER))).toBe(true);
   });
 
   it("a plan without avoided exercises is accepted as AI; a second valid try after an invalid one is accepted", async () => {
@@ -131,7 +149,7 @@ describe("hard check on avoid rules (stubbed network)", () => {
     expect(p.exercises.map((e) => e.name)).toEqual(["Squat"]);
   });
 
-  it("the chat coach reads the limits, not the record", async () => {
+  it("the chat coach reads the limits and the record", async () => {
     const bodies = stub((job) => (job === "coach_turn" ? '{"message":"ok"}' : "{}"));
     await setupData();
     await t.mutation(api.commands.threads.create, { token: TOKEN, threadId: "th", title: "T" });
@@ -140,6 +158,6 @@ describe("hard check on avoid rules (stubbed network)", () => {
     const chat = bodies.filter((b) => b.job === "coach_turn");
     expect(chat).toHaveLength(1);
     expect(chat[0]!.text).toContain("No deep squats");
-    for (const b of bodies) expect(b.text, b.job).not.toContain(MARKER);
+    expect(chat[0]!.text).toContain(MARKER);
   });
 });

@@ -4,7 +4,7 @@ import { internalAction, internalMutation, internalQuery } from "../_generated/s
 import { providerFor, runAiJob } from "../lib/ai";
 import { allContext, allGoals, allSessions, startRequestById } from "../lib/db";
 import { coachEntries, entryImageFiles, loadEntryImages } from "../lib/entriesDb";
-import { activeLimits } from "../lib/limitsDb";
+import { activeLimits, limitsForAi } from "../lib/limitsDb";
 import { requestExerciseArt } from "../lib/exerciseArtDb";
 import { allPlaces, createPlace } from "../lib/placesDb";
 import { liveProgramDocs, programByProgramId } from "../lib/programsDb";
@@ -29,7 +29,7 @@ export const input = internalQuery({
     // The pure part (the picture of the user, the places, the rules plan for the fallback) is in model/startInput.ts: the eval runner calls it too.
     const built = buildStartInput(
       { name: doc.name, text: doc.text, feedback: doc.feedback, previousPlan: doc.previousPlan },
-      { sessions: await allSessions(ctx), goals: await allGoals(ctx), context: await allContext(ctx), limits: await activeLimits(ctx), places: await allPlaces(ctx), entries: await coachEntries(ctx, now), programs: await liveProgramDocs(ctx), now },
+      { sessions: await allSessions(ctx), goals: await allGoals(ctx), context: await allContext(ctx), limits: await limitsForAi(ctx), places: await allPlaces(ctx), entries: await coachEntries(ctx, now), programs: await liveProgramDocs(ctx), now },
     );
     return { ...built, entryImages: await entryImageFiles(ctx, now) };
   },

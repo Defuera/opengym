@@ -1,5 +1,5 @@
 import { dropAvoided } from "../../rules/limits";
-import type { ContextItem, Goal, Limit, PlanDraft, Session } from "../../schema";
+import type { ContextItem, Goal, LimitForAi, PlanDraft, Session } from "../../schema";
 import { activityKey } from "../../sessionShape";
 import { fociByDue, loggedActivities } from "../../rules/foci";
 import { rulesPlan } from "../../rules/planner";
@@ -36,8 +36,8 @@ export function boundedPlanSessions(all: Session[], activity: string, focus?: st
   return all.filter((s) => ids.has(s.id));
 }
 
-/** `limits` must be the non-cleared limits. The rules plan already drops exercises an avoid rule names. */
-export function buildPlanInput(all: Session[], goals: Goal[], context: ContextItem[], activity: string, focus: string | undefined, limits: Limit[] = []): PlanInput {
+/** `limits` are all limits with their records (limitsForAi); the rules plan skips a cleared one. The rules plan already drops exercises an avoid rule names. */
+export function buildPlanInput(all: Session[], goals: Goal[], context: ContextItem[], activity: string, focus: string | undefined, limits: LimitForAi[] = []): PlanInput {
   const rules: PlanDraft = dropAvoided(rulesPlan(all, activity, focus), limits);
   return { activity, ...(focus !== undefined ? { focus } : {}), sessions: boundedPlanSessions(all, activity, focus), goals, context, limits, rules };
 }
@@ -66,7 +66,7 @@ export function buildDashboardInput(all: Session[], goals: Goal[], context: Cont
  * Review: the session, the last 6 of the same activity and focus before it (oldest first), and, when the caller gives the goals
  * and notes, the picture of the person as it was just before the session started (so "last sets" never holds the session itself).
  */
-export function buildReviewInput(all: Session[], session: Session, limits: Limit[] = [], about?: { goals: Goal[]; context: ContextItem[] }): ReviewInput {
+export function buildReviewInput(all: Session[], session: Session, limits: LimitForAi[] = [], about?: { goals: Goal[]; context: ContextItem[] }): ReviewInput {
   const before = all.filter((s) => s.id !== session.id && s.kind === session.kind && s.type === session.type && s.focus === session.focus && s.endedAt <= session.endedAt);
   const earlier = all.filter((s) => s.id !== session.id && s.endedAt <= session.startedAt);
   const picture = about ? coachPicture(earlier, [...about.goals].sort((x, y) => x.createdAt - y.createdAt), about.context, limits, [], session.startedAt) : undefined;

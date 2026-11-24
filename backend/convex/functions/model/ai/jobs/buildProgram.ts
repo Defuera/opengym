@@ -3,7 +3,7 @@ import type { JobDef } from "../runJob";
 import { JSON_ONLY } from "../promptRules";
 import { limitsForPrompt } from "../../rules/limits";
 import { checkProgramValue } from "../../program";
-import { type Limit, type ProgramBuild, type ProgramValue, ProgramBuildSchema } from "../../schema";
+import { type LimitForAi, type ProgramBuild, type ProgramValue, ProgramBuildSchema } from "../../schema";
 import { TIME_RULE } from "./shared";
 import { PLACE_KNOWLEDGE_RULE, type PlaceKnowledge } from "../../placeKnowledge";
 
@@ -19,14 +19,14 @@ export interface BuildProgramInput {
   currentProgram?: ProgramValue;
   /** Goals in order of priority, as the coach picture gives them. */
   goalsInOrderOfPriority: unknown[];
-  limits: Limit[];
+  limits: LimitForAi[];
   /** Every place the person has, with its equipment note ("" = unknown). */
   placesTheCoachKnows: { name: string; equipment: string; knowledge?: PlaceKnowledge }[];
   /** Files of the chat the proposal was made in: the text of documents, the names of images. The images themselves are in `images`. */
   attachedFiles?: { name: string; text: string }[];
   attachedImages?: string[];
   images?: ImageInput[];
-  /** The exercises of the log (at most 60): the person's own names, the last sets, the best weight. Never records (ADR-015). */
+  /** The exercises of the log (at most 60): the person's own names, the last sets, the best weight. Never records. */
   exercisesTheUserKnows: { name: string; lastSets: string; bestKg: number }[];
 }
 

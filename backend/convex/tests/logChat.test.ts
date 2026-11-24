@@ -247,7 +247,7 @@ describe("the rest of the chat", () => {
     expect(await t.query(api.queries.sessions.recent, { token: TOKEN })).toHaveLength(0);
   });
 
-  it("the turn input holds no record, and an entry that made a session is not read as a second note", async () => {
+  it("the coach reads the record in its context (not in INPUT_JSON), and an entry that made a session is not read as a second note", async () => {
     await world();
     await t.mutation(api.commands.limits.save, { token: TOKEN, limit: { limitId: "k1", part: "left_knee", title: "Knee", status: "active", rules: [{ kind: "avoid", text: "Deep squats" }] } });
     await t.mutation(api.commands.limits.addRecord, { token: TOKEN, record: { recordId: "r1", limitId: "k1", title: "Scan", text: "PRIVATE-RECORD-TEXT" } });
@@ -264,9 +264,10 @@ describe("the rest of the chat", () => {
     await send("m3", "how was my week?");
     await settle(t);
     expect(bodies.length).toBeGreaterThan(1);
-    expect(bodies.join("")).not.toContain("PRIVATE-RECORD-TEXT");
+    expect(bodies.join("")).toContain("PRIVATE-RECORD-TEXT"); // ADR-033: the coach reads the person's records
     const turn = calls.filter((c) => c.job === "coach_turn").at(-1)!;
     expect(turn.input).toMatchObject({ screen: "log", today: "2026-11-24 (Tuesday)" });
+    expect(JSON.stringify(turn.input)).not.toContain("PRIVATE-RECORD-TEXT"); // the lists the coach may change carry no record
     expect(turn.input).not.toHaveProperty("currentLogDraft"); // the draft was applied
     const last = JSON.parse(bodies.filter((b) => b.includes("INPUT_JSON")).at(-1)!);
     expect(JSON.stringify(last)).not.toContain("Log entries from the user");

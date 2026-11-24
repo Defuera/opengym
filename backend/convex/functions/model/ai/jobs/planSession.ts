@@ -2,7 +2,7 @@ import { z } from "zod";
 import type { JobDef } from "../runJob";
 import { LIMITS_RULE, dataPrompt, systemPrompt } from "../promptRules";
 import { avoidedInPlan, dropAvoided } from "../../rules/limits";
-import { type ContextItem, type Goal, type Limit, type PlanDraft, PlanDraftSchema, type Session } from "../../schema";
+import { type ContextItem, type Goal, type LimitForAi, type PlanDraft, PlanDraftSchema, type Session } from "../../schema";
 import { TIME_RULE, contextForPrompt, goalsForPrompt, limitsForPrompt, logForPrompt } from "./shared";
 
 /**
@@ -17,8 +17,8 @@ export interface PlanInput {
   sessions: Session[];
   goals: Goal[];
   context: ContextItem[];
-  /** Non-cleared limits. Never holds records. */
-  limits: Limit[];
+  /** The limits with their records, cleared ones too (ADR-033). */
+  limits: LimitForAi[];
   rules: PlanDraft;
 }
 

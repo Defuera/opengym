@@ -33,7 +33,14 @@ const LOG_FILES_MAX = 10;
  * an exercise or the log chat. Input: what a chat reply reads (lib/chatInputDb.ts) plus the screen, read by the server now: the open session
  * with exercise ids, done flags and rev, the exercise in view, the session's place and every place, the entry and the programs.
  */
-/** The log chat (ADR-032) sees every message and file of its thread, not the last few, and the open draft it made. */
+/** The open log draft of the thread, as the coach reads it (currentLogDraft), on every screen; null when the last proposal is not an open log draft. */
+async function openLogDraft(ctx: QueryCtx, threadId: string) {
+  const last = (await ctx.db.query("messages").withIndex("by_threadId", (q) => q.eq("threadId", threadId)).order("desc").filter((q) => q.neq(q.field("proposal"), undefined)).first())?.proposal;
+  const open = last && last.type === "log" && last.appliedAt === undefined ? (last as StoredLogDraft) : null;
+  return open ? { kind: open.kind, ...(open.color ? { color: open.color } : {}), summary: open.summary, at: new Date(open.at).toISOString(), ...(open.session ? { session: open.session } : {}), ...(open.goal ? { goal: open.goal } : {}), ...(open.limit ? { limit: open.limit } : {}), ...(open.note ? { note: open.note } : {}) } : null;
+}
+
+/** The log chat (ADR-032) sees every message and file of its thread, not the last few. Other chats keep the files of a chat reply. */
 async function logInput(ctx: QueryCtx, threadId: string, upTo: number) {
   const content = await logThreadContent(ctx, threadId, upTo);
   const files = [];
@@ -41,10 +48,7 @@ async function logInput(ctx: QueryCtx, threadId: string, upTo: number) {
     const f = await fileByFileId(ctx, id);
     if (f && f.kind !== "audio") files.push({ fileId: f.fileId, storageId: f.storageId, name: f.name, mime: f.mime, size: f.size, kind: f.kind, createdAt: f.createdAt });
   }
-  const last = (await ctx.db.query("messages").withIndex("by_threadId", (q) => q.eq("threadId", threadId)).order("desc").filter((q) => q.neq(q.field("proposal"), undefined)).first())?.proposal;
-  const open = last && last.type === "log" && last.appliedAt === undefined ? (last as StoredLogDraft) : null;
-  const draft = open ? { kind: open.kind, ...(open.color ? { color: open.color } : {}), summary: open.summary, at: new Date(open.at).toISOString(), ...(open.session ? { session: open.session } : {}), ...(open.goal ? { goal: open.goal } : {}), ...(open.limit ? { limit: open.limit } : {}), ...(open.note ? { note: open.note } : {}) } : null;
-  return { files, draft, categories: await knownCategories(ctx), photosOnly: !content.text.trim() && files.length > 0 && files.every((f) => f.kind === "image") };
+  return { files, photosOnly: !content.text.trim() && files.length > 0 && files.every((f) => f.kind === "image") };
 }
 
 export const input = internalQuery({
@@ -65,13 +69,19 @@ export const input = internalQuery({
     const entry = hint.entryId ? await entryByEntryId(ctx, hint.entryId) : null;
     const programs = programsForCoach(await liveProgramDocs(ctx), await allSessions(ctx), localDate(Date.now()));
     const isLog = hint.screen === "log";
+    const draft = await openLogDraft(ctx, threadId);
+    const categories = await knownCategories(ctx);
     const log = isLog ? await logInput(ctx, threadId, trigger._creationTime) : null;
     const editables = editablesForTurn({ goals: await allGoals(ctx), limits: (await ctx.db.query("limits").collect()).map(toLimit), notes: await allContext(ctx), goalId: hint.goalId, limitId: hint.limitId, noteId: hint.noteId, part: hint.part });
     const turn = {
       ...screen,
       ...editables,
       ...(program ?? {}),
-      ...(log ? { today: dayWithWeekday(Date.now()), now: new Date().toISOString(), ...(log.draft ? { currentLogDraft: log.draft } : {}), ...(log.categories.length > 0 ? { categoriesInUse: log.categories } : {}) } : {}),
+      // What any log needs, on every screen: the day, the time, the categories in use and the open draft.
+      today: dayWithWeekday(Date.now()),
+      now: new Date().toISOString(),
+      ...(draft ? { currentLogDraft: draft } : {}),
+      ...(categories.length > 0 ? { categoriesInUse: categories } : {}),
       ...(entry ? { entryInView: { entryId: entry.entryId, text: entry.text, at: new Date(entry.at).toISOString(), files: entry.fileIds.length } } : {}),
       ...(programs.length > 0 ? { programsThePersonFollows: programs } : {}),
       ...(trigger.fileIds.length > 0 ? { attachedToThisMessage: chat.files.filter((f) => trigger.fileIds.includes(f.fileId)).map((f) => f.name) } : {}),

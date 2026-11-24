@@ -174,17 +174,57 @@ describe("a note draft", () => {
   });
 });
 
-describe("outside the log chat", () => {
-  it("a draft with no goal, limit or note is rejected; a session part is left out; nothing is written", async () => {
+describe("a log from any chat (owner's words 2026-11-24)", () => {
+  const uploadImg = async (fileId: string) => {
+    const storageId = await t.run((c) => c.storage.store(new Blob(["x"], { type: "image/jpeg" })));
+    await t.mutation(api.commands.files.register, { token: TOKEN, fileId, storageId, name: `${fileId}.jpg`, mime: "image/jpeg", size: 1 });
+  };
+  const entries = () => t.run((c) => c.db.query("entries").collect());
+
+  it("a meal told in the general chat is drafted; Done writes one entry with the text of that message only, not the other talk", async () => {
     await world();
-    stubOpenAi(reply(() => draft({ kind: "Meal", summary: "pasta" })));
-    await send("m1", "I ate pasta", { screen: "chat" });
+    await uploadImg("f1");
+    const turns = [{ message: "A squat is a leg exercise.", actions: [] }, draft({ kind: "meal", summary: "pasta for lunch" })];
+    const calls = stubOpenAi(reply(() => turns.shift() ?? { message: "ok", actions: [] }));
+    await send("m0", "what is a squat", { screen: "chat" });
+    await settle(t);
+    await t.mutation(api.commands.messages.send, { token: TOKEN, threadId: "th1", messageId: "m1", text: "I ate pasta for lunch", fileIds: ["f1"], context: { screen: "chat" } });
+    await settle(t);
+    expect(calls.filter((c) => c.job === "coach_turn")).toHaveLength(2);
+    expect(await lastAssistant()).toMatchObject({ proposal: { type: "log", kind: "Meal", state: "open" }, question: { answers: [{ id: "approve" }, { id: "change" }] } });
+    expect(await entries()).toHaveLength(0);
+    await done("m2", "m1", { screen: "chat" });
+    await done("m3", "m1", { screen: "chat" });
+    await settle(t);
+    const es = await entries();
+    expect(es).toHaveLength(1);
+    expect(es[0]).toMatchObject({ text: "I ate pasta for lunch", fileIds: ["f1"], read: { kind: "Meal" } });
+  });
+
+  it("a meal in a session chat makes one entry too; a draft that replaced an open one holds both messages, the talk in between is left out", async () => {
+    await world();
+    const turns = [draft({ kind: "meal", summary: "pasta" }), { message: "Squat is a leg exercise.", actions: [] }, draft({ kind: "meal", summary: "pasta and a salad" })];
+    stubOpenAi(reply(() => turns.shift() ?? { message: "ok", actions: [] }));
+    const ctx = { screen: "session", exerciseId: "x" };
+    await send("m1", "I ate pasta", ctx);
+    await settle(t);
+    await send("m2", "what is a squat", ctx);
+    await settle(t);
+    await send("m3", "and a salad", ctx);
+    await settle(t);
+    await done("m4", "m3", ctx);
+    await settle(t);
+    expect(await entries()).toMatchObject([{ text: "I ate pasta\n\nand a salad", read: { summary: "pasta and a salad" } }]);
+  });
+
+  it("a draft with no category and no goal, limit or note is rejected", async () => {
+    await world();
+    stubOpenAi(reply(() => draft({ summary: "something" })));
+    await send("m1", "hello", { screen: "chat" });
     await settle(t);
     const a = await lastAssistant();
     expect(a.actions![0]).toMatchObject({ status: "rejected" });
-    expect(a.actions![0]!.reason).toContain("Log");
     expect(a.proposal).toBeUndefined();
-    expect(await table("entries")).toHaveLength(0);
   });
 
   it("a session part is dropped but the goal stays", async () => {

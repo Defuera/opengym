@@ -266,3 +266,25 @@ describe("prompts say that place knowledge is partial", () => {
     expect(learnPlaceJob.build({ place: { name: "Gym", equipment: "" }, otherPlaces: [], sentence: "x" }).system).toContain("only when the person said so");
   });
 });
+
+describe("one prompt and the same data on every screen (owner's words 2026-11-24)", () => {
+  const build = (screen: string) => coachTurnJob.build({ contextBlock: "CTX", history: [{ role: "user", content: "hi" }], turn: { screen }, limits: [] });
+  it("the system prompt is the same on every screen and holds logging, drafts, programs, session and places", () => {
+    const systems = ["log", "chat", "session", "exercise", "goal", "program"].map((x) => build(x).system);
+    expect(new Set(systems).size).toBe(1);
+    for (const w of ["draft_log", "propose_program", "rebuild_open_session", "update_place", "currentLogDraft", "categoriesInUse", "goalsYouMayChange"]) expect(systems[0]).toContain(w);
+    expect(systems[0]).not.toContain("tell the person to use Log");
+  });
+
+  it("every screen gets today, the time now and the categories in use; the session tools work from the log chat thread", async () => {
+    await world();
+    await t.mutation(api.commands.entries.save, { token: TOKEN, entryId: "e0", text: "lunch", at: Date.now(), fileIds: [] }).catch(() => undefined);
+    const calls = stubOpenAi(coach(() => ({ message: "Removed it.", actions: [{ id: "a1", name: "remove_open_exercise", arguments: { exerciseId: "e3" } }] })));
+    await send("m1", "drop the leg press", { screen: "log", openSessionId: "s1" });
+    await settle(t);
+    await send("m2", "again", { screen: "chat" });
+    await settle(t);
+    for (const c of turns(calls)) expect(c.input).toMatchObject({ today: expect.any(String), now: expect.any(String) });
+    expect((await open()).session!.exercises.map((e) => e.id)).toEqual(["e1", "e2"]);
+  });
+});

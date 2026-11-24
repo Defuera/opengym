@@ -21,7 +21,7 @@ export interface TurnBase {
   turnId: string;
   openSessionId?: string;
   rev?: number;
-  /** The screen the person sent the message from. "log" is the log chat: its drafts make an entry. Any other screen drafts a goal, a limit or a note only (ADR-032, step D). */
+  /** The screen the person sent the message from: only a hint. On "log" a draft always makes an entry; elsewhere a draft makes one when it has a category (ADR-032). */
   screen?: string;
 }
 

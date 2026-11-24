@@ -1,6 +1,6 @@
 import type { Doc } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
-import { allSessions, contextByItemId, fromSession, goalByGoalId } from "./db";
+import { allSessions, contextByItemId, fromSession, goalByGoalId, messageByMessageId } from "./db";
 import { knownCategories } from "./categoriesDb";
 import { ensureCategory } from "./categoriesDb";
 import { storeEntry } from "./entriesDb";
@@ -47,11 +47,11 @@ function withUsualSets(e: DraftExercise, usual: Parameters<typeof finalizeLogExe
  * sets of the log, or stays in the session with no sets (never dropped, never made up); the session is dropped only when it does not validate, and then the action says so.
  * A goal keeps its exercise only when it is a name of the log (as the old goal reading did). An edit names an existing goal, limit or note; one that is gone drops that part.
  * A part that cannot be written is dropped and `dropped` says why; the rest of the draft stays.
- * `inLog` is true in the log chat: the draft has a category and Done writes a log entry. Anywhere else (ADR-032, step D) only a goal, a limit
- * and a note are drafted, with no entry and no category; a draft with none of them is rejected (`reject`), and the coach tells the person to use the Log.
+ * The same on every screen (owner's words 2026-11-24): a draft with a category (`kind`) makes a log entry on Done; a draft with no `kind` holds a goal, a limit
+ * or a note only and writes those parts with no entry (`noEntry`). On the Log tab (`inLogChat`) every draft makes an entry: with no `kind` it is named after its part
+ * (Goal, Limit or Note), as before. A draft with no `kind` and no part is rejected (`reject`).
  */
-export async function buildLogDraft(ctx: MutationCtx, a: DraftLogArgs, now: number, inLog = true): Promise<{ draft: StoredLogDraft; dropped?: string } | { reject: string }> {
-  if (inLog && !a.kind) return { reject: "the category (kind) is needed in the log chat" };
+export async function buildLogDraft(ctx: MutationCtx, a: DraftLogArgs, now: number, inLogChat = false): Promise<{ draft: StoredLogDraft; dropped?: string } | { reject: string }> {
   const given = a.at ? Date.parse(a.at) : NaN;
   const at = Number.isNaN(given) || given > now + FUTURE_SLACK_MS ? now : Math.max(0, Math.round(given));
   const drops: string[] = [];
@@ -71,15 +71,17 @@ export async function buildLogDraft(ctx: MutationCtx, a: DraftLogArgs, now: numb
     if (await contextByItemId(ctx, a.edits.noteId)) edits.noteId = a.edits.noteId;
     else (note = undefined), drops.push("The note to change is gone.");
   }
-  if (!inLog && !goal && !limit && !note) return { reject: drops[0] ?? "outside the log chat only a goal, a limit or a note can be drafted: tell the person to use Log for this" };
+  if (!a.kind && !goal && !limit && !note) return { reject: drops[0] ?? "a draft needs a category (kind) for a log, or a goal, a limit or a note" };
+  const inLog = !!a.kind || inLogChat;
+  const partKind = goal ? "Goal" : limit ? "Limit" : "Note";
   const base = { type: "log" as const, at, summary: a.summary, ...(Object.keys(edits).length > 0 ? { edits } : {}), ...(inLog ? {} : { noEntry: true }) };
   let draft: StoredLogDraft;
   if (inLog) {
-    const kind = normaliseCategory(a.kind!, (await knownCategories(ctx)).map((c) => c.label));
+    const kind = normaliseCategory(a.kind ?? partKind, (await knownCategories(ctx)).map((c) => c.label));
     const category = await ensureCategory(ctx, kind, a.color, "ai");
     draft = { ...base, kind: category?.label ?? kind, ...(category ? { color: category.color } : {}) };
   } else {
-    draft = { ...base, kind: goal ? "Goal" : limit ? "Limit" : "Note" };
+    draft = { ...base, kind: partKind };
   }
   if (a.session && inLog) {
     const s = a.session;
@@ -90,7 +92,7 @@ export async function buildLogDraft(ctx: MutationCtx, a: DraftLogArgs, now: numb
     const ok = draftToSession(candidate, { name: "log", createdAt: at }, "check", () => "check", new Set());
     if (ok) draft.session = candidate;
     else drops.push("The session was left out: it did not validate.");
-  } else if (a.session) drops.push("The session was left out: log it in the Log chat.");
+  } else if (a.session) drops.push("The session was left out: it needs a category (kind).");
   if (goal) {
     const names = [...new Set((await allSessions(ctx)).flatMap((s) => s.exercises.map((e) => e.name)))];
     draft.goal = finalizeGoalExercise(goal, names);
@@ -98,6 +100,29 @@ export async function buildLogDraft(ctx: MutationCtx, a: DraftLogArgs, now: numb
   if (limit) draft.limit = limit;
   if (note) draft.note = note;
   return { draft, ...(drops.length > 0 ? { dropped: drops.join(" ") } : {}) };
+}
+
+/**
+ * What the entry of a draft holds. The Log tab (the trigger message came from screen "log"): every message and file of the thread up to the draft, as always.
+ * Any other chat holds other talk too, so the entry holds only what the draft is about: the message that made the draft, with its files, and, when this draft
+ * replaced an open earlier log draft of the thread (the coach sends the whole draft again), the message of that draft too, and so on back. Messages in between
+ * (questions, other talk) are left out. A draft that was applied, or a part-only draft, ends the chain.
+ */
+export async function entryContent(ctx: Reader, message: Doc<"messages">) {
+  const trigger = message.turnId ? await messageByMessageId(ctx, message.turnId) : null;
+  if (!trigger || trigger.context?.screen === "log") return logThreadContent(ctx, message.threadId, message._creationTime);
+  const chain: Doc<"messages">[] = [trigger];
+  let from = message._creationTime;
+  for (;;) {
+    const prev = await ctx.db.query("messages").withIndex("by_threadId", (q) => q.eq("threadId", message.threadId).lt("_creationTime", from)).order("desc").filter((q) => q.neq(q.field("proposal"), undefined)).first();
+    const p = prev?.proposal;
+    if (!prev || !p || p.type !== "log" || (p as StoredLogDraft).appliedAt !== undefined || (p as StoredLogDraft).noEntry || !prev.turnId) break;
+    const earlier = await messageByMessageId(ctx, prev.turnId);
+    if (!earlier) break;
+    chain.unshift(earlier);
+    from = prev._creationTime;
+  }
+  return logContent(chain.map((m) => ({ role: m.role, text: m.text, fileIds: m.fileIds, ...(m.voice ? { voice: m.voice } : {}), answered: m.answer !== undefined })));
 }
 
 export type LogOutcome = { status: "applied" | "already" | "refused"; text: string; reason?: string; entryId?: string };
@@ -113,12 +138,12 @@ async function staleReason(ctx: Reader, message: Doc<"messages">): Promise<strin
 }
 
 /**
- * "Done" on a draft, in plain code with no AI call, in one transaction, once (ADR-032). In the log chat it writes ONE entry through the same logic as
- * commands/entries:save: the person's messages of the thread up to the draft, joined by a blank line, unchanged, with all their files, at the draft's
+ * "Done" on a draft, in plain code with no AI call, in one transaction, once (ADR-032). A draft with a category writes ONE entry, from every screen, through the same logic as
+ * commands/entries:save: the person's words (see entryContent: the whole thread on the Log tab, else the messages the draft is about), joined by a blank line, unchanged, with their files, at the draft's
  * time and with the label set from the draft (the reader job does not run). Then, each only when the draft holds it: a session (as an import writes
  * it, `importId` = the entry id, then the facts-changed and review scheduling of a save), a goal, a limit, a note, tagged with the entry id. The entry
  * keeps which rows it made (`read.made`). The proposal becomes applied. A second call changes nothing. Ids come from the entry id, so a repeat is safe.
- * A draft made outside the log chat (`noEntry`, step D) writes the parts only. A part with `edits` changes that goal, limit or note (the draft is the whole
+ * A draft with no category (`noEntry`: a goal, a limit or a note only) writes the parts only. A part with `edits` changes that goal, limit or note (the draft is the whole
  * new value; the rules of a limit keep their stored exercises, its records and check-ins stay); when that row is gone now, the part is skipped and the reply says so.
  */
 export async function applyLogDraft(ctx: MutationCtx, message: Doc<"messages">): Promise<LogOutcome> {
@@ -180,8 +205,8 @@ export async function applyLogDraft(ctx: MutationCtx, message: Doc<"messages">):
   wrote.session = made.sessionId !== undefined;
   let storedEntry: string | undefined;
   if (!draft.noEntry) {
-    // The log chat: ONE entry from the person's words and files, unchanged, labelled from the draft (the reader job does not run).
-    const content = await logThreadContent(ctx, message.threadId, message._creationTime);
+    // ONE entry from the person's words and files, unchanged, labelled from the draft (the reader job does not run).
+    const content = await entryContent(ctx, message);
     const fileIds: string[] = [];
     for (const id of content.fileIds) if (fileIds.length < ENTRY_FILES_MAX && (await fileByFileId(ctx, id))) fileIds.push(id);
     const text = content.text.slice(0, ENTRY_TEXT_MAX);

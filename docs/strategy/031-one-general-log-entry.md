@@ -27,10 +27,10 @@ The Log side had separate routes: a note, a completed activity as text, "Somethi
 
 ## Proposed next steps (not built, not confirmed by the owner)
 
-- The reader also returns sessions, goals and notes for the coach, and the app files them, tagged with the entry they came from. Open: which results are written at once and which the person confirms.
+- Built (backend, ADR-032): the log chat drafts sessions, goals, limits and notes; the person presses Done and plain code writes them, tagged with the entry. The result is a draft, not a write at once. Not built: the app screen, and the same for the old `read_entry` route.
 - The old log and import routes on the Log side go away.
 - Entries save offline through the outbox.
-- The chat and the goal form use the same reader.
+- The chat and the goal form use the same reader. (The chat is built: the log chat of ADR-032. The goal form is not.)
 
 ## Consequences
 

@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted (step A built: backend; step B built: the app chat; the later steps Proposed)
+Accepted (step A built: backend; step B built: the app chat; the log draft built in the backend; the later steps Proposed)
 
 Note: the owner asked for this in the session of 2026-11-24. A session was open at the place "Gym". The note of one exercise said "No balance board at the gym". That was false: the text of the Gym did not list a balance board, and that text is learned from the log and the chat; it is not a full list. He typed "I do have a balance board" in "Change plan". The coach rebuilt the whole session as a home session (only the place "Home" lists a balance board) and did not update the Gym. His words:
 
@@ -52,10 +52,24 @@ ADR-026 made every conversation with the coach the chat, with JSON replies and n
 - Replies show one plain line per action, an optional whole-workout `proposal` list and a question with quick-answer buttons. A tap sends the label with `answer: { turnId, id }`. The result of an action holds no arguments, so a line names the kind of change ("Changed: one exercise"), not the exercise.
 - The old "Change plan" sheet and its rebuild call are gone from the session screen. The Start step still has its own note field.
 
+## Built: the log draft (backend, 2026-11-24)
+
+The owner, 2026-11-23: "There must be no specific routes for such things. What we need is a general log entry and then AI decides what this is: is it nutrition data, is it exercise log that needs to be imported, is it a limitation, whatever it is." And: "let's just have it as really a chat... AI should return a message to me like blah, log created. And then I can either accept it and complete, or I can keep chatting and add more information on the log."
+
+- A message with `context.screen === "log"` runs the coach turn. The log chat is one thread per log. The turn reads every user message and file of the thread (up to 10 files; images only when the provider takes them) and the open draft (`currentLogDraft`). A message may hold only files (its text stays empty).
+- The new function `draft_log` is "draft until Done": `{ kind: meal | training | body | goal | other, summary (1..120), at?, session?, goal?, limit?, note? }`. `session` is the import draft shape, `goal` and `limit` are the create shapes (a limit with no id), `note` is `{ text, topic }`. The executor checks each part again with the same zod schemas. A gym exercise with no sets takes the usual sets of the log by the `parse_log` code, or is left out; the model never makes sets up. A part that cannot be written is dropped and the action detail says so.
+- The draft is stored on the assistant message as `proposal` with `type: "log"`, status `drafted`. The session proposal is `type: "session"`. A newer proposal in the thread makes an older one stale. The server sets the answers "Done" (`approve`) and "Add or change" (`change`).
+- "Done" is plain code with no AI call, in one transaction, once. It writes one entry (the person's messages joined by a blank line, all files, `at` from the draft, label set from the draft, no `read_entry` job), then a session (`source: "import"`, `importId` = the entry id), a goal, a limit and a note when the draft holds them, each tagged with the entry id. `entry.read.made` lists the rows. The reply is a fixed text built from what was written ("Logged: ... Session added.") and carries `entryId`.
+- Removing the entry marks the session it made as deleted. The goal, limit and note stay: no cheap check says whether the person edited them since.
+- An entry that made a session is left out of the entries the coach reads, so the same words are not read as a note and as training.
+- No AI answer: a fixed message, and Done saves a plain note of kind "other". Photos only and no image input: a fixed message, same Done. An invalid draft after the retry: a fixed message and no draft.
+- Records never go to a provider (ADR-015); the log turn holds none (tested).
+
 ## Proposed next steps (not built, not confirmed by the owner)
 
 - The app sends every message through the one chat with its context; "Change plan" and the exercise comment open that chat.
-- The other screens (Log, program, start) move to the coach turn, with the "draft until Done" functions.
+- The app's Log button opens this chat (backend built; the app is not).
+- The program and start screens move to the coach turn.
 - `learn_place`, `chat_program` and the separate start rebuild fold into the coach turn; the old routes go.
 - The trace of a turn also stores the result of each action.
 

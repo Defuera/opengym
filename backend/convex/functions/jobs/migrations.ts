@@ -1,6 +1,8 @@
 import { v } from "convex/values";
 import { internal } from "../_generated/api";
 import { internalMutation } from "../_generated/server";
+import { ensureCategory } from "../lib/categoriesDb";
+import { usedCategories } from "../model/entryCategory";
 import { markFactsChanged } from "../lib/factsChanged";
 import { isLegacyGym, normalizePredictions, normalizeSession } from "../model/sessionShape";
 
@@ -64,5 +66,27 @@ export const activityFirst = internalMutation({
     }
     if (sessions + plans + predictions > 0) await markFactsChanged(ctx);
     return { sessions, plans, predictions, done: true };
+  },
+});
+
+/**
+ * ADR-031, category colours. Run by hand once after the deploy:
+ *   internal.jobs.migrations.categoryColors   args: {}
+ * Every label the entries already use (Meal, Training, ... and any made since) gets a stored category with a colour from plain code, most
+ * used label first, with no AI call. A category that has a row is not touched, so a colour never changes. Entries are not changed.
+ * Idempotent. Returns the labels it made a row for.
+ */
+export const categoryColors = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const entries = await ctx.db.query("entries").collect();
+    const labels = usedCategories(entries.filter((e) => e.deletedAt === undefined).map((e) => e.read?.kind), 1000);
+    const made: string[] = [];
+    for (const label of labels) {
+      const before = await ctx.db.query("entryCategories").collect();
+      const row = await ensureCategory(ctx, label, undefined, "rules");
+      if (row && (await ctx.db.query("entryCategories").collect()).length > before.length) made.push(row.label);
+    }
+    return { made };
   },
 });

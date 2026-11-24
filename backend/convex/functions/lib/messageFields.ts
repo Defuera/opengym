@@ -52,6 +52,8 @@ export const coachProposal = v.object({
 export const logProposal = v.object({
   type: v.literal("log"),
   kind: v.string(),
+  /** The colour of the category (#RRGGBB), copied from the stored category when the draft was made. */
+  color: v.optional(v.string()),
   summary: v.string(),
   at: v.number(),
   session: v.optional(v.any()),

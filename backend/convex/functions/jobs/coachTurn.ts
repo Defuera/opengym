@@ -8,7 +8,8 @@ import { readChatInput } from "../lib/chatInputDb";
 import { executeActions } from "../lib/coachToolsDb";
 import { logThreadContent } from "../lib/logDraftDb";
 import { proposalQuestion } from "../lib/proposalDb";
-import { knownCategories, loadEntryImages } from "../lib/entriesDb";
+import { knownCategories } from "../lib/categoriesDb";
+import { loadEntryImages } from "../lib/entriesDb";
 import { fileByFileId, loadAttachment } from "../lib/files";
 import { coachQuestion } from "../lib/messageFields";
 import { allPlaces } from "../lib/placesDb";
@@ -39,7 +40,7 @@ async function logInput(ctx: QueryCtx, threadId: string, upTo: number) {
   }
   const last = (await ctx.db.query("messages").withIndex("by_threadId", (q) => q.eq("threadId", threadId)).order("desc").filter((q) => q.neq(q.field("proposal"), undefined)).first())?.proposal;
   const open = last && last.type === "log" && last.appliedAt === undefined ? (last as StoredLogDraft) : null;
-  const draft = open ? { kind: open.kind, summary: open.summary, at: new Date(open.at).toISOString(), ...(open.session ? { session: open.session } : {}), ...(open.goal ? { goal: open.goal } : {}), ...(open.limit ? { limit: open.limit } : {}), ...(open.note ? { note: open.note } : {}) } : null;
+  const draft = open ? { kind: open.kind, ...(open.color ? { color: open.color } : {}), summary: open.summary, at: new Date(open.at).toISOString(), ...(open.session ? { session: open.session } : {}), ...(open.goal ? { goal: open.goal } : {}), ...(open.limit ? { limit: open.limit } : {}), ...(open.note ? { note: open.note } : {}) } : null;
   return { files, draft, categories: await knownCategories(ctx), photosOnly: !content.text.trim() && files.length > 0 && files.every((f) => f.kind === "image") };
 }
 

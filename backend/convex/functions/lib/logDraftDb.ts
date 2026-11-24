@@ -1,7 +1,9 @@
 import type { Doc } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import { allSessions, contextByItemId, fromSession, goalByGoalId } from "./db";
-import { knownCategories, storeEntry } from "./entriesDb";
+import { knownCategories } from "./categoriesDb";
+import { ensureCategory } from "./categoriesDb";
+import { storeEntry } from "./entriesDb";
 import { markFactsChanged, scheduleReview } from "./factsChanged";
 import { fileByFileId } from "./files";
 import { limitByLimitId } from "./limitsDb";
@@ -36,10 +38,12 @@ export async function logThreadContent(ctx: Reader, threadId: string, upTo?: num
  * sets of the log, or is left out ("reported without sets = the usual sets", as parse_log does); the model never makes sets up here.
  * A part that cannot be written is dropped and `dropped` says why; the rest of the draft stays.
  */
-export async function buildLogDraft(ctx: Reader, a: DraftLogArgs, now: number): Promise<{ draft: StoredLogDraft; dropped?: string }> {
+export async function buildLogDraft(ctx: MutationCtx, a: DraftLogArgs, now: number): Promise<{ draft: StoredLogDraft; dropped?: string }> {
   const given = a.at ? Date.parse(a.at) : NaN;
   const at = Number.isNaN(given) || given > now + FUTURE_SLACK_MS ? now : Math.max(0, Math.round(given));
-  const draft: StoredLogDraft = { type: "log", kind: normaliseCategory(a.kind, await knownCategories(ctx)), summary: a.summary, at };
+  const kind = normaliseCategory(a.kind, (await knownCategories(ctx)).map((c) => c.label));
+  const category = await ensureCategory(ctx, kind, a.color, "ai");
+  const draft: StoredLogDraft = { type: "log", kind: category?.label ?? kind, ...(category ? { color: category.color } : {}), summary: a.summary, at };
   let dropped: string | undefined;
   if (a.session) {
     const s = a.session;

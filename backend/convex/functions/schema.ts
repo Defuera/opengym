@@ -200,6 +200,9 @@ export default defineSchema({
     .index("by_importId", ["importId"]),
   entries: defineTable({ ...entryFields, read: v.optional(entryRead) }).index("by_entryId", ["entryId"]).index("by_at", ["at"]).index("by_deletedAt", ["deletedAt"]),
   // Exercise art: one image per exercise name (two key poses side by side). The key is artKey(name).
+  // The categories of log entries (ADR-031): one row per category, unique by `key` (the lower-cased label). The colour is chosen once,
+  // by the AI or by plain code, and never changes by itself. `source` says which.
+  entryCategories: defineTable({ key: v.string(), label: v.string(), color: v.string(), createdAt: v.number(), source: v.union(v.literal("ai"), v.literal("rules")) }).index("by_key", ["key"]),
   exerciseArt: defineTable({
     key: v.string(),
     name: v.string(),

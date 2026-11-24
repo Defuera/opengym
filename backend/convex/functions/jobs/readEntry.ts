@@ -4,7 +4,7 @@ import type { Doc } from "../_generated/dataModel";
 import { internalAction, internalMutation, internalQuery } from "../_generated/server";
 import { providerFor, runAiJob } from "../lib/ai";
 import { entryByEntryId } from "../lib/db";
-import { knownCategories } from "../lib/entriesDb";
+import { ensureCategory, knownCategories } from "../lib/categoriesDb";
 import { fileByFileId, loadAttachment, type FileDoc } from "../lib/files";
 import { normaliseCategory } from "../model/entryCategory";
 import { readEntryJob } from "../model/ai/jobs/readEntry";
@@ -37,10 +37,12 @@ export const input = internalQuery({
 
 /** Stores the label. It does nothing when the entry is gone or its text or files changed meanwhile (the newer run labels it). */
 export const save = internalMutation({
-  args: { entryId: v.string(), read: entryRead },
-  handler: async (ctx, { entryId, read }) => {
+  args: { entryId: v.string(), read: entryRead, color: v.optional(v.string()) },
+  handler: async (ctx, { entryId, read, color }) => {
     const d = await entryByEntryId(ctx, entryId);
     if (!pending(d, read.rev)) return;
+    // A new category is stored with its colour (the AI's, else plain code); an old one keeps the colour it has.
+    if (read.kind) read = { ...read, kind: (await ensureCategory(ctx, read.kind, color, "ai"))?.label ?? read.kind };
     await ctx.db.patch(d._id, { read: { ...read, ...(d.read?.made ? { made: d.read.made } : {}) } });
   },
 });
@@ -74,7 +76,8 @@ export const run = internalAction({
       const r = await runAiJob(ctx, readEntryJob, { text: i.text, when, files, images, categories: i.categories }, { timeoutMs: BUDGET_MS });
       await ctx.runMutation(internal.jobs.readEntry.save, {
         entryId,
-        read: r.path === "ai" ? { status: "ready", rev, kind: normaliseCategory(r.value.kind, i.categories), summary: r.value.summary } : { status: "failed", rev },
+        ...(r.path === "ai" && r.value.color ? { color: r.value.color } : {}),
+        read: r.path === "ai" ? { status: "ready", rev, kind: normaliseCategory(r.value.kind, i.categories.map((c) => c.label)), summary: r.value.summary } : { status: "failed", rev },
       });
     } catch (e) {
       console.error(`[entry] read failed: ${(e as Error).message}`);

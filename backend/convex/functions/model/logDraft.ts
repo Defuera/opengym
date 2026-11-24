@@ -19,6 +19,8 @@ const IsoMoment = z.string().trim().refine((s) => !Number.isNaN(Date.parse(s)), 
 
 export const DraftLogArgs = z.object({
   kind: z.string().trim().min(1).max(60),
+  /** The colour for a new category, "#RRGGBB". Ignored for a category that exists. */
+  color: z.string().trim().max(20).nullish(),
   summary: z.string().trim().min(1).max(120),
   at: IsoMoment.optional(),
   session: ImportSessionDraftSchema.optional(),
@@ -32,6 +34,8 @@ export type DraftLogArgs = z.infer<typeof DraftLogArgs>;
 export interface StoredLogDraft {
   type: "log";
   kind: LogKind;
+  /** The category colour (#RRGGBB), from the stored category. */
+  color?: string;
   summary: string;
   at: number;
   session?: ImportSessionDraft;
@@ -89,6 +93,8 @@ export function logDoneText(d: StoredLogDraft, wrote: { session: boolean; goal: 
 export interface LogView {
   type: "log";
   kind: LogKind;
+  /** The category colour (#RRGGBB) from the stored category. */
+  color?: string;
   summary: string;
   at: number;
   session?: { type: string; focus?: string; minutes?: number; distanceKm?: number; exercises: { name: string; sets: string }[] };
@@ -105,6 +111,7 @@ export function logView(d: StoredLogDraft, state: LogView["state"]): LogView {
   return {
     type: "log",
     kind: d.kind,
+    ...(d.color ? { color: d.color } : {}),
     summary: d.summary,
     at: d.at,
     ...(s

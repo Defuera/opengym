@@ -3,6 +3,7 @@ import { api, internal } from "../functions/_generated/api";
 import { coachEntries } from "../functions/lib/entriesDb";
 import { buildSessionJob } from "../functions/model/ai/jobs/buildSession";
 import { assembleCoachContext } from "../functions/model/coachContext";
+import { REFERENCE_PALETTE, fallbackColor, parseColor } from "../functions/model/categoryColor";
 import { coachPicture } from "../functions/model/ai/jobs/coachPicture";
 import { TOKEN, settle, setup, stubOpenAi, type T } from "./helpers";
 
@@ -169,26 +170,70 @@ describe("the reader job labels an entry (ADR-031)", () => {
     const calls = stubOpenAi(() => JSON.stringify({ kind: "Meal", summary: "Rice and chicken for lunch." }));
     await save(entry("e1"));
     await settle(t);
-    expect(await read()).toEqual({ status: "ready", kind: "Meal", summary: "Rice and chicken for lunch." });
+    expect(await read()).toMatchObject({ status: "ready", kind: "Meal", summary: "Rice and chicken for lunch.", color: REFERENCE_PALETTE[0] });
     expect(calls.filter((c) => c.job === "read_entry")).toHaveLength(1);
     expect(calls[0]!.input).toMatchObject({ text: "Lunch: rice and chicken", photos: 0 });
   });
 
-  it("gives the AI the categories in use and keeps one spelling per category", async () => {
-    const calls = stubOpenAi(() => JSON.stringify({ kind: "walk", summary: "A walk." }));
+  const colorOf = async (id: string) => (await recent()).find((e) => e.entryId === id)!.read!.color;
+
+  it("gives the AI the categories in use; a new category keeps the AI colour (hex checked, upper case)", async () => {
+    const calls = stubOpenAi(() => JSON.stringify({ kind: "walk", color: "#1f7a45", summary: "A walk." }));
     await save(entry("e1", { text: "walked" }));
     await settle(t);
-    expect(await read()).toMatchObject({ kind: "Walk" });
+    expect(await read()).toMatchObject({ kind: "Walk", color: "#1F7A45" });
     expect(calls[0]!.input).toMatchObject({ categoriesInUse: [] });
-    stubOpenAi(() => JSON.stringify({ kind: "WALK", summary: "Another walk." }));
+    expect(JSON.stringify(calls[0]!.input)).not.toContain("#1F7A45");
+    const calls2 = stubOpenAi(() => JSON.stringify({ kind: "Meal", color: "#B45309", summary: "Rice." }));
+    await save(entry("e2", { text: "rice" }));
+    await settle(t);
+    expect(calls2[0]!.input).toMatchObject({ categoriesInUse: [{ label: "Walk", color: "#1F7A45" }] });
+  });
+
+  it("a colour never changes later: one spelling, one colour", async () => {
+    stubOpenAi(() => JSON.stringify({ kind: "walk", color: "#1f7a45", summary: "A walk." }));
+    await save(entry("e1", { text: "walked" }));
+    await settle(t);
+    stubOpenAi(() => JSON.stringify({ kind: "WALK", color: "#C0392B", summary: "Another walk." }));
     await save(entry("e2", { text: "walked again" }));
     await settle(t);
-    const rows = await entryRows();
-    expect(rows.find((r) => r.entryId === "e2")!.read).toMatchObject({ kind: "Walk" });
-    const calls3 = stubOpenAi(() => JSON.stringify({ kind: "Meal", summary: "Rice." }));
+    expect(await colorOf("e2")).toBe("#1F7A45");
+    expect(await t.run((c) => c.db.query("entryCategories").collect())).toHaveLength(1);
+  });
+
+  it("a missing or invalid colour is replaced by the next reference colour not in use", async () => {
+    stubOpenAi(() => JSON.stringify({ kind: "Sleep", summary: "Slept badly." }));
+    await save(entry("e1", { text: "slept" }));
+    await settle(t);
+    stubOpenAi(() => JSON.stringify({ kind: "Walk", color: "red", summary: "A walk." }));
+    await save(entry("e2", { text: "walked" }));
+    await settle(t);
+    stubOpenAi(() => JSON.stringify({ kind: "Meal", color: "#12345", summary: "Rice." }));
     await save(entry("e3", { text: "rice" }));
     await settle(t);
-    expect(calls3[0]!.input).toMatchObject({ categoriesInUse: ["Walk"] });
+    const colors = [await colorOf("e1"), await colorOf("e2"), await colorOf("e3")];
+    expect(colors).toEqual([REFERENCE_PALETTE[0], REFERENCE_PALETTE[1], REFERENCE_PALETTE[2]]);
+  });
+
+  it("an old label gets a stored colour without an AI call, once, through the migration", async () => {
+    await t.run(async (c) => {
+      for (const [i, kind] of ["meal", "meal", "training", "other"].entries()) {
+        await c.db.insert("entries", { entryId: `o${i}`, text: "x", fileIds: [], at: NOW - i * HOUR, createdAt: NOW, read: { status: "ready", rev: "r", kind, summary: "s" } });
+      }
+    });
+    expect(await colorOf("o0")).toBeUndefined();
+    const out = await t.mutation(internal.jobs.migrations.categoryColors, {});
+    expect(out.made).toEqual(["Meal", "Training"]);
+    expect(await colorOf("o0")).toBe(REFERENCE_PALETTE[0]);
+    expect(await colorOf("o2")).toBe(REFERENCE_PALETTE[1]);
+    expect(await colorOf("o3")).toBeUndefined();
+    expect((await t.mutation(internal.jobs.migrations.categoryColors, {})).made).toEqual([]);
+  });
+
+  it("parseColor accepts only #RRGGBB", () => {
+    expect(parseColor(" #abcdef ")).toBe("#ABCDEF");
+    for (const bad of ["abcdef", "#abc", "#12345g", "red", "", null, undefined]) expect(parseColor(bad)).toBeNull();
+    expect(fallbackColor(REFERENCE_PALETTE as unknown as string[])).toBe(REFERENCE_PALETTE[0]);
   });
 
   it("writes no session, goal or note", async () => {

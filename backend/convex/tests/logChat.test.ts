@@ -42,11 +42,11 @@ describe("a draft writes nothing", () => {
   it("dinner with a photo: kind meal; Done writes one entry, labelled, with no reader job and no session", async () => {
     await world();
     await upload("f1");
-    const calls = stubOpenAi(reply(() => draft({ kind: "meal", summary: "dinner, pasta with tomato sauce" })));
+    const calls = stubOpenAi(reply(() => draft({ kind: "meal", color: "#b45309", summary: "dinner, pasta with tomato sauce" })));
     await send("m1", "dinner", ["f1"]);
     await settle(t);
     const a = await lastAssistant();
-    expect(a).toMatchObject({ turnId: "m1", actions: [{ name: "draft_log", status: "drafted" }], question: { answers: [{ id: "approve", label: "Done" }, { id: "change", label: "Add or change" }] }, proposal: { type: "log", kind: "Meal", state: "open" } });
+    expect(a).toMatchObject({ turnId: "m1", actions: [{ name: "draft_log", status: "drafted" }], question: { answers: [{ id: "approve", label: "Done" }, { id: "change", label: "Add or change" }] }, proposal: { type: "log", kind: "Meal", color: "#B45309", state: "open" } });
     expect(await entries()).toHaveLength(0);
     expect(await sessions()).toHaveLength(0);
     await done("m2", "m1");

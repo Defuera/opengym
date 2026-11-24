@@ -105,11 +105,11 @@ import type * as model_ai_providers_openai from "../model/ai/providers/openai.js
 import type * as model_ai_providers_openaiCompatible from "../model/ai/providers/openaiCompatible.js";
 import type * as model_ai_runJob from "../model/ai/runJob.js";
 import type * as model_attachedFiles from "../model/attachedFiles.js";
+import type * as model_categoryColor from "../model/categoryColor.js";
 import type * as model_chatInput from "../model/chatInput.js";
 import type * as model_coachContext from "../model/coachContext.js";
 import type * as model_coachTools from "../model/coachTools.js";
 import type * as model_coachTurnInput from "../model/coachTurnInput.js";
-import type * as model_categoryColor from "../model/categoryColor.js";
 import type * as model_entryCategory from "../model/entryCategory.js";
 import type * as model_entryContext from "../model/entryContext.js";
 import type * as model_exerciseArt from "../model/exerciseArt.js";
@@ -281,11 +281,11 @@ declare const fullApi: ApiFromModules<{
   "model/ai/providers/openaiCompatible": typeof model_ai_providers_openaiCompatible;
   "model/ai/runJob": typeof model_ai_runJob;
   "model/attachedFiles": typeof model_attachedFiles;
+  "model/categoryColor": typeof model_categoryColor;
   "model/chatInput": typeof model_chatInput;
   "model/coachContext": typeof model_coachContext;
   "model/coachTools": typeof model_coachTools;
   "model/coachTurnInput": typeof model_coachTurnInput;
-  "model/categoryColor": typeof model_categoryColor;
   "model/entryCategory": typeof model_entryCategory;
   "model/entryContext": typeof model_entryContext;
   "model/exerciseArt": typeof model_exerciseArt;

@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted (step A built: backend; step B built: the app chat; the log draft built in the backend; the later steps Proposed)
+Accepted (step A built: backend; step B built: the app chat; the log draft built in the backend; step D built: goals, limits and notes in the chat; the later steps Proposed)
 
 Note: the owner asked for this in the session of 2026-11-24. A session was open at the place "Gym". The note of one exercise said "No balance board at the gym". That was false: the text of the Gym did not list a balance board, and that text is learned from the log and the chat; it is not a full list. He typed "I do have a balance board" in "Change plan". The coach rebuilt the whole session as a home session (only the place "Home" lists a balance board) and did not update the Gym. His words:
 
@@ -65,10 +65,24 @@ The owner, 2026-11-23: "There must be no specific routes for such things. What w
 - No AI answer: a fixed message, and Done saves a plain note of kind "other". Photos only and no image input: a fixed message, same Done. An invalid draft after the retry: a fixed message and no draft.
 - Records never go to a provider (ADR-015); the log turn holds none (tested).
 
+## Built in step D: goals, limits and notes in the same chat (2026-11-24)
+
+The owner, 2026-11-24: "ok, continue and clean up everyting". Decisions below are Proposed: the owner has not confirmed them one by one.
+
+- **The coach turn runs for every chat screen** except `program` and `start`: `chat`, `log`, `session`, `exercise` and the new `goal`, `limit`, `note`. A message with no screen keeps the old reply. (Proposed)
+- **One draft mechanism.** `draft_log` and its stored `proposal` carry a goal, a limit or a note in any chat; nothing parallel was added. Outside the log chat the draft holds only those three parts, has `noEntry: true` and no category, and Done writes the parts and no log entry (the log chat keeps its entry). A draft of a meal or a workout outside the log chat is rejected with a reason; the coach tells the person to use Log. A session part outside the log chat is dropped. (Proposed)
+- **One goal path: the coach turn fills the structure.** The goal part is under `GoalInputSchema`. Code keeps `exercise` only when it names an exercise of the log (the check the job `parse_goal` did). Done writes the finished goal. The job `parse_goal` and its test were deleted. Reason: approve then needs no AI call (ADR-032 write class), and one writer cannot disagree with another. With no AI the goal chat drafts the person's words with kind `custom` and the numbers a plain pattern finds. (Proposed)
+- **Edit by draft.** `edits: { goalId?, limitId?, noteId? }` marks a part that changes an existing row; the part holds the whole new value. The turn input lists the person's goals, limits and notes with ids (limits as kind and text of rules only, no exercise lists, no records, ADR-015). A limit change keeps stored exercises of an unchanged rule, the records and the check-ins. (Proposed)
+- **Deletes are never done by AI.** There is no delete function. The coach says where the person deletes; every delete in the app asks first.
+- **Exact edits stay exact.** Done and delete of a goal, the status toggle, the rule sheet and the records of a limit, the switch and the remove cross of a note stay plain forms and taps.
+- **App.** "Add goal" (and a tap on a goal), "+ Add" under Limits (and "Add a limit here" on the figure, with the body part; the limit detail has "Change with the coach"), and "+ Add" under Preferences (and a tap on a note) open the one chat with the context `goal`, `limit` or `note`, a context line and a hint in the composer. The draft card has the same frame as every draft: "New goal" or "Change goal", the parts, then "Done" and "Add or change". After Done the chat ends with "Saved" and Close. The free-text goal form, the add-limit sheet and the add-note sheet were deleted.
+- **One composer widget.** The note on Start step 2, the Home import screen and the form that changes an existing log entry use the same composer widget as every chat. The widget can hide the parts a use cannot take: Start step 2 holds one text, so it shows the text field only and keeps its own Start button; an import has no text, so it shows no text field and the files wait in the strip until send; the entry form shows everything and send saves. (Proposed. The owner's rule is the same UI with text, photo, file and camera. The start request takes only a text and an import takes only files, so those two cannot use every part until the backend takes them.)
+- **What the coach no longer does in the general chat.** The old reply job also ran `title_thread` and `extract_from_chat` (which wrote goals and notes at once, with no Done). The coach turn runs neither: a thread keeps the title code made from its first message, and a goal or note comes only through a draft the person approves.
+
 ## Proposed next steps (not built, not confirmed by the owner)
 
 - The app sends every message through the one chat with its context; "Change plan" and the exercise comment open that chat.
-- The app's Log button opens this chat (backend built; the app is not).
+- The app's Log button opens this chat (built in the app).
 - The program and start screens move to the coach turn.
 - `learn_place`, `chat_program` and the separate start rebuild fold into the coach turn; the old routes go.
 - The trace of a turn also stores the result of each action.

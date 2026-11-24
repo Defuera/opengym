@@ -15,7 +15,7 @@ import { truncate } from "../model/rules/util";
 
 const CONTEXT_ID_MAX = 100;
 
-/** True for a message sent from the session or an exercise: the coach turn with functions answers it (ADR-032). */
+/** True for a message sent from a screen the coach turn answers (COACH_TURN_SCREENS, ADR-032). */
 const isCoachTurn = (context: { screen?: string } | undefined) => !!context?.screen && COACH_TURN_SCREENS.has(context.screen);
 /** The job that answers a message: the coach turn (also for an answer to a question of the coach), else the chat reply. */
 const replyJob = (context: { screen?: string } | undefined, answered = false) => (isCoachTurn(context) || answered ? internal.jobs.coachTurn.run : internal.jobs.chat.reply);
@@ -24,7 +24,7 @@ const replyJob = (context: { screen?: string } | undefined, answered = false) =>
  * Store the user's message at once and start the coach reply in the background.
  * The answer is NOT returned: the app subscribes to queries/messages:list and queries/threads:list
  * (the thread status is `thinking` until the reply is stored). Resending the same messageId changes nothing, except after a failed reply, where it runs the coach again.
- * `context` (optional, ADR-032) says what was open when the person sent it; it is stored on the message. From the screen "session", "exercise" or "log" the coach turn with functions answers (jobs/coachTurn:run); every other message keeps the chat reply.
+ * `context` (optional, ADR-032) says what was open when the person sent it; it is stored on the message. From the screen "chat", "log", "session", "exercise", "goal", "limit" or "note" the coach turn with functions answers (jobs/coachTurn:run); a message with no screen, or from "program" or "start", keeps the chat reply.
  * `answer` (optional, ADR-032) says the message is a tap on a quick answer of the coach: `turnId` is the `turnId` of the assistant message
  * that asked and `id` the answer. "approve" on a message that holds a whole-session proposal applies it in plain code, with NO AI call, and
  * stores a short fixed reply; on a log draft of the log chat ("Done") it writes the entry and the rows of the draft the same way (lib/logDraftDb.ts)

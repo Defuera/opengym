@@ -43,7 +43,7 @@ The owner asked for a dynamic categorization of logs, shown in different colours
 - Built (backend, ADR-032): the log chat drafts sessions, goals, limits and notes; the person presses Done and plain code writes them, tagged with the entry. The result is a draft, not a write at once. Not built: the app screen, and the same for the old `read_entry` route.
 - The old log and import routes on the Log side go away.
 - Entries save offline through the outbox.
-- The chat and the goal form use the same reader. (The chat is built: the log chat of ADR-032. The goal form is not.)
+- The chat and the goal form use the same reader. (Built, ADR-032 step D: the goal form is gone; a goal is drafted in the chat.)
 
 ## Consequences
 

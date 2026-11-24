@@ -1,14 +1,13 @@
 import type { QueryCtx } from "../_generated/server";
 import { liveSessionDocs, toContextItem, toGoal, toSession, messageByMessageId, threadByThreadId } from "./db";
 import { activeLimits } from "./limitsDb";
-import { placeByPlaceId } from "./placesDb";
 import { coachEntries, entryImageFiles } from "./entriesDb";
 import { fileByFileId } from "./files";
-import { CHAT_CONTEXT_ITEMS, CHAT_GOALS, CHAT_HISTORY_MESSAGES, CHAT_KNOWN_ITEMS, CHAT_OTHER_THREADS, CHAT_RECENT_SESSIONS } from "../model/chatInput";
+import { CHAT_CONTEXT_ITEMS, CHAT_GOALS, CHAT_HISTORY_MESSAGES, CHAT_OTHER_THREADS, CHAT_RECENT_SESSIONS } from "../model/chatInput";
 
 /**
- * Bounded input for one coach reply, read in one transaction (ADR-012). Null if the thread or message is gone.
- * Shared by the chat reply (jobs/chat:input) and the coach turn (jobs/coachTurn:input), so the coach reads the same in both.
+ * Bounded input for one coach turn, read in one transaction (ADR-012). Null if the thread or message is gone.
+ * Read by the coach turn (jobs/coachTurn:input).
  */
 export async function readChatInput(ctx: Pick<QueryCtx, "db">, threadId: string, messageId: string) {
   const thread = await threadByThreadId(ctx, threadId);
@@ -32,11 +31,6 @@ export async function readChatInput(ctx: Pick<QueryCtx, "db">, threadId: string,
   const contextDocs = await ctx.db.query("context").withIndex("by_createdAt").order("desc").take(200);
   const context = contextDocs.filter((c) => c.active).slice(0, CHAT_CONTEXT_ITEMS).reverse().map(toContextItem);
 
-  // The title job runs only for the first user message of a thread the user has not named.
-  const userMessages = await ctx.db.query("messages").withIndex("by_threadId", (q) => q.eq("threadId", threadId)).filter((q) => q.eq(q.field("role"), "user")).take(2);
-  // A thread about something (ADR-026) is titled by code, never by this job.
-  const titleJob = !thread.about && thread.titleSource === "auto" && userMessages.length === 1 && userMessages[0]!.messageId === messageId ? { currentTitle: thread.title } : null;
-
   const files = [];
   // The files of this message and of the earlier user messages still in the history (newest 6), so a photo stays visible in later turns.
   const threadFileIds = [...new Set(recent.filter((m) => m.role === "user").flatMap((m) => m.fileIds ?? []).concat(trigger.fileIds))].slice(-6);
@@ -44,21 +38,13 @@ export async function readChatInput(ctx: Pick<QueryCtx, "db">, threadId: string,
     const f = await fileByFileId(ctx, id);
     if (f && f.kind !== "audio") files.push({ fileId: f.fileId, storageId: f.storageId, name: f.name, mime: f.mime, size: f.size, kind: f.kind, createdAt: f.createdAt });
   }
-  const place = thread.placeId !== undefined ? await placeByPlaceId(ctx, thread.placeId) : null;
   const now = Date.now();
   const entries = await coachEntries(ctx, now);
   const entryImages = await entryImageFiles(ctx, now);
   return {
-    title: thread.title,
-    about: thread.about ?? null,
-    titleJob,
-    text: trigger.text,
     history,
     data: { otherThreads, sessions, goals, context, limits: await activeLimits(ctx), entries },
     files,
     entryImages,
-    place: place ? { name: place.name, equipment: place.text } : null,
-    knownContext: contextDocs.filter((c) => c.active).slice(0, CHAT_KNOWN_ITEMS).map((c) => c.text),
-    knownGoals: goalDocs.slice(0, CHAT_KNOWN_ITEMS).map((g) => g.title),
   };
 }

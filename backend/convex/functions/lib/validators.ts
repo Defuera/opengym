@@ -70,16 +70,6 @@ export const importStatus = v.union(v.literal("running"), v.literal("done"), v.l
 export const threadStatus = v.union(v.literal("idle"), v.literal("thinking"), v.literal("failed"));
 export const fileKind = v.union(v.literal("text"), v.literal("image"), v.literal("pdf"), v.literal("audio"), v.literal("other"));
 
-/** What extract_from_chat may propose (the model's GoalInput / ContextInput). */
-export const goalInput = v.object({
-  title: v.string(),
-  kind: goalKind,
-  exercise: v.optional(v.string()),
-  targetKg: v.optional(v.number()),
-  sessionsPerWeek: v.optional(v.number()),
-});
-export const contextInput = v.object({ text: v.string(), topic: v.string() });
-
 export const limitStatus = v.union(v.literal("active"), v.literal("improving"), v.literal("cleared"));
 export const ruleKind = v.union(v.literal("avoid"), v.literal("light"), v.literal("do"));
 export const feeling = v.union(v.literal("fine"), v.literal("noticed"), v.literal("bad"));

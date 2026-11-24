@@ -1,7 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api, internal } from "../functions/_generated/api";
 import { COACH_TURN_FALLBACK, coachTurnJob } from "../functions/model/ai/jobs/coachTurn";
-import { chatJob } from "../functions/model/ai/jobs/chat";
 import { learnPlaceJob } from "../functions/model/ai/jobs/learnPlace";
 import type { OpenExercise } from "../functions/model/openSession";
 import { TOKEN, setup, settle, stubOpenAi, type T } from "./helpers";
@@ -239,14 +238,13 @@ describe("question, context and the old path", () => {
 });
 
 describe("prompts say that place knowledge is partial", () => {
-  it("coach_turn, chat and learn_place", () => {
+  it("coach_turn and learn_place", () => {
     const ct = coachTurnJob.build({ contextBlock: "CTX", history: [{ role: "user", content: "hi" }], turn: { screen: "session" }, limits: [] });
     expect(ct.system).toContain("never a full list");
     expect(ct.system).toContain("unknown, not missing");
     expect(ct.system).toContain("ONLY when the person asks to change the whole session");
     expect(ct.system).toContain("No function changes it");
     expect(ct.messages[0]!.content).toContain("INPUT_JSON:");
-    expect(chatJob.build({ contextBlock: "CTX", history: [{ role: "user", content: "hi" }], place: { name: "Gym", equipment: "Rack" } }).system).toContain("never a full list");
     expect(learnPlaceJob.build({ place: { name: "Gym", equipment: "" }, otherPlaces: [], sentence: "x" }).system).toContain("only when the person said so");
   });
 });

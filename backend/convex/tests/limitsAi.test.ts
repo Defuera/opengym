@@ -1,15 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "../functions/_generated/api";
 import { buildDashboardJob } from "../functions/model/ai/jobs/buildDashboard";
-import { chatJob } from "../functions/model/ai/jobs/chat";
-import { extractFromChatJob } from "../functions/model/ai/jobs/extractFromChat";
+import { coachTurnJob } from "../functions/model/ai/jobs/coachTurn";
 import { buildPlanInput, buildReviewInput } from "../functions/model/ai/jobs/inputs";
 import { buildSessionJob } from "../functions/model/ai/jobs/buildSession";
 import { coachPicture } from "../functions/model/ai/jobs/coachPicture";
 import { planSessionJob } from "../functions/model/ai/jobs/planSession";
 import { reviewSessionJob } from "../functions/model/ai/jobs/reviewSession";
 import { summariseThreadJob } from "../functions/model/ai/jobs/summariseThread";
-import { titleThreadJob } from "../functions/model/ai/jobs/titleThread";
 import { LIMITS_RULE } from "../functions/model/ai/promptRules";
 import { assembleCoachContext } from "../functions/model/coachContext";
 import type { Limit, Session } from "../functions/model/schema";
@@ -37,11 +35,9 @@ describe("prompts carry limits and never records", () => {
       plan: planSessionJob.build(plan),
       review: reviewSessionJob.build(review),
       session: buildSessionJob.build({ name: null, note: "", request: "legs at home, 20 min", picture: coachPicture(log, [], [], limits, [], 6_000_000), limits }),
-      chat: chatJob.build({ contextBlock: coach.contextBlock, history: [{ role: "user", content: "hi" }] }),
+      chat: coachTurnJob.build({ contextBlock: coach.contextBlock, history: [{ role: "user", content: "hi" }], turn: { screen: "chat" }, limits }),
       dashboard: buildDashboardJob.build({ days: 7, sessions: log, goals: [], context: [] }),
-      extract: extractFromChatJob.build({ text: "hi", existingContext: [], existingGoals: [] }),
       summarise: summariseThreadJob.build({ title: "t", messages: [{ role: "user", text: "hi" }] }),
-      title: titleThreadJob.build({ text: "hi", reply: "hello" }),
     };
   };
   const whole = (p: { system: string; messages: { content: string }[] }) => `${p.system}\n${p.messages.map((m) => m.content).join("\n")}`;

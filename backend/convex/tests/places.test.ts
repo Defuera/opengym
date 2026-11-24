@@ -1,6 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api, internal } from "../functions/_generated/api";
-import { chatJob } from "../functions/model/ai/jobs/chat";
 import { TOKEN, pushSession, setsSession, setup, settle, stubOpenAi, type T } from "./helpers";
 
 let t: T;

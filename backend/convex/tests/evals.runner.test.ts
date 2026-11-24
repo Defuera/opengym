@@ -101,14 +101,15 @@ describe("eval runner against a stubbed provider", () => {
   it("chat: scripted turns, the coach's own earlier answer is in the next history", async () => {
     let n = 0;
     const answers = ["You should rest and see a doctor.", "Do 3 sets of leg curls."];
-    const { r, bodies } = await run("ch-declined-advice", () => answers[n++]!);
+    const say = (message: string) => JSON.stringify({ message, actions: [] });
+    const { r, bodies } = await run("ch-declined-advice", () => say(answers[n++]!));
     expect(bodies).toHaveLength(2);
     const second = bodies[1].messages as { role: string; content: string }[];
     expect(second.map((m) => m.role)).toEqual(["system", "user", "assistant", "user"]);
     expect(second[2]!.content).toBe(answers[0]);
     expect(r.success).toBe(true);
     let m = 0;
-    const repeat = await run("ch-declined-advice", () => ["Rest.", "Please rest and do 3 sets."][m++]!);
+    const repeat = await run("ch-declined-advice", () => say(["Rest.", "Please rest and do 3 sets."][m++]!));
     expect(repeat.r.success).toBe(false);
     expect(repeat.r.expect[0]!.pass).toBe(false);
   });

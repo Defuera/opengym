@@ -21,22 +21,6 @@ function inputOf(req: CompleteRequest): Data {
   }
 }
 
-const BODY_PART = /\b(ankle|knee|shoulder|back|wrist|elbow|hip|neck|calf|hamstring)\b/i;
-
-/** Mock of extract_from_chat: a body part with "tight/sore/..." becomes a context note; "I want to ..." becomes a goal. */
-function extract(text: string) {
-  const context: { text: string; topic: string }[] = [];
-  const goals: { title: string; kind: string; exercise?: string; targetKg?: number }[] = [];
-  const part = text.match(BODY_PART);
-  if (part && /(tight|sore|stiff|felt|hurt|pinch|dislike)/i.test(text)) context.push({ text: text.slice(0, 300), topic: part[1]!.toLowerCase() });
-  const want = text.match(/\bi want to ([^.!?]+)/i);
-  if (want) {
-    const bench = want[1]!.match(/bench(?: press)?\D+(\d+(?:\.\d+)?)\s*kg/i);
-    goals.push(bench ? { title: `Bench press ${bench[1]} kg`, kind: "strength", exercise: "Bench press", targetKg: Number(bench[1]) } : { title: want[1]!.trim().slice(0, 80), kind: "custom" });
-  }
-  return { goals, context };
-}
-
 /**
  * Mock of the coach turn in the log chat: food words or a photo make a meal; "ran 5 km in 30 min" a run (with "yesterday" the day before);
  * "it was 6 km" changes the distance of the draft held in currentLogDraft; anything else is a plain note. It always drafts.
@@ -131,21 +115,10 @@ export class MockProvider implements AiProvider {
           ],
         });
       }
-      case "chat":
-        return "Mock coach: noted. Keep your next session simple and stick to the plan.";
-      case "chat_program": {
-        // Mock: a last user message that has the word "program" asks for a program; anything else is a plain answer.
-        const last = [...req.messages].reverse().find((m) => m.role === "user" && !m.content.startsWith("That reply was invalid"))?.content ?? "";
-        return JSON.stringify(/\bprogram\b/i.test(last) ? { text: "Mock coach: I will write that program for you now.", proposeProgram: { brief: "Write the program the person asked for." } } : { text: "Mock coach: noted. Tell me when you want a program." });
-      }
-      case "extract_from_chat":
-        return JSON.stringify(extract(String(d.message ?? "")));
       case "summarise_thread": {
         const last = [...(d.messages ?? [])].reverse().find((m: Data) => m.role === "user");
         return JSON.stringify({ summary: `Mock summary: ${String(last?.text ?? d.title ?? "").slice(0, 300)}` });
       }
-      case "title_thread":
-        return JSON.stringify({ title: `"Mock title: ${String(d.text ?? "").slice(0, 20)}".` });
       case "import_data":
         if (d.hasImage) return JSON.stringify({ sessions: [{ kind: "activity", type: "Cycle", minutes: 30, distanceKm: 12.5 }], goals: [], context: [], notes: ["Mock read the machine screen."] });
         return JSON.stringify({

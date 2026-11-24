@@ -18,8 +18,3 @@ export function titleFromMessage(text: string): string {
   if (!cut) return NEW_CHAT_TITLE;
   return cut.charAt(0).toUpperCase() + cut.slice(1);
 }
-
-/** Cleans an AI title: no quotes, no trailing period, one line. */
-export function cleanAiTitle(raw: string): string {
-  return raw.replace(/\s+/g, " ").replace(/^[\s"'“”‘’`]+|[\s"'“”‘’`.]+$/g, "");
-}

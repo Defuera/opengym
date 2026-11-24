@@ -1,3 +1,4 @@
+// ignore_for_file: prefer_const_constructors
 // Visual proof of the coach bubble with bold and bullets. Run by path:
 //   flutter test test/shots/bubble_format_shots.dart
 import 'dart:io';

@@ -65,4 +65,20 @@ void main() {
     await t.pumpWidget(const MaterialApp(home: Scaffold(body: EntryListItem(title: 'dinner', subtitle: 'Today, 20:05'))));
     expect(find.byKey(const ValueKey<String>('entry-detail')), findsNothing);
   });
+
+  testWidgets('a compact row is shorter and hides the detail line', (WidgetTester t) async {
+    Widget host(bool compact) => MaterialApp(
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: EntryListItem(title: 'dinner', subtitle: 'Today, 20:05 · Meal', detail: 'Pasta.', attachments: 1, compact: compact),
+            ),
+          ),
+        );
+    await t.pumpWidget(host(false));
+    final double tall = t.getSize(find.byType(EntryListItem)).height;
+    await t.pumpWidget(host(true));
+    expect(find.byKey(const ValueKey<String>('entry-detail')), findsNothing);
+    expect(find.byKey(const ValueKey<String>('entry-attachments')), findsOneWidget);
+    expect(t.getSize(find.byType(EntryListItem)).height, lessThan(tall * 0.7));
+  });
 }

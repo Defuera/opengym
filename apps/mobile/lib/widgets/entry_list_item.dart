@@ -11,6 +11,7 @@ class EntryListItem extends StatelessWidget {
     required this.subtitle,
     this.detail,
     this.attachments = 0,
+    this.compact = false,
     this.onTap,
   });
 
@@ -20,6 +21,9 @@ class EntryListItem extends StatelessWidget {
   /// One more line under the time, at most two lines. Null hides it.
   final String? detail;
   final int attachments;
+
+  /// A small secondary row: smaller title, thin border, no detail line.
+  final bool compact;
   final VoidCallback? onTap;
 
   @override
@@ -28,8 +32,10 @@ class EntryListItem extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
       child: Container(
-        decoration: ogBox(shadow: false),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: compact
+            ? ogBox(shadow: false).copyWith(border: Border.all(color: OG.ink, width: 1))
+            : ogBox(shadow: false),
+        padding: EdgeInsets.symmetric(horizontal: 16, vertical: compact ? 8 : 14),
         child: Row(
           children: <Widget>[
             Expanded(
@@ -40,10 +46,12 @@ class EntryListItem extends StatelessWidget {
                     title,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: OG.body(size: 18, weight: FontWeight.w700),
+                    style: compact
+                        ? OG.body(size: 15, weight: FontWeight.w600)
+                        : OG.body(size: 18, weight: FontWeight.w700),
                   ),
-                  Text(subtitle, style: OG.muted()),
-                  if (detail != null) ...<Widget>[
+                  Text(subtitle, style: OG.muted(size: compact ? 13 : 17)),
+                  if (detail != null && !compact) ...<Widget>[
                     const SizedBox(height: 4),
                     Text(
                       detail!,
@@ -62,8 +70,8 @@ class EntryListItem extends StatelessWidget {
                 key: const ValueKey<String>('entry-attachments'),
                 mainAxisSize: MainAxisSize.min,
                 children: <Widget>[
-                  const Icon(Icons.attach_file, size: 18, color: OG.mute),
-                  Text('$attachments', style: OG.muted()),
+                  Icon(Icons.attach_file, size: compact ? 15 : 18, color: OG.mute),
+                  Text('$attachments', style: OG.muted(size: compact ? 13 : 17)),
                 ],
               ),
             ],

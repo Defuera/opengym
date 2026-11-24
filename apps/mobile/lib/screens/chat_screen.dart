@@ -77,7 +77,8 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   /// A tap on a quick answer is an ordinary message with the same context.
-  Future<void> _answer(String label) => _coach.send(label);
+  Future<void> _answer(Message m, String id, String label) =>
+      _coach.send(label, answer: m.turnId == null ? null : ChatAnswer(turnId: m.turnId!, id: id));
 
   Future<void> _rename(Thread t) async {
     final String? title = await showTextSheet(
@@ -143,14 +144,19 @@ class _ChatScreenState extends State<ChatScreen> {
         items.add(ActionLines(lines: <String>[for (final CoachAction a in m.actions) coachActionLine(a)]));
         items.add(const SizedBox(height: 8));
       }
+      final CoachPlan? plan = m.proposal;
+      if (!m.mine && plan != null && plan.rows.isNotEmpty) {
+        items.add(PlanList(title: plan.title, rows: plan.rows));
+        items.add(const SizedBox(height: 8));
+      }
       final CoachQuestion? q = m.question;
       if (!m.mine && q != null) {
         // The quick answers stay live only on the newest message.
         items.add(QuestionBlock(
           text: q.text,
-          answers: <String>[for (final QuickAnswer a in q.answers) a.label],
+          answers: <(String, String)>[for (final QuickAnswer a in q.answers) (a.id, a.label)],
           enabled: identical(m, c.messages.last) && !c.sending && !c.thinking,
-          onAnswer: _answer,
+          onAnswer: (String id, String label) => _answer(m, id, label),
         ));
         items.add(const SizedBox(height: 12));
       }

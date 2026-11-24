@@ -149,9 +149,14 @@ class FakeConvexClient implements ConvexClient {
     });
   }
 
+  String? sentTurn(String threadId) {
+    final List<Message> l = serverMessages[threadId] ?? <Message>[];
+    return l.isEmpty ? null : l.last.id;
+  }
+
   /// The coach answers a coach turn: text, what its functions did, and a question.
   void coachTurnAnswers(String threadId, String text,
-      {List<CoachAction> actions = const <CoachAction>[], CoachQuestion? question}) {
+      {List<CoachAction> actions = const <CoachAction>[], CoachQuestion? question, CoachPlan? proposal}) {
     serverChanged(() {
       serverMessages.putIfAbsent(threadId, () => <Message>[]).add(Message(
           id: 'a${++_clock}',
@@ -160,7 +165,9 @@ class FakeConvexClient implements ConvexClient {
           text: text,
           createdAt: ++_clock,
           actions: actions,
-          question: question));
+          question: question,
+          proposal: proposal,
+          turnId: sentTurn(threadId)));
       _setThread(threadId, status: 'idle', lastMessage: text);
     });
   }
@@ -617,6 +624,7 @@ class FakeConvexClient implements ConvexClient {
 
   /// The context of each sent message (null when none).
   final List<ChatContext?> sentContexts = <ChatContext?>[];
+  final List<ChatAnswer?> sentAnswers = <ChatAnswer?>[];
 
   @override
   Future<void> sendMessage({
@@ -625,9 +633,11 @@ class FakeConvexClient implements ConvexClient {
     required String text,
     List<String> fileIds = const <String>[],
     ChatContext? context,
+    ChatAnswer? answer,
   }) async {
     _command('sendMessage:$messageId');
     sentContexts.add(context);
+    sentAnswers.add(answer);
     final Completer<void>? gate = sendGate;
     if (gate != null) {
       await gate.future;

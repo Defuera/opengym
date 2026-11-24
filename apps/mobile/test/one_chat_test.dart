@@ -45,54 +45,54 @@ Future<void> _type(WidgetTester t, String s) async {
 }
 
 void main() {
-  testWidgets('Change plan opens the chat with the session context, a context line and a hint', (WidgetTester t) async {
+  testWidgets('the one floating chat button opens the chat with the shown exercise as context', (WidgetTester t) async {
     final (FakeConvexClient fake, AppDeps d) = await _session(t);
-    await t.tap(find.byKey(const ValueKey<String>('change-plan')));
+    expect(find.text('Change plan'), findsNothing);
+    expect(find.text('Change this exercise'), findsNothing);
+    await t.tap(find.byKey(const ValueKey<String>('chat-fab')));
     await t.pumpAndSettle();
     expect(find.byType(ChatScreen), findsOneWidget);
-    expect(find.text('This session: Gym, Legs'), findsOneWidget);
+    expect(find.text('Gym, Legs \u00b7 Tandem Stand'), findsOneWidget);
     expect(find.text('What do you want to change?'), findsOneWidget);
     await _type(t, 'I do have a balance board');
     final ChatContext c = fake.sentContexts.single!;
-    expect(c.screen, 'session');
-    expect(c.openSessionId, d.store.active!.id);
-    expect(c.exerciseId, isNull);
-    expect(fake.serverMessages.values.single.single.context!.screen, 'session');
-  });
-
-  testWidgets('Change plan stays when a set is done (the server protects done sets)', (WidgetTester t) async {
-    final (_, AppDeps d) = await _session(t);
-    d.store.toggleSet(0);
-    await t.pump();
-    expect(d.store.hasDoneSet, isTrue);
-    expect(find.byKey(const ValueKey<String>('change-plan')), findsOneWidget);
-  });
-
-  testWidgets('"Change this exercise" sends the exercise id; the session thread is reused', (WidgetTester t) async {
-    final (FakeConvexClient fake, AppDeps d) = await _session(t);
-    await t.tap(find.byKey(const ValueKey<String>('ask-coach')));
-    await t.pumpAndSettle();
-    expect(find.text('This exercise: Tandem Stand'), findsOneWidget);
-    await _type(t, 'no balance board here');
-    final ChatContext c = fake.sentContexts.last!;
     expect(c.screen, 'exercise');
     expect(c.exerciseId, 'e1');
     expect(c.openSessionId, d.store.active!.id);
+    expect(fake.serverMessages.values.single.single.context!.screen, 'exercise');
+  });
+
+  testWidgets('the button follows the selected exercise; with none the context is the session', (WidgetTester t) async {
+    final (FakeConvexClient fake, AppDeps d) = await _session(t);
+    d.store.pickExercise(1);
+    await t.pump();
+    await t.tap(find.byKey(const ValueKey<String>('chat-fab')));
+    await t.pumpAndSettle();
+    expect(find.text('Gym, Legs \u00b7 Squat'), findsOneWidget);
+    await _type(t, 'too heavy');
+    expect(fake.sentContexts.last!.exerciseId, 'e2');
     await t.tap(find.byIcon(Icons.chevron_left));
     await t.pumpAndSettle();
-    await t.tap(find.byKey(const ValueKey<String>('change-plan')));
+    d.store.discardExercise(1);
+    d.store.discardExercise(0);
+    await t.pump();
+    await t.tap(find.byKey(const ValueKey<String>('chat-fab')));
     await t.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 20)));
     await t.pumpAndSettle();
-    expect(fake.serverThreads, hasLength(1));
-    expect(d.coach.currentId, fake.serverThreads.keys.single);
-    await t.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 20)));
-    await t.pump();
-    expect(find.byType(ChatScreen), findsOneWidget);
-    expect(find.text('no balance board here'), findsOneWidget); // the same thread
-    expect(find.text('This session: Gym, Legs'), findsOneWidget);
-    await _type(t, 'and more');
-    expect(fake.serverThreads, hasLength(1));
+    expect(find.text('Gym, Legs'), findsOneWidget);
+    await _type(t, 'build me another one');
+    expect(fake.serverThreads, hasLength(1)); // the thread of the open session is reused
     expect(fake.sentContexts.last!.screen, 'session');
+    expect(fake.sentContexts.last!.exerciseId, isNull);
+  });
+
+  testWidgets('the button stays when a set is done and does not cover the set controls', (WidgetTester t) async {
+    final (_, AppDeps d) = await _session(t);
+    d.store.toggleSet(0);
+    await t.pump();
+    final Finder fab = find.byKey(const ValueKey<String>('chat-fab'));
+    expect(fab, findsOneWidget);
+    expect(t.getRect(find.byKey(const ValueKey<String>('set-check-0-0'))).overlaps(t.getRect(fab)), isFalse);
   });
 
   testWidgets('a plain chat sends the chat screen as its context', (WidgetTester t) async {
@@ -107,7 +107,7 @@ void main() {
   testWidgets('a coach reply shows its action lines and a question with quick answers; a tap sends the label with the same context',
       (WidgetTester t) async {
     final (FakeConvexClient fake, AppDeps d) = await _session(t);
-    await t.tap(find.byKey(const ValueKey<String>('ask-coach')));
+    await t.tap(find.byKey(const ValueKey<String>('chat-fab')));
     await t.pumpAndSettle();
     await _type(t, 'swap it');
     final String thread = fake.serverThreads.keys.single;
@@ -122,6 +122,7 @@ void main() {
         text: 'Does your gym have a balance board?',
         answers: <QuickAnswer>[QuickAnswer(id: 'y', label: 'Yes'), QuickAnswer(id: 'n', label: 'No')],
       ),
+      proposal: const CoachPlan(title: 'New workout', rows: <(String, String)>[('Goblet Squat', '3 x 10'), ('Calf Raise', '2 x 15')]),
     );
     await t.pump();
     await t.pump(const Duration(milliseconds: 100));
@@ -129,6 +130,10 @@ void main() {
     expect(find.text('Changed: one exercise'), findsOneWidget);
     expect(find.text('Not changed: this exercise already has a done set'), findsOneWidget);
     expect(find.text('Does your gym have a balance board?'), findsOneWidget);
+    expect(find.byKey(const ValueKey<String>('coach-proposal')), findsOneWidget);
+    expect(find.text('Goblet Squat'), findsOneWidget);
+    expect(find.text('3 x 10'), findsOneWidget);
+    final String turn = fake.serverMessages[thread]!.last.turnId!;
     await t.tap(find.text('Yes'));
     await t.pump();
     await t.pump(const Duration(milliseconds: 100));
@@ -137,6 +142,8 @@ void main() {
     expect(c.screen, 'exercise');
     expect(c.exerciseId, 'e1');
     expect(d.coach.chatContext!.exerciseId, 'e1');
+    expect(fake.sentAnswers.last!.id, 'y');
+    expect(fake.sentAnswers.last!.turnId, turn);
   });
 
   testWidgets('the chat composer takes a photo and a file, shows thumbnails, removes one, and the offline line is live',
@@ -168,7 +175,7 @@ void main() {
       ..start();
     addTearDown(sync.stop);
     await sync.flush();
-    await t.tap(find.byKey(const ValueKey<String>('ask-coach')));
+    await t.tap(find.byKey(const ValueKey<String>('chat-fab')));
     await t.pumpAndSettle();
     final String id = d.store.active!.id;
     fake.openRemote.set(OpenRemote(

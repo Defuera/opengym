@@ -46,9 +46,9 @@ ADR-026 made every conversation with the coach the chat, with JSON replies and n
 
 ## Built in step B (mobile app)
 
-- One chat screen and one composer (text, camera, library, file, thumbnails, offline line). The chat opens with a context: from the session ("Change plan", `screen: "session"`) or from one exercise ("Change this exercise", `screen: "exercise"` with the exercise id). Every send carries the context; a plain chat sends `chat`, a program chat sends `program`.
-- A chat opened from a session shows a context line and the hint "What do you want to change?". The thread is reused while the session is open, for the run of the app (not stored on the phone).
-- Replies show one plain line per action and a question with quick-answer buttons. The result of an action holds no arguments, so a line names the kind of change ("Changed: one exercise"), not the exercise.
+- One chat screen and one composer (text, camera, library, file, thumbnails, offline line). The session screen has one floating chat button (owner, 2026-11-24; no "Change plan" chip, no per-exercise action). It opens the chat with `screen: "exercise"` and the id of the exercise on screen, or `screen: "session"` when none is selected. Every send carries the context; a plain chat sends `chat`, a program chat sends `program`.
+- A chat opened from a session shows a context line ("Gym, Legs · Tandem Stand") and the hint "What do you want to change?". The thread is reused while the session is open, for the run of the app (not stored on the phone).
+- Replies show one plain line per action, an optional whole-workout `proposal` list and a question with quick-answer buttons. A tap sends the label with `answer: { turnId, id }`. The result of an action holds no arguments, so a line names the kind of change ("Changed: one exercise"), not the exercise.
 - The old "Change plan" sheet and its rebuild call are gone from the session screen. The Start step still has its own note field.
 
 ## Proposed next steps (not built, not confirmed by the owner)

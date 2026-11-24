@@ -9,13 +9,15 @@ import { MessageInputSchema } from "../model/schema";
 import { MAX_VOICE_BYTES } from "../model/voice";
 import { titleFromMessage } from "../model/threadTitle";
 import { COACH_TURN_SCREENS, messageContext } from "../lib/messageFields";
+import { applyProposal } from "../lib/proposalDb";
+import { truncate } from "../model/rules/util";
 
 const CONTEXT_ID_MAX = 100;
 
 /** True for a message sent from the session or an exercise: the coach turn with functions answers it (ADR-032). */
 const isCoachTurn = (context: { screen?: string } | undefined) => !!context?.screen && COACH_TURN_SCREENS.has(context.screen);
-/** The job that answers a message: the coach turn, else the chat reply. */
-const replyJob = (context: { screen?: string } | undefined) => (isCoachTurn(context) ? internal.jobs.coachTurn.run : internal.jobs.chat.reply);
+/** The job that answers a message: the coach turn (also for an answer to a question of the coach), else the chat reply. */
+const replyJob = (context: { screen?: string } | undefined, answered = false) => (isCoachTurn(context) || answered ? internal.jobs.coachTurn.run : internal.jobs.chat.reply);
 
 /**
  * Store the user's message at once and start the coach reply in the background.
@@ -23,16 +25,21 @@ const replyJob = (context: { screen?: string } | undefined) => (isCoachTurn(cont
  * (the thread status is `thinking` until the reply is stored). Resending the same messageId changes nothing, except after a failed reply, where it runs the coach again.
  * `context` (optional, ADR-032) says what was open when the person sent it; it is stored on the message. From the screen "session" or
  * "exercise" the coach turn with functions answers (jobs/coachTurn:run); every other message keeps the chat reply.
+ * `answer` (optional, ADR-032) says the message is a tap on a quick answer of the coach: `turnId` is the `turnId` of the assistant message
+ * that asked and `id` the answer. "approve" on a message that holds a whole-session proposal applies it in plain code, with NO AI call, and
+ * stores a short fixed reply; a second approve changes nothing; a proposal that is stale (a newer proposal, another or no open session)
+ * is not applied and the reply says why. Any other answer, or no stored proposal, runs the normal coach turn with the text.
  */
 export const send = mutation({
-  args: { token: v.string(), threadId: v.string(), messageId: v.string(), text: v.string(), fileIds: v.optional(v.array(v.string())), context: v.optional(messageContext) },
-  handler: async (ctx, { token, threadId, messageId, text, fileIds, context }) => {
+  args: { token: v.string(), threadId: v.string(), messageId: v.string(), text: v.string(), fileIds: v.optional(v.array(v.string())), context: v.optional(messageContext), answer: v.optional(v.object({ turnId: v.string(), id: v.string() })) },
+  handler: async (ctx, { token, threadId, messageId, text, fileIds, context, answer }) => {
     requireToken(token);
     if (!messageId || messageId.length > 100) throw new ConvexError("messageId: must be 1 to 100 characters");
     for (const [k, id] of Object.entries(context ?? {})) if (k !== "screen" && typeof id === "string" && (id.length < 1 || id.length > CONTEXT_ID_MAX)) throw new ConvexError(`context.${k}: must be 1 to ${CONTEXT_ID_MAX} characters`);
     const valid = parseOrThrow(MessageInputSchema, { text, fileIds }, "message");
     const thread = await threadByThreadId(ctx, threadId);
     if (!thread) throw new ConvexError(`thread not found: ${threadId}`);
+    if (answer && (answer.turnId.length < 1 || answer.turnId.length > CONTEXT_ID_MAX || answer.id.length < 1 || answer.id.length > 40)) throw new ConvexError("answer: turnId must be 1 to 100 and id 1 to 40 characters");
     const now = Date.now();
     const stored = await messageByMessageId(ctx, messageId);
     if (stored) {
@@ -46,15 +53,27 @@ export const send = mutation({
       }
       return messageId;
     }
+    // The person approves a whole-session proposal: plain code applies it. No AI call, no pending reply.
+    if (answer?.id === "approve") {
+      const asked = await ctx.db.query("messages").withIndex("by_turnId", (q) => q.eq("turnId", answer.turnId)).first();
+      if (asked?.proposal && asked.threadId === threadId && asked.role === "assistant") {
+        await ctx.db.insert("messages", { messageId, threadId, role: "user", text: valid.text, fileIds: valid.fileIds ?? [], sources: [], ...(context ? { context } : {}), createdAt: now });
+        const out = await applyProposal(ctx, asked);
+        const action = { actionId: "approve", name: "rebuild_open_session", status: out.status === "refused" ? ("rejected" as const) : ("applied" as const), ...(out.reason ? { reason: out.reason } : {}) };
+        await ctx.db.insert("messages", { messageId: crypto.randomUUID(), threadId, role: "assistant", text: out.text, fileIds: [], sources: [], turnId: messageId, actions: [action], createdAt: now + 1 });
+        await ctx.db.patch(thread._id, { updatedAt: now + 1, lastMessage: truncate(out.text, 200) });
+        return messageId;
+      }
+    }
     // First user message of a thread the user has not named: name it now by plain code. The coach job may improve it later.
     const first = !(await ctx.db.query("messages").withIndex("by_threadId", (q) => q.eq("threadId", threadId)).filter((q) => q.eq(q.field("role"), "user")).first());
     const title = thread.titleSource === "auto" && first && !thread.about ? { title: titleFromMessage(valid.text) } : {};
     await ctx.db.insert("messages", { messageId, threadId, role: "user", text: valid.text, fileIds: valid.fileIds ?? [], sources: [], ...(context ? { context } : {}), createdAt: now });
     await ctx.db.patch(thread._id, { ...title, status: "thinking", error: undefined, pending: thread.pending + 1, updatedAt: now });
-    await ctx.scheduler.runAfter(0, replyJob(context), { threadId, messageId });
+    await ctx.scheduler.runAfter(0, replyJob(context, !!answer), { threadId, messageId });
     // A thread about a place (ADR-021): the background job may learn from what the user says. It never blocks the reply.
     // The coach turn updates places itself (update_place), so the background job does not run for it.
-    if (thread.placeId !== undefined && !isCoachTurn(context)) await ctx.scheduler.runAfter(0, internal.jobs.places.learn, { placeId: thread.placeId, source: "chat", sentence: valid.text, ...(valid.fileIds?.length ? { fileIds: valid.fileIds } : {}) });
+    if (thread.placeId !== undefined && !isCoachTurn(context) && !answer) await ctx.scheduler.runAfter(0, internal.jobs.places.learn, { placeId: thread.placeId, source: "chat", sentence: valid.text, ...(valid.fileIds?.length ? { fileIds: valid.fileIds } : {}) });
     return messageId;
   },
 });

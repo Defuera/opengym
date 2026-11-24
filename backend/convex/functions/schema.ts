@@ -1,6 +1,6 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
-import { actionResult, coachQuestion, messageContext } from "./lib/messageFields";
+import { actionResult, coachProposal, coachQuestion, messageContext } from "./lib/messageFields";
 import { placeChangeFields, placeFields } from "./lib/placeFields";
 import { programFields, proposalFields, threadAbout } from "./lib/programFields";
 import { previousPlan, startProposal, startStatus, dashboardDays, feeling, limitRule, limitStatus, fileKind, threadStatus, goalKind, goalStatus, importCounts, importStatus, itemSource, moduleSpec, parseState, planExercise, prediction, proposalSource } from "./lib/validators";
@@ -279,6 +279,8 @@ export default defineSchema({
     actions: v.optional(v.array(actionResult)),
     /** Only on an assistant message of a coach turn: the coach asks the person, with optional quick answers. */
     question: v.optional(coachQuestion),
+    /** Only on an assistant message of a coach turn: the whole-session plan the coach proposes; applied when the person approves (ADR-032). */
+    proposal: v.optional(coachProposal),
     createdAt: v.number(),
   })
     .index("by_messageId", ["messageId"])

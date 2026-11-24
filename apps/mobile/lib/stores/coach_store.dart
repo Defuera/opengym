@@ -28,6 +28,7 @@ class _Outgoing {
     required this.files,
     this.voice = false,
     this.context,
+    this.answer,
   }) : createdAt = DateTime.now().millisecondsSinceEpoch;
 
   final String messageId;
@@ -41,6 +42,9 @@ class _Outgoing {
 
   /// What was open when the person sent it.
   final ChatContext? context;
+
+  /// Set when the text is a tap on a quick answer.
+  final ChatAnswer? answer;
 
   /// The send call failed (after the user pressed send). Retry is offered.
   bool unsent = false;
@@ -571,7 +575,7 @@ class CoachStore extends ChangeNotifier {
   /// Accepts the message: it shows at once, then files upload, then it is
   /// sent. Returns false when nothing was accepted (empty, busy, offline), so
   /// the screen keeps the text. A failure after acceptance shows [retryReason].
-  Future<bool> send(String text) async {
+  Future<bool> send(String text, {ChatAnswer? answer}) async {
     final String? id = currentId;
     final String body = text.trim();
     if (id == null || sending || (body.isEmpty && _pending.isEmpty)) {
@@ -588,6 +592,7 @@ class CoachStore extends ChangeNotifier {
       text: body.isEmpty ? 'See attached.' : body,
       files: List<_Attachment>.of(_pending),
       context: _sendContext,
+      answer: answer,
     );
     if (isDraft) {
       // First message of a new chat: create the thread, then send.
@@ -796,6 +801,7 @@ class CoachStore extends ChangeNotifier {
           text: out.text,
           fileIds: <String>[for (final _Attachment f in out.files) f.fileId],
           context: out.context,
+          answer: out.answer,
         );
       }
     } on ConvexCallException catch (e) {

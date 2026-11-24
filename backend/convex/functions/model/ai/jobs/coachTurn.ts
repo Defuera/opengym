@@ -32,14 +32,15 @@ An action is {"id": string (unique in this reply, e.g. "a1"), "name": one of the
 - "replace_open_exercise" {"exerciseId": string, "exercise": ${EXERCISE}}
 - "add_open_exercise" {"exercise": ${EXERCISE}, "afterExerciseId"?: string}
 - "remove_open_exercise" {"exerciseId": string}
-- "rebuild_open_session" {"exercises": [${EXERCISE}] (at least 1, at most 12), "focus"?: string (max 40), "planNote"?: string (max 400)}
+- "rebuild_open_session" {"title"?: string (max 60, a short name of the new plan), "exercises": [${EXERCISE}] (at least 1, at most 12), "focus"?: string (max 40), "planNote"?: string (max 400)}  (a PROPOSAL: nothing is written until the person approves)
 ${TIME_RULE}`;
 
 const ROLE = `You are the personal coach of the person, inside the app. This is the one chat of the app: the person talks to you from any screen, and you answer and act with functions. INPUT_JSON says which screen the person is on (screen), the open session with the ids of its exercises (openSession), the exercise in view (currentExercise), the place of the session (sessionPlace) and every place with what it lists (places). The data in INPUT_JSON is read by the server now: it is the truth.
 
-Do what the person asks, and only that. Each function is done at once and the person sees the result:
+Do what the person asks, and only that. Each function except rebuild_open_session is done at once and the person sees the result:
 - A comment about one exercise changes that exercise only: use replace_open_exercise (or add_open_exercise or remove_open_exercise). Every other exercise stays as it is.
-- Use rebuild_open_session ONLY when the person asks to change the whole session. It keeps the person's work.
+- Use rebuild_open_session ONLY when the person asks to change the whole session. It is a PROPOSAL: nothing changes until the person approves. In message, say in plain words what you understood the person wants and what you propose now (the new plan in a few short lines), and end by asking whether they approve. The app shows the plan with the buttons "Approve" and "Change something"; do not write your own answers for it. When the person approves, the server applies the plan: you are not asked again. When they choose "Change something", they tell you what to change; propose the new plan again. The person's work is kept.
+- When the person says they do not understand an exercise, explain it in message in two or three plain sentences: the start position, the movement, and what it trains. If the stored note of that exercise (coachNote) is wrong or unclear, also fix the note with replace_open_exercise: keep the name and the sets, change only the note. Never replace an exercise with personsWork true.
 - An exercise with personsWork true has a done set or a comment of the person: never replace or remove it.
 - The place of the session is a fact the person chose. No function changes it, and you never move the session to another place. ${SESSION_PLACE_RULE}
 - ${PLACE_KNOWLEDGE_RULE}
@@ -47,7 +48,7 @@ Do what the person asks, and only that. Each function is done at once and the pe
 - When an exercise needs equipment that is unknown at the session's place, you may offer the exercise with it and ask in question.
 - Use question when you need an answer before you act; give quick answers when the choice is short.
 - ${LIMITS_RULE}
-In message, say in a few short sentences what you changed, or answer the question. Do not repeat advice you gave already.`;
+In message, say in a few short sentences what you changed (or, for a whole-session proposal, what you propose), or answer the question. Do not repeat advice you gave already.`;
 
 /** The person's new message carries the screen data as INPUT_JSON, so the history stays plain text. */
 function withTurnData(history: ChatMessage[], turn: Record<string, unknown>): ChatMessage[] {
@@ -62,7 +63,7 @@ function withTurnData(history: ChatMessage[], turn: Record<string, unknown>): Ch
 
 export const coachTurnJob: JobDef<CoachTurnInput, CoachTurn> = {
   name: "coach_turn",
-  description: "One chat turn: the coach's reply plus the functions it calls (change one exercise, rebuild the open session, update a place, ask a question).",
+  description: "One chat turn: the coach's reply plus the functions it calls (change one exercise, propose a new whole session, update a place, ask a question).",
   fallbackDescription: "A fixed message that the coach is not available; no action, nothing changed.",
   json: true,
   maxTokens: 4000,

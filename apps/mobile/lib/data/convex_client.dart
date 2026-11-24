@@ -186,6 +186,7 @@ abstract class ConvexClient {
     required String text,
     List<String> fileIds = const <String>[],
     ChatContext? context,
+    ChatAnswer? answer,
   });
 
   /// Sends a recorded voice message: the audio file [fileId] is already
@@ -665,6 +666,7 @@ class DartvexConvexClient implements ConvexClient {
     required String text,
     List<String> fileIds = const <String>[],
     ChatContext? context,
+    ChatAnswer? answer,
   }) {
     return _mutate('commands/messages:send', <String, dynamic>{
       'threadId': threadId,
@@ -672,6 +674,7 @@ class DartvexConvexClient implements ConvexClient {
       'text': text,
       if (fileIds.isNotEmpty) 'fileIds': fileIds,
       if (context != null) 'context': context.toJson(),
+      if (answer != null) 'answer': answer.toJson(),
     });
   }
 

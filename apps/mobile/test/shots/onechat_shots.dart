@@ -1,10 +1,10 @@
 // Visual proof of the one chat (ADR-032). Not part of the normal suite (the
 // file name has no _test suffix). Run by path:
 //   flutter test test/shots/onechat_shots.dart
-// It writes 1-session.png (the session screen with "Change plan" and "Change
-// this exercise") and 2-chat-session.png (the chat opened from an exercise,
-// with a reply that has two action lines and a question with two quick
-// answers) at 390 px width, pixel ratio 3.
+// It writes 1-session.png (the session screen with the floating chat button)
+// and 2-chat-session.png (the chat opened from it, with a reply that has two
+// action lines, a whole-workout proposal and Approve / Change something
+// buttons) at 390 px width, pixel ratio 3.
 import 'dart:io';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
@@ -69,9 +69,9 @@ void main() {
     await t.pump();
     await _save(t, key, '1-session');
 
-    await t.tap(find.byKey(const ValueKey<String>('ask-coach')));
+    await t.tap(find.byKey(const ValueKey<String>('chat-fab')));
     await t.pumpAndSettle();
-    await t.enterText(find.byType(TextField).last, 'No balance board at this gym');
+    await t.enterText(find.byType(TextField).last, 'I want to change the whole workout');
     await t.pump();
     await t.tap(find.byKey(const ValueKey<String>('composer-send')));
     await t.pump();
@@ -84,9 +84,14 @@ void main() {
         CoachAction(actionId: 'a2', name: 'update_place', status: 'applied'),
       ],
       question: const CoachQuestion(
-        text: 'Do you have a BOSU ball instead?',
-        answers: <QuickAnswer>[QuickAnswer(id: 'y', label: 'Yes, I do'), QuickAnswer(id: 'n', label: 'No')],
+        text: 'Do you approve this workout?',
+        answers: <QuickAnswer>[QuickAnswer(id: 'approve', label: 'Approve'), QuickAnswer(id: 'change', label: 'Change something')],
       ),
+      proposal: const CoachPlan(title: 'Proposed workout', rows: <(String, String)>[
+        ('Goblet Squat', '3 x 10'),
+        ('Floor Tandem Stand', '2 x 30 s'),
+        ('Calf Raise', '3 x 15'),
+      ]),
     );
     await t.pump();
     await t.pump(const Duration(milliseconds: 100));

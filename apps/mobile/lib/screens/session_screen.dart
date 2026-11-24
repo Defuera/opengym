@@ -5,6 +5,7 @@ import '../data/convex_client.dart';
 import '../planner.dart';
 import '../store.dart';
 import '../theme.dart';
+import '../widgets/chat_fab.dart';
 import '../widgets/choice_sheet.dart';
 import '../widgets/exercise_picker.dart';
 import '../widgets/og_button.dart';
@@ -38,8 +39,8 @@ class SessionScreen extends StatefulWidget {
   State<SessionScreen> createState() => _SessionScreenState();
 }
 
-class _SessionScreenState extends State<SessionScreen> with WidgetsBindingObserver {
-
+class _SessionScreenState extends State<SessionScreen>
+    with WidgetsBindingObserver {
   /// What the planned session works (muscle key -> level), for the figure at
   /// the title. Null until known, and offline.
   Map<String, int>? _load;
@@ -97,7 +98,9 @@ class _SessionScreenState extends State<SessionScreen> with WidgetsBindingObserv
     if (art == null) {
       return;
     }
-    final List<String> names = <String>[for (final Exercise e in a.exercises) e.name];
+    final List<String> names = <String>[
+      for (final Exercise e in a.exercises) e.name
+    ];
     final String sig = '${deps?.connection.connected}|${names.join('\u0000')}';
     if (sig == _artNames) {
       return;
@@ -122,7 +125,10 @@ class _SessionScreenState extends State<SessionScreen> with WidgetsBindingObserv
           PlanLoadItem(
             name: e.name,
             sets: e.isTime ? 0 : e.sets.length,
-            minutes: e.isTime ? e.sets.fold<double>(0, (double s, SetEntry x) => s + (x.minutes ?? 0)) : 0,
+            minutes: e.isTime
+                ? e.sets.fold<double>(
+                    0, (double s, SetEntry x) => s + (x.minutes ?? 0))
+                : 0,
           ),
       ]);
     } catch (_) {
@@ -158,19 +164,14 @@ class _SessionScreenState extends State<SessionScreen> with WidgetsBindingObserv
     );
   }
 
-  /// "Change plan": the one chat, about the whole session. The server keeps
-  /// the done sets, so this is open until the session ends.
-  Future<void> _changePlan(BuildContext context, Session a) {
-    return openSessionChat(context, deps!, a);
-  }
-
   void _leave(BuildContext context, {String? recapId}) {
     final NavigatorState nav = Navigator.of(context);
     nav.popUntil((Route<dynamic> r) => r.isFirst);
     final AppDeps? d = deps;
     if (recapId != null && d != null) {
       nav.push(MaterialPageRoute<void>(
-        builder: (BuildContext c) => SessionRecapScreen(deps: d, sessionId: recapId),
+        builder: (BuildContext c) =>
+            SessionRecapScreen(deps: d, sessionId: recapId),
       ));
     }
   }
@@ -199,7 +200,8 @@ class _SessionScreenState extends State<SessionScreen> with WidgetsBindingObserv
           variant: OgVariant.accent,
           key: ValueKey<String>('confirm-finish'),
         ),
-        SheetChoice(value: 'stay', label: 'Keep going', variant: OgVariant.dashed),
+        SheetChoice(
+            value: 'stay', label: 'Keep going', variant: OgVariant.dashed),
       ],
     );
     return c == 'finish';
@@ -223,8 +225,12 @@ class _SessionScreenState extends State<SessionScreen> with WidgetsBindingObserv
           label: 'Pause, come back later',
           variant: OgVariant.accent,
         ),
-        if (store.hasDoneSet) const SheetChoice(value: 'finish', label: 'Finish and save'),
-        const SheetChoice(value: 'discard', label: 'Discard session', variant: OgVariant.dashed),
+        if (store.hasDoneSet)
+          const SheetChoice(value: 'finish', label: 'Finish and save'),
+        const SheetChoice(
+            value: 'discard',
+            label: 'Discard session',
+            variant: OgVariant.dashed),
       ],
     );
     String? saved;
@@ -275,13 +281,18 @@ class _SessionScreenState extends State<SessionScreen> with WidgetsBindingObserv
     if (pick == null || pick.name.isEmpty) {
       return;
     }
-    store.addExercise(pick.name, measure: pick.timed ? measureTime : measureSets);
+    store.addExercise(pick.name,
+        measure: pick.timed ? measureTime : measureSets);
   }
 
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: Listenable.merge(<Listenable?>[store, rebuild, deps?.connection].whereType<Listenable>().toList()),
+      listenable: Listenable.merge(<Listenable?>[
+        store,
+        rebuild,
+        deps?.connection
+      ].whereType<Listenable>().toList()),
       builder: (BuildContext context, Widget? child) {
         final Session? a = store.active;
         if (a == null) {
@@ -293,10 +304,12 @@ class _SessionScreenState extends State<SessionScreen> with WidgetsBindingObserv
           _from = store.curEx > _lastEx ? 1 : -1;
           _lastEx = store.curEx;
         }
-        final bool still = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
+        final bool still =
+            MediaQuery.maybeDisableAnimationsOf(context) ?? false;
         final bool canChat = deps != null && a.kind == 'gym';
         final bool canOffer = rebuild != null;
-        final bool why = a.focus != null || a.planNote != null || a.exercises.isNotEmpty;
+        final bool why =
+            a.focus != null || a.planNote != null || a.exercises.isNotEmpty;
         return PopScope<Object?>(
             canPop: false,
             onPopInvokedWithResult: (bool didPop, Object? result) {
@@ -344,13 +357,16 @@ class _SessionScreenState extends State<SessionScreen> with WidgetsBindingObserv
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: <Widget>[
-                                if (a.focus != null && a.focus!.isNotEmpty) ...<Widget>[
+                                if (a.focus != null &&
+                                    a.focus!.isNotEmpty) ...<Widget>[
                                   Text(
                                     a.focus!,
-                                    key: const ValueKey<String>('session-focus'),
+                                    key:
+                                        const ValueKey<String>('session-focus'),
                                     maxLines: 2,
                                     overflow: TextOverflow.ellipsis,
-                                    style: OG.body(size: 16, weight: FontWeight.w600),
+                                    style: OG.body(
+                                        size: 16, weight: FontWeight.w600),
                                   ),
                                   const SizedBox(height: 8),
                                 ],
@@ -363,16 +379,14 @@ class _SessionScreenState extends State<SessionScreen> with WidgetsBindingObserv
                                   items: <Widget>[
                                     if (deps != null)
                                       PlaceMarkView(
-                                          deps: deps!, placeId: a.placeId, onPick: store.setActivePlace, chip: true),
-                                    if (canChat)
-                                      MetaItem(
-                                          key: const ValueKey<String>('change-plan'),
-                                          label: 'Change plan',
-                                          icon: Icons.tune,
-                                          onTap: () => _changePlan(context, a)),
+                                          deps: deps!,
+                                          placeId: a.placeId,
+                                          onPick: store.setActivePlace,
+                                          chip: true),
                                     if (canOffer && rebuild!.offer != null)
                                       MetaItem(
-                                        key: const ValueKey<String>('use-coach-plan'),
+                                        key: const ValueKey<String>(
+                                            'use-coach-plan'),
                                         label: 'Use the coach plan',
                                         icon: Icons.auto_awesome_outlined,
                                         onTap: rebuild!.useOffer,
@@ -400,35 +414,59 @@ class _SessionScreenState extends State<SessionScreen> with WidgetsBindingObserv
                         onAdd: () => _addExercise(context),
                       ),
                       Expanded(
-                        child: GestureDetector(
-                          key: const ValueKey<String>('panel-swipe'),
-                          behavior: HitTestBehavior.opaque,
-                          onHorizontalDragEnd: _onSwipe,
-                          child: SingleChildScrollView(
-                            padding: const EdgeInsets.fromLTRB(20, 14, 20, 8),
-                            child: TweenAnimationBuilder<double>(
-                              key: ValueKey<String>('panel-${store.currentExercise?.id}'),
-                              tween: Tween<double>(begin: _from == 0 ? 0 : 1, end: 0),
-                              duration: still ? Duration.zero : const Duration(milliseconds: 180),
-                              curve: Curves.easeOut,
-                              builder: (BuildContext c, double t, Widget? child) => Opacity(
-                                opacity: 1 - t,
-                                child: Transform.translate(offset: Offset(_from * 48 * t, 0), child: child),
-                              ),
-                              child: deps == null
-                                  ? SessionPanel(store: store)
-                                  : ListenableBuilder(
-                                      listenable: deps!.art,
-                                      builder: (BuildContext c, Widget? w) => SessionPanel(
-                                        store: store,
-                                        art: deps!.art,
-                                        onAskCoach: canChat
-                                            ? () => openSessionChat(context, deps!, a, exercise: store.currentExercise)
-                                            : null,
-                                      ),
+                        child: Stack(
+                          children: <Widget>[
+                            Positioned.fill(
+                              child: GestureDetector(
+                                key: const ValueKey<String>('panel-swipe'),
+                                behavior: HitTestBehavior.opaque,
+                                onHorizontalDragEnd: _onSwipe,
+                                child: SingleChildScrollView(
+                                  padding:
+                                      const EdgeInsets.fromLTRB(20, 14, 20, 84),
+                                  child: TweenAnimationBuilder<double>(
+                                    key: ValueKey<String>(
+                                        'panel-${store.currentExercise?.id}'),
+                                    tween: Tween<double>(
+                                        begin: _from == 0 ? 0 : 1, end: 0),
+                                    duration: still
+                                        ? Duration.zero
+                                        : const Duration(milliseconds: 180),
+                                    curve: Curves.easeOut,
+                                    builder: (BuildContext c, double t,
+                                            Widget? child) =>
+                                        Opacity(
+                                      opacity: 1 - t,
+                                      child: Transform.translate(
+                                          offset: Offset(_from * 48 * t, 0),
+                                          child: child),
                                     ),
+                                    child: deps == null
+                                        ? SessionPanel(store: store)
+                                        : ListenableBuilder(
+                                            listenable: deps!.art,
+                                            builder:
+                                                (BuildContext c, Widget? w) =>
+                                                    SessionPanel(
+                                                        store: store,
+                                                        art: deps!.art),
+                                          ),
+                                  ),
+                                ),
+                              ),
                             ),
-                          ),
+                            if (canChat)
+                              Positioned(
+                                right: 20,
+                                bottom: 12,
+                                child: ChatFab(
+                                  key: const ValueKey<String>('chat-fab'),
+                                  onTap: () => openSessionChat(
+                                      context, deps!, a,
+                                      exercise: store.currentExercise),
+                                ),
+                              ),
+                          ],
                         ),
                       ),
                     ],
@@ -456,8 +494,10 @@ class _SessionScreenState extends State<SessionScreen> with WidgetsBindingObserv
         child: OgButton(
           key: ValueKey<String>(next ? 'next-exercise' : 'finish-session'),
           variant: OgVariant.ink,
-          onPressed: next ? store.nextExercise : () => _finishFromButton(context),
-          child: Text(next ? 'Next exercise' : 'Finish session', style: OG.display(20, color: OG.white)),
+          onPressed:
+              next ? store.nextExercise : () => _finishFromButton(context),
+          child: Text(next ? 'Next exercise' : 'Finish session',
+              style: OG.display(20, color: OG.white)),
         ),
       ),
     );

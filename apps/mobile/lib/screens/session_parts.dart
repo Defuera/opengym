@@ -7,7 +7,6 @@ import '../stores/countdown_store.dart';
 import '../stores/exercise_art_store.dart';
 import '../theme.dart';
 import '../widgets/choice_sheet.dart';
-import '../widgets/ask_coach_line.dart';
 import '../widgets/comment_line.dart';
 import '../widgets/exercise_anim.dart';
 import '../widgets/exercise_card.dart';
@@ -89,10 +88,7 @@ class ExerciseStrip extends StatelessWidget {
 
 /// Maps the current exercise onto the big card (title plus list of sets).
 class SessionPanel extends StatelessWidget {
-  const SessionPanel({super.key, required this.store, this.art, this.onAskCoach});
-
-  /// Opens the chat about this exercise. Null: no "Change this exercise" line.
-  final VoidCallback? onAskCoach;
+  const SessionPanel({super.key, required this.store, this.art});
 
   final AppStore store;
 
@@ -180,7 +176,6 @@ class SessionPanel extends StatelessWidget {
           checkPrefix: 'set-check-${store.curEx}',
         ),
         CommentLine(comment: ex.comment, onChanged: store.setComment),
-        if (onAskCoach != null) AskCoachLine(onTap: onAskCoach!),
       ],
     );
   }

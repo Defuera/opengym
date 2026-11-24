@@ -7,7 +7,8 @@ import { PLACE_QUOTE_MAX, PLACE_TEXT_MAX } from "./placeFields";
 import { placeByPlaceId, setPlaceText } from "./placesDb";
 import { requestExerciseArt } from "./exerciseArtDb";
 import { type ActionResult, type CoachAction, CoachActionSchema, editPlaceText, toPlanned } from "../model/coachTools";
-import { type OneChange, type OpenExercise, addOne, rebuiltPlan, removeOne, replaceOne } from "../model/openSession";
+import { type OneChange, type OpenExercise, addOne, removeOne, replaceOne } from "../model/openSession";
+import type { StoredProposal } from "../model/proposalText";
 import { finalizePlan } from "../model/proposals";
 import type { Limit, PlanExercise, Session } from "../model/schema";
 
@@ -44,14 +45,14 @@ async function evidenceProblem(ctx: Ctx, trigger: Doc<"messages"> | null, eviden
  * Does the actions of one coach turn, in order, in one transaction (ADR-032). Each action is checked again against the data now:
  * the zod shape, the session id and rev, the person's work, the plan safety limits and the avoid rules (ADR-004, ADR-015), the evidence
  * of a place change. A refused action changes nothing and says why. The session's place is never changed. The open session is
- * written once, with `rev + 1` and `updatedBy: "coach"`.
+ * written once, with `rev + 1` and `updatedBy: "coach"`. A rebuild writes nothing: it is checked the same way and returned as a
+ * proposal (status "drafted"), one per turn, for the message to hold until the person approves (lib/proposalDb.ts).
  */
-export async function executeActions(ctx: Ctx, base: TurnBase, actions: unknown[]): Promise<ActionResult[]> {
+export async function executeActions(ctx: Ctx, base: TurnBase, actions: unknown[]): Promise<{ results: ActionResult[]; proposal?: StoredProposal }> {
   const results: ActionResult[] = [];
   const row = await ctx.db.query("openSession").first();
   const problem = sessionProblem(row, base);
   let exercises: OpenExercise[] = row?.exercises ?? [];
-  let extra: { focus?: string; planNote?: string } = {};
   let changed = false;
   const trigger = await messageByMessageId(ctx, base.turnId);
   const seen = new Set<string>();
@@ -65,6 +66,7 @@ export async function executeActions(ctx: Ctx, base: TurnBase, actions: unknown[
   let n = 0;
   const newId = () => `${stamp}c${(n++).toString(36)}`;
   const art: string[] = [];
+  let proposal: StoredProposal | undefined;
 
   for (const raw of actions) {
     const rawObj = (raw ?? {}) as { id?: unknown; name?: unknown };
@@ -125,11 +127,22 @@ export async function executeActions(ctx: Ctx, base: TurnBase, actions: unknown[
           reject("no exercise is left after the limits");
           continue;
         }
-        const next = rebuiltPlan(exercises, list.map(toPlanned), newId, a.arguments.focus, a.arguments.planNote);
-        change = { ok: true, exercises: next.exercises };
-        extra = { ...extra, ...(next.focus !== undefined ? { focus: next.focus } : {}), ...(next.planNote !== undefined ? { planNote: next.planNote } : {}) };
+        if (proposal) {
+          reject("one proposal per turn");
+          continue;
+        }
+        const { focus, planNote, title } = a.arguments;
+        proposal = {
+          ...(title ? { title } : {}),
+          exercises: list,
+          ...(focus !== undefined ? { focus: focus.trim().slice(0, 40) } : {}),
+          ...(planNote !== undefined ? { planNote: planNote.slice(0, 400) } : {}),
+          rev: row!.rev,
+          openSessionId: row!.id,
+        };
         art.push(...list.map((e) => e.name.trim()));
-        break;
+        results.push({ actionId: a.id, name: a.name, status: "drafted" });
+        continue;
       }
     }
     if (!change.ok) {
@@ -141,7 +154,7 @@ export async function executeActions(ctx: Ctx, base: TurnBase, actions: unknown[
     results.push({ actionId: a.id, name: a.name, status: "applied" });
   }
 
-  if (changed && row) await ctx.db.patch(row._id, { exercises, ...extra, rev: row.rev + 1, updatedAt: Date.now(), updatedBy: "coach" });
+  if (changed && row) await ctx.db.patch(row._id, { exercises, rev: row.rev + 1, updatedAt: Date.now(), updatedBy: "coach" });
   if (art.length > 0) await requestExerciseArt(ctx, [...new Set(art)].filter((x) => x.length > 0).slice(0, 12));
-  return results;
+  return { results, ...(proposal ? { proposal } : {}) };
 }

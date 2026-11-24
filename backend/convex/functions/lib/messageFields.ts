@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import { planExercise } from "./validators";
 
 /** The screens a chat message can be sent from (ADR-032). */
 export const CONTEXT_SCREENS = ["chat", "log", "session", "exercise", "program", "start"] as const;
@@ -24,6 +25,19 @@ export const actionResult = v.object({
   name: v.string(),
   status: v.union(v.literal("applied"), v.literal("drafted"), v.literal("rejected")),
   reason: v.optional(v.string()),
+});
+
+/** The whole-session plan the coach proposes (ADR-032). `exercises` are checked against the plan safety limits. `appliedAt` is set when the person approved it. */
+export const coachProposal = v.object({
+  title: v.optional(v.string()),
+  exercises: v.array(planExercise),
+  focus: v.optional(v.string()),
+  planNote: v.optional(v.string()),
+  /** The rev of the open session the coach read. */
+  rev: v.number(),
+  /** The open session the proposal is for. */
+  openSessionId: v.string(),
+  appliedAt: v.optional(v.number()),
 });
 
 /** A question of the coach, with optional quick answers. A quick answer is sent back as an ordinary message. */

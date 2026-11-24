@@ -7,7 +7,8 @@ import type { PlannedExercise } from "./openSession";
 /**
  * The functions the coach may call in one chat turn (ADR-032), as zod schemas, and the pure logic behind them.
  * The model only names an action; server code checks it again against the data and does it (lib/coachToolsDb.ts).
- * In this step every tool is "applied at once and reported". No tool changes the place of the session.
+ * Single-exercise tools and update_place are "applied at once and reported". rebuild_open_session is a PROPOSAL: it is stored on the
+ * message and applied only when the person approves (commands/messages:send with an answer). No tool changes the place of the session.
  */
 
 const Id = z.string().trim().min(1).max(100);
@@ -27,7 +28,7 @@ export const CoachActionSchema = z.discriminatedUnion("name", [
   action("replace_open_exercise", z.object({ exerciseId: Id, exercise: PlanExerciseSchema })),
   action("add_open_exercise", z.object({ exercise: PlanExerciseSchema, afterExerciseId: Id.optional() })),
   action("remove_open_exercise", z.object({ exerciseId: Id })),
-  action("rebuild_open_session", z.object({ exercises: z.array(PlanExerciseSchema).min(1), focus: z.string().trim().min(1).max(40).optional(), planNote: z.string().max(400).optional() })),
+  action("rebuild_open_session", z.object({ title: z.string().trim().min(1).max(60).optional(), exercises: z.array(PlanExerciseSchema).min(1), focus: z.string().trim().min(1).max(40).optional(), planNote: z.string().max(400).optional() })),
 ]);
 
 export const CoachQuestionSchema = z.object({
@@ -47,7 +48,7 @@ export type CoachToolName = CoachAction["name"];
 export type CoachTurn = z.infer<typeof CoachTurnSchema>;
 export type CoachQuestion = z.infer<typeof CoachQuestionSchema>;
 
-/** What one action did. "drafted" is for the later steps (draft until Done); no tool of this step returns it. */
+/** What one action did. "drafted": the change is stored as a proposal on the message; the person approves it (ADR-032). */
 export interface ActionResult {
   actionId: string;
   name: string;

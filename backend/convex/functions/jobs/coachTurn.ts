@@ -5,6 +5,7 @@ import { providerFor, runAiJob } from "../lib/ai";
 import { allSessions, entryByEntryId, messageByMessageId, threadByThreadId } from "../lib/db";
 import { readChatInput } from "../lib/chatInputDb";
 import { executeActions } from "../lib/coachToolsDb";
+import { proposalQuestion } from "../lib/proposalDb";
 import { loadEntryImages } from "../lib/entriesDb";
 import { loadAttachment } from "../lib/files";
 import { coachQuestion } from "../lib/messageFields";
@@ -70,8 +71,10 @@ export const save = internalMutation({
       await ctx.db.patch(thread._id, { pending, status: pending > 0 ? "thinking" : "idle" });
       return done.actions ?? [];
     }
-    const results = await executeActions(ctx, { turnId, ...(openSessionId !== undefined ? { openSessionId } : {}), ...(rev !== undefined ? { rev } : {}) }, actions);
-    await ctx.db.insert("messages", { messageId: crypto.randomUUID(), threadId, role: "assistant", text: message, fileIds: [], sources, turnId, actions: results, ...(question ? { question } : {}), createdAt: now });
+    const { results, proposal } = await executeActions(ctx, { turnId, ...(openSessionId !== undefined ? { openSessionId } : {}), ...(rev !== undefined ? { rev } : {}) }, actions);
+    // A proposal always carries the two fixed answers; the model's own answers are dropped (ADR-032).
+    const asked = proposal ? proposalQuestion(question?.text) : question;
+    await ctx.db.insert("messages", { messageId: crypto.randomUUID(), threadId, role: "assistant", text: message, fileIds: [], sources, turnId, actions: results, ...(asked ? { question: asked } : {}), ...(proposal ? { proposal } : {}), createdAt: now });
     await ctx.db.patch(thread._id, { pending, status: pending > 0 ? "thinking" : "idle", error: undefined, updatedAt: now, lastMessage: truncate(message, 200) });
     return results;
   },

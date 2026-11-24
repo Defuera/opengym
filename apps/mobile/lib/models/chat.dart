@@ -198,6 +198,41 @@ class CoachQuestion {
   }
 }
 
+/// A whole-workout proposal the coach shows above its buttons (optional).
+class CoachPlan {
+  const CoachPlan({this.title, this.rows = const <(String, String)>[]});
+
+  final String? title;
+
+  /// (exercise name, short sets text)
+  final List<(String, String)> rows;
+
+  static CoachPlan? fromJson(Object? v) {
+    if (v is! Map) {
+      return null;
+    }
+    final Object? raw = v['exercises'];
+    return CoachPlan(
+      title: strOrNull(v['title']),
+      rows: <(String, String)>[
+        if (raw is List)
+          for (final Object? e in raw)
+            if (e is Map) (str(e['name']), str(e['sets'])),
+      ],
+    );
+  }
+}
+
+/// A tap on a quick answer, sent with the message.
+class ChatAnswer {
+  const ChatAnswer({required this.turnId, required this.id});
+
+  final String turnId;
+  final String id;
+
+  Map<String, dynamic> toJson() => <String, dynamic>{'turnId': turnId, 'id': id};
+}
+
 class QuickAnswer {
   const QuickAnswer({required this.id, required this.label});
 
@@ -219,10 +254,18 @@ class Message {
     this.context,
     this.actions = const <CoachAction>[],
     this.question,
+    this.proposal,
+    this.turnId,
   });
 
   final String id;
   final String threadId;
+
+  /// The user message a coach turn answers (assistant messages).
+  final String? turnId;
+
+  /// A whole-workout proposal shown above the question buttons, when present.
+  final CoachPlan? proposal;
 
   /// What was open when the person sent it (user messages).
   final ChatContext? context;
@@ -280,6 +323,8 @@ class Message {
             if (CoachAction.fromJson(a) case final CoachAction x) x,
       ],
       question: CoachQuestion.fromJson(j['question']),
+      proposal: CoachPlan.fromJson(j['proposal']),
+      turnId: strOrNull(j['turnId']),
     );
   }
 }

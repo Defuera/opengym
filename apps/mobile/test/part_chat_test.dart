@@ -127,6 +127,6 @@ void main() {
     expect(d!.noEntry, isTrue);
     expect(d.changes, isTrue);
     expect(d.kindLabel, 'Change limit');
-    expect(d.limit, 'left_knee: Left knee');
+    expect(d.limit, 'Left knee');
   });
 }

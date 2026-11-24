@@ -1,4 +1,5 @@
 import '../entry_category.dart';
+import 'about_parts.dart';
 import 'json_util.dart';
 
 /// The session part of a log draft (ADR-032): the activity, time, distance and
@@ -126,9 +127,10 @@ String? _limitLine(Object? v) {
   if (v is! Map) {
     return null;
   }
-  final String part = str(v['part']);
+  final String key = str(v['part']);
+  final String part = key.isEmpty ? '' : partLabel(key);
   final String title = str(v['title']);
-  final String head = part.isEmpty ? title : (title.isEmpty ? part : '$part: $title');
+  final String head = part.isEmpty ? title : (title.isEmpty || title == part ? part : '$part: $title');
   final List<String> rules = <String>[
     for (final Object? r in asList(v['rules']))
       if (r is Map && str(r['text']).isNotEmpty) '${str(r['kind'])} ${str(r['text'])}'.trim(),

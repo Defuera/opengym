@@ -115,6 +115,8 @@ void main() {
     expect(msg.fileIds, <String>[fileId]);
     expect(msg.voice, 'pending');
     expect(msg.text, '');
+    // A voice message carries the same context as a typed one.
+    expect(fake.sentVoiceContexts.single?.screen, d.coach.chatContext?.screen ?? 'chat');
     expect(find.text('Listening…'), findsOneWidget);
     expect(find.text('Thinking…'), findsNothing); // one waiting line, not two
     expect(find.byIcon(Icons.mic_none), findsWidgets);

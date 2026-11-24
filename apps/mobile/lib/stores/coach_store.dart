@@ -738,6 +738,7 @@ class CoachStore extends ChangeNotifier {
       text: '',
       files: <_Attachment>[_Attachment(audio)],
       voice: true,
+      context: _sendContext,
     );
     _outgoing.add(out);
     await _deliver(out);
@@ -873,7 +874,10 @@ class CoachStore extends ChangeNotifier {
       }
       if (out.voice) {
         await _client.sendVoice(
-            threadId: out.threadId, messageId: out.messageId, fileId: out.files.first.fileId);
+            threadId: out.threadId,
+            messageId: out.messageId,
+            fileId: out.files.first.fileId,
+            context: out.context);
       } else {
         await _client.sendMessage(
           threadId: out.threadId,

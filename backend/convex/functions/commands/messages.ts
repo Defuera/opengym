@@ -85,13 +85,14 @@ export const send = mutation({
 /**
  * A voice message: the audio is already uploaded (commands/files:register, kind "audio"). Stores a user message with an empty
  * text and `voice: "pending"`, counts one pending reply like `send`, and schedules the transcription (jobs/voice:transcribe).
- * The coach reply is scheduled by the job once the transcript is stored. Resending the same messageId changes nothing.
+ * `context` is the screen data of a typed message (ADR-032): a voice message carries the same. The coach reply is scheduled by the job once the transcript is stored. Resending the same messageId changes nothing.
  */
 export const sendVoice = mutation({
-  args: { token: v.string(), threadId: v.string(), messageId: v.string(), fileId: v.string() },
-  handler: async (ctx, { token, threadId, messageId, fileId }) => {
+  args: { token: v.string(), threadId: v.string(), messageId: v.string(), fileId: v.string(), context: v.optional(messageContext) },
+  handler: async (ctx, { token, threadId, messageId, fileId, context }) => {
     requireToken(token);
     if (!messageId || messageId.length > 100) throw new ConvexError("messageId: must be 1 to 100 characters");
+    for (const [k, id] of Object.entries(context ?? {})) if (k !== "screen" && typeof id === "string" && (id.length < 1 || id.length > CONTEXT_ID_MAX)) throw new ConvexError(`context.${k}: must be 1 to ${CONTEXT_ID_MAX} characters`);
     const thread = await threadByThreadId(ctx, threadId);
     if (!thread) throw new ConvexError(`thread not found: ${threadId}`);
     if (await messageByMessageId(ctx, messageId)) return messageId;
@@ -100,7 +101,7 @@ export const sendVoice = mutation({
     if (file.kind !== "audio") throw new ConvexError("fileId: the file is not audio");
     if (file.size > MAX_VOICE_BYTES) throw new ConvexError("fileId: the recording is larger than 10 MB");
     const now = Date.now();
-    await ctx.db.insert("messages", { messageId, threadId, role: "user", text: "", fileIds: [fileId], sources: [], voice: "pending", createdAt: now });
+    await ctx.db.insert("messages", { messageId, threadId, role: "user", text: "", fileIds: [fileId], sources: [], voice: "pending", ...(context ? { context } : {}), createdAt: now });
     await ctx.db.patch(thread._id, { status: "thinking", error: undefined, pending: thread.pending + 1, updatedAt: now });
     await ctx.scheduler.runAfter(0, internal.jobs.voice.transcribe, { messageId });
     return messageId;

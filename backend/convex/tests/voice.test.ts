@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { api } from "../functions/_generated/api";
+import { api, internal } from "../functions/_generated/api";
 import { createOpenAiProvider } from "../functions/model/ai/providers/openai";
 import { MOCK_TRANSCRIPT } from "../functions/model/ai/providers/mock";
 import { listError } from "../functions/jobs/models";
@@ -23,6 +23,7 @@ async function upload(fileId: string, name = "voice.m4a", mime = "audio/mp4", co
   return t.mutation(api.commands.files.register, { token: TOKEN, fileId, storageId, name, mime, size: content.length });
 }
 const sendVoice = (messageId: string, fileId = "f1", threadId = "th1") => t.mutation(api.commands.messages.sendVoice, { token: TOKEN, threadId, messageId, fileId });
+const sendVoiceWith = (messageId: string, context: object) => t.mutation(api.commands.messages.sendVoice, { token: TOKEN, threadId: "th1", messageId, fileId: "f1", context });
 const retry = (messageId: string) => t.mutation(api.commands.messages.retryVoice, { token: TOKEN, messageId });
 const messages = (threadId = "th1") => t.query(api.queries.messages.list, { token: TOKEN, threadId });
 const thread = async () => (await t.query(api.queries.threads.list, { token: TOKEN }))[0]!;
@@ -52,6 +53,35 @@ describe("sendVoice", () => {
     await expect(sendVoice("")).rejects.toThrow(/messageId/);
     expect(await messages()).toHaveLength(0);
     expect(await thread()).toMatchObject({ status: "idle", pending: 0 });
+  });
+});
+
+describe("a voice message carries the screen context of a typed one", () => {
+  it("stores the context, and the coach turn reads the screen from it", async () => {
+    vi.stubEnv("AI_PROVIDER", "mock");
+    await create();
+    await upload("f1");
+    await sendVoiceWith("v1", { screen: "log" });
+    await settle(t);
+    const stored = await t.run((c) => c.db.query("messages").withIndex("by_messageId", (q) => q.eq("messageId", "v1")).unique());
+    expect(stored).toMatchObject({ voice: "done", context: { screen: "log" } });
+    const input = await t.query(internal.jobs.coachTurn.input, { threadId: "th1", messageId: "v1" });
+    expect(input!.turn.screen).toBe("log");
+  });
+
+  it("refuses a context id that is too long, like a typed message", async () => {
+    await create();
+    await upload("f1");
+    await expect(sendVoiceWith("v1", { screen: "chat", entryId: "" })).rejects.toThrow(/context\.entryId/);
+  });
+
+  it("a voice message without context is still answered as a plain chat", async () => {
+    vi.stubEnv("AI_PROVIDER", "mock");
+    await create();
+    await upload("f1");
+    await sendVoice("v1");
+    await settle(t);
+    expect((await t.query(internal.jobs.coachTurn.input, { threadId: "th1", messageId: "v1" }))!.turn.screen).toBe("chat");
   });
 });
 

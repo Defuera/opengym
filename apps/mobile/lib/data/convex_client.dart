@@ -197,6 +197,7 @@ abstract class ConvexClient {
     required String threadId,
     required String messageId,
     required String fileId,
+    ChatContext? context,
   });
 
   /// Asks the server to read a voice message again (one with `voice: failed`).
@@ -683,9 +684,14 @@ class DartvexConvexClient implements ConvexClient {
     required String threadId,
     required String messageId,
     required String fileId,
+    ChatContext? context,
   }) {
-    return _mutate('commands/messages:sendVoice',
-        <String, dynamic>{'threadId': threadId, 'messageId': messageId, 'fileId': fileId});
+    return _mutate('commands/messages:sendVoice', <String, dynamic>{
+      'threadId': threadId,
+      'messageId': messageId,
+      'fileId': fileId,
+      if (context != null) 'context': context.toJson(),
+    });
   }
 
   @override

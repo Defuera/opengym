@@ -137,7 +137,7 @@ class FakeConvexClient implements ConvexClient {
   int _clock = 1000;
 
   /// The coach answers: stores the assistant message, thread goes idle.
-  void coachAnswers(String threadId, String text, {List<String> sources = const <String>[], String? proposalId, List<CoachAction> actions = const <CoachAction>[]}) {
+  void coachAnswers(String threadId, String text, {String? proposalId, List<CoachAction> actions = const <CoachAction>[]}) {
     serverChanged(() {
       serverMessages.putIfAbsent(threadId, () => <Message>[]).add(Message(
           id: 'a${++_clock}',
@@ -145,7 +145,6 @@ class FakeConvexClient implements ConvexClient {
           role: 'assistant',
           text: text,
           createdAt: ++_clock,
-          sources: sources,
           actions: actions,
           proposalId: proposalId));
       _setThread(threadId, status: 'idle', lastMessage: text);
@@ -670,6 +669,9 @@ class FakeConvexClient implements ConvexClient {
     _publish();
   }
 
+  /// The context of each sent voice message (null when none).
+  final List<ChatContext?> sentVoiceContexts = <ChatContext?>[];
+
   /// The context of each sent message (null when none).
   final List<ChatContext?> sentContexts = <ChatContext?>[];
   final List<ChatAnswer?> sentAnswers = <ChatAnswer?>[];
@@ -731,7 +733,9 @@ class FakeConvexClient implements ConvexClient {
     required String threadId,
     required String messageId,
     required String fileId,
+    ChatContext? context,
   }) async {
+    sentVoiceContexts.add(context);
     final ConvexCallException? f = failVoice;
     if (f != null) {
       failVoice = null;

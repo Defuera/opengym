@@ -54,14 +54,15 @@ async function logInput(ctx: QueryCtx, threadId: string, upTo: number) {
 export const input = internalQuery({
   args: { threadId: v.string(), messageId: v.string() },
   handler: async (ctx, { threadId, messageId }) => {
-    const chat = await readChatInput(ctx, threadId, messageId);
     const trigger = await messageByMessageId(ctx, messageId);
+    const hint = trigger?.context ?? {};
+    // Photos go with the turn only when they belong to the thread's messages or to the entry in view.
+    const chat = await readChatInput(ctx, threadId, messageId, hint.entryId);
     if (!chat || !trigger) return null;
-    const hint = trigger.context ?? {};
     const row = await ctx.db.query("openSession").first();
     const places = await allPlaces(ctx);
     const thread = await threadByThreadId(ctx, threadId);
-    // A thread about a program is the program chat whatever the message says (a voice message carries no context).
+    // A thread about a program is the program chat whatever the message says (a program thread is the program chat whatever the context says).
     const aboutProgram = thread?.about?.kind === "program";
     const screen = turnScreen({ screen: aboutProgram ? "program" : hint.screen, row, exerciseId: hint.exerciseId, places, placeId: hint.placeId ?? thread?.placeId });
     const programId = hint.programId ?? thread?.about?.id;

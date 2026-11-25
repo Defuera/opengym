@@ -2,7 +2,6 @@
 //   flutter test test/shots/chat_offline_shots.dart
 // Writes offline-send.png: a "Not sent" bubble, a "Sending…" bubble, the quiet
 // offline line and the composer, on.
-import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 import 'dart:ui' as ui;

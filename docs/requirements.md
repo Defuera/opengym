@@ -151,6 +151,9 @@ conversation (A01–A16). Wording is kept close to his.
 - Confirmed 2026-11-24, the owner's words: "let's have a dynamic categorization of logs, and maybe have them have like either a different color or different color border, something like that, so they're visually distinguishable."
 - Confirmed 2026-11-24, the owner's words: "I think we probably should start as free as possible and restrict agent on the need basis". The coach has no per-screen limits on what it may do.
 
+## Health store: Health Connect and Apple Health (ADR-036)
+- Confirmed 2026-11-25, the owner's words: "I want two way information exchange" (about the phone's health store: Health Connect on Android, Apple Health on iPhone). Tracker data comes in for the coach; finished sessions go out.
+
 ## Open questions (the owner's list, still undecided unless noted)
 - Which activities are in v1 besides gym
 - What context inputs exist beyond injuries

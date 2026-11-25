@@ -6,6 +6,8 @@ Proposed
 
 Note: the owner chose this direction in a message. He has not confirmed this written decision.
 
+Superseded in part by [ADR-036](036-two-way-health-store-exchange.md): the lines "Read only", "Nothing goes to the server yet" and "It never asks to write" no longer hold. The rest stands.
+
 ## Date
 
 2026-11-18

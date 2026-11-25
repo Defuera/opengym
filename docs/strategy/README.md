@@ -33,7 +33,7 @@ This directory holds the Architecture Decision Records (ADRs) for Gym Days (Open
 | [016](016-start-or-log-vocabulary-from-the-log.md) | Start or Log; the Vocabulary Comes From the Log | Accepted |
 | [017](017-log-entries.md) | Log Entries Are Free Notes With Attachments | Proposed |
 | [018](018-log-by-text.md) | Log an Activity as One Text; the AI Fills the Structure | Proposed |
-| [019](019-trackers-through-the-phone-health-store.md) | Trackers Through the Phone's Health Store | Proposed |
+| [019](019-trackers-through-the-phone-health-store.md) | Trackers Through the Phone's Health Store | Proposed (three lines superseded by 036) |
 | [020](020-delete-marks-then-purges.md) | Delete Marks the Row, a Cron Erases It After 72 Hours | Accepted |
 | [021](021-places-the-coach-learns.md) | Places and Their Equipment Are Learned by the Coach | Accepted |
 | [022](022-no-wording-safeguards-while-one-owner-tests.md) | No Wording Safeguards on the Coach While One Owner Tests | Accepted |
@@ -50,3 +50,4 @@ This directory holds the Architecture Decision Records (ADRs) for Gym Days (Open
 | [033](033-coach-reads-records.md) | The Coach Reads the Person's Records | Accepted (supersedes one clause of 015) |
 | [034](034-voice-wave-and-transcript-check.md) | Voice: a Live Wave, and the Transcript Goes to the Text Field | Accepted |
 | [035](035-coach-can-change-session-place.md) | The Coach Can Change the Place of the Session, and a Rebuild Keeps It | Accepted (replaces one rule of 032) |
+| [036](036-two-way-health-store-exchange.md) | Two-Way Exchange With the Phone's Health Store | Accepted |

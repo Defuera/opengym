@@ -403,3 +403,22 @@ A message sent with `context.screen` `"goal"`, `"limit"` or `"note"` (or from th
 - `approve` ("Done"): in plain code, once, with no AI call. A new part is added (`goalId`/`limitId`/`itemId` = `l-<turnId>-g|l|n`). A part with `edits` changes that row: a goal gets the whole new title and structure; a limit gets the new title, status, `since` and rules (a rule sent back with the same kind and text and no exercise list keeps the stored exercises; records and check-ins stay); a note gets the new text and topic. A row that is gone is skipped and the reply says so. No entry is written. The reply is a fixed text: "Goal added.", "Limit changed.", "Note added.". A second `approve` says "This was saved already. Nothing more changed."
 - No function deletes. A request to delete is answered with where the person does it; every delete in the app asks first.
 - Limits and goals are never applied without Done. The plan safety limits and the avoid rules of limits stay in code (ADR-004, ADR-015).
+
+## Tracker readings (Convex backend, ADR-036)
+
+Readings from the phone's health store. They are not facts the person logged: they never become sessions and no AI job writes them.
+
+Tables:
+- `trackerDays`: `date` (`YYYY-MM-DD`, the phone's local date), `sleepMinutes?`, `sleepLightMinutes?`, `sleepDeepMinutes?`, `sleepRemMinutes?` (0..1440), `restingHeartRate?` (20..250), `steps?` (0..200000), `activeEnergyKcal?` (0..20000), `updatedAt`. Index `by_date`.
+- `trackerWorkouts`: `workoutId` (the store's id), `type`, `startedAt`, `endedAt` (ms; end not before start, at most 48 h), `minutes` (0..2880), `distanceKm?` (0..1000), `energyKcal?`, `avgHeartRate?` (20..250), `sourceName`, `updatedAt`. Indexes `by_workoutId`, `by_startedAt`.
+
+| Function | Args | Returns |
+|---|---|---|
+| mutation `commands/tracker:sync` | `{ token, days: Day[], workouts: Workout[] }`, at most 31 days and 100 workouts | `{ days, workouts, written }`. Upserts by `date` and `workoutId`. A day replaces the stored row of its date (a missing field clears it). A row that is unchanged is not written, so the same batch twice gives `written: 0`. A date or id twice in one call: the last wins. A value out of range fails the whole call (`tracker.<field>`) and writes nothing |
+
+**Coach picture.** The block `trackerFromThePhone` is added to the picture of `build_session` and `review_session` (`coachPicture`), to the input of `plan_session`, and to the context of `coach_turn` (`assembleCoachContext`, source `tracker`). It is left out when there is nothing: `{ last7Days: string[], workoutsLast14Days: string[], onLoggedSessions?: string[] }`.
+- `last7Days`: `2026-11-24: sleep 7.3 h (light 4.1, deep 1.2, REM 2.0), resting heart rate 52, steps 8000, active 512 kcal`. Missing values are left out.
+- `workoutsLast14Days`: `2026-11-24 07:10 Running, 45 min, 6.2 km, avg heart rate 148`. At most 30, oldest first.
+- A tracker workout that overlaps a logged session (15 minutes of slack on each side) is not listed. If it has an average heart rate or energy, `onLoggedSessions` gets `2026-11-24 Gym Push: tracker saw avg heart rate 121, 340 kcal`; else it is dropped.
+- For a review, the block is read as of the session start, and a workout that ends after that moment is left out.
+- Each of the four jobs carries one prompt sentence (`TRACKER_RULE`).

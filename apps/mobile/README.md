@@ -47,22 +47,32 @@ permission-rationale intent filter and the `ViewPermissionUsageActivity` alias
 
 ## Trackers
 
-The app reads tracker data from the phone's health store: Apple Health on
-iPhone, Health Connect on Android (ADR-019). Read only; no background sync.
+The app exchanges data with the phone's health store: Apple Health on iPhone,
+Health Connect on Android (ADR-019, ADR-036). Two switches on Settings,
+Trackers, both off by default. No background sync.
 
-- `lib/data/tracker_source.dart`: `TrackerSource` interface, plain models
-  (`TrackerWorkout`, `TrackerDay`, `TrackerSnapshot`) and `FakeTrackerSource`.
+- `lib/data/tracker_source.dart`: `TrackerSource` interface (read, write),
+  plain models (`TrackerWorkout`, `TrackerDay`, `TrackerSnapshot`,
+  `WorkoutWrite`) and `FakeTrackerSource`.
 - `lib/data/health_tracker_source.dart`: the real source over the `health`
   plugin. The only file that imports it.
-- `lib/data/tracker_mapping.dart`: pure functions (sleep de-duplication,
-  average heart rate in a workout, day rows).
-- `lib/screens/tracker_screen.dart`: Settings, Trackers. Shows sources,
-  workouts and days of the last 7 days. It reads on open and on "Read again".
-  Nothing is sent to the server yet.
-- iOS: `ios/Runner/Runner.entitlements` (HealthKit), set as
-  `CODE_SIGN_ENTITLEMENTS` for all Runner configurations;
-  `NSHealthShareUsageDescription` in `Info.plist`. The HealthKit capability must
-  also be on the App ID in the developer account for a signed device build.
+- `lib/data/tracker_mapping.dart`, `tracker_daily.dart`: pure functions (sleep
+  de-duplication and stages, active energy, average heart rate in a workout,
+  day rows, the filter for workouts Gym Days wrote itself).
+- `lib/data/tracker_sync.dart`: "Send tracker data to my coach". Reads the last
+  14 days and calls `commands/tracker:sync`. Runs on foreground (at most every
+  15 minutes), after a reconnect and on "Send now". Never throws.
+- `lib/data/tracker_writer.dart`, `tracker_write_mapping.dart`: "Write my
+  sessions to Health". One workout per finished session, once per session id.
+  A failure never holds up finishing a session.
+- `lib/data/tracker_prefs.dart`: the two switches, the last sync and the
+  written ids, in shared preferences.
+- `lib/screens/tracker_screen.dart`, `tracker_switches.dart`: the screen.
+- Android: Health Connect read and write permissions in
+  `AndroidManifest.xml`. iOS: `Runner.entitlements` (HealthKit),
+  `NSHealthShareUsageDescription` and `NSHealthUpdateUsageDescription` in
+  `Info.plist`. The HealthKit capability must also be on the App ID in the
+  developer account for a signed device build.
 
 ## First run with the backend
 

@@ -5,8 +5,10 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models.dart';
+import '../models/json_util.dart';
 import 'convex_client.dart';
 import 'outbox_ops.dart';
+import 'upload_item.dart';
 
 /// Where the outbox keeps its ops between runs.
 abstract class OutboxRepository {
@@ -55,6 +57,9 @@ class InMemoryOutboxRepository implements OutboxRepository {
   }
 }
 
+/// Where a queued chat message stands.
+enum ChatDelivery { sending, notSent }
+
 /// A write the server refused for good. It was dropped from the outbox.
 class Rejection {
   const Rejection(this.op, this.message);
@@ -79,6 +84,7 @@ class Outbox extends ChangeNotifier {
     this.sendTimeout = const Duration(seconds: 20),
     this.retryAfter = const Duration(seconds: 10),
     this.maxFailures = 5,
+    this.chatTimeout = const Duration(seconds: 90),
   })  : _repo = repo,
         _client = client,
         _isConnected = isConnected;
@@ -88,6 +94,9 @@ class Outbox extends ChangeNotifier {
   final bool Function() _isConnected;
   final Duration sendTimeout;
   final Duration retryAfter;
+
+  /// A chat message may upload files, so it gets longer than other writes.
+  final Duration chatTimeout;
 
   /// Failed sends in a row, with the link up, before a write is parked.
   final int maxFailures;
@@ -100,6 +109,7 @@ class Outbox extends ChangeNotifier {
   bool _again = false;
   Timer? _retry;
   bool _disposed = false;
+  int? _sendingSeq;
   String? _lastError;
   final StreamController<Rejection> _rejections = StreamController<Rejection>.broadcast();
 
@@ -268,10 +278,101 @@ class Outbox extends ChangeNotifier {
   Future<void> saveCheckin(Checkin c) =>
       _enqueue(OutboxOp.checkinSave, <String, dynamic>{'id': c.id, 'checkin': c.toJson()});
 
+  /// A chat message (ADR-037). Saved to disk first; the send runs in the
+  /// background, so the caller never waits for the network. [thread] (title,
+  /// placeId, about) is set on the first message of a new chat: the op makes
+  /// the thread before it sends. The files are kept by path, so they survive a
+  /// restart; [items] keeps the picked items for this run.
+  Future<void> sendChat({
+    required String messageId,
+    required String threadId,
+    required String text,
+    required List<(String, UploadItem)> files,
+    ChatContext? context,
+    ChatAnswer? answer,
+    Map<String, dynamic>? thread,
+    int? createdAt,
+  }) async {
+    for (final (String id, UploadItem item) in files) {
+      ChatFiles.items[id] = item;
+    }
+    await _enqueue(
+      OutboxOp.chatSend,
+      <String, dynamic>{
+        'id': messageId,
+        'threadId': threadId,
+        'text': text,
+        'createdAt': createdAt ?? DateTime.now().millisecondsSinceEpoch,
+        'files': <Map<String, dynamic>>[
+          for (final (String id, UploadItem item) in files) <String, dynamic>{'id': id, 'path': item.path, 'name': item.name},
+        ],
+        if (context != null) 'context': context.toJson(),
+        if (answer != null) 'answer': answer.toJson(),
+        if (thread != null) 'thread': thread,
+      },
+      flushNow: false,
+    );
+    unawaited(flush());
+  }
+
+  /// The chat messages that wait, parked ones included, oldest first.
+  List<QueuedChat> get chats => <QueuedChat>[
+        for (final OutboxOp o in <OutboxOp>[..._ops, ..._parked]..sort((OutboxOp a, OutboxOp b) => a.seq.compareTo(b.seq)))
+          if (o.chat case final QueuedChat q) q,
+      ];
+
+  /// A chat message is being sent right now.
+  bool get sendingChat {
+    final int? s = _sendingSeq;
+    return s != null && _ops.any((OutboxOp o) => o.seq == s && o.type == OutboxOp.chatSend);
+  }
+
+  /// Where a queued chat message stands: waiting or going out now
+  /// ([ChatDelivery.sending]), or not going out ([ChatDelivery.notSent]: no
+  /// link, a failed try, or set aside). Null when it is not in the outbox.
+  ChatDelivery? chatDelivery(String messageId) {
+    for (final OutboxOp o in <OutboxOp>[..._ops, ..._parked]) {
+      if (o.type != OutboxOp.chatSend || o.targetId != messageId) {
+        continue;
+      }
+      if (o.parked || !_isConnected()) {
+        return ChatDelivery.notSent;
+      }
+      return (o.seq == _sendingSeq || o.attempts == 0) ? ChatDelivery.sending : ChatDelivery.notSent;
+    }
+    return null;
+  }
+
+  /// "Try again" on one message: a set-aside one goes back to the queue with
+  /// its counter reset; then the queue is sent now.
+  Future<void> retryChat(String messageId) async {
+    await load();
+    final int i = _parked.indexWhere((OutboxOp o) => o.type == OutboxOp.chatSend && o.targetId == messageId);
+    if (i >= 0) {
+      final OutboxOp op = _parked.removeAt(i).copyWith(failures: 0, parked: false);
+      _ops = <OutboxOp>[..._ops, op]..sort((OutboxOp a, OutboxOp b) => a.seq.compareTo(b.seq));
+      await _persist();
+      notifyListeners();
+    }
+    _retry?.cancel();
+    await flush();
+  }
+
+  /// Drops the queued chat messages of a thread (the thread was deleted).
+  Future<void> dropChatsOf(String threadId) async {
+    await load();
+    bool mine(OutboxOp o) => o.type == OutboxOp.chatSend && str(o.args['threadId']) == threadId;
+    _ops.removeWhere(mine);
+    _parked.removeWhere(mine);
+    await _persist();
+    notifyListeners();
+  }
+
   Future<void> _enqueue(
     String type,
     Map<String, dynamic> args, {
     bool Function(OutboxOp)? replaces,
+    bool flushNow = true,
   }) async {
     await load();
     if (replaces != null) {
@@ -280,7 +381,9 @@ class Outbox extends ChangeNotifier {
     _ops.add(OutboxOp(seq: ++_seq, type: type, args: args));
     await _persist(); // on disk before anything is sent
     notifyListeners();
-    await flush();
+    if (flushNow) {
+      await flush();
+    }
   }
 
   Future<void> _persist() async {
@@ -315,9 +418,21 @@ class Outbox extends ChangeNotifier {
   Future<void> _drain() async {
     while (_ops.isNotEmpty && _isConnected() && !_disposed) {
       final OutboxOp op = _ops.first;
+      _sendingSeq = op.seq;
+      notifyListeners();
       try {
-        await op.send(_client).timeout(sendTimeout);
+        await op.send(_client).timeout(op.type == OutboxOp.chatSend ? chatTimeout : sendTimeout);
       } on ConvexCallException catch (e) {
+        _sendingSeq = null;
+        if (e.rejected && op.type == OutboxOp.chatSend) {
+          // A refused message is never dropped: it stays as "Not sent" with its text.
+          _lastError = e.message;
+          _ops.removeWhere((OutboxOp o) => o.seq == op.seq);
+          _parked.add(op.copyWith(parked: true));
+          await _persist();
+          notifyListeners();
+          continue;
+        }
         if (e.rejected) {
           _ops.removeWhere((OutboxOp o) => o.seq == op.seq);
           await _persist();
@@ -330,17 +445,20 @@ class Outbox extends ChangeNotifier {
         }
         return;
       } on TimeoutException {
+        _sendingSeq = null;
         if (await _stop(op, 'The server did not answer in time.', retry: true, count: true)) {
           continue;
         }
         return;
       } catch (_) {
+        _sendingSeq = null;
         if (await _stop(op, 'Could not send a change. The app will try again.',
             retry: true, count: true)) {
           continue;
         }
         return;
       }
+      _sendingSeq = null;
       _ops.removeWhere((OutboxOp o) => o.seq == op.seq);
       _lastError = null;
       await _persist();

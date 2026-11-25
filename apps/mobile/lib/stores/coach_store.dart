@@ -4,6 +4,8 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 
 import '../data/convex_client.dart';
+import '../data/outbox.dart';
+import '../data/outbox_ops.dart';
 import '../data/transcript_result.dart';
 import '../data/upload_item.dart';
 import '../models.dart';
@@ -16,7 +18,7 @@ const String logComposerHint = 'What did you do or eat?';
 const String logChatHint = 'Write it, or add a photo or a file. I will work out what it is.';
 
 class _Attachment {
-  _Attachment(this.item) : fileId = newId();
+  _Attachment(this.item, [String? id]) : fileId = id ?? newId();
 
   final UploadItem item;
   final String fileId;
@@ -33,7 +35,8 @@ class _Outgoing {
     required this.files,
     this.context,
     this.answer,
-  }) : createdAt = DateTime.now().millisecondsSinceEpoch;
+    int? createdAt,
+  }) : createdAt = createdAt ?? DateTime.now().millisecondsSinceEpoch;
 
   final String messageId;
   final String threadId;
@@ -46,9 +49,6 @@ class _Outgoing {
 
   /// Set when the text is a tap on a quick answer.
   final ChatAnswer? answer;
-
-  /// The send call failed (after the user pressed send). Retry is offered.
-  bool unsent = false;
 
   Message toMessage() => Message(
         id: messageId,
@@ -66,14 +66,29 @@ class _Outgoing {
 /// answer is never returned by a call: it arrives through the subscription,
 /// and the thread status says `thinking`, `idle` or `failed`.
 ///
-/// Chat needs a connection. It is not queued in the outbox.
+/// Typing and sending never wait for the connection (ADR-037). A message
+/// shows at once, is saved in the outbox on disk, and goes out when it can:
+/// "Sending…" while it goes, "Not sent" with "Try again" when it did not. The
+/// text and the files are kept. Reading the thread, voice and the proposal
+/// buttons still need a connection.
 class CoachStore extends ChangeNotifier {
-  CoachStore({required ConvexClient client, required bool Function() isConnected})
+  CoachStore({required ConvexClient client, required bool Function() isConnected, Outbox? outbox})
       : _client = client,
-        _isConnected = isConnected;
+        _isConnected = isConnected,
+        _outbox = outbox ??
+            Outbox(
+              repo: InMemoryOutboxRepository(),
+              client: client,
+              isConnected: isConnected,
+              retryAfter: const Duration(hours: 1),
+            ) {
+    _outbox.addListener(_onOutbox);
+    _onOutbox(notify: false);
+  }
 
   final ConvexClient _client;
   final bool Function() _isConnected;
+  final Outbox _outbox;
 
   List<Thread> threads = <Thread>[];
   String? currentId;
@@ -113,8 +128,8 @@ class CoachStore extends ChangeNotifier {
   bool loadingThreads = true;
   bool loadingMessages = false;
 
-  /// True while a message is being uploaded and sent.
-  bool sending = false;
+  /// A message is going out right now. Never blocks typing or sending.
+  bool get sending => _outbox.sendingChat;
 
   /// Readable problem for the screen, else null.
   String? error;
@@ -156,11 +171,31 @@ class CoachStore extends ChangeNotifier {
   UploadItem? localFile(String fileId) => _sentFiles[fileId];
 
   /// What the open chat is about: its thread, or the draft before it exists.
-  ThreadAbout? get currentAbout => isDraft ? draftAbout : currentThread?.about;
+  ThreadAbout? get currentAbout => currentThread?.about ?? draftAbout;
 
   /// The chats the list shows: those that are about something only on request.
-  List<Thread> get visibleThreads =>
-      showAllChats ? threads : <Thread>[for (final Thread t in threads) if (t.about == null) t];
+  /// A new chat whose first message is not on the server yet is listed too.
+  List<Thread> get visibleThreads {
+    final List<Thread> all = <Thread>[..._unsentThreads, ...threads];
+    return showAllChats ? all : <Thread>[for (final Thread t in all) if (t.about == null) t];
+  }
+
+  List<Thread> get _unsentThreads {
+    final Set<String> known = <String>{for (final Thread t in threads) t.id};
+    final List<Thread> out = <Thread>[];
+    for (final QueuedChat q in _outbox.chats.reversed) {
+      if (q.newThread && !known.contains(q.threadId) && !out.any((Thread t) => t.id == q.threadId)) {
+        out.add(Thread(
+          id: q.threadId,
+          title: q.threadTitle ?? (q.text.length > 40 ? '${q.text.substring(0, 40)}…' : q.text),
+          createdAt: q.createdAt,
+          updatedAt: q.createdAt,
+          about: q.threadAbout,
+        ));
+      }
+    }
+    return out;
+  }
 
   void setShowAllChats(bool v) {
     showAllChats = v;
@@ -212,22 +247,20 @@ class CoachStore extends ChangeNotifier {
   /// The coach is working on a reply.
   bool get thinking => currentThread?.thinking ?? false;
 
-  _Outgoing? get _unsent {
-    for (final _Outgoing o in _outgoing.reversed) {
-      if (o.unsent && o.threadId == currentId) {
-        return o;
-      }
-    }
-    return null;
+  /// Where a message of this device stands: sending, not sent, or null (it is
+  /// on the server, or it is not ours).
+  ChatDelivery? delivery(String messageId) => _outbox.chatDelivery(messageId);
+
+  /// "Try again" on a message that was not sent. Same message id.
+  Future<void> retryMessage(String messageId) {
+    error = null;
+    notifyListeners();
+    return _outbox.retryChat(messageId);
   }
 
-  /// Short problem text next to a retry action, else null. Either the last
-  /// send did not reach the server, or the coach job failed.
+  /// Short problem text next to a retry action, else null: the coach job failed.
+  /// An unsent message has its own "Not sent" on the bubble.
   String? get retryReason {
-    final _Outgoing? lost = _unsent;
-    if (lost != null) {
-      return error ?? 'The message was not sent.';
-    }
     final Thread? t = currentThread;
     if (t != null && t.failed) {
       return (t.error ?? '').isEmpty ? 'The coach could not answer.' : t.error;
@@ -500,6 +533,7 @@ class CoachStore extends ChangeNotifier {
         await closeThread();
       }
       _outgoing.removeWhere((_Outgoing o) => o.threadId == id);
+      await _outbox.dropChatsOf(id);
       error = null;
     } on ConvexCallException catch (e) {
       error = e.message;
@@ -641,17 +675,15 @@ class CoachStore extends ChangeNotifier {
     }
   }
 
-  /// Accepts the message: it shows at once, then files upload, then it is
-  /// sent. Returns false when nothing was accepted (empty, busy, offline), so
-  /// the screen keeps the text. A failure after acceptance shows [retryReason].
+  /// Accepts the message at once (ADR-037): it shows in the thread, is saved
+  /// in the outbox on disk, and goes out in the background: the thread is made
+  /// first when the chat is new, then the files upload, then the message is
+  /// sent. Never waits for the network and is never refused for the link, a
+  /// loading thread or a coach reply that is still coming. Returns false only
+  /// when there is nothing to send (no chat open, or no text and no file).
   Future<bool> send(String text, {ChatAnswer? answer}) async {
     final String body = text.trim();
-    if (currentId == null || sending || (body.isEmpty && _pending.isEmpty)) {
-      return false;
-    }
-    if (!connected) {
-      error = chatOfflineMessage;
-      notifyListeners();
+    if (currentId == null || (body.isEmpty && _pending.isEmpty)) {
       return false;
     }
     if (answer == null && logDone) {
@@ -671,24 +703,66 @@ class CoachStore extends ChangeNotifier {
       context: _sendContext,
       answer: answer,
     );
+    // The first message of a new chat carries the making of the thread.
+    Map<String, dynamic>? thread;
     if (isDraft) {
-      // First message of a new chat: create the thread, then send.
-      sending = true;
-      notifyListeners();
-      final String? made = await _createDraft(id);
-      sending = false;
-      if (made == null) {
-        notifyListeners();
-        return false;
-      }
+      final ThreadAbout? about = draftAbout;
+      thread = <String, dynamic>{
+        // The server names a chat about a program.
+        if (about == null && draftTitle != null) 'title': draftTitle,
+        if (draftPlaceId != null) 'placeId': draftPlaceId,
+        if (about != null) 'about': about.toJson(),
+      };
+      isDraft = false;
+      loadingMessages = true;
+      _subscribeMessages(id);
+      _subscribeProposals(id);
     }
     for (final _Attachment f in out.files) {
       _sentFiles[f.fileId] = f.item;
     }
     _pending.clear();
     _outgoing.add(out);
-    await _deliver(out);
+    error = null;
+    notifyListeners();
+    await _outbox.sendChat(
+      messageId: out.messageId,
+      threadId: id,
+      text: out.text,
+      files: <(String, UploadItem)>[for (final _Attachment f in out.files) (f.fileId, f.item)],
+      context: out.context,
+      answer: answer,
+      thread: thread,
+      createdAt: out.createdAt,
+    );
     return true;
+  }
+
+  /// The outbox changed (a message went out, failed, or was loaded after a
+  /// restart): messages the outbox holds that this store does not show yet are
+  /// added, and the screen redraws.
+  void _onOutbox({bool notify = true}) {
+    final Set<String> known = <String>{for (final Message m in _server) m.id, for (final _Outgoing o in _outgoing) o.messageId};
+    for (final QueuedChat q in _outbox.chats) {
+      if (known.contains(q.messageId)) {
+        continue;
+      }
+      for (int i = 0; i < q.files.length; i++) {
+        _sentFiles[q.fileIds[i]] = q.files[i];
+      }
+      _outgoing.add(_Outgoing(
+        messageId: q.messageId,
+        threadId: q.threadId,
+        text: q.text,
+        files: <_Attachment>[for (int i = 0; i < q.files.length; i++) _Attachment(q.files[i], q.fileIds[i])],
+        context: q.context,
+        answer: q.answer,
+        createdAt: q.createdAt,
+      ));
+    }
+    if (notify) {
+      notifyListeners();
+    }
   }
 
   final Map<UploadItem, String> _voiceFiles = Map<UploadItem, String>.identity();
@@ -701,7 +775,7 @@ class CoachStore extends ChangeNotifier {
   /// can be made again. It never throws.
   Future<TranscriptResult> transcribeVoice(UploadItem audio) async {
     if (!connected) {
-      return const TranscriptResult.failed('Transcribing needs a connection.');
+      return const TranscriptResult.failed('Offline. The recording is kept. Press Try again when the connection is back.');
     }
     try {
       final String fileId = _voiceFiles.putIfAbsent(audio, newId);
@@ -768,46 +842,12 @@ class CoachStore extends ChangeNotifier {
     } catch (_) {}
   }
 
-  Future<String?> _createDraft(String id) async {
-    try {
-      final ThreadAbout? about = draftAbout;
-      await _client.createThread(
-        threadId: id,
-        title: about == null ? draftTitle : null, // the server names a chat about a program
-        placeId: draftPlaceId,
-        about: about,
-      );
-      isDraft = false;
-      draftPlaceId = null;
-      draftAbout = null;
-      draftTitle = null;
-      error = null;
-      loadingMessages = true;
-      _subscribeMessages(id);
-      _subscribeProposals(id);
-      return id;
-    } on ConvexCallException catch (e) {
-      error = e.message;
-    } catch (_) {
-      error = 'Could not create the thread.';
-    }
-    return null;
-  }
-
-  /// Sends again with the same message id: an unsent message, or the last
-  /// user message of a thread whose coach reply failed.
+  /// Sends the last user message of a thread whose coach reply failed again,
+  /// with the same message id (an unsent message has [retryMessage]).
   Future<void> retry() async {
-    if (sending) {
-      return;
-    }
     if (!connected) {
       error = chatOfflineMessage;
       notifyListeners();
-      return;
-    }
-    final _Outgoing? out = _unsent;
-    if (out != null) {
-      await _deliver(out);
       return;
     }
     final Thread? t = currentThread;
@@ -816,7 +856,6 @@ class CoachStore extends ChangeNotifier {
     }
     for (final Message m in _server.reversed) {
       if (m.mine) {
-        sending = true;
         error = null;
         notifyListeners();
         try {
@@ -831,51 +870,15 @@ class CoachStore extends ChangeNotifier {
         } catch (_) {
           error = 'Could not send the message.';
         }
-        sending = false;
         notifyListeners();
         return;
       }
     }
   }
 
-  Future<void> _deliver(_Outgoing out) async {
-    sending = true;
-    out.unsent = false;
-    error = null;
-    notifyListeners();
-    try {
-      for (final _Attachment f in out.files) {
-        if (!f.uploaded) {
-          await _client.uploadFile(
-            fileId: f.fileId,
-            name: f.item.name,
-            mime: f.item.mime,
-            bytes: await f.item.read(),
-          );
-          f.uploaded = true;
-        }
-      }
-      await _client.sendMessage(
-        threadId: out.threadId,
-        messageId: out.messageId,
-        text: out.text,
-        fileIds: <String>[for (final _Attachment f in out.files) f.fileId],
-        context: out.context,
-        answer: out.answer,
-      );
-    } on ConvexCallException catch (e) {
-      error = e.message;
-      out.unsent = true;
-    } catch (_) {
-      error = 'Could not send the message.';
-      out.unsent = true;
-    }
-    sending = false;
-    notifyListeners();
-  }
-
   @override
   void dispose() {
+    _outbox.removeListener(_onOutbox);
     _threadSub?.cancel();
     _msgSub?.cancel();
     _propSub?.cancel();

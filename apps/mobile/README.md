@@ -98,9 +98,12 @@ Coach chat, file upload and file import also run on Convex. Threads, messages
 and import progress are live subscriptions. A chat message shows at once, then
 the server copy replaces it (matched by message id); the coach answer arrives
 through the subscription while the thread status says `thinking`, `idle` or
-`failed`. Chat and import need a connection: they are not queued in the outbox,
-and the composer says "Offline" without one. A file upload asks the server for
-an upload URL, POSTs the bytes to it and registers the file.
+`failed`. Chat messages are queued in the outbox (`chat.send`, ADR-037): the
+composer is never off, a message shows at once as "Sending…", turns to "Not
+sent" with "Try again" when it did not go out, and goes out by itself, in
+order, when the connection is back. The first message of a new chat makes the
+thread. Import needs a connection. A file upload asks the server for an upload
+URL, POSTs the bytes to it and registers the file.
 
 End-to-end check against a deployment: see `tool/convex_trial.dart`.
 

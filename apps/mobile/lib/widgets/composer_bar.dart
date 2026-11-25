@@ -24,6 +24,7 @@ class ComposerBar extends StatelessWidget {
     this.onRemoveAttachment,
     this.sending = false,
     this.offlineNote,
+    this.quietNote,
     this.hint = 'Message',
     this.onMic,
     this.onCamera,
@@ -57,6 +58,10 @@ class ComposerBar extends StatelessWidget {
 
   /// When set, the composer is off and shows this note (no connection).
   final String? offlineNote;
+
+  /// A quiet line above the field. It does not turn anything off (the chat:
+  /// "Offline. Messages are sent when the connection is back.").
+  final String? quietNote;
   final String hint;
 
   /// Starts a voice recording. Null: the composer has no mic button. The mic
@@ -105,6 +110,10 @@ class ComposerBar extends StatelessWidget {
         children: <Widget>[
           if (offline != null) ...<Widget>[
             Text(offline, style: OG.body(size: 14, weight: FontWeight.w600)),
+            const SizedBox(height: 8),
+          ],
+          if (quietNote != null) ...<Widget>[
+            Text(quietNote!, key: const ValueKey<String>('composer-quiet-note'), style: OG.muted(size: 14)),
             const SizedBox(height: 8),
           ],
           if (voiceNote != null && !recording && !transcribing) ...<Widget>[

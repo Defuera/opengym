@@ -101,6 +101,7 @@ void main() {
     expect(pickers.calls, <String>['camera']);
     expect(d.coach.attachments, hasLength(1));
     await t.tap(find.byKey(_send));
+    await t.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 20)));
     await t.pump();
     await t.pump(const Duration(milliseconds: 100));
     final Message m = fake.serverMessages.values.single.single;
@@ -226,7 +227,7 @@ void main() {
     expect(find.text('Logged: dinner.'), findsNothing);
   });
 
-  testWidgets('offline: the composer says so, and typed text and a picked photo are kept', (WidgetTester t) async {
+  testWidgets('offline: the composer says so but stays on, and typed text and a picked photo are kept', (WidgetTester t) async {
     final FakePickers pickers = FakePickers(photo: UploadItem(path: 'p.png', name: 'plate.png', bytes: tinyPng));
     final (FakeConvexClient fake, AppDeps d) = await _home(t, pickers: pickers);
     await _openLog(t);
@@ -236,8 +237,9 @@ void main() {
     d.connection.state = ConnState.offline;
     d.connection.notifyListeners();
     await t.pump();
-    expect(find.text('Offline. Chat needs a connection to send.'), findsOneWidget);
+    expect(find.text('Offline. Messages are sent when the connection is back.'), findsOneWidget);
     expect(find.byType(ComposerBar), findsOneWidget);
+    expect(t.widget<TextField>(find.byType(TextField).last).enabled, isTrue);
     expect(d.coach.attachments, hasLength(1));
     // Back online: nothing was lost, one send carries both.
     d.connection.state = ConnState.connected;
@@ -245,6 +247,7 @@ void main() {
     await t.pump();
     expect(find.text('pasta'), findsOneWidget);
     await t.tap(find.byKey(_send));
+    await t.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 20)));
     await t.pump();
     await t.pump(const Duration(milliseconds: 100));
     final Message m = fake.serverMessages.values.single.single;

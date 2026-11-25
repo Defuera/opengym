@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:opengym/data/convex_client.dart';
+import 'package:opengym/data/outbox.dart';
 import 'package:opengym/data/upload_item.dart';
 import 'package:opengym/models.dart';
 import 'package:opengym/stores/coach_store.dart';
@@ -16,6 +17,14 @@ Future<(FakeConvexClient, CoachStore, String)> _open() async {
   await coach.openThread(id!);
   await pump();
   return (fake, coach, id);
+}
+
+final List<Outbox> _outboxes = <Outbox>[];
+
+Outbox _outbox(FakeConvexClient fake, bool Function() on) {
+  final Outbox o = Outbox(repo: InMemoryOutboxRepository(), client: fake, isConnected: on, retryAfter: const Duration(hours: 1));
+  _outboxes.add(o);
+  return o;
 }
 
 void main() {
@@ -103,19 +112,20 @@ void main() {
     expect(fake.serverMessages[id], hasLength(1));
   });
 
-  test('a send that fails keeps the message and retry reuses its id', () async {
+  test('a send that fails keeps the message as not sent, and retry reuses its id', () async {
     final (FakeConvexClient fake, CoachStore coach, String id) = await _open();
     fake.failNext = const ConvexCallException.unreachable();
     expect(await coach.send('Hello'), isTrue);
+    await pump();
     expect(coach.messages.single.text, 'Hello'); // still shown
-    expect(coach.retryReason, isNotNull);
-    expect(fake.serverMessages[id], isNull);
     final String messageId = coach.messages.single.id;
-    await coach.retry();
+    expect(coach.delivery(messageId), ChatDelivery.notSent);
+    expect(fake.serverMessages[id], isNull);
+    await coach.retryMessage(messageId);
     await pump();
     expect(fake.calls.last, 'sendMessage:$messageId');
     expect(coach.messages, hasLength(1));
-    expect(coach.retryReason, isNull);
+    expect(coach.delivery(messageId), isNull);
   });
 
   test('files upload first, then the message is sent with their ids', () async {
@@ -138,26 +148,36 @@ void main() {
     coach.addAttachment(const UploadItem(path: '', name: 'a.txt', bytes: <int>[1]));
     fake.failUpload = const ConvexCallException.unreachable();
     await coach.send('x');
+    await pump();
     expect(fake.serverMessages[id], isNull);
-    expect(coach.retryReason, isNotNull);
-    await coach.retry();
+    final String messageId = coach.messages.single.id;
+    expect(coach.delivery(messageId), ChatDelivery.notSent);
+    await coach.retryMessage(messageId);
     await pump();
     expect(fake.calls.where((String c) => c.startsWith('uploadFile')), hasLength(1));
     expect(fake.serverMessages[id]!.single.fileIds, hasLength(1));
   });
 
-  test('offline: send is refused, nothing is queued', () async {
+  test('offline: send is accepted, shows at once as not sent, and goes out once when the link is back', () async {
     final FakeConvexClient fake = FakeConvexClient();
     bool on = true;
-    final CoachStore coach = CoachStore(client: fake, isConnected: () => on)..start();
+    final CoachStore coach = CoachStore(client: fake, isConnected: () => on, outbox: _outbox(fake, () => on))..start();
     final String? id = await coach.createThread('T');
     await coach.openThread(id!);
+    await pump();
     on = false;
     fake.calls.clear();
-    expect(await coach.send('hello'), isFalse);
-    expect(coach.error, chatOfflineMessage);
-    expect(coach.messages, isEmpty);
+    expect(await coach.send('hello'), isTrue);
+    await pump();
+    expect(coach.messages.single.text, 'hello');
+    expect(coach.delivery(coach.messages.single.id), ChatDelivery.notSent);
     expect(fake.calls, isEmpty);
+    on = true;
+    await _outboxes.last.flush(); // the connection is back
+    await pump();
+    expect(fake.calls, hasLength(1));
+    expect(fake.serverMessages[id], hasLength(1));
+    expect(coach.messages, hasLength(1));
   });
 
   test('file import: upload, start, live progress to done, then undo', () async {

@@ -21,6 +21,8 @@ class ChatBubble extends StatefulWidget {
     this.voice,
     this.voiceFailedText = 'Could not read the recording.',
     this.onRetryVoice,
+    this.delivery,
+    this.onRetrySend,
   });
 
   final String text;
@@ -37,6 +39,11 @@ class ChatBubble extends StatefulWidget {
   final String? voice;
   final String voiceFailedText;
   final VoidCallback? onRetryVoice;
+
+  /// My message that is not on the server yet: `sending` (a quiet "Sending…")
+  /// or `notSent` ("Not sent" with "Try again", which calls [onRetrySend]).
+  final String? delivery;
+  final VoidCallback? onRetrySend;
 
   @override
   State<ChatBubble> createState() => _ChatBubbleState();
@@ -133,6 +140,28 @@ class _ChatBubbleState extends State<ChatBubble> {
       body.add(Text(
         'Attached: ${attachments.join(', ')}',
         style: OG.body(size: 13, color: fg),
+      ));
+    }
+    if (widget.delivery == 'sending') {
+      body.add(const SizedBox(height: 6));
+      body.add(Text('Sending…', key: const ValueKey<String>('delivery-sending'), style: OG.body(size: 13, color: fg).copyWith(fontStyle: FontStyle.italic)));
+    } else if (widget.delivery == 'notSent') {
+      body.add(const SizedBox(height: 6));
+      body.add(Row(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Text('Not sent', key: const ValueKey<String>('delivery-not-sent'), style: OG.body(size: 13, color: fg).copyWith(fontWeight: FontWeight.w700)),
+          Text(' · ', style: OG.body(size: 13, color: fg)),
+          GestureDetector(
+            key: const ValueKey<String>('delivery-retry'),
+            behavior: HitTestBehavior.opaque,
+            onTap: widget.onRetrySend,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Text('Try again', style: OG.body(size: 13, color: fg).copyWith(fontWeight: FontWeight.w700, decoration: TextDecoration.underline)),
+            ),
+          ),
+        ],
       ));
     }
     if (_copied) {

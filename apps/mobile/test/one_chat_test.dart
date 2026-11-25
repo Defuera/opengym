@@ -229,15 +229,15 @@ void main() {
     await t.tap(find.text('Photo library'));
     await t.pumpAndSettle();
     expect(d.coach.attachments, hasLength(1));
-    expect(find.text('Offline. Chat needs a connection to send.'), findsNothing);
+    expect(find.text('Offline. Messages are sent when the connection is back.'), findsNothing);
     d.connection.state = ConnState.offline;
     d.connection.notifyListeners();
     await t.pump();
-    expect(find.text('Offline. Chat needs a connection to send.'), findsOneWidget);
+    expect(find.text('Offline. Messages are sent when the connection is back.'), findsOneWidget);
     d.connection.state = ConnState.connected;
     d.connection.notifyListeners();
     await t.pump();
-    expect(find.text('Offline. Chat needs a connection to send.'), findsNothing);
+    expect(find.text('Offline. Messages are sent when the connection is back.'), findsNothing);
   });
 
   testWidgets('a change by the coach shows on the session screen while the chat is open and after it closes',

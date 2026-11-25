@@ -51,6 +51,7 @@ void main() {
       expect(d.coach.currentAbout!.id, isNull);
       expect(fake.serverThreads, isEmpty);
       await d.coach.send('a program for my knee');
+      await _settle();
       expect(fake.serverThreads.length, 1);
       final Thread t = fake.serverThreads.values.single;
       expect(t.about!.kind, 'program');

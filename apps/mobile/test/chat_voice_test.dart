@@ -277,12 +277,16 @@ void main() {
     expect(find.byType(TextField), findsOneWidget);
   });
 
-  testWidgets('the mic is disabled offline', (WidgetTester t) async {
+  testWidgets('offline the recording still works; reading it fails with a kept recording and Try again', (WidgetTester t) async {
     final (FakeConvexClient _, FakeVoiceRecorder rec, AppDeps _) = await _open(t, connected: false);
-    await t.tap(find.byKey(_mic));
-    await t.pump();
-    expect(rec.calls, isEmpty);
-    expect(find.byKey(_time), findsNothing);
+    await _record(t);
+    expect(rec.calls, <String>['start']);
+    expect(find.byKey(_time), findsOneWidget);
+    await t.tap(find.byKey(_stop));
+    await _drain(t);
+    expect(find.byKey(const ValueKey<String>('voice-note')), findsOneWidget);
+    expect(find.textContaining('Offline. The recording is kept'), findsOneWidget);
+    expect(find.byKey(const ValueKey<String>('voice-retry')), findsOneWidget);
   });
 
   testWidgets('the recording stops by itself at 180 s and its text goes to the field', (WidgetTester t) async {

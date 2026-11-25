@@ -41,6 +41,10 @@ Future<AppDeps> testDeps(
   TrackerSource? tracker,
   Pickers? pickers,
   VoiceRecorder? voice,
+
+  /// The link the outbox and the coach see. Default: [connected], fixed. Pass a function to change it during a test.
+  bool Function()? link,
+  InMemoryOutboxRepository? outboxRepo,
 }) async {
   final InMemorySessionRepository repo = InMemorySessionRepository();
   final AppStore store = AppStore(repo);
@@ -50,10 +54,11 @@ Future<AppDeps> testDeps(
     settings: InMemorySettingsRepository(),
     client: SwitchableConvexClient((String url, String token) => fake),
   )..state = connected ? ConnState.connected : ConnState.offline;
+  final bool Function() isLinked = link ?? () => connected;
   final Outbox outbox = Outbox(
-    repo: InMemoryOutboxRepository(),
+    repo: outboxRepo ?? InMemoryOutboxRepository(),
     client: fake,
-    isConnected: () => connected,
+    isConnected: isLinked,
     retryAfter: const Duration(hours: 1),
   );
   // As compose wires it: an activity logged as one text goes to the outbox.
@@ -72,7 +77,7 @@ Future<AppDeps> testDeps(
     goals: GoalsStore(client: fake, outbox: outbox),
     entries: EntriesStore(client: fake, isConnected: () => connected)..start(),
     context: ContextStore(client: fake, outbox: outbox),
-    coach: CoachStore(client: fake, isConnected: () => connected),
+    coach: CoachStore(client: fake, isConnected: isLinked, outbox: outbox),
     imports: ImportStore(client: fake),
     reviews: ReviewStore(client: fake),
     pickers: pickers ?? NoPickers(),

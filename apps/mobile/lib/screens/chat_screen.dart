@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../app/deps.dart';
 import '../models.dart';
 import '../entry_category.dart';
+import '../data/outbox.dart' show ChatDelivery;
 import '../stores/coach_store.dart';
 import '../stores/voice_controller.dart';
 import '../theme.dart';
@@ -86,9 +87,10 @@ class _ChatScreenState extends State<ChatScreen> {
   Future<void> _send() async {
     final String text = _text.text;
     _text.clear();
+    // Accepted at once, whatever the link says (ADR-037): it shows in the thread and goes out in the background.
     final bool accepted = await _coach.send(text);
     if (!accepted) {
-      _text.text = text; // nothing was sent: keep what the user typed
+      _text.text = text; // nothing to send: keep what the user typed
     }
     if (mounted) {
       _focus.requestFocus(); // sending keeps the keyboard open
@@ -168,7 +170,13 @@ class _ChatScreenState extends State<ChatScreen> {
         mine: m.mine,
         voice: m.voice,
         voiceFailedText: 'Could not read the recording.',
-        onRetryVoice: c.sending ? null : () => c.retryVoice(m.id),
+        onRetryVoice: () => c.retryVoice(m.id),
+        delivery: switch (m.mine ? c.delivery(m.id) : null) {
+          ChatDelivery.sending => 'sending',
+          ChatDelivery.notSent => 'notSent',
+          null => null,
+        },
+        onRetrySend: () => c.retryMessage(m.id),
         copyable: m.voice != 'pending' && m.voice != 'failed' && m.text.isNotEmpty,
         media: <Widget>[
           // The audio itself is never shown, only its text.
@@ -220,7 +228,7 @@ class _ChatScreenState extends State<ChatScreen> {
         items.add(QuestionBlock(
           text: q.text,
           answers: <(String, String)>[for (final QuickAnswer a in q.answers) (a.id, a.label)],
-          enabled: identical(m, c.messages.last) && !c.sending && !c.thinking,
+          enabled: identical(m, c.messages.last),
           onAnswer: (String id, String label) => _answer(m, id, label),
         ));
         items.add(const SizedBox(height: 12));
@@ -260,7 +268,7 @@ class _ChatScreenState extends State<ChatScreen> {
           NoteBox(title: 'That did not work.', message: why),
           const SizedBox(height: 8),
           OgButton(
-            onPressed: c.sending ? null : c.retry,
+            onPressed: c.retry,
             child: const Text('Try again'),
           ),
         ],
@@ -314,7 +322,7 @@ class _ChatScreenState extends State<ChatScreen> {
                             behavior: HitTestBehavior.opaque,
                             onTap: c.currentThread == null ? null : () => _rename(c.currentThread!),
                             child: Text(
-                              c.currentThread?.title ?? (c.isDraft ? (c.draftTitle ?? 'New chat') : 'Coach'),
+                              c.currentThread?.title ?? c.draftTitle ?? (c.isDraft ? 'New chat' : 'Coach'),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: OG.display(24),
@@ -330,7 +338,7 @@ class _ChatScreenState extends State<ChatScreen> {
                         onPressed: () => showChatThreadsSheet(
                           context,
                           coach: c,
-                          canStartNew: widget.deps.connection.connected,
+                          canStartNew: true, // a new chat is local until its first message goes out (ADR-037)
                         ),
                       ),
                     ],
@@ -374,16 +382,16 @@ class _ChatScreenState extends State<ChatScreen> {
                   hint: c.composerHint ?? 'Message',
                   controller: _text,
                   focusNode: _focus,
-                  sending: c.sending,
-                  offlineNote: widget.deps.connection.connected
+                  // Never off for the link, a loading thread or a coach reply (ADR-037): typing and sending always work.
+                  quietNote: widget.deps.connection.connected
                       ? null
-                      : 'Offline. Chat needs a connection to send.',
+                      : 'Offline. Messages are sent when the connection is back.',
                   attachments: stripItems(c.attachments),
                   onRemoveAttachment: c.removeAttachment,
                   onAttach: _attach,
                   onCamera: _camera,
                   onSend: _send,
-                  onMic: _voice.transcribing ? null : _voice.start,
+                  onMic: _voice.transcribing ? null : _voice.start, // the one real block: a recording is being read
                   recording: _voice.recording,
                   recordSeconds: _voice.seconds,
                   recordLevels: _voice.levels,

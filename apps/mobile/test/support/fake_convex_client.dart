@@ -726,7 +726,7 @@ class FakeConvexClient implements ConvexClient {
           openSessionId: context!.openSessionId,
         );
       }
-      if (t.titleSource == 'auto' && t.about == null) {
+      if (t.titleSource == 'auto' && t.about == null && text.isNotEmpty) {
         final String cut = text.length > 40 ? text.substring(0, 40) : text;
         _replaceThread(serverThreads[threadId]!, title: cut[0].toUpperCase() + cut.substring(1), titleSource: 'auto');
       }

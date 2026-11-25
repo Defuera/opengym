@@ -1,6 +1,7 @@
 import '../models.dart';
 import '../models/json_util.dart';
 import 'convex_client.dart';
+import 'upload_item.dart';
 
 /// One write waiting to be sent. Self-contained and JSON-safe, so it can sit
 /// on disk across restarts. Every op maps to one idempotent Convex command.
@@ -42,6 +43,10 @@ class OutboxOp {
   static const String recordAdd = 'record.add';
   static const String recordRemove = 'record.remove';
   static const String checkinSave = 'checkin.save';
+
+  /// A chat message (ADR-037): creates the thread when `thread` is set, uploads
+  /// the files, then sends the message. Every step is idempotent.
+  static const String chatSend = 'chat.send';
 
   OutboxOp copyWith({int? attempts, int? failures, bool? parked}) => OutboxOp(
         seq: seq,
@@ -135,10 +140,115 @@ class OutboxOp {
         return c.removeRecord(targetId);
       case checkinSave:
         return c.saveCheckin(Checkin.fromJson(args['checkin']));
+      case chatSend:
+        return _sendChat(c);
     }
     // An op from a newer app version: drop it rather than block the queue.
     return Future<void>.error(
         const ConvexCallException('Unknown change.', kind: ConvexFailure.rejected));
+  }
+}
+
+/// Files of chat messages that wait in the outbox. The op holds only the path
+/// (it must survive a restart); this keeps the picked item in this run, so an
+/// in-memory item is still readable and a file is not uploaded twice.
+class ChatFiles {
+  ChatFiles._();
+
+  static final Map<String, UploadItem> items = <String, UploadItem>{};
+  static final Set<String> uploaded = <String>{};
+}
+
+/// A queued chat message and what the screen needs to show it.
+class QueuedChat {
+  const QueuedChat({
+    required this.messageId,
+    required this.threadId,
+    required this.text,
+    required this.createdAt,
+    required this.files,
+    required this.fileIds,
+    required this.newThread,
+    this.threadTitle,
+    this.threadAbout,
+    this.context,
+    this.answer,
+  });
+
+  final String messageId;
+  final String threadId;
+  final String text;
+  final int createdAt;
+  final List<UploadItem> files;
+  final List<String> fileIds;
+  final bool newThread;
+  final String? threadTitle;
+  final ThreadAbout? threadAbout;
+  final ChatContext? context;
+  final ChatAnswer? answer;
+}
+
+extension OutboxChat on OutboxOp {
+  Future<void> _sendChat(ConvexClient c) async {
+    final Object? thread = args['thread'];
+    final String threadId = str(args['threadId']);
+    if (thread is Map) {
+      await c.createThread(
+        threadId: threadId,
+        title: strOrNull(thread['title']),
+        placeId: strOrNull(thread['placeId']),
+        about: ThreadAbout.fromJson(thread['about']),
+      );
+    }
+    final List<String> fileIds = <String>[];
+    for (final Object? f in (args['files'] as List<dynamic>? ?? const <dynamic>[])) {
+      final Map<String, dynamic> m = asMap(f);
+      final String id = str(m['id']);
+      fileIds.add(id);
+      if (!ChatFiles.uploaded.contains(id)) {
+        final UploadItem item = ChatFiles.items[id] ?? UploadItem(path: str(m['path']), name: str(m['name']));
+        await c.uploadFile(fileId: id, name: item.name, mime: item.mime, bytes: await item.read());
+        ChatFiles.uploaded.add(id);
+      }
+    }
+    final Object? answer = args['answer'];
+    await c.sendMessage(
+      threadId: threadId,
+      messageId: targetId,
+      text: str(args['text']),
+      fileIds: fileIds,
+      context: ChatContext.fromJson(args['context']),
+      answer: answer is Map ? ChatAnswer(turnId: str(answer['turnId']), id: str(answer['id'])) : null,
+    );
+  }
+
+  /// The chat message this op holds, for the screen. Null for another type.
+  QueuedChat? get chat {
+    if (type != OutboxOp.chatSend) {
+      return null;
+    }
+    final Object? thread = args['thread'];
+    final Object? answer = args['answer'];
+    final List<UploadItem> files = <UploadItem>[];
+    final List<String> ids = <String>[];
+    for (final Object? f in (args['files'] as List<dynamic>? ?? const <dynamic>[])) {
+      final Map<String, dynamic> m = asMap(f);
+      ids.add(str(m['id']));
+      files.add(ChatFiles.items[str(m['id'])] ?? UploadItem(path: str(m['path']), name: str(m['name'])));
+    }
+    return QueuedChat(
+      messageId: targetId,
+      threadId: str(args['threadId']),
+      text: str(args['text']),
+      createdAt: intOf(args['createdAt']),
+      files: files,
+      fileIds: ids,
+      newThread: thread is Map,
+      threadTitle: thread is Map ? strOrNull(thread['title']) : null,
+      threadAbout: thread is Map ? ThreadAbout.fromJson(thread['about']) : null,
+      context: ChatContext.fromJson(args['context']),
+      answer: answer is Map ? ChatAnswer(turnId: str(answer['turnId']), id: str(answer['id'])) : null,
+    );
   }
 }
 

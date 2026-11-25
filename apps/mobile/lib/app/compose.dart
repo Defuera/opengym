@@ -86,7 +86,7 @@ Future<AppDeps> compose() async {
   };
 
   final DashboardStore dashboard = DashboardStore(client: client);
-  final CoachStore coach = CoachStore(client: client, isConnected: () => connection.connected);
+  final CoachStore coach = CoachStore(client: client, isConnected: () => connection.connected, outbox: outbox);
   final ReviewStore reviews = ReviewStore(client: client);
   final PlanStore plans = PlanStore(client: client);
   final GoalsStore goals = GoalsStore(client: client, outbox: outbox);

@@ -51,3 +51,4 @@ This directory holds the Architecture Decision Records (ADRs) for Gym Days (Open
 | [034](034-voice-wave-and-transcript-check.md) | Voice: a Live Wave, and the Transcript Goes to the Text Field | Accepted |
 | [035](035-coach-can-change-session-place.md) | The Coach Can Change the Place of the Session, and a Rebuild Keeps It | Accepted (replaces one rule of 032) |
 | [036](036-two-way-health-store-exchange.md) | Two-Way Exchange With the Phone's Health Store | Accepted |
+| [037](037-chat-composer-always-works.md) | The Chat Composer Always Works; Messages Wait in the Outbox | Accepted (replaces one rule of 026 and 032) |

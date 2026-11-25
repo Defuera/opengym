@@ -143,7 +143,7 @@ class _ThreadsScreenState extends State<ThreadsScreen> {
                       if (!widget.deps.connection.connected) ...<Widget>[
                         const NoteBox(
                           title: 'Offline.',
-                          message: 'Chat needs a connection. Threads show when you are back online.',
+                          message: 'Threads show when you are back online. You can still write to the coach: messages are sent when the connection is back.',
                         ),
                         const SizedBox(height: 12),
                       ],

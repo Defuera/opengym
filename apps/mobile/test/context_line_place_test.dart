@@ -47,7 +47,7 @@ void main() {
   });
 
   test('the action line of set_session_place is the server detail', () {
-    final CoachAction a = const CoachAction(actionId: 'a1', name: 'set_session_place', status: 'applied', detail: 'Place: Home → Gym');
+    const CoachAction a = CoachAction(actionId: 'a1', name: 'set_session_place', status: 'applied', detail: 'Place: Home → Gym');
     expect(coachActionLine(a), 'Place: Home → Gym');
     expect(coachActionLine(const CoachAction(actionId: 'a1', name: 'set_session_place', status: 'applied')), 'Changed: place of the session');
   });

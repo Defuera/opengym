@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { internal } from "../_generated/api";
 import { internalAction, internalMutation, internalQuery } from "../_generated/server";
 import { runAiJob } from "../lib/ai";
+import { coachTracker } from "../lib/trackerDb";
 import { allContext, allGoals, allSessions, sessionBySessionId, toSession } from "../lib/db";
 import { limitsForAi } from "../lib/limitsDb";
 import { proposalSource } from "../lib/validators";
@@ -14,7 +15,7 @@ export const input = internalQuery({
   args: { sessionId: v.string() },
   handler: async (ctx, { sessionId }) => {
     const doc = await sessionBySessionId(ctx, sessionId);
-    return doc ? buildReviewInput(await allSessions(ctx), toSession(doc), await limitsForAi(ctx), { goals: await allGoals(ctx), context: await allContext(ctx) }) : null;
+    return doc ? buildReviewInput(await allSessions(ctx), toSession(doc), await limitsForAi(ctx), { goals: await allGoals(ctx), context: await allContext(ctx), tracker: await coachTracker(ctx, doc.startedAt) }) : null;
   },
 });
 

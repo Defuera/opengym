@@ -1,5 +1,5 @@
 import type { JobDef } from "../runJob";
-import { LIMITS_RULE, dataPrompt, systemPrompt } from "../promptRules";
+import { LIMITS_RULE, TRACKER_RULE, dataPrompt, systemPrompt } from "../promptRules";
 import { type LimitForAi, type ReviewDraft, ReviewDraftSchema, type Session } from "../../schema";
 import { timeText } from "../../rules/util";
 import type { coachPicture } from "./coachPicture";
@@ -25,7 +25,7 @@ The summary is your verdict, in two or three plain sentences: what this session 
 
 The changes are at most five short lines, the ones that matter most, each about one exercise or one point: what moved against last time, with the numbers, and what to do with it next time, with numbers (the weight, the reps or the minutes to aim for). A set marked failed or a comment from the person on an exercise deserves a line when it changes what to do next. When an exercise simply repeated, leave it out.
 
-${LIMITS_RULE}`;
+${LIMITS_RULE} ${TRACKER_RULE}`;
 
 /** The finished session as the review reads it: sets with the failed mark and the person's comment. */
 function finished(s: Session) {

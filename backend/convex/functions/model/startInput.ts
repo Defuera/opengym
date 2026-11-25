@@ -9,6 +9,7 @@ import { dropAvoided } from "./rules/limits";
 import { fociByUse } from "./rules/foci";
 import { rulesPlan } from "./rules/planner";
 import type { ContextItem, Entry, Goal, LimitForAi, PlanDraft, Session } from "./schema";
+import type { TrackerForCoach } from "./trackerForCoach";
 import { activityKey } from "./sessionShape";
 
 /** What the start request holds (the fields the input reads). */
@@ -29,6 +30,8 @@ export interface StartData {
   limits: LimitForAi[];
   places: { placeId: string; name: string; text: string; knowledgeState?: PlaceKnowledge }[];
   entries: Entry[];
+  /** Tracker readings from the phone (ADR-036). Absent in old callers. */
+  tracker?: TrackerForCoach;
   /** Every live program. Absent in old callers: then the coach gets none. */
   programs?: ProgramForCoach[];
   now: number;
@@ -59,7 +62,7 @@ export function buildStartInput(doc: StartDoc, d: StartData) {
     placesTheCoachKnows,
     ...(programs.length > 0 ? { programsThePersonFollows: programs } : {}),
     fociTheUserUses,
-    picture: coachPicture(d.sessions, [...d.goals].sort((x, y) => x.createdAt - y.createdAt), d.context, d.limits, d.entries, d.now),
+    picture: coachPicture(d.sessions, [...d.goals].sort((x, y) => x.createdAt - y.createdAt), d.context, d.limits, d.entries, d.now, d.tracker),
     limits: d.limits,
   };
   return { job, known, text: doc.text ?? "", name: doc.name ?? null, rules };

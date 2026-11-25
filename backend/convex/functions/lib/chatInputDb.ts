@@ -1,6 +1,7 @@
 import type { QueryCtx } from "../_generated/server";
 import { liveSessionDocs, toContextItem, toGoal, toSession, messageByMessageId, threadByThreadId } from "./db";
 import { limitsForAi } from "./limitsDb";
+import { coachTracker } from "./trackerDb";
 import { coachEntries, entryInViewImageFiles } from "./entriesDb";
 import { fileByFileId } from "./files";
 import { CHAT_CONTEXT_ITEMS, CHAT_GOALS, CHAT_HISTORY_MESSAGES, CHAT_OTHER_THREADS, CHAT_RECENT_SESSIONS } from "../model/chatInput";
@@ -43,7 +44,7 @@ export async function readChatInput(ctx: Pick<QueryCtx, "db">, threadId: string,
   const entryImages = await entryInViewImageFiles(ctx, entryId);
   return {
     history,
-    data: { otherThreads, sessions, goals, context, limits: await limitsForAi(ctx), entries },
+    data: { otherThreads, sessions, goals, context, limits: await limitsForAi(ctx), entries, tracker: await coachTracker(ctx, now), now },
     files,
     entryImages,
   };

@@ -1,7 +1,7 @@
 import { COLOR_RULE } from "../../categoryColor";
 import type { ChatMessage, ImageInput } from "../provider";
 import type { JobDef } from "../runJob";
-import { LIMITS_RULE, systemPrompt } from "../promptRules";
+import { LIMITS_RULE, TRACKER_RULE, systemPrompt } from "../promptRules";
 import { CoachTurnSchema, type CoachTurn, checkTurn } from "../../coachTools";
 import { PLACE_KNOWLEDGE_RULE, SESSION_PLACE_RULE } from "../../placeKnowledge";
 import type { Limit } from "../../schema";
@@ -91,7 +91,7 @@ export const coachTurnJob: JobDef<CoachTurnInput, CoachTurn> = {
   output: CoachTurnSchema,
   check: (t, i) => checkTurn(t, i.limits),
   build: (i) => ({
-    system: `${systemPrompt("coach_turn", ROLE, SHAPE)}\n\nWhat you know about this person (do not invent logged facts beyond it):\n${i.contextBlock}`,
+    system: `${systemPrompt("coach_turn", ROLE, SHAPE)}\n\n${TRACKER_RULE}\n\nWhat you know about this person (do not invent logged facts beyond it):\n${i.contextBlock}`,
     messages: withTurnData(i.history, i.turn),
     images: i.images,
   }),

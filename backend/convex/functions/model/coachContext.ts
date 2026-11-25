@@ -2,6 +2,7 @@ import type { ImageInput } from "./ai/provider";
 import { contextForPrompt, goalsForPrompt, limitsForPrompt, logForPrompt } from "./ai/jobs/shared";
 import { CHUNK_CHARS } from "./fileText";
 import { entriesForPrompt } from "./entryContext";
+import { type TrackerForCoach, trackerForPrompt } from "./trackerForCoach";
 import type { ContextItem, Entry, FileMeta, Goal, LimitForAi, Session } from "./schema";
 
 export interface CoachContext {
@@ -28,6 +29,10 @@ export interface CoachData {
   limits?: LimitForAi[];
   /** Log entries of the last week, oldest first. Optional so old callers keep working. */
   entries?: Entry[];
+  /** Tracker readings from the phone, newest rows (ADR-036). Optional so old callers keep working. */
+  tracker?: TrackerForCoach;
+  /** The moment the data was read. Defaults to now. */
+  now?: number;
 }
 
 /** Port of services/coach-context.ts. Pure. Records what the coach actually read in `sources`. */
@@ -63,6 +68,11 @@ export function assembleCoachContext(data: CoachData, files: AttachedFile[], sup
   if (data.entries?.length) {
     parts.push(`Log entries from the user, free notes (oldest first):\n${JSON.stringify(entriesForPrompt(data.entries))}`);
     sources.push("log entries");
+  }
+  const phone = trackerForPrompt(data.tracker, data.sessions, data.now ?? Date.now());
+  if (phone) {
+    parts.push(`Tracker data from the phone (trackerFromThePhone):\n${JSON.stringify(phone)}`);
+    sources.push("tracker");
   }
   if (supportsImages && entryImages.length) {
     images.push(...entryImages);

@@ -1,8 +1,9 @@
 import { z } from "zod";
 import type { JobDef } from "../runJob";
-import { LIMITS_RULE, dataPrompt, systemPrompt } from "../promptRules";
+import { LIMITS_RULE, TRACKER_RULE, dataPrompt, systemPrompt } from "../promptRules";
 import { avoidedInPlan, dropAvoided } from "../../rules/limits";
 import { type ContextItem, type Goal, type LimitForAi, type PlanDraft, PlanDraftSchema, type Session } from "../../schema";
+import type { TrackerBlock } from "../../trackerForCoach";
 import { TIME_RULE, contextForPrompt, goalsForPrompt, limitsForPrompt, logForPrompt } from "./shared";
 
 /**
@@ -20,6 +21,8 @@ export interface PlanInput {
   /** The limits with their records, cleared ones too (ADR-033). */
   limits: LimitForAi[];
   rules: PlanDraft;
+  /** Tracker readings from the phone (ADR-036). Absent when there are none. */
+  tracker?: TrackerBlock;
 }
 
 const SHAPE = `{"rationale": string (max 200 chars), "exercises": [{"name": string, "sets": [{"reps": int, "kg": number, "max": boolean}], "note"?: string (max 120 chars)} | {"name": string, "measure": "time", "sets": [{"minutes": number}], "note"?: string (max 120 chars)}]}  // at most 12 exercises, at most 10 sets each. ${TIME_RULE}`;
@@ -40,7 +43,7 @@ export const planSessionJob: JobDef<PlanInput, PlanDraft> = {
   build: (i) => ({
     system: systemPrompt(
       "plan_session",
-      "You plan the next session for one person: a session with sets for one activity. The activity is whatever the user calls it (it may be done at a gym, at home or elsewhere); do not assume a gym or its equipment. Prefer progression the log supports (small weight or rep steps), keep to exercises they already do unless a goal calls for more, and respect the context notes as equipment and training preferences (for example only dumbbells at home, lighter or skipped exercises). If the log has no session of this activity, propose a short simple plan from the goals and notes. Do not exceed 1.25 times the heaviest weight ever logged for an exercise. " + LIMITS_RULE,
+      "You plan the next session for one person: a session with sets for one activity. The activity is whatever the user calls it (it may be done at a gym, at home or elsewhere); do not assume a gym or its equipment. Prefer progression the log supports (small weight or rep steps), keep to exercises they already do unless a goal calls for more, and respect the context notes as equipment and training preferences (for example only dumbbells at home, lighter or skipped exercises). If the log has no session of this activity, propose a short simple plan from the goals and notes. Do not exceed 1.25 times the heaviest weight ever logged for an exercise. " + LIMITS_RULE + " " + TRACKER_RULE,
       SHAPE,
     ),
     messages: [
@@ -54,6 +57,7 @@ export const planSessionJob: JobDef<PlanInput, PlanDraft> = {
           context: contextForPrompt(i.context),
           limits: limitsForPrompt(i.limits),
           suggestedStart: i.rules,
+          ...(i.tracker ? { trackerFromThePhone: i.tracker } : {}),
         }),
       },
     ],

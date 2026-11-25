@@ -4,6 +4,9 @@ export const COMMON_RULES = `Never invent logged data. Use only the data provide
 /** One sentence for every job that plans or advises training. The data may hold `limits`. */
 export const LIMITS_RULE = "The data may list limits (body parts the user trains around): never use a movement a rule marks avoid, keep load light where a rule says light, and prefer what a do rule names.";
 
+/** One sentence for every job that reads the tracker block (ADR-036). No wording safeguards (ADR-022). */
+export const TRACKER_RULE = "trackerFromThePhone is tracker data from the person's phone: use it for recovery and load. A tracker workout is not a logged session. Do not comment on it unless it matters for the answer.";
+
 export const JSON_ONLY = "Reply with JSON only (no prose, no code fences) matching exactly this shape:";
 
 /** The mock provider reads the JOB line to pick its canned answer. */

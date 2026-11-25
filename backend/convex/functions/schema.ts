@@ -2,6 +2,7 @@ import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 import { actionResult, coachQuestion, messageContext, storedProposal } from "./lib/messageFields";
 import { placeChangeFields, placeFields } from "./lib/placeFields";
+import { trackerDayFields, trackerWorkoutFields } from "./lib/trackerFields";
 import { programFields, proposalFields, threadAbout } from "./lib/programFields";
 import { previousPlan, startProposal, startStatus, dashboardDays, feeling, limitRule, limitStatus, fileKind, threadStatus, goalKind, goalStatus, importCounts, importStatus, itemSource, moduleSpec, parseState, planExercise, prediction, proposalSource } from "./lib/validators";
 
@@ -219,6 +220,9 @@ export default defineSchema({
   })
     .index("by_key", ["key"])
     .index("by_updatedAt", ["updatedAt"]),
+  // Tracker readings from the phone's health store (ADR-036). Written only by commands/tracker:sync. Never sessions, never written by an AI job.
+  trackerDays: defineTable({ ...trackerDayFields, updatedAt: v.number() }).index("by_date", ["date"]),
+  trackerWorkouts: defineTable({ ...trackerWorkoutFields, updatedAt: v.number() }).index("by_workoutId", ["workoutId"]).index("by_startedAt", ["startedAt"]),
   places: defineTable(placeFields).index("by_placeId", ["placeId"]),
   // Trace of every change of a place text (ADR-021), so a wrong line can be traced and undone. Never read by the app.
   placeChanges: defineTable(placeChangeFields).index("by_placeId", ["placeId"]),

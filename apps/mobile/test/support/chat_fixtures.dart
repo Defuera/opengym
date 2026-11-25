@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -51,6 +52,13 @@ class FakeVoiceRecorder implements VoiceRecorder {
 
   VoiceStart result;
   final List<String> calls = <String>[];
+  final StreamController<double> _levels = StreamController<double>.broadcast();
+
+  /// A level the microphone "hears" (0..1).
+  void hear(double level) => _levels.add(level);
+
+  @override
+  Stream<double> get levels => _levels.stream;
 
   @override
   Future<VoiceStart> start() async {

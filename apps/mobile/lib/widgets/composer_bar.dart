@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../theme.dart';
 import 'attachment_strip.dart';
+import 'voice_wave.dart';
 
 /// The red of the recording dot (the same red as the limit and status marks).
 const Color _recordRed = Color(0xFFE5482D);
@@ -31,6 +32,10 @@ class ComposerBar extends StatelessWidget {
     this.onCancelRecording,
     this.onStopRecording,
     this.voiceNote,
+    this.recordLevels = const <double>[],
+    this.transcribing = false,
+    this.onRetryVoice,
+    this.onDiscardVoice,
   });
 
   final TextEditingController controller;
@@ -70,6 +75,20 @@ class ComposerBar extends StatelessWidget {
   /// A quiet line above the field (for example: the microphone is not allowed).
   final String? voiceNote;
 
+  /// Recent loudness while recording, 0..1, newest last (the wave).
+  final List<double> recordLevels;
+
+  /// True: the recording is being turned into text. The field is replaced by a
+  /// quiet "Transcribing…" line and the mic is off.
+  final bool transcribing;
+
+  /// Set with [voiceNote] when the same recording can be read again.
+  final VoidCallback? onRetryVoice;
+
+  /// Drops the kept recording (the close mark next to the retry). While
+  /// transcribing it is the cancel button.
+  final VoidCallback? onDiscardVoice;
+
   @override
   Widget build(BuildContext context) {
     final String? offline = offlineNote;
@@ -88,9 +107,30 @@ class ComposerBar extends StatelessWidget {
             Text(offline, style: OG.body(size: 14, weight: FontWeight.w600)),
             const SizedBox(height: 8),
           ],
-          if (voiceNote != null && !recording) ...<Widget>[
-            Text(voiceNote!, key: const ValueKey<String>('voice-note'), style: OG.muted(size: 14)),
-            const SizedBox(height: 8),
+          if (voiceNote != null && !recording && !transcribing) ...<Widget>[
+            Row(
+              children: <Widget>[
+                Expanded(child: Text(voiceNote!, key: const ValueKey<String>('voice-note'), style: OG.muted(size: 14))),
+                if (onRetryVoice != null)
+                  GestureDetector(
+                    key: const ValueKey<String>('voice-retry'),
+                    behavior: HitTestBehavior.opaque,
+                    onTap: onRetryVoice,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      child: Text('Try again', style: OG.body(size: 14, weight: FontWeight.w700).copyWith(color: OG.accent)),
+                    ),
+                  ),
+                if (onDiscardVoice != null)
+                  GestureDetector(
+                    key: const ValueKey<String>('voice-discard'),
+                    behavior: HitTestBehavior.opaque,
+                    onTap: onDiscardVoice,
+                    child: const Padding(padding: EdgeInsets.all(8), child: Icon(Icons.close, size: 18)),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 4),
           ],
           if (attachments.isNotEmpty && !recording) ...<Widget>[
             AttachmentStrip(
@@ -105,7 +145,7 @@ class ComposerBar extends StatelessWidget {
               borderRadius: BorderRadius.circular(16),
               border: Border.all(color: OG.ink, width: OG.borderWidth),
             ),
-            child: recording ? _recordingRow() : Column(
+            child: recording ? _recordingRow() : transcribing ? _transcribingRow() : Column(
               mainAxisSize: MainAxisSize.min,
               children: <Widget>[
                 if (showText)
@@ -182,6 +222,30 @@ class ComposerBar extends StatelessWidget {
     );
   }
 
+  /// Same frame, one quiet row while the text is fetched: a small spinner,
+  /// "Transcribing…", and cancel at the right. The mic is not there.
+  Widget _transcribingRow() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(14, 4, 4, 4),
+      child: Row(
+        children: <Widget>[
+          const SizedBox(
+            width: 16,
+            height: 16,
+            child: CircularProgressIndicator(strokeWidth: 2.5, color: OG.mute),
+          ),
+          const SizedBox(width: 10),
+          Expanded(child: Text('Transcribing…', key: const ValueKey<String>('transcribing'), style: OG.muted())),
+          _RoundTap(
+            key: const ValueKey<String>('composer-cancel-transcribe'),
+            icon: Icons.close,
+            onTap: onDiscardVoice,
+          ),
+        ],
+      ),
+    );
+  }
+
   /// Same frame, one row: cancel at the left, a red dot and the timer, then
   /// stop-and-send (accent) at the right, in the place of the send button.
   Widget _recordingRow() {
@@ -208,7 +272,9 @@ class ComposerBar extends StatelessWidget {
             key: const ValueKey<String>('record-time'),
             style: OG.body(weight: FontWeight.w600).copyWith(fontFeatures: const <FontFeature>[FontFeature.tabularFigures()]),
           ),
-          const Spacer(),
+          const SizedBox(width: 10),
+          Expanded(child: VoiceWave(key: const ValueKey<String>('record-wave'), levels: recordLevels)),
+          const SizedBox(width: 10),
           _SendTap(
             sending: false,
             onTap: onStopRecording,

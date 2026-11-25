@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:opengym/data/convex_client.dart';
+import 'package:opengym/data/transcript_result.dart';
 import 'package:opengym/models.dart';
 
 /// A value the fake pushes: the latest value is replayed to new listeners.
@@ -68,9 +69,6 @@ class FakeConvexClient implements ConvexClient {
 
   /// When set, [uploadFile] waits for it first.
   Completer<void>? uploadGate;
-
-  /// Set to make [sendVoice] fail once (an old server without it).
-  ConvexCallException? failVoice;
 
   /// Set to make [uploadFile] fail once.
   ConvexCallException? failUpload;
@@ -669,8 +667,6 @@ class FakeConvexClient implements ConvexClient {
     _publish();
   }
 
-  /// The context of each sent voice message (null when none).
-  final List<ChatContext?> sentVoiceContexts = <ChatContext?>[];
 
   /// The context of each sent message (null when none).
   final List<ChatContext?> sentContexts = <ChatContext?>[];
@@ -728,19 +724,44 @@ class FakeConvexClient implements ConvexClient {
     _publish();
   }
 
+  /// What [transcribeAudio] answers, one entry per call (the last repeats). Empty: a fixed text.
+  final List<TranscriptResult> transcripts = <TranscriptResult>[];
+
+  /// Set to make [transcribeAudio] throw once (no connection).
+  ConvexCallException? failTranscribe;
+
+  /// When set, [transcribeAudio] waits for it first.
+  Completer<void>? transcribeGate;
+
+  /// The file ids [transcribeAudio] was asked for, in order.
+  final List<String> transcribedFiles = <String>[];
+
   @override
+  Future<TranscriptResult> transcribeAudio(String fileId) async {
+    transcribedFiles.add(fileId);
+    _command('transcribeAudio:$fileId');
+    await transcribeGate?.future;
+    final ConvexCallException? f = failTranscribe;
+    if (f != null) {
+      failTranscribe = null;
+      throw f;
+    }
+    final TranscriptResult r = transcripts.isEmpty
+        ? const TranscriptResult.text('I did three sets of squats')
+        : transcripts[(transcribedFiles.length - 1).clamp(0, transcripts.length - 1)];
+    if (r.ok) {
+      serverFiles.remove(fileId); // the server removes the audio on success
+    }
+    return r;
+  }
+
+  /// Seeds an old-style voice message (what an older app build makes). The app no longer sends them.
   Future<void> sendVoice({
     required String threadId,
     required String messageId,
     required String fileId,
     ChatContext? context,
   }) async {
-    sentVoiceContexts.add(context);
-    final ConvexCallException? f = failVoice;
-    if (f != null) {
-      failVoice = null;
-      throw f;
-    }
     _command('sendVoice:$messageId');
     final List<Message> list = serverMessages.putIfAbsent(threadId, () => <Message>[]);
     if (list.any((Message m) => m.id == messageId)) {

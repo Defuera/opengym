@@ -8,6 +8,7 @@ import 'package:http/http.dart' as http;
 import '../models.dart';
 import 'convex_codec.dart';
 import 'convex_types.dart';
+import 'transcript_result.dart';
 
 export 'convex_types.dart';
 
@@ -189,16 +190,11 @@ abstract class ConvexClient {
     ChatAnswer? answer,
   });
 
-  /// Sends a recorded voice message: the audio file [fileId] is already
-  /// uploaded. The server stores a user message with `voice: pending`, turns
-  /// the audio into text and then the coach answers as for a text message.
-  /// Sending the same [messageId] again changes nothing on the server.
-  Future<void> sendVoice({
-    required String threadId,
-    required String messageId,
-    required String fileId,
-    ChatContext? context,
-  });
+  /// Asks the server for the text of the recording [fileId] (already
+  /// uploaded). Nothing is stored as a message and the coach does not run.
+  /// On success the server removes the audio file. A failure keeps the file,
+  /// so the same call can be made again.
+  Future<TranscriptResult> transcribeAudio(String fileId);
 
   /// Asks the server to read a voice message again (one with `voice: failed`).
   Future<void> retryVoice(String messageId);
@@ -680,18 +676,23 @@ class DartvexConvexClient implements ConvexClient {
   }
 
   @override
-  Future<void> sendVoice({
-    required String threadId,
-    required String messageId,
-    required String fileId,
-    ChatContext? context,
-  }) {
-    return _mutate('commands/messages:sendVoice', <String, dynamic>{
-      'threadId': threadId,
-      'messageId': messageId,
-      'fileId': fileId,
-      if (context != null) 'context': context.toJson(),
-    });
+  Future<TranscriptResult> transcribeAudio(String fileId) async {
+    try {
+      final Object? v = await _caller
+          .action('commands/voice:transcribe', <String, dynamic>{'token': _token, 'fileId': fileId});
+      if (v is Map) {
+        final Object? text = v['text'];
+        if (v['ok'] == true && text is String && text.trim().isNotEmpty) {
+          return TranscriptResult.text(text);
+        }
+        final Object? why = v['reason'];
+        return TranscriptResult.failed(why is String && why.isNotEmpty ? why : 'No speech was heard.');
+      }
+      return const TranscriptResult.failed('The answer was not understood.');
+    } on cx.ConvexException catch (e) {
+      // Never use e.message: it carries a server stack trace.
+      throw ConvexCallException.fromData(e.data);
+    }
   }
 
   @override

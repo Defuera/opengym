@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 
 import '../data/convex_client.dart';
+import '../data/transcript_result.dart';
 import '../data/upload_item.dart';
 import '../models.dart';
 import '../planner.dart';
@@ -30,7 +31,6 @@ class _Outgoing {
     required this.threadId,
     required this.text,
     required this.files,
-    this.voice = false,
     this.context,
     this.answer,
   }) : createdAt = DateTime.now().millisecondsSinceEpoch;
@@ -40,9 +40,6 @@ class _Outgoing {
   final String text;
   final List<_Attachment> files;
   final int createdAt;
-
-  /// A recorded voice message: the text is empty, the one file is the audio.
-  final bool voice;
 
   /// What was open when the person sent it.
   final ChatContext? context;
@@ -60,7 +57,6 @@ class _Outgoing {
         text: text,
         createdAt: createdAt,
         fileIds: <String>[for (final _Attachment f in files) f.fileId],
-        voice: voice ? (unsent ? 'failed' : 'pending') : null,
       );
 }
 
@@ -229,8 +225,7 @@ class CoachStore extends ChangeNotifier {
   /// send did not reach the server, or the coach job failed.
   String? get retryReason {
     final _Outgoing? lost = _unsent;
-    if (lost != null && !lost.voice) {
-      // A voice message shows its own failure and retry in its bubble.
+    if (lost != null) {
       return error ?? 'The message was not sent.';
     }
     final Thread? t = currentThread;
@@ -696,53 +691,50 @@ class CoachStore extends ChangeNotifier {
     return true;
   }
 
-  /// True when the message is a voice message that never reached the server.
-  bool isUnsentVoice(String messageId) {
-    for (final _Outgoing o in _outgoing) {
-      if (o.messageId == messageId) {
-        return o.voice && o.unsent;
-      }
+  final Map<UploadItem, String> _voiceFiles = Map<UploadItem, String>.identity();
+
+  /// Turns a recording into text for the composer's text field (ADR-034).
+  /// Uploads the audio once (a second call for the same [audio] reuses the
+  /// upload), then asks the server for the text. Nothing is sent to the coach
+  /// and no message is stored. On success the server drops the audio and the
+  /// local file is deleted. On failure the recording stays, so the same call
+  /// can be made again. It never throws.
+  Future<TranscriptResult> transcribeVoice(UploadItem audio) async {
+    if (!connected) {
+      return const TranscriptResult.failed('Transcribing needs a connection.');
     }
-    return false;
+    try {
+      final String fileId = _voiceFiles.putIfAbsent(audio, newId);
+      if (!_voiceUploaded.contains(fileId)) {
+        await _client.uploadFile(
+            fileId: fileId, name: audio.name, mime: audio.mime, bytes: await audio.read());
+        _voiceUploaded.add(fileId);
+      }
+      final TranscriptResult r = await _client.transcribeAudio(fileId);
+      if (r.ok) {
+        _voiceFiles.remove(audio);
+        _voiceUploaded.remove(fileId);
+        await _deleteLocal(audio);
+      }
+      return r;
+    } on ConvexCallException catch (e) {
+      return TranscriptResult.failed(e.message);
+    } catch (_) {
+      return const TranscriptResult.failed('Could not reach the server.');
+    }
   }
 
-  /// Sends a recorded voice message: the bubble shows at once (pending), the
-  /// audio uploads, then `sendVoice` is called. The server turns it into text.
-  /// Returns false when nothing was accepted (busy, offline); the local file
-  /// is deleted then. A failure after acceptance leaves the bubble failed with
-  /// a retry ([retryVoice]); it never throws.
-  Future<bool> sendVoice(UploadItem audio) async {
-    final String? id = currentId;
-    if (id == null || sending || !connected) {
-      if (!connected) {
-        error = chatOfflineMessage;
-        notifyListeners();
-      }
-      await _deleteLocal(audio);
-      return false;
+  final Set<String> _voiceUploaded = <String>{};
+
+  /// The person dropped a recording: remove the upload (when there is one) and the local file.
+  Future<void> discardVoice(UploadItem audio) async {
+    final String? fileId = _voiceFiles.remove(audio);
+    if (fileId != null && _voiceUploaded.remove(fileId)) {
+      try {
+        await _client.removeFile(fileId);
+      } catch (_) {} // an orphan upload is harmless
     }
-    if (isDraft) {
-      sending = true;
-      notifyListeners();
-      final String? made = await _createDraft(id);
-      sending = false;
-      if (made == null) {
-        notifyListeners();
-        await _deleteLocal(audio);
-        return false;
-      }
-    }
-    final _Outgoing out = _Outgoing(
-      messageId: newId(),
-      threadId: id,
-      text: '',
-      files: <_Attachment>[_Attachment(audio)],
-      voice: true,
-      context: _sendContext,
-    );
-    _outgoing.add(out);
-    await _deliver(out);
-    return true;
+    await _deleteLocal(audio);
   }
 
   /// Tries a failed voice message again: sends it if it never reached the
@@ -755,12 +747,6 @@ class CoachStore extends ChangeNotifier {
       error = chatOfflineMessage;
       notifyListeners();
       return;
-    }
-    for (final _Outgoing o in _outgoing) {
-      if (o.messageId == messageId && o.voice && o.unsent) {
-        await _deliver(o);
-        return;
-      }
     }
     error = null;
     try {
@@ -867,32 +853,21 @@ class CoachStore extends ChangeNotifier {
             bytes: await f.item.read(),
           );
           f.uploaded = true;
-          if (out.voice) {
-            await _deleteLocal(f.item); // the server has the audio now
-          }
         }
       }
-      if (out.voice) {
-        await _client.sendVoice(
-            threadId: out.threadId,
-            messageId: out.messageId,
-            fileId: out.files.first.fileId,
-            context: out.context);
-      } else {
-        await _client.sendMessage(
-          threadId: out.threadId,
-          messageId: out.messageId,
-          text: out.text,
-          fileIds: <String>[for (final _Attachment f in out.files) f.fileId],
-          context: out.context,
-          answer: out.answer,
-        );
-      }
+      await _client.sendMessage(
+        threadId: out.threadId,
+        messageId: out.messageId,
+        text: out.text,
+        fileIds: <String>[for (final _Attachment f in out.files) f.fileId],
+        context: out.context,
+        answer: out.answer,
+      );
     } on ConvexCallException catch (e) {
-      error = out.voice ? null : e.message; // a voice bubble says it itself
+      error = e.message;
       out.unsent = true;
     } catch (_) {
-      error = out.voice ? null : 'Could not send the message.';
+      error = 'Could not send the message.';
       out.unsent = true;
     }
     sending = false;

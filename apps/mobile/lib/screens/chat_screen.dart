@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../app/deps.dart';
 import '../models.dart';
 import '../entry_category.dart';
-import '../data/upload_item.dart';
 import '../stores/coach_store.dart';
 import '../stores/voice_controller.dart';
 import '../theme.dart';
@@ -49,7 +48,12 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   void initState() {
     super.initState();
-    _voice = VoiceController(recorder: widget.deps.voice, onRecorded: _sendVoice);
+    _voice = VoiceController(
+      recorder: widget.deps.voice,
+      transcribe: _coach.transcribeVoice,
+      onText: _putVoiceText,
+      onDiscard: _coach.discardVoice,
+    );
     if (widget.autofocus) {
       WidgetsBinding.instance.addPostFrameCallback((Duration _) {
         if (mounted) {
@@ -59,8 +63,16 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
-  Future<void> _sendVoice(UploadItem audio) async {
-    await _coach.sendVoice(audio);
+  /// The text of a recording goes into the field (after a space when the field
+  /// holds text). The person checks it and sends it with the send button.
+  void _putVoiceText(String heard) {
+    final String have = _text.text.trimRight();
+    final String joined = have.isEmpty ? heard : '$have $heard';
+    _text.value = TextEditingValue(
+      text: joined,
+      selection: TextSelection.collapsed(offset: joined.length),
+    );
+    _focus.requestFocus();
   }
 
   @override
@@ -155,8 +167,7 @@ class _ChatScreenState extends State<ChatScreen> {
         text: m.text,
         mine: m.mine,
         voice: m.voice,
-        voiceFailedText:
-            c.isUnsentVoice(m.id) ? 'Could not send the recording.' : 'Could not read the recording.',
+        voiceFailedText: 'Could not read the recording.',
         onRetryVoice: c.sending ? null : () => c.retryVoice(m.id),
         copyable: m.voice != 'pending' && m.voice != 'failed' && m.text.isNotEmpty,
         media: <Widget>[
@@ -362,12 +373,16 @@ class _ChatScreenState extends State<ChatScreen> {
                   onAttach: _attach,
                   onCamera: _camera,
                   onSend: _send,
-                  onMic: _voice.start,
+                  onMic: _voice.transcribing ? null : _voice.start,
                   recording: _voice.recording,
                   recordSeconds: _voice.seconds,
+                  recordLevels: _voice.levels,
                   onCancelRecording: _voice.cancel,
-                  onStopRecording: _voice.stopAndSend,
+                  onStopRecording: _voice.stopAndTranscribe,
+                  transcribing: _voice.transcribing,
                   voiceNote: _voice.note,
+                  onRetryVoice: _voice.canRetry ? _voice.retry : null,
+                  onDiscardVoice: (_voice.canRetry || _voice.transcribing) ? _voice.cancel : null,
                 ),
               ],
             ),

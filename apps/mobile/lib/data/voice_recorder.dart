@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:record/record.dart';
@@ -20,6 +21,21 @@ abstract class VoiceRecorder {
 
   /// Ends the recording and deletes the file.
   Future<void> cancel();
+
+  /// How loud the person is now, 0 (silence) to 1 (loud), about 12 times a
+  /// second while a recording runs. Listen after [start]. Empty when the
+  /// recorder has no level.
+  Stream<double> get levels;
+}
+
+/// dBFS from the microphone (0 is the loudest, about -160 is silence) as 0..1.
+/// Below [floorDb] counts as silence. (Inferred: speech near a phone sits
+/// between about -40 and -10 dBFS, so a -50 floor makes it use most of the range.)
+double levelFromDb(double db, {double floorDb = -50}) {
+  if (db.isNaN) {
+    return 0;
+  }
+  return ((db - floorDb) / -floorDb).clamp(0.0, 1.0);
 }
 
 /// The real recorder, over the `record` plugin. The only file that imports it.
@@ -64,6 +80,17 @@ class DeviceVoiceRecorder implements VoiceRecorder {
       await _rec?.cancel();
     } catch (_) {}
   }
+
+  @override
+  Stream<double> get levels {
+    final AudioRecorder? rec = _rec;
+    if (rec == null) {
+      return const Stream<double>.empty();
+    }
+    return rec
+        .onAmplitudeChanged(const Duration(milliseconds: 80))
+        .map((Amplitude a) => levelFromDb(a.current));
+  }
 }
 
 /// For tests and the gallery: the microphone is never available.
@@ -76,4 +103,7 @@ class NoVoiceRecorder implements VoiceRecorder {
 
   @override
   Future<void> cancel() async {}
+
+  @override
+  Stream<double> get levels => const Stream<double>.empty();
 }

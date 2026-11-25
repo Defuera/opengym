@@ -4,8 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:opengym/app/deps.dart';
 import 'package:opengym/data/convex_client.dart';
+import 'package:opengym/data/transcript_result.dart';
 import 'package:opengym/data/voice_recorder.dart';
 import 'package:opengym/widgets/chat_bubble.dart';
+import 'package:opengym/widgets/voice_wave.dart';
 
 import 'support/chat_fixtures.dart';
 import 'support/fake_convex_client.dart';
@@ -26,6 +28,8 @@ Future<(FakeConvexClient, FakeVoiceRecorder, AppDeps)> _open(WidgetTester t,
   return (fake, r, d);
 }
 
+List<double> _levels(WidgetTester t) => t.widget<VoiceWave>(find.byType(VoiceWave)).levels;
+
 String _timer(WidgetTester t) => t.widget<Text>(find.byKey(_time)).data!;
 
 Future<void> _record(WidgetTester t) async {
@@ -40,6 +44,14 @@ Future<void> _drain(WidgetTester t) async {
 }
 
 void main() {
+  test('a dBFS level becomes 0..1: silence flat, speech tall', () {
+    expect(levelFromDb(-160), 0);
+    expect(levelFromDb(-50), 0);
+    expect(levelFromDb(0), 1);
+    expect(levelFromDb(-25), closeTo(0.5, 1e-9));
+    expect(levelFromDb(double.nan), 0);
+  });
+
   testWidgets('the mic shows only with an empty field and nothing attached', (WidgetTester t) async {
     final FakeConvexClient fake = FakeConvexClient();
     final AppDeps d = await testDeps(fake,
@@ -101,79 +113,159 @@ void main() {
     expect(fake.calls.where((String c) => c.startsWith('sendVoice')), isEmpty);
   });
 
-  testWidgets('stop uploads and calls sendVoice with the file id; the bubble listens, then shows the text',
-      (WidgetTester t) async {
+  testWidgets('the wave shows the levels the microphone hears, newest on the right', (WidgetTester t) async {
+    final (FakeConvexClient _, FakeVoiceRecorder rec, AppDeps _) = await _open(t);
+    await _record(t);
+    expect(find.byKey(const ValueKey<String>('record-wave')), findsOneWidget);
+    expect(find.byKey(_time), findsOneWidget);
+    expect(find.byKey(_cancel), findsOneWidget);
+    expect(find.byKey(_stop), findsOneWidget);
+    expect(_levels(t), isEmpty);
+    rec.hear(0.1);
+    rec.hear(0.8);
+    rec.hear(0.4);
+    await t.pump();
+    expect(_levels(t), <double>[0.1, 0.8, 0.4]);
+    // The list is short: only the newest levels stay.
+    for (int i = 0; i < 100; i++) {
+      rec.hear(i / 100);
+    }
+    await t.pump();
+    expect(_levels(t).length, 64);
+    expect(_levels(t).last, 0.99);
+  });
+
+  testWidgets('stop uploads, shows Transcribing, and puts the text in the field; nothing is sent', (WidgetTester t) async {
     final (FakeConvexClient fake, FakeVoiceRecorder rec, AppDeps d) = await _open(t);
+    fake.transcribeGate = Completer<void>();
     await _record(t);
     await t.pump(const Duration(seconds: 4));
     await t.tap(find.byKey(_stop));
     await _drain(t);
     expect(rec.calls, <String>['start', 'stop']);
-    expect(fake.serverFiles.length, 1);
-    final String fileId = fake.serverFiles.keys.single;
+    expect(find.text('Transcribing…'), findsOneWidget);
+    expect(find.byType(TextField), findsNothing);
+    expect(find.byKey(_mic), findsNothing);
+    fake.transcribeGate!.complete();
+    await _drain(t);
+    expect(find.text('Transcribing…'), findsNothing);
+    expect(t.widget<TextField>(find.byType(TextField)).controller!.text, 'I did three sets of squats');
+    // The audio went up, was read, and the server removed it. No message exists.
+    expect(fake.transcribedFiles.length, 1);
+    expect(fake.serverFiles, isEmpty);
+    expect(fake.serverMessages[d.coach.currentId] ?? const <Object>[], isEmpty);
+    expect(fake.sentContexts, isEmpty);
+    // The person sends it as a typed message, with the screen context of a typed one.
+    expect(find.byKey(_send), findsOneWidget);
+    await t.tap(find.byKey(_send));
+    await _drain(t);
     final msg = fake.serverMessages[d.coach.currentId]!.single;
-    expect(msg.fileIds, <String>[fileId]);
-    expect(msg.voice, 'pending');
-    expect(msg.text, '');
-    // A voice message carries the same context as a typed one.
-    expect(fake.sentVoiceContexts.single?.screen, d.coach.chatContext?.screen ?? 'chat');
-    expect(find.text('Listening…'), findsOneWidget);
-    expect(find.text('Thinking…'), findsNothing); // one waiting line, not two
-    expect(find.byIcon(Icons.mic_none), findsWidgets);
-    // The transcript arrives.
-    fake.voiceDone(msg.id, 'I did three sets of squats');
-    await _drain(t);
-    expect(find.text('Listening…'), findsNothing);
-    expect(find.text('I did three sets of squats'), findsOneWidget);
-    expect(find.descendant(of: find.byType(ChatBubble), matching: find.byIcon(Icons.mic_none)), findsOneWidget);
+    expect(msg.text, 'I did three sets of squats');
+    expect(msg.voice, isNull);
+    expect(fake.sentContexts.single?.screen, d.coach.chatContext?.screen ?? 'chat');
   });
 
-  testWidgets('the pending bubble shows at once while the upload runs', (WidgetTester t) async {
+  testWidgets('the text is added after the words already in the field', (WidgetTester t) async {
     final (FakeConvexClient fake, FakeVoiceRecorder _, AppDeps _) = await _open(t);
-    fake.uploadGate = Completer<void>();
+    fake.transcripts.addAll(<TranscriptResult>[
+      const TranscriptResult.failed('No speech was heard.'),
+      const TranscriptResult.text('my knee hurts'),
+    ]);
     await _record(t);
     await t.tap(find.byKey(_stop));
     await _drain(t);
-    expect(find.text('Listening…'), findsOneWidget);
-    expect(fake.serverMessages, isEmpty);
-    fake.uploadGate!.complete();
+    // The person types while the note waits, then reads the recording again.
+    await t.enterText(find.byType(TextField), 'Also,  ');
+    await t.pump();
+    await t.tap(find.text('Try again'));
     await _drain(t);
-    expect(fake.serverMessages.values.single.single.voice, 'pending');
+    expect(t.widget<TextField>(find.byType(TextField)).controller!.text, 'Also, my knee hurts');
+    expect(fake.sentContexts, isEmpty);
   });
 
-  testWidgets('a server failure shows "Try again", which calls retryVoice', (WidgetTester t) async {
-    final (FakeConvexClient fake, FakeVoiceRecorder _, AppDeps d) = await _open(t);
+  testWidgets('a failure keeps the recording; Try again reads the same upload', (WidgetTester t) async {
+    final (FakeConvexClient fake, FakeVoiceRecorder _, AppDeps _) = await _open(t);
+    fake.transcripts.addAll(<TranscriptResult>[
+      const TranscriptResult.failed('The provider answered HTTP 401.'),
+      const TranscriptResult.text('my knee hurts'),
+    ]);
     await _record(t);
     await t.tap(find.byKey(_stop));
     await _drain(t);
-    final String id = fake.serverMessages[d.coach.currentId]!.single.id;
-    fake.voiceFailed(id);
+    expect(find.text('Could not read the recording. The provider answered HTTP 401.'), findsOneWidget);
+    expect(find.text('Try again'), findsOneWidget);
+    expect(find.byKey(_mic), findsOneWidget);
+    expect(fake.serverFiles.length, 1); // kept on the server for the retry
+    await t.tap(find.text('Try again'));
+    await _drain(t);
+    expect(t.widget<TextField>(find.byType(TextField)).controller!.text, 'my knee hurts');
+    expect(find.text('Try again'), findsNothing);
+    expect(fake.calls.where((String c) => c.startsWith('uploadFile')).length, 1); // not uploaded twice
+    expect(fake.transcribedFiles.toSet().length, 1);
+    expect(fake.serverFiles, isEmpty);
+  });
+
+  testWidgets('no connection while reading shows the note and a retry', (WidgetTester t) async {
+    final (FakeConvexClient fake, FakeVoiceRecorder _, AppDeps _) = await _open(t);
+    fake.failTranscribe = const ConvexCallException.unreachable();
+    await _record(t);
+    await t.tap(find.byKey(_stop));
+    await _drain(t);
+    expect(find.textContaining('Could not read the recording.'), findsOneWidget);
+    expect(find.text('Try again'), findsOneWidget);
+    expect(t.takeException(), isNull);
+    await t.tap(find.text('Try again'));
+    await _drain(t);
+    expect(t.widget<TextField>(find.byType(TextField)).controller!.text, 'I did three sets of squats');
+  });
+
+  testWidgets('close on the note drops the kept recording and its upload', (WidgetTester t) async {
+    final (FakeConvexClient fake, FakeVoiceRecorder _, AppDeps _) = await _open(t);
+    fake.transcripts.add(const TranscriptResult.failed('No speech was heard.'));
+    await _record(t);
+    await t.tap(find.byKey(_stop));
+    await _drain(t);
+    expect(fake.serverFiles.length, 1);
+    await t.tap(find.byKey(const ValueKey<String>('voice-discard')));
+    await _drain(t);
+    expect(find.text('Try again'), findsNothing);
+    expect(find.byKey(const ValueKey<String>('voice-note')), findsNothing);
+    expect(fake.serverFiles, isEmpty);
+    expect(fake.sentContexts, isEmpty);
+  });
+
+  testWidgets('cancel while transcribing drops the recording; a late answer is not used', (WidgetTester t) async {
+    final (FakeConvexClient fake, FakeVoiceRecorder _, AppDeps _) = await _open(t);
+    fake.transcribeGate = Completer<void>();
+    await _record(t);
+    await t.tap(find.byKey(_stop));
+    await _drain(t);
+    await t.tap(find.byKey(const ValueKey<String>('composer-cancel-transcribe')));
+    await _drain(t);
+    expect(find.text('Transcribing…'), findsNothing);
+    fake.transcribeGate!.complete();
+    await _drain(t);
+    expect(t.widget<TextField>(find.byType(TextField)).controller!.text, '');
+    expect(fake.sentContexts, isEmpty);
+  });
+
+  testWidgets('an old voice bubble still shows its states and Try again calls retryVoice', (WidgetTester t) async {
+    final (FakeConvexClient fake, FakeVoiceRecorder _, AppDeps d) = await _open(t);
+    await d.coach.send('hi'); // makes the thread
+    await _drain(t);
+    await fake.sendVoice(threadId: d.coach.currentId!, messageId: 'old1', fileId: 'f-old');
+    await _drain(t);
+    expect(find.text('Listening…'), findsOneWidget);
+    fake.voiceFailed('old1');
     await _drain(t);
     expect(find.text('Could not read the recording.'), findsOneWidget);
-    expect(find.text('Try again'), findsOneWidget);
     await t.tap(find.text('Try again'));
     await _drain(t);
-    expect(fake.calls, contains('retryVoice:$id'));
-    expect(find.text('Listening…'), findsOneWidget);
-    expect(find.text('Try again'), findsNothing);
-  });
-
-  testWidgets('an old server without sendVoice leaves a failed bubble, never a crash', (WidgetTester t) async {
-    final (FakeConvexClient fake, FakeVoiceRecorder _, AppDeps d) = await _open(t);
-    fake.failVoice = const ConvexCallException('Could not find public function.');
-    await _record(t);
-    await t.tap(find.byKey(_stop));
+    expect(fake.calls, contains('retryVoice:old1'));
+    fake.voiceDone('old1', 'I did three sets of squats');
     await _drain(t);
-    expect(t.takeException(), isNull);
-    expect(find.text('Could not send the recording.'), findsOneWidget);
-    expect(find.text('Try again'), findsOneWidget);
-    expect(find.text('That did not work.'), findsNothing); // the bubble says it, once
-    // Try again goes through (the server now has the function): same message id.
-    await t.tap(find.text('Try again'));
-    await _drain(t);
-    expect(fake.serverMessages[d.coach.currentId]!.single.voice, 'pending');
-    expect(fake.serverFiles.length, 1); // the audio was not uploaded twice
-    expect(find.text('Try again'), findsNothing);
+    expect(find.text('I did three sets of squats'), findsOneWidget);
+    expect(find.descendant(of: find.byType(ChatBubble), matching: find.byIcon(Icons.mic_none)), findsOneWidget);
   });
 
   testWidgets('permission denied shows one quiet line and no recording bar', (WidgetTester t) async {
@@ -193,8 +285,8 @@ void main() {
     expect(find.byKey(_time), findsNothing);
   });
 
-  testWidgets('the recording stops by itself at 180 s and is sent', (WidgetTester t) async {
-    final (FakeConvexClient fake, FakeVoiceRecorder rec, AppDeps d) = await _open(t);
+  testWidgets('the recording stops by itself at 180 s and its text goes to the field', (WidgetTester t) async {
+    final (FakeConvexClient fake, FakeVoiceRecorder rec, AppDeps _) = await _open(t);
     await _record(t);
     await t.pump(const Duration(seconds: 179));
     expect(_timer(t), '2:59');
@@ -202,7 +294,7 @@ void main() {
     await t.pump(const Duration(seconds: 1));
     await _drain(t);
     expect(rec.calls, <String>['start', 'stop']);
-    expect(find.byType(TextField), findsOneWidget);
-    expect(fake.serverMessages[d.coach.currentId]!.single.voice, 'pending');
+    expect(t.widget<TextField>(find.byType(TextField)).controller!.text, 'I did three sets of squats');
+    expect(fake.sentContexts, isEmpty);
   });
 }

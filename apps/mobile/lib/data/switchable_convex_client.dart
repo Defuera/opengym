@@ -2,6 +2,7 @@ import 'dart:async';
 
 import '../models.dart';
 import 'convex_client.dart';
+import 'transcript_result.dart';
 
 /// A [ConvexClient] whose address and token can change while the app runs.
 ///
@@ -353,14 +354,12 @@ class SwitchableConvexClient implements ConvexClient {
   }
 
   @override
-  Future<void> sendVoice({
-    required String threadId,
-    required String messageId,
-    required String fileId,
-    ChatContext? context,
-  }) {
-    return _call((ConvexClient c) =>
-        c.sendVoice(threadId: threadId, messageId: messageId, fileId: fileId, context: context));
+  Future<TranscriptResult> transcribeAudio(String fileId) {
+    final ConvexClient? c = _inner;
+    if (c == null) {
+      return Future<TranscriptResult>.error(const ConvexCallException.notConfigured());
+    }
+    return c.transcribeAudio(fileId);
   }
 
   @override

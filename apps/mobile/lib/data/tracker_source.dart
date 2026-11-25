@@ -56,15 +56,32 @@ class TrackerWorkout {
 
 /// One calendar day (local time). A field is null when the phone has nothing.
 class TrackerDay {
-  const TrackerDay({required this.date, this.sleepMinutes, this.restingHeartRate, this.steps});
+  const TrackerDay({
+    required this.date,
+    this.sleepMinutes,
+    this.sleepLightMinutes,
+    this.sleepDeepMinutes,
+    this.sleepRemMinutes,
+    this.restingHeartRate,
+    this.steps,
+    this.activeEnergyKcal,
+  });
 
   /// Midnight of the day, local time.
   final DateTime date;
 
   /// Minutes asleep in the night that ends on this date.
   final int? sleepMinutes;
+
+  /// Minutes of the night in each stage, when the phone has stages.
+  final int? sleepLightMinutes;
+  final int? sleepDeepMinutes;
+  final int? sleepRemMinutes;
   final int? restingHeartRate;
   final int? steps;
+
+  /// Active energy of the day, in kilocalories.
+  final double? activeEnergyKcal;
 }
 
 class TrackerSnapshot {

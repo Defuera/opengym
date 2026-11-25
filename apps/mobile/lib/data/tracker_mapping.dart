@@ -1,3 +1,4 @@
+import 'tracker_daily.dart';
 import 'tracker_source.dart';
 
 /// Pure functions that turn raw samples into the tracker models. No plugin
@@ -27,6 +28,7 @@ class RawWorkout {
     required this.start,
     required this.end,
     required this.source,
+    this.sourceId = '',
     this.distanceKm,
     this.energyKcal,
   });
@@ -36,6 +38,9 @@ class RawWorkout {
   final DateTime start;
   final DateTime end;
   final String source;
+
+  /// Package name (Android) or bundle id (iOS) of the writer. Empty when unknown.
+  final String sourceId;
   final double? distanceKm;
   final double? energyKcal;
 }
@@ -109,8 +114,11 @@ int? averageInside(DateTime start, DateTime end, List<TrackerSample> samples) {
 }
 
 /// Workouts newest first, each with its minutes and its heart rate average.
+/// A workout that Gym Days wrote itself is left out ([isOwnSource]): it is a
+/// logged session already, not a tracker reading.
 List<TrackerWorkout> buildWorkouts(List<RawWorkout> raw, List<TrackerSample> heartRate) {
   final List<TrackerWorkout> out = raw
+      .where((RawWorkout w) => !isOwnSource(w.sourceId))
       .map(
         (RawWorkout w) => TrackerWorkout(
           id: w.id,
@@ -138,6 +146,8 @@ List<TrackerDay> buildDays({
   required Map<DateTime, int> sleep,
   required List<TrackerSample> restingHeartRate,
   required Map<DateTime, int> steps,
+  Map<DateTime, SleepStages> sleepStages = const <DateTime, SleepStages>{},
+  Map<DateTime, double> activeEnergy = const <DateTime, double>{},
 }) {
   final Map<DateTime, List<double>> resting = <DateTime, List<double>>{};
   for (final TrackerSample s in restingHeartRate) {
@@ -150,8 +160,19 @@ List<TrackerDay> buildDays({
     final int? rhr = r == null ? null : (r.reduce((double a, double b) => a + b) / r.length).round();
     final int? sl = sleep[d];
     final int? st = steps[d];
-    if (rhr != null || sl != null || st != null) {
-      out.add(TrackerDay(date: d, sleepMinutes: sl, restingHeartRate: rhr, steps: st));
+    final double? kcal = activeEnergy[d];
+    final SleepStages? stages = sleepStages[d];
+    if (rhr != null || sl != null || st != null || kcal != null) {
+      out.add(TrackerDay(
+        date: d,
+        sleepMinutes: sl,
+        sleepLightMinutes: sl == null ? null : stages?.light,
+        sleepDeepMinutes: sl == null ? null : stages?.deep,
+        sleepRemMinutes: sl == null ? null : stages?.rem,
+        restingHeartRate: rhr,
+        steps: st,
+        activeEnergyKcal: kcal,
+      ));
     }
   }
   return out.reversed.toList();

@@ -2,6 +2,7 @@ import 'dart:io' show Platform;
 
 import 'package:health/health.dart';
 
+import 'tracker_daily.dart';
 import 'tracker_mapping.dart';
 import 'tracker_source.dart';
 
@@ -87,6 +88,7 @@ class HealthTrackerSource implements TrackerSource {
     final List<HealthDataPoint> workoutPoints = await _get(<HealthDataType>[HealthDataType.WORKOUT], first, end);
     final List<HealthDataPoint> hr = await _get(<HealthDataType>[HealthDataType.HEART_RATE], first, end);
     final List<HealthDataPoint> resting = await _get(<HealthDataType>[HealthDataType.RESTING_HEART_RATE], first, end);
+    final List<HealthDataPoint> energy = await _get(<HealthDataType>[HealthDataType.ACTIVE_ENERGY_BURNED], first, end);
     // A night that ends on the first day starts the day before.
     final List<HealthDataPoint> sleep = await _get(
       _sleepTypes,
@@ -105,12 +107,23 @@ class HealthTrackerSource implements TrackerSource {
     }
 
     final List<TrackerSample> hrSamples = hr.map(_sample).toList();
+    List<TrackerSpan> spans(Iterable<HealthDataPoint> pts, [HealthDataType? only]) => pts
+        .where((HealthDataPoint p) => only == null || p.type == only)
+        .map((HealthDataPoint p) => TrackerSpan(p.dateFrom, p.dateTo))
+        .toList();
     return TrackerSnapshot(
       workouts: buildWorkouts(workoutPoints.map(_workout).toList(), hrSamples),
       days: buildDays(
         from: first,
         to: last,
-        sleep: sleepMinutesByDay(sleep.map((HealthDataPoint p) => TrackerSpan(p.dateFrom, p.dateTo)).toList()),
+        sleep: sleepMinutesByDay(spans(sleep)),
+        sleepStages: sleepStagesByDay(
+          asleep: spans(sleep),
+          light: spans(sleep, HealthDataType.SLEEP_LIGHT),
+          deep: spans(sleep, HealthDataType.SLEEP_DEEP),
+          rem: spans(sleep, HealthDataType.SLEEP_REM),
+        ),
+        activeEnergy: activeEnergyByDay(energy.map(_energy).toList()),
         restingHeartRate: resting.map(_sample).toList(),
         steps: steps,
       ),
@@ -120,6 +133,16 @@ class HealthTrackerSource implements TrackerSource {
 
   Future<List<HealthDataPoint>> _get(List<HealthDataType> types, DateTime start, DateTime end) {
     return _health.getHealthDataFromTypes(types: types, startTime: start, endTime: end);
+  }
+
+  /// The plugin reports active energy in kilocalories (its default unit for the type).
+  EnergyReading _energy(HealthDataPoint p) {
+    final HealthValue v = p.value;
+    return EnergyReading(
+      start: p.dateFrom,
+      kcal: v is NumericHealthValue ? v.numericValue.toDouble() : 0,
+      source: p.sourceId.isEmpty ? p.sourceName : p.sourceId,
+    );
   }
 
   TrackerSample _sample(HealthDataPoint p) {
@@ -143,6 +166,7 @@ class HealthTrackerSource implements TrackerSource {
       start: p.dateFrom,
       end: p.dateTo,
       source: p.sourceName,
+      sourceId: p.sourceId,
       distanceKm: km,
       energyKcal: kcal,
     );

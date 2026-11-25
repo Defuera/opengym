@@ -68,7 +68,7 @@ describe("eval cases", () => {
   it("ids are unique and there are about thirty, split as the design says", () => {
     expect(new Set(CASES.map((c) => c.id)).size).toBe(CASES.length);
     const n = (job: string) => CASES.filter((c) => c.job === job).length;
-    expect([n("build_session"), n("chat"), n("parse_log"), n("learn_place")]).toEqual([14, 8, 6, 4]);
+    expect([n("build_session"), n("chat"), n("parse_log"), n("learn_place")]).toEqual([14, 9, 6, 4]);
   });
 
   it("each case names a persona and places that exist, and uses only checks that fit its job", () => {

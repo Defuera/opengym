@@ -261,7 +261,7 @@ describe("prompts say that place knowledge is partial", () => {
     expect(ct.system).toContain("never a full list");
     expect(ct.system).toContain("unknown, not missing");
     expect(ct.system).toContain("ONLY when the person asks to change the whole session");
-    expect(ct.system).toContain("No function changes it");
+    expect(ct.system).toContain("set_session_place ONLY when the person");
     expect(ct.messages[0]!.content).toContain("INPUT_JSON:");
     expect(learnPlaceJob.build({ place: { name: "Gym", equipment: "" }, otherPlaces: [], sentence: "x" }).system).toContain("only when the person said so");
   });

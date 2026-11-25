@@ -1,12 +1,11 @@
 import { v } from "convex/values";
 import { internal } from "../_generated/api";
 import { internalAction, internalMutation, internalQuery } from "../_generated/server";
-import { providerFor } from "../lib/ai";
 import { messageByMessageId, threadByThreadId } from "../lib/db";
-import { fileByFileId, fileBytes } from "../lib/files";
+import { fileByFileId } from "../lib/files";
+import { transcribeFile } from "../lib/transcribe";
 import { MESSAGE_MAX_CHARS } from "../model/schema";
 import { titleFromMessage } from "../model/threadTitle";
-import { listError } from "./models";
 
 /** What the transcription needs: the file of a voice message that still waits. Null when there is nothing to do. */
 export const input = internalQuery({
@@ -62,20 +61,29 @@ export const transcribe = internalAction({
   handler: async (ctx, { messageId }): Promise<void> => {
     const data = await ctx.runQuery(internal.jobs.voice.input, { messageId });
     if (!data) return;
-    const fail = async (why: string) => {
-      console.error(`[voice] transcription failed: ${why}`);
-      await ctx.runMutation(internal.jobs.voice.saveFailure, { messageId });
-    };
-    try {
-      const provider = await providerFor(ctx);
-      if (!provider?.transcribe) return await fail("the AI provider cannot transcribe");
-      const bytes = data.file ? await fileBytes(ctx, data.file) : null;
-      if (!bytes) return await fail("the recording is gone");
-      const text = (await provider.transcribe(bytes, data.file!.mime, data.file!.name)).trim();
-      if (!text) return await fail("empty transcript");
-      await ctx.runMutation(internal.jobs.voice.saveTranscript, { messageId, text });
-    } catch (e) {
-      await fail(listError(e));
-    }
+    const out = await transcribeFile(ctx, data.file);
+    if (out.ok) return void (await ctx.runMutation(internal.jobs.voice.saveTranscript, { messageId, text: out.text }));
+    console.error(`[voice] transcription failed: ${out.why}`);
+    await ctx.runMutation(internal.jobs.voice.saveFailure, { messageId });
+  },
+});
+
+/** The file of an audio recording that is no part of a message yet (commands/voice:transcribe). Null when unknown or not audio. */
+export const audioFile = internalQuery({
+  args: { fileId: v.string() },
+  handler: async (ctx, { fileId }) => {
+    const f = await fileByFileId(ctx, fileId);
+    return f && f.kind === "audio" ? { fileId: f.fileId, storageId: f.storageId, name: f.name, mime: f.mime, size: f.size, kind: f.kind, createdAt: f.createdAt } : null;
+  },
+});
+
+/** Removes a temporary recording (storage blob and files row) once its text was handed to the app. */
+export const dropAudio = internalMutation({
+  args: { fileId: v.string() },
+  handler: async (ctx, { fileId }) => {
+    const f = await fileByFileId(ctx, fileId);
+    if (!f || f.kind !== "audio") return;
+    await ctx.storage.delete(f.storageId);
+    await ctx.db.delete(f._id);
   },
 });

@@ -231,3 +231,72 @@ describe("openai transcription request", () => {
     expect(listError(err)).toBe("The provider answered HTTP 401.");
   });
 });
+
+describe("commands/voice:transcribe (the text for the text field)", () => {
+  const ask = (fileId = "f1", token = TOKEN) => t.action(api.commands.voice.transcribe, { token, fileId });
+  const fileRows = () => t.run((c) => c.db.query("files").collect());
+  const blobs = () => t.run((c) => c.db.system.query("_storage").collect());
+
+  it("returns the text, stores no message, and removes the audio file and blob", async () => {
+    vi.stubEnv("AI_PROVIDER", "mock");
+    await create();
+    await upload("f1");
+    expect(await ask()).toEqual({ ok: true, text: MOCK_TRANSCRIPT });
+    expect(await messages()).toHaveLength(0);
+    expect(await thread()).toMatchObject({ status: "idle", pending: 0 });
+    expect(await fileRows()).toHaveLength(0);
+    expect(await blobs()).toHaveLength(0);
+  });
+
+  it("trims and caps the text like a typed message", async () => {
+    vi.stubEnv("AI_PROVIDER", "openai");
+    vi.stubEnv("OPENAI_API_KEY", "k");
+    vi.stubEnv("OPENAI_MODEL", "m");
+    vi.stubGlobal("fetch", async () => new Response(JSON.stringify({ text: `  ${"a".repeat(9000)}  ` }), { status: 200 }));
+    await upload("f1");
+    const out = await ask();
+    expect(out.ok && out.text.length).toBe(8000);
+  });
+
+  it("an empty transcript is a short reason and the file stays for a retry", async () => {
+    vi.stubEnv("AI_PROVIDER", "mock");
+    await upload("f1", "silence.m4a");
+    expect(await ask()).toEqual({ ok: false, reason: "No speech was heard." });
+    expect(await fileRows()).toHaveLength(1);
+  });
+
+  it("a missing file or a file that is not audio", async () => {
+    vi.stubEnv("AI_PROVIDER", "mock");
+    await upload("t1", "a.txt", "text/plain", "x");
+    expect(await ask("nope")).toEqual({ ok: false, reason: "The recording is gone." });
+    expect(await ask("t1")).toEqual({ ok: false, reason: "The recording is gone." });
+    expect(await fileRows()).toHaveLength(1);
+  });
+
+  it("a wrong or empty token is refused and nothing is read or removed", async () => {
+    vi.stubEnv("AI_PROVIDER", "mock");
+    await upload("f1");
+    await expect(ask("f1", "wrong")).rejects.toThrow(/unauthorized/);
+    await expect(ask("f1", "")).rejects.toThrow(/unauthorized/);
+    expect(await fileRows()).toHaveLength(1);
+  });
+
+  it("a provider failure gives a reduced reason with no provider text, and keeps the file", async () => {
+    vi.stubEnv("AI_PROVIDER", "openai");
+    vi.stubEnv("OPENAI_API_KEY", "sk-secret-123");
+    vi.stubEnv("OPENAI_MODEL", "m");
+    vi.stubGlobal("fetch", async () => new Response("Incorrect API key provided: sk-secret-123", { status: 401 }));
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    await upload("f1");
+    const out = await ask();
+    expect(out).toEqual({ ok: false, reason: "The provider answered HTTP 401." });
+    expect(JSON.stringify(out)).not.toContain("sk-secret");
+    expect(await fileRows()).toHaveLength(1);
+  });
+
+  it("a provider without transcribe says so", async () => {
+    vi.stubEnv("AI_PROVIDER", "none");
+    await upload("f1");
+    expect(await ask()).toEqual({ ok: false, reason: "The AI provider cannot transcribe." });
+  });
+});

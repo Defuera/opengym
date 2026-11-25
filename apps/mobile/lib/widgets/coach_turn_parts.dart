@@ -115,9 +115,12 @@ class QuestionBlock extends StatelessWidget {
 
 /// The small line at the top of a chat that was opened with a context.
 class ContextLine extends StatelessWidget {
-  const ContextLine({super.key, required this.text});
+  const ContextLine({super.key, required this.text, this.place});
 
   final String text;
+
+  /// The place of the open session, shown after the text with a location icon. Null or empty: nothing extra.
+  final String? place;
 
   @override
   Widget build(BuildContext context) {
@@ -134,6 +137,16 @@ class ContextLine extends StatelessWidget {
           Flexible(
             child: Text(text, maxLines: 1, overflow: TextOverflow.ellipsis, style: OG.body(size: 14, weight: FontWeight.w600)),
           ),
+          if (place != null && place!.trim().isNotEmpty) ...<Widget>[
+            const SizedBox(width: 10),
+            const Icon(Icons.place_outlined, size: 15, color: OG.mute),
+            const SizedBox(width: 3),
+            ConstrainedBox(
+              key: const ValueKey<String>('chat-context-place'),
+              constraints: const BoxConstraints(maxWidth: 110),
+              child: Text(place!.trim(), maxLines: 1, overflow: TextOverflow.ellipsis, style: OG.body(size: 14, weight: FontWeight.w600, color: OG.mute)),
+            ),
+          ],
         ],
       ),
     );

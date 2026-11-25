@@ -42,6 +42,22 @@ void main() {
     expect(store.activeRev, 2);
   });
 
+  test('a place set by the coach (set_session_place) reaches the open session and is not sent back', () async {
+    final (AppStore store, FakeConvexClient fake, OpenSessionSync sync, _) = await _open();
+    store.begin(prepared: <Exercise>[_ex('Squat')]);
+    store.setActivePlace('home');
+    await sync.flush();
+    final String id = store.active!.id;
+    expect(store.active!.placeId, 'home');
+    final Session remote = _remote(id, <Exercise>[_ex('Squat')])..placeId = 'gym';
+    fake.openRemote.set(OpenRemote(session: remote, rev: 5));
+    await pumpEventQueue();
+    expect(store.active!.placeId, 'gym');
+    expect(store.activeRev, 5);
+    await sync.flush();
+    expect(fake.openPuts.length, 1);
+  });
+
   test('a change made outside the phone appears in the open session', () async {
     final (AppStore store, FakeConvexClient fake, OpenSessionSync sync, _) = await _open();
     store.begin(prepared: <Exercise>[_ex('Treadmill Walk')]);

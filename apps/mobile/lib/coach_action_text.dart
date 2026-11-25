@@ -26,6 +26,8 @@ String _verb(String name) {
   switch (name) {
     case 'update_place':
       return 'Updated';
+    case 'set_session_place':
+      return 'Changed';
     case 'add_open_exercise':
       return 'Added';
     case 'remove_open_exercise':
@@ -41,6 +43,8 @@ String _what(String name) {
   switch (name) {
     case 'update_place':
       return 'place';
+    case 'set_session_place':
+      return 'place of the session';
     case 'replace_open_exercise':
       return 'one exercise';
     case 'add_open_exercise':

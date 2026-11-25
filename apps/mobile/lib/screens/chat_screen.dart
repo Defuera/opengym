@@ -270,10 +270,20 @@ class _ChatScreenState extends State<ChatScreen> {
     return items.reversed.toList();
   }
 
+  /// The place of the open session when this chat was opened from it (ADR-035). It follows the session, so a change by the coach shows at once.
+  String? _sessionPlaceName(CoachStore c) {
+    final Session? a = widget.deps.store.active;
+    final String? sid = c.chatContext?.openSessionId;
+    if (a == null || sid == null || a.id != sid) {
+      return null;
+    }
+    return widget.deps.places.byId(a.placeId)?.name;
+  }
+
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: Listenable.merge(<Listenable>[_coach, widget.deps.connection, _voice]),
+      listenable: Listenable.merge(<Listenable>[_coach, widget.deps.connection, _voice, widget.deps.store, widget.deps.places]),
       builder: (BuildContext context, Widget? child) {
         final CoachStore c = _coach;
         // A send problem is shown with its retry action, not twice.
@@ -327,7 +337,7 @@ class _ChatScreenState extends State<ChatScreen> {
                   ),
                   ),
                 ),
-                if (c.contextLine != null) Align(alignment: Alignment.centerLeft, child: ContextLine(text: c.contextLine!)),
+                if (c.contextLine != null) Align(alignment: Alignment.centerLeft, child: ContextLine(text: c.contextLine!, place: _sessionPlaceName(c))),
                 if (err.isNotEmpty)
                   Padding(
                     padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),

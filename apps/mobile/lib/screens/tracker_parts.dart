@@ -46,6 +46,7 @@ class TrackerDayRow extends StatelessWidget {
       if (d.sleepMinutes != null) 'Sleep ${formatMinutes(d.sleepMinutes!)}',
       if (d.restingHeartRate != null) 'Resting heart rate ${d.restingHeartRate}',
       if (d.steps != null) 'Steps ${d.steps}',
+      if (d.activeEnergyKcal != null) 'Active ${d.activeEnergyKcal!.round()} kcal',
     ];
     return _Row(title: trackerDate(d.date), subtitle: bits.join(' · '));
   }

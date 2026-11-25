@@ -123,7 +123,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         label: 'Trackers',
                         onTap: () => Navigator.of(context).push(
                           MaterialPageRoute<void>(
-                            builder: (BuildContext c) => TrackerScreen(source: widget.deps.tracker),
+                            builder: (BuildContext c) => TrackerScreen(
+                              source: widget.deps.tracker,
+                              sync: widget.deps.trackerSync,
+                              writer: widget.deps.trackerWriter,
+                            ),
                           ),
                         ),
                       ),

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import 'app/compose.dart';
@@ -41,6 +43,8 @@ class _OpenGymAppState extends State<OpenGymApp> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       deps.connection.recheck();
+      // Sends tracker readings when the person turned that on; it keeps its own interval and never throws.
+      unawaited(deps.trackerSync.sync());
     }
   }
 

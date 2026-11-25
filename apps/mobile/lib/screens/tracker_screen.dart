@@ -2,6 +2,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../data/tracker_source.dart';
+import '../data/tracker_sync.dart';
+import '../data/tracker_writer.dart';
 import '../theme.dart';
 import '../widgets/footnote.dart';
 import '../widgets/note_box.dart';
@@ -9,15 +11,20 @@ import '../widgets/og_button.dart';
 import '../widgets/og_icon_button.dart';
 import '../widgets/section_header.dart';
 import 'tracker_parts.dart';
+import 'tracker_switches.dart';
 
 enum _Phase { loading, unavailable, needsPermission, failed, ready }
 
-/// Shows what the phone's health store has for the last 7 days. It reads when
-/// the screen opens and when the user asks. It sends nothing anywhere.
+/// The phone's health store (ADR-036): two switches (send tracker data to the
+/// coach, write my sessions to Health) and a view of what the phone has for the
+/// last 7 days. The view reads when the screen opens and when the user asks;
+/// only the first switch sends anything.
 class TrackerScreen extends StatefulWidget {
-  const TrackerScreen({super.key, required this.source, this.now});
+  const TrackerScreen({super.key, required this.source, required this.sync, required this.writer, this.now});
 
   final TrackerSource source;
+  final TrackerSync sync;
+  final TrackerWriter writer;
 
   /// For tests.
   final DateTime Function()? now;
@@ -80,6 +87,8 @@ class _TrackerScreenState extends State<TrackerScreen> {
             ),
             const SizedBox(height: 14),
             Text('Reads from $_store. Your tracker writes there, this app reads it.', style: OG.muted()),
+            const SizedBox(height: 14),
+            TrackerSwitches(sync: widget.sync, writer: widget.writer, store: _store),
             if (_phase != _Phase.unavailable) ...<Widget>[
               const SizedBox(height: 14),
               OgButton(
@@ -97,7 +106,7 @@ class _TrackerScreenState extends State<TrackerScreen> {
             ],
             ..._body(),
             const SizedBox(height: 22),
-            const Footnote('Nothing is sent anywhere yet. This screen only shows what the phone has.'),
+            const Footnote('Nothing is sent while the first switch is off. The list below only shows what the phone has.'),
           ],
         ),
       ),

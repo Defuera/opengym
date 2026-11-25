@@ -63,6 +63,18 @@ Future<AppDeps> compose() async {
     settings: SharedPrefsSettingsRepository(),
     client: client,
   );
+  // The phone's health store: reading for the coach and writing finished sessions (ADR-036). Both start off.
+  final HealthTrackerSource trackerSource = HealthTrackerSource();
+  final TrackerSettings trackerSettings = TrackerSettings(SharedPrefsTrackerPrefs());
+  final TrackerSync trackerSync = TrackerSync(
+    source: trackerSource,
+    client: client,
+    settings: trackerSettings,
+    isConnected: () => connection.connected,
+  );
+  final TrackerWriter trackerWriter = TrackerWriter(source: trackerSource, settings: trackerSettings);
+  await trackerSettings.load();
+
   final SessionSync sessions = SessionSync(client: client, store: store, outbox: outbox);
   // The open session: saved on the phone first, then kept the same on the server (ADR-028).
   final OpenSessionSync openSession =
@@ -70,6 +82,7 @@ Future<AppDeps> compose() async {
   connection.onConnected = () {
     unawaited(outbox.flush());
     unawaited(openSession.flush());
+    unawaited(trackerSync.sync());
   };
 
   final DashboardStore dashboard = DashboardStore(client: client);
@@ -85,18 +98,6 @@ Future<AppDeps> compose() async {
   final ExerciseArtStore art = ExerciseArtStore(client: client, isConnected: () => connection.connected);
   final ProgramStore programs = ProgramStore(client: client);
   final AboutStore about = AboutStore(repo: ConvexAboutRepository(client: client, outbox: outbox));
-
-  // The phone's health store: reading for the coach and writing finished sessions (ADR-036). Both start off.
-  final HealthTrackerSource trackerSource = HealthTrackerSource();
-  final TrackerSettings trackerSettings = TrackerSettings(SharedPrefsTrackerPrefs());
-  final TrackerSync trackerSync = TrackerSync(
-    source: trackerSource,
-    client: client,
-    settings: trackerSettings,
-    isConnected: () => connection.connected,
-  );
-  final TrackerWriter trackerWriter = TrackerWriter(source: trackerSource, settings: trackerSettings);
-  await trackerSettings.load();
 
   // A finished session goes to the outbox on disk first, then to the server.
   store.onSessionSaved = (String id) {

@@ -1,15 +1,45 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:opengym/data/tracker_prefs.dart';
 import 'package:opengym/data/tracker_source.dart';
+import 'package:opengym/data/tracker_sync.dart';
+import 'package:opengym/data/tracker_writer.dart';
 import 'package:opengym/screens/tracker_screen.dart';
 
-Future<void> _open(WidgetTester t, FakeTrackerSource source) async {
-  await t.pumpWidget(MaterialApp(home: TrackerScreen(source: source, now: () => DateTime(2026, 11, 18, 12))));
+import 'support/fake_convex_client.dart';
+
+late FakeConvexClient _client;
+late InMemoryTrackerPrefs _prefs;
+late TrackerSettings _settings;
+
+Future<void> _open(WidgetTester t, FakeTrackerSource source, {TrackerPrefsState state = const TrackerPrefsState()}) async {
+  t.view.physicalSize = const Size(800, 2400);
+  t.view.devicePixelRatio = 1;
+  addTearDown(t.view.reset);
+  _client = FakeConvexClient();
+  _prefs = InMemoryTrackerPrefs(state);
+  _settings = TrackerSettings(_prefs);
+  await _settings.load();
+  final TrackerSync sync = TrackerSync(
+    source: source,
+    client: _client,
+    settings: _settings,
+    isConnected: () => true,
+    now: () => DateTime(2026, 11, 18, 12),
+  );
+  await t.pumpWidget(MaterialApp(
+    home: TrackerScreen(
+      source: source,
+      sync: sync,
+      writer: TrackerWriter(source: source, settings: _settings),
+      now: () => DateTime(2026, 11, 18, 12),
+    ),
+  ));
   await t.pumpAndSettle();
 }
 
-const String _footer = 'Nothing is sent anywhere yet. This screen only shows what the phone has.';
+const String _footer = 'Nothing is sent while the first switch is off. The list below only shows what the phone has.';
 
 void main() {
   testWidgets('not available: says so and offers no buttons', (WidgetTester t) async {
@@ -80,5 +110,69 @@ void main() {
     await t.pumpAndSettle();
     expect(src.connectCalls, 1);
     expect(src.readCalls, 3);
+  });
+
+  testWidgets('both switches start off and nothing is sent', (WidgetTester t) async {
+    final FakeTrackerSource src = FakeTrackerSource();
+    await _open(t, src);
+    expect(t.widget<Switch>(find.byKey(const ValueKey<String>('tracker-read-switch'))).value, isFalse);
+    expect(t.widget<Switch>(find.byKey(const ValueKey<String>('tracker-write-switch'))).value, isFalse);
+    expect(find.byKey(const ValueKey<String>('tracker-send')), findsNothing);
+    expect(_client.trackerSyncs, isEmpty);
+    expect(find.textContaining('Editing or deleting a session later does not change it there.'), findsOneWidget);
+  });
+
+  testWidgets('the read switch asks permission, then sends and shows the time and the counts', (WidgetTester t) async {
+    final FakeTrackerSource src = FakeTrackerSource(
+      snapshot: TrackerSnapshot(
+        days: <TrackerDay>[TrackerDay(date: DateTime(2026, 11, 17), steps: 100, activeEnergyKcal: 420)],
+        workouts: <TrackerWorkout>[
+          TrackerWorkout(id: 'w', type: 'Running', start: DateTime(2026, 11, 17, 7), end: DateTime(2026, 11, 17, 8), minutes: 60, source: 'Fitbit'),
+        ],
+      ),
+    );
+    await _open(t, src);
+    await t.tap(find.byKey(const ValueKey<String>('tracker-read-switch')));
+    await t.pumpAndSettle();
+    expect(src.connectCalls, 1);
+    expect(_client.trackerSyncs, hasLength(1));
+    expect(_prefs.state.readOn, isTrue);
+    expect(find.text('Sent Wed 18 Nov, 12:00: 1 day and 1 workout.'), findsOneWidget);
+    expect(find.text('Steps 100 · Active 420 kcal'), findsOneWidget);
+    await t.tap(find.byKey(const ValueKey<String>('tracker-send')));
+    await t.pumpAndSettle();
+    expect(_client.trackerSyncs, hasLength(2));
+  });
+
+  testWidgets('permission refused: the switch stays off and says why', (WidgetTester t) async {
+    final FakeTrackerSource src = FakeTrackerSource(connectResult: false);
+    await _open(t, src);
+    await t.tap(find.byKey(const ValueKey<String>('tracker-read-switch')));
+    await t.pumpAndSettle();
+    expect(t.widget<Switch>(find.byKey(const ValueKey<String>('tracker-read-switch'))).value, isFalse);
+    expect(find.byKey(const ValueKey<String>('tracker-note')), findsOneWidget);
+    expect(_client.trackerSyncs, isEmpty);
+  });
+
+  testWidgets('the write switch asks for write permission; a refusal shows a line', (WidgetTester t) async {
+    final FakeTrackerSource src = FakeTrackerSource(connectWriteResult: false);
+    await _open(t, src);
+    await t.tap(find.byKey(const ValueKey<String>('tracker-write-switch')));
+    await t.pumpAndSettle();
+    expect(src.connectWriteCalls, 1);
+    expect(t.widget<Switch>(find.byKey(const ValueKey<String>('tracker-write-switch'))).value, isFalse);
+    expect(find.byKey(const ValueKey<String>('tracker-write-note')), findsOneWidget);
+
+    src.connectWriteResult = true;
+    await t.tap(find.byKey(const ValueKey<String>('tracker-write-switch')));
+    await t.pumpAndSettle();
+    expect(t.widget<Switch>(find.byKey(const ValueKey<String>('tracker-write-switch'))).value, isTrue);
+    expect(_prefs.state.writeOn, isTrue);
+    expect(find.byKey(const ValueKey<String>('tracker-write-note')), findsNothing);
+  });
+
+  testWidgets('with reading on and nothing sent yet it says so', (WidgetTester t) async {
+    await _open(t, FakeTrackerSource(), state: const TrackerPrefsState(readOn: true));
+    expect(find.text('Not sent yet.'), findsOneWidget);
   });
 }

@@ -1,4 +1,4 @@
-// ignore_for_file: prefer_const_constructors
+// ignore_for_file: prefer_const_constructors, prefer_const_literals_to_create_immutables
 // Visual proof: the place in the chat header chip and the "Place: Home -> Gym" action line. Run by path:
 //   flutter test test/shots/place_shots.dart
 import 'dart:io';

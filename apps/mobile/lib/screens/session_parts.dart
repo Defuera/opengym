@@ -171,6 +171,8 @@ class SessionPanel extends StatelessWidget {
           onRemove: store.removeSetAt,
           onRepsChanged: store.changeReps,
           onKgChanged: store.changeKg,
+          onRepsSet: store.setReps,
+          onKgSet: store.setKg,
           onFailedChanged: (bool _) => store.toggleFailed(),
           onToggle: store.toggleSet,
           checkPrefix: 'set-check-${store.curEx}',

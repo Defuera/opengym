@@ -15,6 +15,7 @@ Future<String?> showTextSheet(
   bool allowEmpty = false,
   int maxLines = 1,
   int? maxLength,
+  TextInputType? keyboardType,
 }) {
   return showOgSheet<String>(
     context,
@@ -26,6 +27,7 @@ Future<String?> showTextSheet(
       allowEmpty: allowEmpty,
       maxLines: maxLines,
       maxLength: maxLength,
+      keyboardType: keyboardType,
     ),
     title: title,
   );
@@ -40,7 +42,10 @@ class _TextSheet extends StatefulWidget {
     this.allowEmpty = false,
     this.maxLines = 1,
     this.maxLength,
+    this.keyboardType,
   });
+
+  final TextInputType? keyboardType;
 
   /// With this an empty text is an answer too (it clears the value).
   final bool allowEmpty;
@@ -83,6 +88,7 @@ class _TextSheetState extends State<_TextSheet> {
           label: widget.label,
           controller: _c,
           hint: widget.hint,
+          keyboardType: widget.keyboardType,
           maxLines: widget.maxLines,
           minLines: widget.maxLines > 1 ? 2 : null,
           maxLength: widget.maxLength,

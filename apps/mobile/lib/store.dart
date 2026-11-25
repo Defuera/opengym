@@ -662,13 +662,38 @@ class AppStore extends ChangeNotifier {
     _commit();
   }
 
+  /// The person typed the reps of the current set (0 to 999).
+  void setReps(int reps) {
+    final Exercise? e = currentExercise;
+    final SetEntry? s = currentSet;
+    if (e == null || s == null || reps < 0 || reps > 999) {
+      return;
+    }
+    s.reps = reps;
+    e.fresh = false;
+    _commit();
+  }
+
+  /// The person typed the weight of the current set (0 is bodyweight, at most 1000, 2 decimals).
+  /// The plus and minus step from this value, so 4 becomes 6.5 (no snapping).
+  void setKg(double kg) {
+    final Exercise? e = currentExercise;
+    final SetEntry? s = currentSet;
+    if (e == null || s == null || kg < 0 || kg > 1000) {
+      return;
+    }
+    s.kg = (kg * 100).round() / 100;
+    e.fresh = false;
+    _commit();
+  }
+
   void changeKg(double delta) {
     final Exercise? e = currentExercise;
     final SetEntry? s = currentSet;
     if (e == null || s == null) {
       return;
     }
-    final double next = ((s.kg + delta) * 10).round() / 10;
+    final double next = ((s.kg + delta) * 100).round() / 100;
     s.kg = next < 0 ? 0.0 : next;
     e.fresh = false;
     _commit();

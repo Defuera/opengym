@@ -55,7 +55,7 @@ class ExerciseEditor extends StatelessWidget {
   void _reps(int d) {
     final SetEntry? s = _cur;
     if (s != null) {
-      s.reps = (s.reps + d).clamp(0, 100).toInt();
+      s.reps = (s.reps + d).clamp(0, 999).toInt();
       onChanged();
     }
   }
@@ -63,8 +63,24 @@ class ExerciseEditor extends StatelessWidget {
   void _kg(double d) {
     final SetEntry? s = _cur;
     if (s != null) {
-      final double n = ((s.kg + d) * 10).round() / 10;
+      final double n = ((s.kg + d) * 100).round() / 100;
       s.kg = n < 0 ? 0.0 : n;
+      onChanged();
+    }
+  }
+
+  void _repsSet(int v) {
+    final SetEntry? s = _cur;
+    if (s != null && v >= 0 && v <= 999) {
+      s.reps = v;
+      onChanged();
+    }
+  }
+
+  void _kgSet(double v) {
+    final SetEntry? s = _cur;
+    if (s != null && v >= 0 && v <= 1000) {
+      s.kg = (v * 100).round() / 100;
       onChanged();
     }
   }
@@ -150,6 +166,8 @@ class ExerciseEditor extends StatelessWidget {
                     onRemove: _removeAt,
                     onRepsChanged: _reps,
                     onKgChanged: _kg,
+                    onRepsSet: _repsSet,
+                    onKgSet: _kgSet,
                     onFailedChanged: _failed,
                   ),
           ),

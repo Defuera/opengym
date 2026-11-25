@@ -223,7 +223,7 @@ int firstOpen(Exercise? e) {
 }
 
 String fmtKg(double k) {
-  final double r = (k * 10).round() / 10;
+  final double r = (k * 100).round() / 100; // 4 and 4.25 show as typed
   if (r == r.truncateToDouble()) {
     return r.toInt().toString();
   }

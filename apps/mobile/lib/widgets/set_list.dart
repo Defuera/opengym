@@ -41,7 +41,13 @@ class SetList extends StatefulWidget {
     required this.onFailedChanged,
     this.onToggle,
     this.checkPrefix = 'set-check',
+    this.onRepsSet,
+    this.onKgSet,
   });
+
+  /// Typed reps and weight for the open set. Null: the numbers are not tappable.
+  final ValueChanged<int>? onRepsSet;
+  final ValueChanged<double>? onKgSet;
 
   final List<SetRowData> sets;
   final int selected;
@@ -103,6 +109,8 @@ class _SetListState extends State<SetList> {
             checkKey: ValueKey<String>('${widget.checkPrefix}-$i'),
             onRepsChanged: widget.onRepsChanged,
             onKgChanged: widget.onKgChanged,
+            onRepsSet: widget.onRepsSet,
+            onKgSet: widget.onKgSet,
             onFailedChanged: widget.onFailedChanged,
           ),
         ));

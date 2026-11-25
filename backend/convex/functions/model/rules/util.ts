@@ -1,7 +1,7 @@
 export const DAY_MS = 86_400_000;
 
 export function fmtKg(k: number): string {
-  const r = Math.round(k * 10) / 10;
+  const r = Math.round(k * 100) / 100;
   return Number.isInteger(r) ? String(r) : String(r);
 }
 

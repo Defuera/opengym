@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../theme.dart';
+import 'set_entry.dart';
+import 'text_sheet.dart';
 import 'set_check.dart';
 import 'set_row.dart';
 
@@ -22,6 +24,8 @@ class SetEditorCard extends StatelessWidget {
     this.done = false,
     this.onCheck,
     this.checkKey,
+    this.onRepsSet,
+    this.onKgSet,
   });
 
   final int number;
@@ -33,6 +37,43 @@ class SetEditorCard extends StatelessWidget {
   final ValueChanged<double> onKgChanged;
   final ValueChanged<bool> onFailedChanged;
   final bool done;
+
+  /// A typed value (tap on the number). Null: the number is not a control.
+  /// A text that is not a valid number changes nothing.
+  final ValueChanged<int>? onRepsSet;
+  final ValueChanged<double>? onKgSet;
+
+  Future<void> _typeReps(BuildContext context) async {
+    final String? text = await showTextSheet(
+      context,
+      title: 'Reps',
+      label: 'Number of reps',
+      hint: '12',
+      actionLabel: 'Set',
+      initialText: reps,
+      keyboardType: TextInputType.number,
+    );
+    final int? v = text == null ? null : parseRepsEntry(text);
+    if (v != null) {
+      onRepsSet?.call(v);
+    }
+  }
+
+  Future<void> _typeKg(BuildContext context) async {
+    final String? text = await showTextSheet(
+      context,
+      title: 'Weight',
+      label: 'Kilograms (0 is bodyweight)',
+      hint: '4 or 2,5',
+      actionLabel: 'Set',
+      initialText: isZeroKg(kg) ? '0' : kg,
+      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+    );
+    final double? v = text == null ? null : parseKgEntry(text);
+    if (v != null) {
+      onKgSet?.call(v);
+    }
+  }
 
   /// Tap on the check control; null hides the control.
   final VoidCallback? onCheck;
@@ -83,6 +124,8 @@ class SetEditorCard extends StatelessWidget {
                   unit: 'reps',
                   onMinus: () => onRepsChanged(-1),
                   onPlus: () => onRepsChanged(1),
+                  onValueTap: onRepsSet == null ? null : () => _typeReps(context),
+                  valueKey: const ValueKey<String>('reps-value'),
                 ),
               ),
               const SizedBox(width: 14),
@@ -92,6 +135,8 @@ class SetEditorCard extends StatelessWidget {
                   unit: isZeroKg(kg) ? 'body' : 'kg',
                   onMinus: () => onKgChanged(-2.5),
                   onPlus: () => onKgChanged(2.5),
+                  onValueTap: onKgSet == null ? null : () => _typeKg(context),
+                  valueKey: const ValueKey<String>('kg-value'),
                 ),
               ),
             ],
@@ -157,7 +202,11 @@ class NumberStepper extends StatelessWidget {
     this.onLongMinus,
     this.onLongPlus,
     this.onValueTap,
+    this.valueKey,
   });
+
+  /// Key of the tappable value (default `stepper-value`).
+  final Key? valueKey;
 
   /// Tap on the value itself (for example to type one). Null: the value is not a control.
   final VoidCallback? onValueTap;
@@ -176,7 +225,7 @@ class NumberStepper extends StatelessWidget {
         StepperButton(icon: Icons.remove, onTap: onMinus, onLongPress: onLongMinus),
         Expanded(
           child: GestureDetector(
-            key: onValueTap == null ? null : const ValueKey<String>('stepper-value'),
+            key: onValueTap == null ? null : (valueKey ?? const ValueKey<String>('stepper-value')),
             behavior: HitTestBehavior.opaque,
             onTap: onValueTap,
             child: Padding(

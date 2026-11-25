@@ -8,7 +8,7 @@ import { PLACE_QUOTE_MAX, PLACE_TEXT_MAX } from "./placeFields";
 import { placeByPlaceId, setPlaceText } from "./placesDb";
 import { requestExerciseArt } from "./exerciseArtDb";
 import { buildLogDraft } from "./logDraftDb";
-import { addDetail, placeDetail, programDetail, proposeDetail, removeDetail, replaceDetail } from "../model/actionDetail";
+import { addDetail, placeDetail, sessionPlaceDetail, programDetail, proposeDetail, removeDetail, replaceDetail } from "../model/actionDetail";
 import { type ActionResult, type CoachAction, CoachActionSchema, editPlaceText, toPlanned } from "../model/coachTools";
 import { type OneChange, type OpenExercise, addOne, removeOne, replaceOne } from "../model/openSession";
 import { logDetail, type StoredLogDraft } from "../model/logDraft";
@@ -29,7 +29,7 @@ type Ctx = MutationCtx;
 type Row = Doc<"openSession">;
 type Evidence = "person_said" | "seen_in_photo";
 
-const SESSION_TOOLS = new Set(["replace_open_exercise", "add_open_exercise", "remove_open_exercise", "rebuild_open_session"]);
+const SESSION_TOOLS = new Set(["set_session_place", "replace_open_exercise", "add_open_exercise", "remove_open_exercise", "rebuild_open_session"]);
 
 /** Why the open session cannot be changed by this turn, or null. A stale rev or another session is refused (ADR-028: the phone wins). */
 function sessionProblem(row: Row | null, base: TurnBase): string | null {
@@ -50,7 +50,7 @@ async function evidenceProblem(ctx: Ctx, trigger: Doc<"messages"> | null, eviden
 /**
  * Does the actions of one coach turn, in order, in one transaction (ADR-032). Each action is checked again against the data now:
  * the zod shape, the session id and rev, the person's work, the plan safety limits and the avoid rules (ADR-004, ADR-015), the evidence
- * of a place change. A refused action changes nothing and says why. The session's place is never changed. The open session is
+ * of a place change. A refused action changes nothing and says why. Only set_session_place changes the session's place (ADR-035), and the new place counts for the rest of the turn. The open session is
  * written once, with `rev + 1` and `updatedBy: "coach"`. A rebuild writes nothing: it is checked the same way and returned as a
  * proposal (status "drafted"), one per turn, for the message to hold until the person approves (lib/proposalDb.ts).
  */
@@ -60,6 +60,7 @@ export async function executeActions(ctx: Ctx, base: TurnBase, actions: unknown[
   const problem = sessionProblem(row, base);
   let exercises: OpenExercise[] = row?.exercises ?? [];
   let changed = false;
+  let placeId = row?.placeId;
   const trigger = await messageByMessageId(ctx, base.turnId);
   const seen = new Set<string>();
   let facts: { sessions: Session[]; limits: Limit[] } | null = null;
@@ -113,6 +114,23 @@ export async function executeActions(ctx: Ctx, base: TurnBase, actions: unknown[
         const quote = (trigger!.text.trim() || "(photo)").slice(0, PLACE_QUOTE_MAX);
         const wrote = await setPlaceText(ctx, place, after, "chat", quote, undefined, a.arguments.evidence);
         results.push({ actionId: a.id, name: a.name, status: "applied", ...(wrote ? { detail: placeDetail(place.name, a.arguments.add, a.arguments.remove) } : { reason: "no change: the place text says it already" }) });
+        continue;
+      }
+      case "set_session_place": {
+        const why = await evidenceProblem(ctx, trigger, "person_said");
+        const place = why ? null : await placeByPlaceId(ctx, a.arguments.placeId);
+        if (why || !place) {
+          reject(why ?? "no such place");
+          continue;
+        }
+        if (place.placeId === placeId) {
+          results.push({ actionId: a.id, name: a.name, status: "applied", reason: "no change: the session is at this place already" });
+          continue;
+        }
+        const was = placeId ? await placeByPlaceId(ctx, placeId) : null;
+        placeId = place.placeId;
+        changed = true;
+        results.push({ actionId: a.id, name: a.name, status: "applied", detail: sessionPlaceDetail(was?.name ?? null, place.name) });
         continue;
       }
       case "replace_open_exercise":
@@ -205,7 +223,7 @@ export async function executeActions(ctx: Ctx, base: TurnBase, actions: unknown[
     results.push({ actionId: a.id, name: a.name, status: "applied", ...(detail ? { detail } : {}) });
   }
 
-  if (changed && row) await ctx.db.patch(row._id, { exercises, rev: row.rev + 1, updatedAt: Date.now(), updatedBy: "coach" });
+  if (changed && row) await ctx.db.patch(row._id, { exercises, ...(placeId !== undefined ? { placeId } : {}), rev: row.rev + 1, updatedAt: Date.now(), updatedBy: "coach" });
   if (art.length > 0) await requestExerciseArt(ctx, [...new Set(art)].filter((x) => x.length > 0).slice(0, 12));
   return { results, ...(proposal ? { proposal } : {}), ...(program ? { program } : {}) };
 }

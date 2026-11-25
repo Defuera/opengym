@@ -30,6 +30,7 @@ const EXERCISE = `{"name": string (max 60), "sets": [{"reps": int, "kg": number,
 const SHAPE = `{"message": string (what you say to the person), "actions": [action] (in the order they should run; may be empty), "question"?: {"text": string (max 500), "answers"?: [{"id": string, "label": string (max 60)}] (at most 6 quick answers)}}
 An action is {"id": string (unique in this reply, e.g. "a1"), "name": one of the names below, "arguments": object}:
 - "update_place" {"placeId": string, "add"?: string (a short phrase to add, e.g. "Balance board"), "remove"?: string (a phrase of the text to take out), "evidence": "person_said" | "seen_in_photo"}
+- "set_session_place" {"placeId": string (one of places)}  (needs an open session)
 - "replace_open_exercise" {"exerciseId": string, "exercise": ${EXERCISE}}
 - "add_open_exercise" {"exercise": ${EXERCISE}, "afterExerciseId"?: string}
 - "remove_open_exercise" {"exerciseId": string}
@@ -53,7 +54,7 @@ SESSION AND PLACES. Each function here except rebuild_open_session is done at on
 - A comment about one exercise changes that exercise only: use replace_open_exercise (or add_open_exercise or remove_open_exercise). Every other exercise stays as it is. An exercise with personsWork true has a done set or a comment of the person: never replace or remove it.
 - Use rebuild_open_session ONLY when the person asks to change the whole session. It is a PROPOSAL: nothing changes until the person approves. In message, say what you understood and what you propose (the new plan in a few short lines), and end by asking whether they approve. The app shows the buttons "Approve" and "Change something"; do not write your own answers. When they choose "Change something", propose the new plan again.
 - When the person does not understand an exercise, explain it in two or three plain sentences: the start position, the movement, and what it trains. If its stored note (coachNote) is wrong or unclear, also fix the note with replace_open_exercise: keep the name and the sets.
-- The place of the session is a fact the person chose. No function changes it, and you never move the session to another place. ${SESSION_PLACE_RULE}
+- The place of the session is a fact the person chose. Change it with set_session_place ONLY when the person's own words in this chat say where they are or will train ("I'm at the gym", "I'm going to the gym"): never from your own guess, and never because a place lacks an item. Then go on with the request in the same reply, for the new place's equipment (for example rebuild_open_session planned for it). When they name a place that is not in places, ask. ${SESSION_PLACE_RULE}
 - ${PLACE_KNOWLEDGE_RULE}
 - When the person tells you what is or is not at a place, or shows it in a photo attached to this message, use update_place for that place (evidence person_said or seen_in_photo) in the same reply. Only from the person's own words or photo in this message; never from your own guess. When an exercise needs equipment that is unknown at the session's place, you may offer the exercise with it and ask in question.
 - ${LIMITS_RULE}
@@ -83,7 +84,7 @@ function withTurnData(history: ChatMessage[], turn: Record<string, unknown>): Ch
 
 export const coachTurnJob: JobDef<CoachTurnInput, CoachTurn> = {
   name: "coach_turn",
-  description: "One chat turn: the coach's reply plus the functions it calls (change one exercise, propose a new whole session, update a place, draft a log, goal, limit or note, propose a program or a program change, ask a question).",
+  description: "One chat turn: the coach's reply plus the functions it calls (change one exercise, propose a new whole session, update a place, set the place of the session, draft a log, goal, limit or note, propose a program or a program change, ask a question).",
   fallbackDescription: "A fixed message that the coach is not available; no action, nothing changed.",
   json: true,
   maxTokens: 4000,

@@ -61,4 +61,11 @@ export const chatCases: ChatCase[] = [
     gates: [{ kind: "notContains", field: "answer", any: [{ re: "\\b\\d+(\\.\\d+)? ?kg\\b", flags: "i" }], why: "invents a load" }],
     expect: [{ kind: "contains", field: "answer", any: [{ re: "no (session|workout|log|data)|nothing (logged|in)|haven't (logged|done)|have not (logged|done)|not (logged|know)|don't (see|have)|do not (see|have)", flags: "i" }], why: "says nothing is logged" }],
   },
+  {
+    id: "ch-set-place", job: "chat", family: "session_place", persona: "jonas", session: { place: "Home" },
+    about: "The session is at Home and the person says they are going to the gym: the coach moves the session with set_session_place, and does not ask what is at home.",
+    turns: ["I'm not at home, I'm going to the gym. Give me my usual upper body session."],
+    gates: [],
+    expect: [{ kind: "contains", field: "actions", any: ["set_session_place"], why: "calls set_session_place" }, { kind: "notContains", field: "answer", any: [{ re: "at home\\?|do you have .* at home", flags: "i" }], why: "asks about home equipment" }],
+  },
 ];

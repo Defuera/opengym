@@ -19,7 +19,8 @@ export interface BuildSubject {
 export interface ChatSubject {
   job: "chat";
   persona: Persona;
-  turns: { user: string; assistant: string }[];
+  /** `actions`: the names of the functions the coach called in that turn. */
+  turns: { user: string; assistant: string; actions?: string[] }[];
 }
 
 export interface ParseSubject {
@@ -59,6 +60,7 @@ export function fieldText(s: Subject, f: Field): string {
     const last = s.turns[s.turns.length - 1]?.assistant ?? "";
     if (f === "answer") return last;
     if (f === "answerHead") return last.slice(0, 200);
+    if (f === "actions") return (s.turns[s.turns.length - 1]?.actions ?? []).join("\n");
     if (f === "firstAnswer") return s.turns[0]?.assistant ?? "";
     return "";
   }

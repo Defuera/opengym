@@ -25,11 +25,13 @@ export async function runChat(c: ChatCase, ctx: RunCtx): Promise<CaseOutput> {
     entries: p.entries,
   };
   const coach = assembleCoachContext(data, [], ctx.provider.supportsImages, []);
+  const at = c.session ? placeOf(p, c.session.place) : null;
   const turn = {
     screen: "chat",
-    openSession: null,
+    openSession: at ? { id: "eval-open", activity: "Gym", place: at.name, exercises: [] } : null,
+    ...(at ? { sessionPlace: { placeId: at.placeId, name: at.name } } : {}),
     ...(place ? { placeInView: { placeId: place.placeId, name: place.name } } : {}),
-    places: (place ? [place] : []).map((x) => ({ placeId: x.placeId, name: x.name, equipment: x.text, knowledge: knowledgeOf(x) })),
+    places: (c.session ? p.places : place ? [place] : []).map((x) => ({ placeId: x.placeId, name: x.name, equipment: x.text, knowledge: knowledgeOf(x), ...(at && x.placeId === at.placeId ? { isSessionPlace: true } : {}) })),
   };
   const history: ChatMessage[] = [];
   const turns: ChatSubject["turns"] = [];
@@ -41,7 +43,7 @@ export async function runChat(c: ChatCase, ctx: RunCtx): Promise<CaseOutput> {
     paths.push(r.path);
     if (r.reason) reasons.push(r.reason);
     history.push({ role: "assistant", content: r.value.message });
-    turns.push({ user, assistant: r.value.message });
+    turns.push({ user, assistant: r.value.message, actions: r.value.actions.map((a) => a.name) });
   }
   return { subject: { job: "chat", persona: p, turns }, paths, fallbackReasons: reasons, final: { turns } };
 }

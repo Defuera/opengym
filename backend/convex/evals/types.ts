@@ -27,7 +27,7 @@ export interface Persona {
 export type Job = "build_session" | "chat" | "parse_log" | "learn_place";
 
 /** Parts of an answer a text check can read. */
-export type Field = "exerciseNames" | "planText" | "answer" | "answerHead" | "firstAnswer" | "type" | "rawType" | "focus" | "note";
+export type Field = "exerciseNames" | "planText" | "answer" | "answerHead" | "firstAnswer" | "actions" | "type" | "rawType" | "focus" | "note";
 
 /** A small declarative check. A new case is data: pick kinds here. `why` is shown in the report when the check fails. */
 export type Check =
@@ -84,6 +84,8 @@ export interface ChatCase extends CaseBase {
   turns: string[];
   /** The place the thread is about, by lower case name. */
   place?: string;
+  /** An open session at this place (lower case name). The coach reads it as the session place; every place of the persona is listed. */
+  session?: { place: string };
 }
 
 export interface ParseCase extends CaseBase {

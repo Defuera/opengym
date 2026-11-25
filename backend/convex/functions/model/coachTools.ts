@@ -8,10 +8,10 @@ import type { PlannedExercise } from "./openSession";
 /**
  * The functions the coach may call in one chat turn (ADR-032), as zod schemas, and the pure logic behind them.
  * The model only names an action; server code checks it again against the data and does it (lib/coachToolsDb.ts).
- * Single-exercise tools and update_place are "applied at once and reported". draft_log (the log chat) is a DRAFT until Done: stored on the message,
+ * Single-exercise tools, update_place and set_session_place are "applied at once and reported". draft_log (the log chat) is a DRAFT until Done: stored on the message,
  * written only when the person presses Done (lib/logDraftDb.ts). rebuild_open_session is a PROPOSAL: it is stored on the
  * message and applied only when the person approves (commands/messages:send with an answer). propose_program is a PROPOSAL too: it starts a program proposal
- * (the build_program job writes it, ADR-026) that the person agrees to on its card (commands/proposals:accept, plain code). No tool changes the place of the session.
+ * (the build_program job writes it, ADR-026) that the person agrees to on its card (commands/proposals:accept, plain code). set_session_place changes the place of the open session only (ADR-035, replaces ADR-021's "no tool changes it").
  */
 
 const Id = z.string().trim().min(1).max(100);
@@ -28,6 +28,7 @@ export const UpdatePlaceArgs = z
 
 export const CoachActionSchema = z.discriminatedUnion("name", [
   action("update_place", UpdatePlaceArgs),
+  action("set_session_place", z.object({ placeId: Id })),
   action("replace_open_exercise", z.object({ exerciseId: Id, exercise: PlanExerciseSchema })),
   action("add_open_exercise", z.object({ exercise: PlanExerciseSchema, afterExerciseId: Id.optional() })),
   action("remove_open_exercise", z.object({ exerciseId: Id })),

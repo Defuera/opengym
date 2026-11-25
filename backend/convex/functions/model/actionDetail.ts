@@ -32,6 +32,9 @@ export const removeDetail = (e: OpenExercise): string => cut(`Removed: ${e.name}
 export const programDetail = (change: boolean): string => (change ? "Program change: being written" : "New program: being written");
 export const proposeDetail = (n: number): string => `Proposed: ${n} exercise${n === 1 ? "" : "s"}`;
 
+/** "Place: Home → Gym", or "Place: Gym" when the session had no place. Pure. */
+export const sessionPlaceDetail = (before: string | null, after: string): string => cut(before ? `Place: ${before} → ${after}` : `Place: ${after}`);
+
 /** "Gym: added balance board", "Gym: removed second bike", or both. */
 export function placeDetail(place: string, add?: string, remove?: string): string {
   const parts = [...(add?.trim() ? [`added ${add.trim()}`] : []), ...(remove?.trim() ? [`removed ${remove.trim()}`] : [])];

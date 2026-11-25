@@ -18,6 +18,8 @@ export interface BuildSessionInput {
   /** On a rebuild: the plan the person saw (exercise names with sets), and the feedback rounds they gave (oldest first, at most 5). */
   previousPlan?: unknown;
   feedbackFromThePerson?: string[];
+  /** On a rebuild: the place of the plan the person saw. It stays unless the feedback names another place (ADR-035). */
+  currentPlace?: string;
   /** Every place the person has, with its equipment note ("" = unknown) and whether it was the place of the last session of this activity (ADR-021). */
   placesTheCoachKnows?: { name: string; equipment: string; knowledge?: PlaceKnowledge; lastUsedForThisActivity: boolean }[];
   /** The foci the log holds, per activity with sets, with how often each was logged (most used first). The coach reuses one of these names. */
@@ -48,7 +50,7 @@ What you write is what the person does. Every set in the list is meant to be don
 
 When previousPlan and feedbackFromThePerson are present, the person saw that plan and asked for a change: rebuild the session so that the feedback holds.
 
-placesTheCoachKnows says where the person trains and what is there; choose today's place (the note may say it, otherwise the one last used for this activity) and plan with the equipment that place names. A place with an empty equipment text is unknown: prefer bodyweight and what the person's log shows there. ${PLACE_KNOWLEDGE_RULE} When an exercise needs equipment that the place does not name, you may still give it, and name the fallback in the note of that exercise (for example \"Balance board if your gym has one; otherwise tandem stand\"). Choose another place only when the note or the feedback says the person is there. ${SESSION_PLACE_RULE}
+placesTheCoachKnows says where the person trains and what is there; choose today's place (the note may say it, otherwise the one last used for this activity) and plan with the equipment that place names. A place with an empty equipment text is unknown: prefer bodyweight and what the person's log shows there. ${PLACE_KNOWLEDGE_RULE} When an exercise needs equipment that the place does not name, you may still give it, and name the fallback in the note of that exercise (for example \"Balance board if your gym has one; otherwise tandem stand\"). On a rebuild (currentPlace is given) the place stays currentPlace. Choose another place only when the note or the feedback names a place or says the person is there. A mention of equipment (\"I do have a balance board\") is not a statement about the place: it is knowledge about the current place. ${SESSION_PLACE_RULE}
 
 The focus is the short name of the kind of session (Upper, Legs, Full body), one or two words. fociTheUserUses lists the names this person already has for each activity, with how often each was logged: use one of them, the closest one, and prefer the names logged often. Give a new focus only when the session is truly a different kind from all of them. What is special about today (a goal, a mix, a place) goes in reason, not in focus. Never put the request or the note in focus.
 
@@ -70,7 +72,7 @@ export const buildSessionJob: JobDef<BuildSessionInput, StartProposal> = {
   },
   build: (i) => ({
     system: `JOB: build_session\n\n${ROLE}\n\n${JSON_ONLY}\n${SHAPE}`,
-    messages: [{ role: "user", content: `Build today's session.\n\nINPUT_JSON:\n${JSON.stringify({ activity: i.name, ...(i.request !== undefined ? { request: i.request } : {}), noteForToday: i.note || null, ...(i.placesTheCoachKnows ? { placesTheCoachKnows: i.placesTheCoachKnows } : {}), ...(i.programsThePersonFollows ? { programsThePersonFollows: i.programsThePersonFollows } : {}), ...(i.fociTheUserUses && i.fociTheUserUses.length > 0 ? { fociTheUserUses: i.fociTheUserUses } : {}), ...(i.feedbackFromThePerson ? { ...(i.previousPlan ? { previousPlan: i.previousPlan } : {}), feedbackFromThePerson: i.feedbackFromThePerson } : {}), ...i.picture })}` }],
+    messages: [{ role: "user", content: `Build today's session.\n\nINPUT_JSON:\n${JSON.stringify({ activity: i.name, ...(i.request !== undefined ? { request: i.request } : {}), noteForToday: i.note || null, ...(i.currentPlace ? { currentPlace: i.currentPlace } : {}), ...(i.placesTheCoachKnows ? { placesTheCoachKnows: i.placesTheCoachKnows } : {}), ...(i.programsThePersonFollows ? { programsThePersonFollows: i.programsThePersonFollows } : {}), ...(i.fociTheUserUses && i.fociTheUserUses.length > 0 ? { fociTheUserUses: i.fociTheUserUses } : {}), ...(i.feedbackFromThePerson ? { ...(i.previousPlan ? { previousPlan: i.previousPlan } : {}), feedbackFromThePerson: i.feedbackFromThePerson } : {}), ...i.picture })}` }],
     images: i.images,
   }),
   fallback: (i) => ({ kind: "gym", type: i.name ?? nameFromText(i.request ?? ""), plan: { rationale: "Empty session. Add what you do.", exercises: [] } }),

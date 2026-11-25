@@ -17,6 +17,8 @@ export interface StartDoc {
   text?: string;
   feedback?: string[];
   previousPlan?: unknown;
+  /** On a rebuild: the place of the proposal the person saw. */
+  previousPlaceId?: string;
 }
 
 /** What the server has read for the request: the FULL history (oldest first), the non-cleared limits, every place. */
@@ -47,11 +49,13 @@ export function buildStartInput(doc: StartDoc, d: StartData) {
   const withSets = known.filter((a) => a.kind === "gym" && (!doc.name || activityKey(a.type) === activityKey(doc.name)));
   const fociTheUserUses = withSets.map((a) => ({ activity: a.type, foci: fociByUse(d.sessions, a.type).slice(0, 8) })).filter((a) => a.foci.length > 0).slice(0, 6);
   const programs = programsForCoach(d.programs ?? [], d.sessions, localDate(d.now));
+  const current = doc.feedback && doc.previousPlaceId ? d.places.find((p) => p.placeId === doc.previousPlaceId) : undefined;
   const job: BuildSessionInput = {
     name: doc.name ?? null,
     note: doc.name ? (doc.text ?? "") : "",
     ...(doc.name ? {} : { request: doc.text ?? "" }),
     ...(doc.feedback ? { feedbackFromThePerson: doc.feedback, ...(doc.previousPlan ? { previousPlan: doc.previousPlan } : {}) } : {}),
+    ...(current ? { currentPlace: current.name } : {}),
     placesTheCoachKnows,
     ...(programs.length > 0 ? { programsThePersonFollows: programs } : {}),
     fociTheUserUses,

@@ -362,6 +362,8 @@ export default defineSchema({
     // Feedback on a proposed session (1..300 each, at most 5, oldest first) and the plan it was given on. Set only by a rebuild request.
     feedback: v.optional(v.array(v.string())),
     previousPlan: v.optional(previousPlan),
+    // On a rebuild: the place of the proposal the person saw (ADR-035). A rebuild keeps it unless the feedback names another place.
+    previousPlaceId: v.optional(v.string()),
     // Legacy fields of the removed "today" mode. Old rows may hold them, so they stay optional and are never written or read now.
     mode: v.optional(v.literal("today")),
     hintType: v.optional(v.string()),

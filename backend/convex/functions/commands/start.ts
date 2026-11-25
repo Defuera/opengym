@@ -69,7 +69,7 @@ export const request = mutation({
     const plan = compactPlan(prev?.proposal?.plan);
     await ctx.db.insert("startRequests", {
       requestId: id,
-      ...(givenPlan ? { name: planName!, ...(clean ? { text: clean.slice(0, START_REQUEST_MAX_TEXT) } : {}), feedback: [cleanFeedback!], previousPlan: givenPlan } : prev ? { ...(prev.text ? { text: prev.text } : {}), ...(prev.name ? { name: prev.name } : {}), feedback: feedbackChain(prev.feedback, cleanFeedback!), ...(plan ? { previousPlan: plan } : {}) } : { ...(clean ? { text: clean } : {}), ...(cleanName ? { name: cleanName } : {}) }),
+      ...(givenPlan ? { name: planName!, ...(clean ? { text: clean.slice(0, START_REQUEST_MAX_TEXT) } : {}), feedback: [cleanFeedback!], previousPlan: givenPlan } : prev ? { ...(prev.text ? { text: prev.text } : {}), ...(prev.name ? { name: prev.name } : {}), feedback: feedbackChain(prev.feedback, cleanFeedback!), ...(plan ? { previousPlan: plan } : {}), ...(prev.proposal?.place ? { previousPlaceId: prev.proposal.place.placeId } : {}) } : { ...(clean ? { text: clean } : {}), ...(cleanName ? { name: cleanName } : {}) }),
       status: "pending",
       createdAt: now,
     });

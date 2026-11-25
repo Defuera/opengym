@@ -34,6 +34,26 @@ const learns = (calls: { job: string; input: any }[]) => calls.filter((c) => c.j
 const coach = (placeName?: string, learn: object = { changed: false, equipment: "" }) => (job: string) =>
   job === "build_session" ? JSON.stringify({ kind: "gym", type: "Home", plan, ...(placeName ? { place: placeName } : {}) }) : job === "learn_place" ? JSON.stringify(learn) : "{}";
 
+describe("a rebuild keeps the place (ADR-035, trace of 24 Nov)", () => {
+  it("equipment feedback does not move the proposal from Gym to Home, and the model sees currentPlace", async () => {
+    await place("p-home", "Home", "Balance board");
+    await place("p-gym", "Gym");
+    stubOpenAi(coach("Gym"));
+    await start("r1", "Gym", "legs");
+    await settle(t);
+    expect((await get("r1"))!.proposal!.place).toMatchObject({ placeId: "p-gym" });
+    const calls = stubOpenAi(coach("Home"));
+    await again("r2", "r1", "I do have balance board");
+    await settle(t);
+    expect(builds(calls)[0]!.input.currentPlace).toBe("Gym");
+    expect((await get("r2"))!.proposal!.place).toMatchObject({ placeId: "p-gym", name: "Gym" });
+    stubOpenAi(coach("Home"));
+    await again("r3", "r2", "I am at home today");
+    await settle(t);
+    expect((await get("r3"))!.proposal!.place).toMatchObject({ placeId: "p-home" });
+  });
+});
+
 describe("build_session and places", () => {
   const picture = coachPicture([], [], [], [], [], 0);
   const input = { name: "Home", note: "", picture, limits: [] };

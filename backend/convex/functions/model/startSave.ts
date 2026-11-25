@@ -32,8 +32,19 @@ export function checkedStartProposal(doc: { name?: string; text?: string }, prop
  * The place of a proposal (ADR-021): the name the coach gave (an existing place with the same key, else a new one with an empty text),
  * else the place of the newest session of this activity. Null when neither is known.
  */
-export function pickPlace<P extends { placeId: string; name: string }>(places: P[], given: string | undefined, lastPlaceId: string | undefined): { place: P } | { newName: string } | null {
+export function pickPlace<P extends { placeId: string; name: string }>(
+  places: P[],
+  given: string | undefined,
+  lastPlaceId: string | undefined,
+  rebuild?: { previousPlaceId: string; feedback: string[] },
+): { place: P } | { newName: string } | null {
   const g = given?.trim();
+  // A rebuild keeps the place of the proposal the person saw (ADR-035), unless the feedback names the place the coach gave.
+  const prev = rebuild ? places.find((p) => p.placeId === rebuild.previousPlaceId) : undefined;
+  if (rebuild && prev && (!g || activityKey(g) !== activityKey(prev.name))) {
+    const text = rebuild.feedback.map(activityKey).join("\n");
+    if (!g || !text.includes(activityKey(g))) return { place: prev };
+  }
   if (g) {
     const found = places.find((p) => activityKey(p.name) === activityKey(g));
     return found ? { place: found } : { newName: g };

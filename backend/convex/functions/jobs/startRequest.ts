@@ -28,7 +28,7 @@ export const input = internalQuery({
     const now = Date.now();
     // The pure part (the picture of the user, the places, the rules plan for the fallback) is in model/startInput.ts: the eval runner calls it too.
     const built = buildStartInput(
-      { name: doc.name, text: doc.text, feedback: doc.feedback, previousPlan: doc.previousPlan },
+      { name: doc.name, text: doc.text, feedback: doc.feedback, previousPlan: doc.previousPlan, previousPlaceId: doc.previousPlaceId },
       { sessions: await allSessions(ctx), goals: await allGoals(ctx), context: await allContext(ctx), limits: await limitsForAi(ctx), places: await allPlaces(ctx), entries: await coachEntries(ctx, now), programs: await liveProgramDocs(ctx), now },
     );
     return { ...built, entryImages: await entryImageFiles(ctx, now) };
@@ -54,7 +54,7 @@ export const save = internalMutation({
     const checked = checkedStartProposal(doc, proposal, sessions, await activeLimits(ctx));
     // The place (ADR-021), by plain code: the name the coach gave (a new name makes a place with an empty text), else the place of the
     // newest session of this activity (also on the rules fallback). None when neither is known.
-    const pick = pickPlace(await allPlaces(ctx), proposal.place, lastPlaceIdFor(sessions, checked.type));
+    const pick = pickPlace(await allPlaces(ctx), proposal.place, lastPlaceIdFor(sessions, checked.type), doc.feedback && doc.previousPlaceId ? { previousPlaceId: doc.previousPlaceId, feedback: doc.feedback } : undefined);
     const place = pick ? ("place" in pick ? pick.place : await createPlace(ctx, pick.newName)) : null;
     // The program link (ADR-030): the coach names the program session, code finds the week and the open slot. No open slot, no link.
     const link = proposal.program ? programLinkFor(await programByProgramId(ctx, proposal.program.programId), proposal.program.key, sessions, localDate(Date.now())) : null;

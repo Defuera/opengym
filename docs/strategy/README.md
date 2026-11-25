@@ -48,3 +48,4 @@ This directory holds the Architecture Decision Records (ADRs) for Gym Days (Open
 | [031](031-one-general-log-entry.md) | One General Log Entry, and the AI Says What It Is | Accepted (step 1 built; next steps Proposed) |
 | [032](032-one-chat-with-functions.md) | One Chat With Functions | Accepted (steps A to G built; decisions after step A Proposed) |
 | [033](033-coach-reads-records.md) | The Coach Reads the Person's Records | Accepted (supersedes one clause of 015) |
+| [034](034-voice-wave-and-transcript-check.md) | Voice: a Live Wave, and the Transcript Goes to the Text Field | Accepted |

@@ -71,6 +71,7 @@ conversation (A01–A16). Wording is kept close to his.
 - R32 Chat mode for advice
 - R33 Accepts statements, not just questions
 - R34 Record audio into chat
+- Confirmed 2026-11-25, the owner's words: "Now, when I'm recording voice, can we show a wave function, same as in Claude Code, so I understand that app can hear me? And also, let's place a text before sending transcription, so I can check that it is correct transcription." A live wave shows while recording, so he sees the app hears him. The transcript lands in the text field to be checked before sending.
 - R35 Drop files (e.g. MRI)
 - R36 Everything compiles into context
 

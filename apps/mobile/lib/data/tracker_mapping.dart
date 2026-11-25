@@ -130,6 +130,7 @@ List<TrackerWorkout> buildWorkouts(List<RawWorkout> raw, List<TrackerSample> hea
           energyKcal: w.energyKcal,
           avgHeartRate: averageInside(w.start, w.end, heartRate),
           source: w.source,
+          sourceId: w.sourceId,
         ),
       )
       .toList()

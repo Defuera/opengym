@@ -32,6 +32,7 @@ class TrackerWorkout {
     required this.end,
     required this.minutes,
     required this.source,
+    this.sourceId = '',
     this.distanceKm,
     this.energyKcal,
     this.avgHeartRate,
@@ -52,6 +53,9 @@ class TrackerWorkout {
 
   /// Name of the app or device that wrote the workout.
   final String source;
+
+  /// Package name (Android) or bundle id (iOS) of the writer. Empty when unknown.
+  final String sourceId;
 }
 
 /// One calendar day (local time). A field is null when the phone has nothing.

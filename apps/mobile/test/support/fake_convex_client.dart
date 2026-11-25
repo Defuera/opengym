@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:opengym/data/convex_client.dart';
+import 'package:opengym/data/tracker_source.dart';
 import 'package:opengym/data/transcript_result.dart';
 import 'package:opengym/models.dart';
 
@@ -509,6 +510,16 @@ class FakeConvexClient implements ConvexClient {
   Future<void> setAiModel(String? model) async {
     _command('setAiModel:${model ?? 'default'}');
     aiSettings.set(aiSettings.value!.withOverride(model));
+  }
+
+  /// What [syncTracker] was given, one entry per call.
+  final List<({List<TrackerDay> days, List<TrackerWorkout> workouts})> trackerSyncs =
+      <({List<TrackerDay> days, List<TrackerWorkout> workouts})>[];
+
+  @override
+  Future<void> syncTracker({required List<TrackerDay> days, required List<TrackerWorkout> workouts}) async {
+    _command('syncTracker');
+    trackerSyncs.add((days: days, workouts: workouts));
   }
 
   @override

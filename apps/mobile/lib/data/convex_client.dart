@@ -8,6 +8,8 @@ import 'package:http/http.dart' as http;
 import '../models.dart';
 import 'convex_codec.dart';
 import 'convex_types.dart';
+import 'tracker_payload.dart';
+import 'tracker_source.dart';
 import 'transcript_result.dart';
 
 export 'convex_types.dart';
@@ -259,6 +261,11 @@ abstract class ConvexClient {
   /// Asks the backend to reload the provider's model list. The new list
   /// arrives through [watchAiSettings].
   Future<void> refreshModels();
+
+  /// Sends tracker readings from the phone's health store (`commands/tracker:sync`,
+  /// ADR-036). At most 31 days and 100 workouts. Idempotent. NOT a fact the person
+  /// logged and NOT queued in the outbox: the next sync sends the window again.
+  Future<void> syncTracker({required List<TrackerDay> days, required List<TrackerWorkout> workouts});
 
   /// One authenticated call. Tells a wrong token from an unreachable server.
   Future<AccessStatus> checkAccess();
@@ -773,6 +780,13 @@ class DartvexConvexClient implements ConvexClient {
   @override
   Future<void> refreshModels() =>
       _mutate('commands/settings:refreshModels', const <String, dynamic>{});
+
+  @override
+  Future<void> syncTracker({required List<TrackerDay> days, required List<TrackerWorkout> workouts}) =>
+      _mutate('commands/tracker:sync', <String, dynamic>{
+        'days': days.map(trackerDayJson).toList(),
+        'workouts': workouts.map(trackerWorkoutJson).toList(),
+      });
 
   Future<void> _mutate(String name, Map<String, dynamic> args) async {
     await _mutateValue(name, args);

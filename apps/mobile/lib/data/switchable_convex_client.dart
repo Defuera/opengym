@@ -2,6 +2,7 @@ import 'dart:async';
 
 import '../models.dart';
 import 'convex_client.dart';
+import 'tracker_source.dart';
 import 'transcript_result.dart';
 
 /// A [ConvexClient] whose address and token can change while the app runs.
@@ -229,6 +230,10 @@ class SwitchableConvexClient implements ConvexClient {
 
   @override
   Future<void> setAiModel(String? model) => _call((ConvexClient c) => c.setAiModel(model));
+
+  @override
+  Future<void> syncTracker({required List<TrackerDay> days, required List<TrackerWorkout> workouts}) =>
+      _call((ConvexClient c) => c.syncTracker(days: days, workouts: workouts));
 
   @override
   Future<void> refreshModels() => _call((ConvexClient c) => c.refreshModels());

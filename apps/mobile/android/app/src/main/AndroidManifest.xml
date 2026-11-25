@@ -2,8 +2,10 @@
     <uses-permission android:name="android.permission.INTERNET"/>
     <!-- Voice message in the chat. -->
     <uses-permission android:name="android.permission.RECORD_AUDIO"/>
-    <!-- Health Connect: read only. Workouts, sleep, heart rate, resting heart
-         rate, steps, active energy, distance. No write permission. -->
+    <!-- Health Connect: read workouts, sleep, heart rate, resting heart rate,
+         steps, active energy, distance. Write: one workout (exercise session)
+         and its distance, only when the person turns on "Write my sessions to
+         Health" (ADR-036). -->
     <uses-permission android:name="android.permission.health.READ_EXERCISE"/>
     <uses-permission android:name="android.permission.health.READ_SLEEP"/>
     <uses-permission android:name="android.permission.health.READ_HEART_RATE"/>
@@ -11,6 +13,8 @@
     <uses-permission android:name="android.permission.health.READ_STEPS"/>
     <uses-permission android:name="android.permission.health.READ_ACTIVE_CALORIES_BURNED"/>
     <uses-permission android:name="android.permission.health.READ_DISTANCE"/>
+    <uses-permission android:name="android.permission.health.WRITE_EXERCISE"/>
+    <uses-permission android:name="android.permission.health.WRITE_DISTANCE"/>
     <!-- Countdown sound: a scheduled notification (flutter_local_notifications README, AndroidManifest.xml setup). -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>

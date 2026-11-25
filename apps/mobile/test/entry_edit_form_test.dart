@@ -37,7 +37,7 @@ Future<(FakeConvexClient, AppDeps, FakePickers)> _open(WidgetTester t, {bool con
     plans: base.plans, dashboard: base.dashboard, goals: base.goals, entries: base.entries,
     context: base.context, coach: base.coach, imports: base.imports, reviews: base.reviews,
     pickers: pickers, voice: base.voice, about: base.about, aiModel: base.aiModel,
-    tracker: base.tracker, places: base.places, art: base.art, programs: base.programs,
+    tracker: base.tracker, trackerSync: base.trackerSync, trackerWriter: base.trackerWriter, places: base.places, art: base.art, programs: base.programs,
   );
   fake.serverFiles['p'] = const FileMeta(id: 'p', name: 'meal.jpg', mime: 'image/jpeg', size: 1, kind: 'image', createdAt: 1);
   fake.serverEntries['n1'] = (text: 'Oats', fileIds: <String>['p'], at: entryNow, createdAt: entryNow);

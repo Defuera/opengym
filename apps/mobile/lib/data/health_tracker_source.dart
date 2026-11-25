@@ -7,8 +7,9 @@ import 'tracker_mapping.dart';
 import 'tracker_source.dart';
 
 /// Reads Apple Health (iPhone) and Health Connect (Android) through the
-/// `health` plugin. One code path; only the list of types differs. Read only:
-/// it never asks to write and never writes.
+/// `health` plugin. One code path; only the list of types differs. It reads
+/// without asking to write. [connectWrite] and [writeWorkout] are for the
+/// "Write my sessions to Health" switch only (ADR-036).
 class HealthTrackerSource implements TrackerSource {
   HealthTrackerSource({Health? health}) : _health = health ?? Health();
 
@@ -66,6 +67,38 @@ class HealthTrackerSource implements TrackerSource {
     return _health.requestAuthorization(
       types,
       permissions: List<HealthDataAccess>.filled(types.length, HealthDataAccess.READ),
+    );
+  }
+
+  /// What a write needs. Android: the exercise session and its distance record
+  /// (`writeWorkoutData` inserts both). iPhone: the workout type only; the
+  /// distance is a property of the workout.
+  static List<HealthDataType> get writeTypes => <HealthDataType>[
+        HealthDataType.WORKOUT,
+        if (Platform.isAndroid) HealthDataType.DISTANCE_DELTA,
+      ];
+
+  @override
+  Future<bool> connectWrite() async {
+    await _configure();
+    final List<HealthDataType> types = writeTypes;
+    return _health.requestAuthorization(
+      types,
+      permissions: List<HealthDataAccess>.filled(types.length, HealthDataAccess.WRITE),
+    );
+  }
+
+  @override
+  Future<bool> writeWorkout(WorkoutWrite w) async {
+    await _configure();
+    final double? km = w.distanceKm;
+    return _health.writeWorkoutData(
+      activityType: workoutActivityType(w.kind, android: Platform.isAndroid),
+      start: w.start,
+      end: w.end,
+      // The plugin takes whole metres. It takes no sets, reps, weights or heart rate.
+      totalDistance: km == null || km <= 0 ? null : (km * 1000).round(),
+      title: w.title,
     );
   }
 
@@ -195,5 +228,32 @@ class HealthTrackerSource implements TrackerSource {
       return null;
     }
     return unit == HealthDataUnit.KILOCALORIE ? value.toDouble() : null;
+  }
+}
+
+/// The plugin's activity type for [kind] on this platform. The type names
+/// differ: iPhone has no STRENGTH_TRAINING and no SWIMMING_POOL; Android has
+/// no TRADITIONAL_STRENGTH_TRAINING and its map has no plain SWIMMING (read in
+/// `HealthConstants.kt` and `SwiftHealthPlugin.swift`, health 13.3.1).
+HealthWorkoutActivityType workoutActivityType(WorkoutKind kind, {required bool android}) {
+  switch (kind) {
+    case WorkoutKind.strength:
+      return android ? HealthWorkoutActivityType.STRENGTH_TRAINING : HealthWorkoutActivityType.TRADITIONAL_STRENGTH_TRAINING;
+    case WorkoutKind.running:
+      return HealthWorkoutActivityType.RUNNING;
+    case WorkoutKind.walking:
+      return HealthWorkoutActivityType.WALKING;
+    case WorkoutKind.cycling:
+      return HealthWorkoutActivityType.BIKING;
+    case WorkoutKind.swimming:
+      return android ? HealthWorkoutActivityType.SWIMMING_POOL : HealthWorkoutActivityType.SWIMMING;
+    case WorkoutKind.hiking:
+      return HealthWorkoutActivityType.HIKING;
+    case WorkoutKind.rowing:
+      return HealthWorkoutActivityType.ROWING;
+    case WorkoutKind.yoga:
+      return HealthWorkoutActivityType.YOGA;
+    case WorkoutKind.other:
+      return HealthWorkoutActivityType.OTHER;
   }
 }

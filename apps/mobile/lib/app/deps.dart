@@ -1,6 +1,8 @@
 import '../data/convex_client.dart';
 import '../data/pickers.dart';
 import '../data/tracker_source.dart';
+import '../data/tracker_sync.dart';
+import '../data/tracker_writer.dart';
 import '../data/voice_recorder.dart';
 import '../data/outbox.dart';
 import '../store.dart';
@@ -39,6 +41,8 @@ class AppDeps {
     required this.about,
     required this.aiModel,
     required this.tracker,
+    required this.trackerSync,
+    required this.trackerWriter,
     required this.places,
     required this.art,
     required this.programs,
@@ -64,8 +68,14 @@ class AppDeps {
   final AboutStore about;
   final AiModelStore aiModel;
 
-  /// Tracker data from the phone's health store (read only).
+  /// The phone's health store (ADR-019, ADR-036).
   final TrackerSource tracker;
+
+  /// Sends tracker readings to the server when the person turned reading on.
+  final TrackerSync trackerSync;
+
+  /// Writes finished sessions to the health store when the person turned it on.
+  final TrackerWriter trackerWriter;
 
   /// The places the coach knows (read only).
   final PlacesStore places;

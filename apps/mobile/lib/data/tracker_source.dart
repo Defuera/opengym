@@ -6,14 +6,42 @@ abstract class TrackerSource {
   Future<bool> available();
 
   /// Asks the user for read permission: workouts, sleep, heart rate, resting
-  /// heart rate, steps, active energy and distance. Never asks to write.
+  /// heart rate, steps, active energy and distance. Does not ask to write.
   /// True when the system dialog finished without an error. On iPhone this
   /// does not say whether the user allowed reading; the system hides that.
   Future<bool> connect();
 
+  /// Asks the user for permission to write workouts (and their distance on
+  /// Android). Only the "Write my sessions to Health" switch calls this. Same
+  /// meaning of the result as [connect].
+  Future<bool> connectWrite();
+
+  /// Writes one workout to the store. True when the store took it. Never
+  /// throws for a refusal; a plugin error may throw, and the caller catches it.
+  Future<bool> writeWorkout(WorkoutWrite workout);
+
   /// What the phone has between [from] and [to]. Throws
   /// [TrackerPermissionException] when the phone says reading is not allowed.
   Future<TrackerSnapshot> read({required DateTime from, required DateTime to});
+}
+
+/// What a written workout is, in plain terms. The source maps it to the
+/// activity type of the platform.
+enum WorkoutKind { strength, running, walking, cycling, swimming, hiking, rowing, yoga, other }
+
+/// One workout Gym Days writes to the store. The plugin takes only these
+/// fields (ADR-036): no sets, reps, weights, heart rate or notes.
+class WorkoutWrite {
+  const WorkoutWrite({required this.kind, required this.title, required this.start, required this.end, this.distanceKm});
+
+  final WorkoutKind kind;
+
+  /// Activity and focus, such as "Gym Upper". Kept by Health Connect; Apple
+  /// Health has no title field.
+  final String title;
+  final DateTime start;
+  final DateTime end;
+  final double? distanceKm;
 }
 
 /// Reading is not allowed. The user has to press Connect and allow it.
@@ -114,6 +142,8 @@ class FakeTrackerSource implements TrackerSource {
     this.connectResult = true,
     this.snapshot = const TrackerSnapshot(),
     this.error,
+    this.connectWriteResult = true,
+    this.writeResult = true,
   });
 
   bool isAvailable;
@@ -124,6 +154,15 @@ class FakeTrackerSource implements TrackerSource {
   Object? error;
   int connectCalls = 0;
   int readCalls = 0;
+  bool connectWriteResult;
+  bool writeResult;
+  int connectWriteCalls = 0;
+
+  /// What [writeWorkout] was given.
+  final List<WorkoutWrite> written = <WorkoutWrite>[];
+
+  /// Thrown by [writeWorkout] when set.
+  Object? writeError;
 
   @override
   Future<bool> available() async => isAvailable;
@@ -132,6 +171,22 @@ class FakeTrackerSource implements TrackerSource {
   Future<bool> connect() async {
     connectCalls++;
     return connectResult;
+  }
+
+  @override
+  Future<bool> connectWrite() async {
+    connectWriteCalls++;
+    return connectWriteResult;
+  }
+
+  @override
+  Future<bool> writeWorkout(WorkoutWrite workout) async {
+    final Object? e = writeError;
+    if (e != null) {
+      throw e;
+    }
+    written.add(workout);
+    return writeResult;
   }
 
   @override

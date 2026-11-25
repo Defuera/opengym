@@ -5,6 +5,9 @@ import '../data/convex_client.dart';
 import '../data/legacy_outbox_migration.dart';
 import '../data/outbox.dart';
 import '../data/health_tracker_source.dart';
+import '../data/tracker_prefs.dart';
+import '../data/tracker_sync.dart';
+import '../data/tracker_writer.dart';
 import '../data/audio_timer_cues.dart';
 import '../data/local_countdown_signal.dart';
 import '../data/wakelock_screen_awake.dart';
@@ -83,10 +86,24 @@ Future<AppDeps> compose() async {
   final ProgramStore programs = ProgramStore(client: client);
   final AboutStore about = AboutStore(repo: ConvexAboutRepository(client: client, outbox: outbox));
 
+  // The phone's health store: reading for the coach and writing finished sessions (ADR-036). Both start off.
+  final HealthTrackerSource trackerSource = HealthTrackerSource();
+  final TrackerSettings trackerSettings = TrackerSettings(SharedPrefsTrackerPrefs());
+  final TrackerSync trackerSync = TrackerSync(
+    source: trackerSource,
+    client: client,
+    settings: trackerSettings,
+    isConnected: () => connection.connected,
+  );
+  final TrackerWriter trackerWriter = TrackerWriter(source: trackerSource, settings: trackerSettings);
+  await trackerSettings.load();
+
   // A finished session goes to the outbox on disk first, then to the server.
   store.onSessionSaved = (String id) {
     final session = store.sessionById(id);
     if (session != null) {
+      // Then, if the person turned it on, to the health store. A failure there never holds up the save.
+      unawaited(trackerWriter.onSessionFinished(session));
       // After the session is on the server, ask how the loaded limits felt.
       // A failure or no link means no question; saving is never held up.
       unawaited(outbox.saveSession(session).then((_) => about.askAfter(id)));
@@ -143,7 +160,9 @@ Future<AppDeps> compose() async {
     voice: DeviceVoiceRecorder(),
     about: about,
     aiModel: aiModel,
-    tracker: HealthTrackerSource(),
+    tracker: trackerSource,
+    trackerSync: trackerSync,
+    trackerWriter: trackerWriter,
     places: places,
     art: art,
     programs: programs,

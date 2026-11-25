@@ -7,7 +7,10 @@ import 'package:opengym/data/in_memory_session_repository.dart';
 import 'package:opengym/data/outbox.dart';
 import 'package:opengym/data/pickers.dart';
 import 'package:opengym/data/settings_repository.dart';
+import 'package:opengym/data/tracker_prefs.dart';
 import 'package:opengym/data/tracker_source.dart';
+import 'package:opengym/data/tracker_sync.dart';
+import 'package:opengym/data/tracker_writer.dart';
 import 'package:opengym/data/voice_recorder.dart';
 import 'package:opengym/data/switchable_convex_client.dart';
 import 'package:opengym/models.dart';
@@ -57,6 +60,8 @@ Future<AppDeps> testDeps(
   store.onSessionPlaceChanged = (String id, String? placeId) => unawaited(outbox.setSessionPlace(id, placeId));
   store.onTextLogged = (String id) => unawaited(outbox.logText(store.sessionById(id)!));
   final AboutRepository aboutRepo = InMemoryAboutRepository();
+  final TrackerSource trackerSource = tracker ?? FakeTrackerSource();
+  final TrackerSettings trackerSettings = TrackerSettings(InMemoryTrackerPrefs());
   return AppDeps(
     client: fake,
     store: store,
@@ -74,7 +79,9 @@ Future<AppDeps> testDeps(
     voice: voice ?? NoVoiceRecorder(),
     about: AboutStore(repo: aboutRepo),
     aiModel: AiModelStore(client: fake)..start(),
-    tracker: tracker ?? FakeTrackerSource(),
+    tracker: trackerSource,
+    trackerSync: TrackerSync(source: trackerSource, client: fake, settings: trackerSettings, isConnected: () => connected),
+    trackerWriter: TrackerWriter(source: trackerSource, settings: trackerSettings),
     places: PlacesStore(client: fake)..start(),
     art: ExerciseArtStore(client: fake, isConnected: () => connected),
     programs: ProgramStore(client: fake)..start(),

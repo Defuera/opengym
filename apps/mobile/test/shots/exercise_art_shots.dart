@@ -67,6 +67,8 @@ void main() {
       about: base.about,
       aiModel: base.aiModel,
       tracker: base.tracker,
+      trackerSync: base.trackerSync,
+      trackerWriter: base.trackerWriter,
       places: base.places,
       art: ExerciseArtStore(client: fake, isConnected: () => true, imageFor: (String u) => MemoryImage(png)),
       programs: base.programs,

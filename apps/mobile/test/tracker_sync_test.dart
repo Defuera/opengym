@@ -38,7 +38,7 @@ TrackerSnapshot _snap() => TrackerSnapshot(
       ],
     );
 
-({TrackerSync sync, FakeTrackerSource source, FakeConvexClient client, InMemoryTrackerPrefs prefs}) _make({
+({TrackerSync sync, TrackerSettings settings, FakeTrackerSource source, FakeConvexClient client, InMemoryTrackerPrefs prefs}) _make({
   bool readOn = true,
   bool connected = true,
   TrackerSnapshot? snapshot,
@@ -46,14 +46,15 @@ TrackerSnapshot _snap() => TrackerSnapshot(
   final FakeTrackerSource source = FakeTrackerSource(snapshot: snapshot ?? _snap());
   final FakeConvexClient client = FakeConvexClient();
   final InMemoryTrackerPrefs prefs = InMemoryTrackerPrefs(TrackerPrefsState(readOn: readOn));
+  final TrackerSettings settings = TrackerSettings(prefs);
   final TrackerSync sync = TrackerSync(
     source: source,
     client: client,
-    prefs: prefs,
+    settings: settings,
     isConnected: () => connected,
     now: () => _clock,
   );
-  return (sync: sync, source: source, client: client, prefs: prefs);
+  return (sync: sync, settings: settings, source: source, client: client, prefs: prefs);
 }
 
 void main() {
@@ -69,7 +70,7 @@ void main() {
 
   test('off by default: nothing is read and nothing is sent', () async {
     final m = _make(readOn: false);
-    await m.sync.load();
+    await m.settings.load();
     expect(await m.sync.sync(force: true), SyncOutcome.off);
     expect(m.source.readCalls, 0);
     expect(m.client.trackerSyncs, isEmpty);
@@ -77,7 +78,7 @@ void main() {
 
   test('on: reads 14 days, sends days and workouts without the app\'s own, and remembers the time', () async {
     final m = _make();
-    await m.sync.load();
+    await m.settings.load();
     expect(await m.sync.sync(), SyncOutcome.sent);
     expect(m.client.trackerSyncs, hasLength(1));
     final sent = m.client.trackerSyncs.single;
@@ -91,24 +92,25 @@ void main() {
 
   test('the window is 14 days back, today included', () async {
     final m = _make();
-    await m.sync.load();
+    await m.settings.load();
     DateTime? from;
+    final TrackerSettings settings = TrackerSettings(InMemoryTrackerPrefs(const TrackerPrefsState(readOn: true)));
+    await settings.load();
     final FakeTrackerSource spy = _Spy(onRead: (DateTime f) => from = f);
     final TrackerSync s = TrackerSync(
       source: spy,
       client: m.client,
-      prefs: InMemoryTrackerPrefs(const TrackerPrefsState(readOn: true)),
+      settings: settings,
       isConnected: () => true,
       now: () => _clock,
     );
-    await s.load();
     await s.sync();
     expect(from, DateTime(2026, 11, 12));
   });
 
   test('automatic syncs keep an interval; the button does not', () async {
     final m = _make();
-    await m.sync.load();
+    await m.settings.load();
     await m.sync.sync();
     _clock = _clock.add(const Duration(minutes: 5));
     expect(await m.sync.sync(), SyncOutcome.skipped);
@@ -122,26 +124,26 @@ void main() {
 
   test('offline is silent and sends nothing; a failing server never throws', () async {
     final m = _make(connected: false);
-    await m.sync.load();
+    await m.settings.load();
     expect(await m.sync.sync(force: true), SyncOutcome.offline);
     expect(m.source.readCalls, 0);
 
     final m2 = _make();
-    await m2.sync.load();
+    await m2.settings.load();
     m2.client.online = false;
     expect(await m2.sync.sync(force: true), SyncOutcome.failed);
     expect(m2.sync.busy, isFalse);
     expect(m2.sync.state.lastSyncAt, isNull);
 
     final m3 = _make();
-    await m3.sync.load();
+    await m3.settings.load();
     m3.source.error = StateError('plugin');
     expect(await m3.sync.sync(force: true), SyncOutcome.failed);
   });
 
   test('permission refused and no store are reported, not thrown', () async {
     final m = _make();
-    await m.sync.load();
+    await m.settings.load();
     m.source.error = const TrackerPermissionException();
     expect(await m.sync.sync(force: true), SyncOutcome.noPermission);
     m.source.error = null;
@@ -152,7 +154,7 @@ void main() {
 
   test('an empty phone sends nothing but notes the time', () async {
     final m = _make(snapshot: const TrackerSnapshot());
-    await m.sync.load();
+    await m.settings.load();
     expect(await m.sync.sync(force: true), SyncOutcome.nothing);
     expect(m.client.trackerSyncs, isEmpty);
     expect(m.sync.state.lastSyncAt, _clock);
@@ -160,7 +162,7 @@ void main() {
 
   test('the switch asks for permission, then sends; it stays off when permission fails', () async {
     final m = _make(readOn: false);
-    await m.sync.load();
+    await m.settings.load();
     m.source.connectResult = false;
     await m.sync.setReadOn(true);
     expect(m.sync.state.readOn, isFalse);
@@ -183,7 +185,7 @@ void main() {
   test('a phone with no store: the switch stays off', () async {
     final m = _make(readOn: false);
     m.source.isAvailable = false;
-    await m.sync.load();
+    await m.settings.load();
     await m.sync.setReadOn(true);
     expect(m.sync.state.readOn, isFalse);
     expect(m.sync.lastOutcome, SyncOutcome.unavailable);
@@ -191,7 +193,7 @@ void main() {
 
   test('a send in progress is not started twice', () async {
     final m = _make();
-    await m.sync.load();
+    await m.settings.load();
     final Future<SyncOutcome> a = m.sync.sync(force: true);
     final SyncOutcome b = await m.sync.sync(force: true);
     expect(b, SyncOutcome.skipped);
@@ -201,7 +203,7 @@ void main() {
 
   test('ConvexCallException from the server is swallowed', () async {
     final m = _make();
-    await m.sync.load();
+    await m.settings.load();
     m.client.failNext = const ConvexCallException('nope');
     expect(await m.sync.sync(force: true), SyncOutcome.failed);
   });

@@ -42,7 +42,7 @@ class TrackerSync extends ChangeNotifier {
   TrackerSync({
     required this.source,
     required this.client,
-    required this.prefs,
+    required this.settings,
     required this.isConnected,
     DateTime Function()? now,
     this.interval = const Duration(minutes: 15),
@@ -51,7 +51,7 @@ class TrackerSync extends ChangeNotifier {
 
   final TrackerSource source;
   final ConvexClient client;
-  final TrackerPrefs prefs;
+  final TrackerSettings settings;
   final bool Function() isConnected;
   final DateTime Function() _now;
 
@@ -61,20 +61,11 @@ class TrackerSync extends ChangeNotifier {
   /// How many days back each sync reads, today included.
   final int windowDays;
 
-  TrackerPrefsState state = const TrackerPrefsState();
+  TrackerPrefsState get state => settings.state;
   bool busy = false;
 
   /// The outcome of the last run, for the screen.
   SyncOutcome? lastOutcome;
-
-  Future<void> load() async {
-    try {
-      state = await prefs.load();
-    } catch (_) {
-      state = const TrackerPrefsState();
-    }
-    notifyListeners();
-  }
 
   /// Turns reading on or off. On: asks the phone for read permission first;
   /// the switch stays off when there is no store or the dialog failed. Then
@@ -98,7 +89,7 @@ class TrackerSync extends ChangeNotifier {
         return;
       }
     }
-    await _save(state.copyWith(readOn: on));
+    await settings.update((TrackerPrefsState s) => s.copyWith(readOn: on));
     if (on) {
       unawaited(sync(force: true));
     } else {
@@ -149,16 +140,7 @@ class TrackerSync extends ChangeNotifier {
     if (days.isNotEmpty || workouts.isNotEmpty) {
       await client.syncTracker(days: days, workouts: workouts);
     }
-    await _save(state.copyWith(lastSyncAt: now, lastDays: days.length, lastWorkouts: workouts.length));
+    await settings.update((TrackerPrefsState s) => s.copyWith(lastSyncAt: now, lastDays: days.length, lastWorkouts: workouts.length));
     return days.isEmpty && workouts.isEmpty ? SyncOutcome.nothing : SyncOutcome.sent;
-  }
-
-  Future<void> _save(TrackerPrefsState next) async {
-    state = next;
-    try {
-      await prefs.save(next);
-    } catch (_) {
-      // The choice still holds in memory; it is saved on the next change.
-    }
   }
 }

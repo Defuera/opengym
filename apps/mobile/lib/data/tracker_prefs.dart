@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// What the person chose about the health store, and what was done, kept on
@@ -103,5 +104,35 @@ class InMemoryTrackerPrefs implements TrackerPrefs {
   Future<void> save(TrackerPrefsState s) async {
     saves++;
     state = s;
+  }
+}
+
+/// The one copy of the tracker choices in memory. The sync and the writer both
+/// change it, so neither overwrites the other's fields.
+class TrackerSettings extends ChangeNotifier {
+  TrackerSettings(this._prefs);
+
+  final TrackerPrefs _prefs;
+  TrackerPrefsState state = const TrackerPrefsState();
+
+  Future<void> load() async {
+    try {
+      state = await _prefs.load();
+    } catch (_) {
+      state = const TrackerPrefsState();
+    }
+    notifyListeners();
+  }
+
+  /// Applies [change] to the state, tells listeners, then saves. A failed save
+  /// keeps the choice in memory; the next change saves it.
+  Future<void> update(TrackerPrefsState Function(TrackerPrefsState s) change) async {
+    state = change(state);
+    notifyListeners();
+    try {
+      await _prefs.save(state);
+    } catch (_) {
+      // Kept in memory only.
+    }
   }
 }

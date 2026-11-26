@@ -159,6 +159,14 @@ conversation (A01–A16). Wording is kept close to his.
 ## AI usage and more than one user (ADR-038)
 - Confirmed 2026-11-26, the owner's words: "Yeah, I know that I'm the only one user today, but let's rework schema and database such that we're ready for multi-user. We will implement a login soon, and let's count tokens so we can evaluate approximately how much it will cost us to run this app and for how much should we sell subscription." Every paid AI call is counted with its tokens and a user id. The data model is being made ready for more than one user; the tables are reworked in a later step.
 
+## The debrief after a session (ADR-041)
+- Confirmed 2026-11-26, the owner's words about the coach review: "I'm reading summary and I don't like it. It's boring and it's kind of useless for me."
+- Confirmed 2026-11-26, the owner's words: "I know what I did during the session. What's the point of repeating it? I need an evaluation, not the summary of what I did. I know what I did, and below, immediately, I see again what I did. What's the point of AI to reiterating to me what I did? That is completely pointless."
+- Confirmed 2026-11-26, the owner's words: "I want it to be more human. It's like, imagine I would train this coach, and he was like, okay, dude, ... I see that you pushed harder. That's pretty good. I think we can keep it up. Are you sure you didn't feel any pain? How do you feel right now? Maybe we should also like open a chat and have AI ability to ask questions ... it would make sense for me more like, oh wow, dude, that's a big jump. It's pretty good, but are you sure that you feel okay? Or it's like, all right, looks like we're progressing faster than expected. Good job. I think you can be ready for your ski session"
+- Confirmed 2026-11-26, the owner's words: "what I did bad, what I did good, what I should be looking for next session, maybe some encouragement or maybe some kind of pushing, it's like, oh, you were lazy today or something like that."
+- Confirmed 2026-11-26, the owner's words about the session recap screen: "Session summary skill screen. Let's put everything upside down. First, let's have a figure go with muscles, then the summary, and then the then the log, because log is less important. I just did it, so I know what I did. Doesn't make sense to put it first. And also, maybe even let's put the AI summary first and then the figurine." The recap shows the coach's debrief first, then the figure with the muscles the session loaded, then the log of sets.
+- The review after a session is an evaluation in the coach's own voice. It never restates the log. It ends with a question, and the answer opens a chat with the coach.
+
 ## Open questions (the owner's list, still undecided unless noted)
 - Which activities are in v1 besides gym
 - What context inputs exist beyond injuries

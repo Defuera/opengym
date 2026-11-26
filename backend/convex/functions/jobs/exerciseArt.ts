@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { internal } from "../_generated/api";
 import { internalAction, internalMutation, internalQuery } from "../_generated/server";
 import { providerFor, runAiJob } from "../lib/ai";
+import { countedCall } from "../lib/countedCall";
 import { matchExerciseJob } from "../model/ai/jobs/matchExercise";
 import sources from "../model/data/exerciseSources.json";
 import { type SourceExercise, artPrompt, shortlist } from "../model/exerciseArt";
@@ -104,13 +105,14 @@ export const make = internalAction({
         const prompt = artPrompt({ name: art.name, muscles, hasPhotos: photos.length > 0, ...(matched.movement ? { movement: matched.movement } : {}) });
         // The check: the figure must stay on the same place in both poses. A picture that fails is drawn again, up to ART_TRIES
         // pictures; the steadiest one is kept. A picture the check cannot read (shift null) is taken as it is.
-        let bytes = await provider.image(prompt, photos);
+        const draw = () => countedCall(ctx, { job: "exercise_art", kind: "image", provider: provider.name, model: provider.imageModel ?? "unknown", ref: key }, (onUsage) => provider.image!(prompt, photos, { onUsage }));
+        let bytes = await draw();
         let shift: Shift | null = shiftOfPng(bytes);
         let tries = 1;
         while (shift && jumps(shift) && tries < ART_TRIES) {
           tries++;
           console.log(`[art] the figure jumps (dx ${shift.dx.toFixed(3)}, dy ${shift.dy.toFixed(3)}); drawing again`);
-          const next = await provider.image(prompt, photos);
+          const next = await draw();
           const nextShift = shiftOfPng(next);
           if (!nextShift || shiftSize(nextShift) < shiftSize(shift)) [bytes, shift] = [next, nextShift];
         }

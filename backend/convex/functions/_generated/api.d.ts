@@ -28,6 +28,7 @@ import type * as commands_tracker from "../commands/tracker.js";
 import type * as commands_voice from "../commands/voice.js";
 import type * as crons from "../crons.js";
 import type * as jobs_aiCalls from "../jobs/aiCalls.js";
+import type * as jobs_aiUsage from "../jobs/aiUsage.js";
 import type * as jobs_chat from "../jobs/chat.js";
 import type * as jobs_coachTurn from "../jobs/coachTurn.js";
 import type * as jobs_dashboards from "../jobs/dashboards.js";
@@ -205,6 +206,7 @@ declare const fullApi: ApiFromModules<{
   "commands/voice": typeof commands_voice;
   crons: typeof crons;
   "jobs/aiCalls": typeof jobs_aiCalls;
+  "jobs/aiUsage": typeof jobs_aiUsage;
   "jobs/chat": typeof jobs_chat;
   "jobs/coachTurn": typeof jobs_coachTurn;
   "jobs/dashboards": typeof jobs_dashboards;

@@ -4,6 +4,7 @@ import { actionResult, coachQuestion, messageContext, storedProposal } from "./l
 import { placeChangeFields, placeFields } from "./lib/placeFields";
 import { trackerDayFields, trackerWorkoutFields } from "./lib/trackerFields";
 import { programFields, proposalFields, threadAbout } from "./lib/programFields";
+import { aiUsageFields } from "./lib/usageFields";
 import { previousPlan, startProposal, startStatus, dashboardDays, feeling, limitRule, limitStatus, fileKind, threadStatus, goalKind, goalStatus, importCounts, importStatus, itemSource, moduleSpec, parseState, planExercise, prediction, proposalSource } from "./lib/validators";
 
 /** One logged set. `reps` = completed reps; `failed` = one more rep was tried and not completed. */
@@ -393,6 +394,11 @@ export default defineSchema({
     path: v.union(v.literal("ai"), v.literal("fallback")),
     reason: v.optional(v.string()),
     ms: v.number(),
+    /** The tokens of all attempts of this run added up (ADR-038), so a trace shows its own cost. Absent when no attempt reported the number. */
+    inputTokens: v.optional(v.number()),
+    cachedInputTokens: v.optional(v.number()),
+    outputTokens: v.optional(v.number()),
+    reasoningTokens: v.optional(v.number()),
     /** What the call was for: the turn id (the user message id) of a coach turn. Optional: rows of other jobs and older rows have none. */
     ref: v.optional(v.string()),
     /** The result of each action of a coach turn (applied, drafted or rejected with the reason), written by jobs/coachTurn:save, so a bad turn can be diagnosed. */
@@ -400,6 +406,12 @@ export default defineSchema({
   })
     .index("by_at", ["at"])
     .index("by_job", ["job", "at"]),
+
+  // One small row per paid provider attempt (ADR-038): chat, speech to text or image. A retry is a second row. Holds numbers only, no prompt text,
+  // so the purge does NOT erase it (unlike aiCalls). `userId` comes from lib/currentUser.ts. Written by lib/aiUsageDb:insertUsage. Read by queries/usage.
+  aiUsage: defineTable(aiUsageFields)
+    .index("by_at", ["at"])
+    .index("by_user_and_at", ["userId", "at"]),
 
   // The open session (ADR-028): at most one row, the session the person is doing now, in the app's own shape. The app writes it on every
   // change (commands/openSession:put) and removes it when the session ends. An outside writer changes only the part that is not done

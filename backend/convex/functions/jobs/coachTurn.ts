@@ -4,7 +4,8 @@ import { internal } from "../_generated/api";
 import { internalAction, internalMutation, internalQuery } from "../_generated/server";
 import { providerFor, runAiJob } from "../lib/ai";
 import { programTurnState, startProgramProposal } from "../lib/programChatDb";
-import { allContext, allGoals, allSessions, entryByEntryId, messageByMessageId, threadByThreadId } from "../lib/db";
+import { allContext, allGoals, allSessions, entryByEntryId, liveSessionDocs, messageByMessageId, threadByThreadId } from "../lib/db";
+import { afterSession, AFTER_SESSION_DAYS } from "../lib/debriefDb";
 import { toLimit } from "../lib/limitsDb";
 import { hasNewerUserMessage, unansweredFileIds } from "../lib/unansweredDb";
 import { readChatInput } from "../lib/chatInputDb";
@@ -76,8 +77,10 @@ export const input = internalQuery({
     const log = isLog ? await logInput(ctx, userId, threadId, trigger._creationTime) : null;
     const editables = editablesForTurn({ goals: await allGoals(ctx, userId), limits: (await ctx.db.query("limits").withIndex("by_user_and_limitId", (q) => q.eq("userId", userId)).collect()).map(toLimit), notes: await allContext(ctx, userId), goalId: hint.goalId, limitId: hint.limitId, noteId: hint.noteId, part: hint.part });
     const unanswered = await unansweredFileIds(ctx, userId, threadId, trigger); // the files of every message this turn answers (ADR-040)
+    const answers = await afterSession(ctx, userId, await liveSessionDocs(ctx, userId, { order: "asc", after: Date.now() - AFTER_SESSION_DAYS * 86_400_000 }), Date.now(), chat.data.timeZone);
     const turn = {
       ...screen,
+      ...(answers.length > 0 ? { afterSession: answers } : {}),
       ...editables,
       ...(program ?? {}),
       // What any log needs, on every screen: the day, the time, the categories in use and the open draft.

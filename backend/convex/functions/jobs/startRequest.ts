@@ -3,7 +3,8 @@ import { internal } from "../_generated/api";
 import { internalAction, internalMutation, internalQuery } from "../_generated/server";
 import { providerFor, runAiJob } from "../lib/ai";
 import { userTimezone } from "../lib/timezoneDb";
-import { allContext, allGoals, allSessions, startRequestById } from "../lib/db";
+import { allContext, allGoals, allSessions, liveSessionDocs, startRequestById } from "../lib/db";
+import { afterSession, AFTER_SESSION_DAYS } from "../lib/debriefDb";
 import { coachTracker } from "../lib/trackerDb";
 import { coachEntries, entryImageFiles, loadEntryImages } from "../lib/entriesDb";
 import { activeLimits, limitsForAi } from "../lib/limitsDb";
@@ -32,7 +33,7 @@ export const input = internalQuery({
     // The pure part (the picture of the user, the places, the rules plan for the fallback) is in model/startInput.ts: the eval runner calls it too.
     const built = buildStartInput(
       { name: doc.name, text: doc.text, feedback: doc.feedback, previousPlan: doc.previousPlan, previousPlaceId: doc.previousPlaceId },
-      { sessions: await allSessions(ctx, userId), goals: await allGoals(ctx, userId), context: await allContext(ctx, userId), limits: await limitsForAi(ctx, userId), places: await allPlaces(ctx, userId), entries: await coachEntries(ctx, userId, now), tracker: await coachTracker(ctx, userId, now, tz), programs: await liveProgramDocs(ctx, userId), now, timeZone: tz },
+      { sessions: await allSessions(ctx, userId), goals: await allGoals(ctx, userId), context: await allContext(ctx, userId), limits: await limitsForAi(ctx, userId), places: await allPlaces(ctx, userId), entries: await coachEntries(ctx, userId, now), tracker: await coachTracker(ctx, userId, now, tz), programs: await liveProgramDocs(ctx, userId), now, timeZone: tz, afterSession: await afterSession(ctx, userId, await liveSessionDocs(ctx, userId, { order: "asc", after: now - AFTER_SESSION_DAYS * 86_400_000 }), now, tz) },
     );
     return { ...built, entryImages: await entryImageFiles(ctx, userId, now) };
   },

@@ -1,5 +1,5 @@
 import type { BuildSessionInput } from "./ai/jobs/buildSession";
-import { coachPicture } from "./ai/jobs/coachPicture";
+import { type AfterSession, coachPicture } from "./ai/jobs/coachPicture";
 import { knownActivities } from "./ai/jobs/inputs";
 import { lastPlaceIdFor } from "./places";
 import { type PlaceKnowledge, knowledgeOf } from "./placeKnowledge";
@@ -37,6 +37,8 @@ export interface StartData {
   now: number;
   /** The time zone of the user (ADR-039). Absent: the deployment's zone. */
   timeZone?: string;
+  /** What the person answered the coach after their last sessions (ADR-041). */
+  afterSession?: AfterSession[];
 }
 
 /**
@@ -64,7 +66,7 @@ export function buildStartInput(doc: StartDoc, d: StartData) {
     placesTheCoachKnows,
     ...(programs.length > 0 ? { programsThePersonFollows: programs } : {}),
     fociTheUserUses,
-    picture: coachPicture(d.sessions, [...d.goals].sort((x, y) => x.createdAt - y.createdAt), d.context, d.limits, d.entries, d.now, d.tracker, d.timeZone),
+    picture: coachPicture(d.sessions, [...d.goals].sort((x, y) => x.createdAt - y.createdAt), d.context, d.limits, d.entries, d.now, d.tracker, d.timeZone, d.afterSession),
     limits: d.limits,
   };
   return { job, known, text: doc.text ?? "", name: doc.name ?? null, rules };

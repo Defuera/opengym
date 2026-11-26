@@ -18,7 +18,15 @@ const setsText = (sets: ({ reps: number; kg: number } | { minutes: number; dista
  * full log with its last sets and best weight), what the last weeks looked like, the recent sessions with their
  * notes, the goals in order, the limits, the notes, the log entries of the last week, the tracker readings of the phone. Plain code, no AI. Holds the records of the limits (ADR-033).
  */
-export function coachPicture(all: Session[], goals: Goal[], context: ContextItem[], limits: LimitForAi[], entries: Entry[], now: number, tracker?: TrackerForCoach, timeZone?: string) {
+/** What the person answered the coach after a recent session (ADR-041): the debrief question, the first answer and the date. */
+export interface AfterSession {
+  date: string;
+  session: string;
+  question: string;
+  answer: string;
+}
+
+export function coachPicture(all: Session[], goals: Goal[], context: ContextItem[], limits: LimitForAi[], entries: Entry[], now: number, tracker?: TrackerForCoach, timeZone?: string, afterSession?: AfterSession[]) {
   const phone = trackerForPrompt(tracker, all, now, timeZone);
   const gym = all.filter((s) => s.kind === "gym");
   const byName = new Map<string, { name: string; times: number; last: Session; lastSets: string; bestKg: number; time: boolean }>();
@@ -67,5 +75,7 @@ export function coachPicture(all: Session[], goals: Goal[], context: ContextItem
     exercisesTheUserKnows: exercises,
     // Tracker readings from the phone (ADR-036). Absent when the person has none.
     ...(phone ? { trackerFromThePhone: phone } : {}),
+    // The newest debrief answers of the last sessions (ADR-041). Absent when the person answered none.
+    ...(afterSession && afterSession.length > 0 ? { afterSession } : {}),
   };
 }

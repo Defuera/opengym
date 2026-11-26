@@ -9,6 +9,7 @@
  */
 
 import type * as commands_context from "../commands/context.js";
+import type * as commands_debrief from "../commands/debrief.js";
 import type * as commands_entries from "../commands/entries.js";
 import type * as commands_exerciseArt from "../commands/exerciseArt.js";
 import type * as commands_files from "../commands/files.js";
@@ -59,6 +60,7 @@ import type * as lib_constants from "../lib/constants.js";
 import type * as lib_countedCall from "../lib/countedCall.js";
 import type * as lib_currentUser from "../lib/currentUser.js";
 import type * as lib_db from "../lib/db.js";
+import type * as lib_debriefDb from "../lib/debriefDb.js";
 import type * as lib_entriesDb from "../lib/entriesDb.js";
 import type * as lib_exerciseArtDb from "../lib/exerciseArtDb.js";
 import type * as lib_factsChanged from "../lib/factsChanged.js";
@@ -199,6 +201,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   "commands/context": typeof commands_context;
+  "commands/debrief": typeof commands_debrief;
   "commands/entries": typeof commands_entries;
   "commands/exerciseArt": typeof commands_exerciseArt;
   "commands/files": typeof commands_files;
@@ -249,6 +252,7 @@ declare const fullApi: ApiFromModules<{
   "lib/countedCall": typeof lib_countedCall;
   "lib/currentUser": typeof lib_currentUser;
   "lib/db": typeof lib_db;
+  "lib/debriefDb": typeof lib_debriefDb;
   "lib/entriesDb": typeof lib_entriesDb;
   "lib/exerciseArtDb": typeof lib_exerciseArtDb;
   "lib/factsChanged": typeof lib_factsChanged;

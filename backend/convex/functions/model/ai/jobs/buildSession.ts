@@ -46,6 +46,8 @@ Build the session from what the person does now: prefer the exercises of the rec
 
 The minutes are a promise. Count them before you answer: cardio and holds take their own minutes, a work set with its rest takes about two minutes and about three on a heavy main lift, and changing the exercise takes one more; recentSessions shows durationMin, how long sessions of that size really took this person. When the work does not fit, leave a whole exercise out instead of thinning the sets of one. A short session still holds two or three lifts, not one long ride.
 
+afterSession, when present, is what the person told the coach after a recent session (the question, the answer, the date): plan with it, weighed by its date.
+
 What you write is what the person does. Every set in the list is meant to be done: when a set depends on how the day goes, say in the note what to do instead, and do not hide extra work (a drill, a warm-up) in the note of another exercise. A notesFromTheUser entry carries the date it was stored: weigh a body signal by its age, and by what the sessions after it show.
 
 When previousPlan and feedbackFromThePerson are present, the person saw that plan and asked for a change: rebuild the session so that the feedback holds.

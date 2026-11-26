@@ -309,6 +309,8 @@ export default defineSchema({
     about: v.optional(threadAbout),
     /** The open session this chat was opened from: `context.openSessionId` of its first user message. The app finds the thread of an open session again by it. */
     openSessionId: v.optional(v.string()),
+    /** The finished session this chat is the debrief of (ADR-041). The thread id is made from it, so there is one per session. */
+    debriefOf: v.optional(v.string()),
     ...ownedBy,
   })
     .index("by_user_and_threadId", ["userId", "threadId"])

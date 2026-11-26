@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { query } from "../_generated/server";
 import { requireUser } from "../lib/auth";
-import { liveSessionDocs, sessionBySessionId, toSession } from "../lib/db";
+import { liveSessionDocs, sessionBySessionId, toSession, withoutUserId } from "../lib/db";
 import { loadForPlan, loadForSession } from "../model/rules/load";
 import { normalizeSession } from "../model/sessionShape";
 
@@ -14,7 +14,7 @@ export const recent = query({
   handler: async (ctx, { token, limit }) => {
     const userId = await requireUser(ctx, token);
     const docs = await liveSessionDocs(ctx, userId, { order: "desc", limit: Math.min(limit ?? 20, 200) });
-    return docs.map(normalizeSession);
+    return docs.map((d) => withoutUserId(normalizeSession(d)));
   },
 });
 
@@ -24,7 +24,7 @@ export const since = query({
   handler: async (ctx, { token, since }) => {
     const userId = await requireUser(ctx, token);
     const docs = await liveSessionDocs(ctx, userId, { order: "asc", after: since });
-    return docs.map(normalizeSession);
+    return docs.map((d) => withoutUserId(normalizeSession(d)));
   },
 });
 

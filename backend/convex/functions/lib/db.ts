@@ -105,7 +105,10 @@ type Reader = { db: DatabaseReader };
 export function liveSessionDocs(ctx: Reader, userId: string, o: { order: "asc" | "desc"; after?: number; limit?: number }): Promise<Doc<"sessions">[]> {
   const q = ctx.db
     .query("sessions")
-    .withIndex("by_user_and_endedAt", (r) => (o.after !== undefined ? r.eq("userId", userId).gt("endedAt", o.after) : r.eq("userId", userId)))
+    .withIndex("by_user_and_endedAt", (r) => {
+      const mine = r.eq("userId", userId);
+      return o.after !== undefined ? mine.gt("endedAt", o.after) : mine;
+    })
     .order(o.order)
     .filter((f) => f.eq(f.field("deletedAt"), undefined));
   return o.limit === undefined ? q.collect() : q.take(o.limit);

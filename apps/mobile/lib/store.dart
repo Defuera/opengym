@@ -68,6 +68,9 @@ class AppStore extends ChangeNotifier {
   int curEx = 0;
   int curSet = 0;
 
+  /// The id of the exercise the person is on, kept with the open session on the phone (not on the server).
+  String? _leftOnId;
+
   Future<void> load() async {
     final StoredState s = await _repo.load();
     sessions = List<Session>.from(s.sessions);
@@ -80,7 +83,8 @@ class AppStore extends ChangeNotifier {
     _undoAt = s.undoAt;
     _activeJson = openSessionJson;
     _activeId = active?.id;
-    _select(0);
+    _leftOnId = active == null ? null : s.activeExerciseId;
+    _select(openIndex());
   }
 
   /// The open session as the server takes it (`commands/openSession:put`), as
@@ -125,6 +129,7 @@ class AppStore extends ChangeNotifier {
       pendingClear: pendingClear,
       undo: _undo,
       undoAt: _undoAt,
+      activeExerciseId: active == null ? null : _leftOnId,
     ));
   }
 
@@ -200,6 +205,23 @@ class AppStore extends ChangeNotifier {
   void _select(int i) {
     curEx = i < 0 ? 0 : i;
     curSet = firstOpen(currentExercise);
+    _leftOnId = currentExercise?.id;
+  }
+
+  /// The exercise the session screen opens on: the one the person was on, if it
+  /// is still there; else the first exercise with a set not done (the first one
+  /// for a new session); else, when all is done, the last.
+  int openIndex() {
+    final List<Exercise> list = active?.exercises ?? <Exercise>[];
+    if (list.isEmpty) {
+      return 0;
+    }
+    final int left = list.indexWhere((Exercise e) => e.id == _leftOnId);
+    if (_leftOnId != null && left >= 0) {
+      return left;
+    }
+    final int open = list.indexWhere((Exercise e) => e.sets.any((SetEntry s) => !s.done));
+    return open >= 0 ? open : list.length - 1;
   }
 
   // ---------- session lifecycle ----------
@@ -209,7 +231,7 @@ class AppStore extends ChangeNotifier {
     if (a == null) {
       return;
     }
-    _select(math.min(curEx, a.exercises.length - 1));
+    _select(openIndex());
     notifyListeners();
   }
 
@@ -246,7 +268,7 @@ class AppStore extends ChangeNotifier {
       return;
     }
     // One session at a time: an open session with logged sets is resumed.
-    _select(0);
+    _select(openIndex());
     notifyListeners();
   }
 
@@ -507,11 +529,13 @@ class AppStore extends ChangeNotifier {
 
   void pickExercise(int i) {
     _select(i);
+    _save(); // the exercise the person is on is kept for the next open
     notifyListeners();
   }
 
   void nextExercise() {
     _select(curEx + 1);
+    _save();
     notifyListeners();
   }
 
@@ -530,6 +554,7 @@ class AppStore extends ChangeNotifier {
     list.insert(to, list.removeAt(from));
     final int k = list.indexWhere((Exercise e) => e.id == id);
     curEx = k < 0 ? 0 : k;
+    _leftOnId = currentExercise?.id;
     _commit();
   }
 

@@ -11,12 +11,16 @@ class StoredState {
     this.pendingClear,
     this.undo,
     this.undoAt = 0,
+    this.activeExerciseId,
   });
 
   /// The session as it was open just before it was finished (with its sets
   /// that were not done), and when it was finished. For "Continue session".
   final Session? undo;
   final int undoAt;
+
+  /// The exercise the person was on in the open session (local only, never sent to the server).
+  final String? activeExerciseId;
 
   final List<Session> sessions;
   final Session? active;
@@ -41,6 +45,7 @@ class StoredState {
       'activeRev': activeRev,
       'activeDirty': activeDirty,
       if (pendingClear != null) 'pendingClear': pendingClear,
+      if (activeExerciseId != null) 'activeExerciseId': activeExerciseId,
       if (undo != null) 'undo': undo!.toJson(),
       if (undo != null) 'undoAt': undoAt,
     };
@@ -58,6 +63,7 @@ class StoredState {
     final Object? at = j['activeAt'];
     final Object? rev = j['activeRev'];
     final Object? clear = j['pendingClear'];
+    final Object? exId = j['activeExerciseId'];
     final Object? undo = j['undo'];
     final Object? undoAt = j['undoAt'];
     return StoredState(
@@ -70,6 +76,7 @@ class StoredState {
       pendingClear: clear is String && clear.isNotEmpty ? clear : null,
       undo: undo is Map<String, dynamic> ? Session.fromJson(undo) : null,
       undoAt: undoAt is num ? undoAt.toInt() : 0,
+      activeExerciseId: a != null && exId is String && exId.isNotEmpty ? exId : null,
     );
   }
 }

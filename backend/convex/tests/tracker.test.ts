@@ -167,7 +167,7 @@ describe("tracker block for the coach", () => {
       days: [day("2026-11-24", { steps: 1 }), day("2026-11-01", { steps: 2 })],
       workouts: [workout("a", NOW - 2 * H), workout("b", NOW - 20 * 24 * H)],
     } as never);
-    const got = await t.run((c) => coachTracker(c, NOW));
+    const got = await t.run((c) => coachTracker(c, "owner", NOW));
     expect(got.days.map((d) => d.date)).toEqual(["2026-11-24"]);
     expect(got.workouts.map((w) => w.workoutId)).toEqual(["a"]);
     expect(got.days[0]).not.toHaveProperty("updatedAt");

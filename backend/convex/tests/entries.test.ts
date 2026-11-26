@@ -129,7 +129,7 @@ describe("coach picture", () => {
     await save(entry("old", { at: NOW - 8 * 24 * HOUR }));
     const chat = await t.run(async (ctx) => {
       const { coachEntries, entryImageFiles } = await import("../functions/lib/entriesDb");
-      return { entries: await coachEntries(ctx, NOW), images: await entryImageFiles(ctx, NOW) };
+      return { entries: await coachEntries(ctx, "owner", NOW), images: await entryImageFiles(ctx, "owner", NOW) };
     });
     expect(chat.entries).toHaveLength(20);
     expect(chat.entries.some((e) => e.id === "old")).toBe(false);
@@ -276,7 +276,7 @@ describe("the reader job labels an entry (ADR-031)", () => {
   it("a label for an older text is dropped", async () => {
     await save(entry("e1"));
     await save(entry("e1", { text: "Lunch, no rice" }));
-    await t.mutation(internal.jobs.readEntry.save, { entryId: "e1", read: { status: "ready", rev: "old", kind: "meal", summary: "Old." } });
+    await t.mutation(internal.jobs.readEntry.save, { userId: "owner", entryId: "e1", read: { status: "ready", rev: "old", kind: "meal", summary: "Old." } });
     expect(await read()).toEqual({ status: "pending" });
   });
 
@@ -286,7 +286,7 @@ describe("the reader job labels an entry (ADR-031)", () => {
     await save(entry("e1", { text: "dinner", fileIds: ["f1"] }));
     await save(entry("e2", { text: "slept badly", at: NOW - 2 * HOUR }));
     await settle(t);
-    const seen = await t.run((c) => coachEntries(c, NOW));
+    const seen = await t.run((c) => coachEntries(c, "owner", NOW));
     expect(seen.map((e) => e.seen)).toEqual([undefined, "Pasta with tomato sauce."]);
   });
 });

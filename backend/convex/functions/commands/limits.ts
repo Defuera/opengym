@@ -1,6 +1,6 @@
 import { ConvexError, v } from "convex/values";
 import { mutation } from "../_generated/server";
-import { requireToken } from "../lib/auth";
+import { requireUser } from "../lib/auth";
 import { stableJson, withoutSystemFields } from "../lib/db";
 import { markFactsChanged } from "../lib/factsChanged";
 import { checkinByCheckinId, limitByLimitId, recordByRecordId } from "../lib/limitsDb";
@@ -12,13 +12,13 @@ import { checkinFields, limitFields, recordFields } from "../schema";
 export const save = mutation({
   args: { token: v.string(), limit: v.object(limitFields) },
   handler: async (ctx, { token, limit }) => {
-    requireToken(token);
+    const userId = await requireUser(ctx, token);
     parseOrThrow(LimitSchema, limit, "limit");
-    const old = await limitByLimitId(ctx, limit.limitId);
-    if (old && stableJson(withoutSystemFields(old)) === stableJson(limit)) return limit.limitId;
-    if (old) await ctx.db.replace(old._id, limit);
-    else await ctx.db.insert("limits", limit);
-    await markFactsChanged(ctx);
+    const old = await limitByLimitId(ctx, userId, limit.limitId);
+    if (old && stableJson(withoutSystemFields(old)) === stableJson({ ...limit, userId })) return limit.limitId;
+    if (old) await ctx.db.replace(old._id, { ...limit, userId });
+    else await ctx.db.insert("limits", { ...limit, userId });
+    await markFactsChanged(ctx, userId);
     return limit.limitId;
   },
 });
@@ -27,13 +27,13 @@ export const save = mutation({
 export const remove = mutation({
   args: { token: v.string(), limitId: v.string() },
   handler: async (ctx, { token, limitId }) => {
-    requireToken(token);
-    const old = await limitByLimitId(ctx, limitId);
+    const userId = await requireUser(ctx, token);
+    const old = await limitByLimitId(ctx, userId, limitId);
     if (!old) return false;
     for (const r of await ctx.db.query("records").withIndex("by_limitId", (q) => q.eq("limitId", limitId)).collect()) await ctx.db.delete(r._id);
     for (const c of await ctx.db.query("checkins").withIndex("by_limitId", (q) => q.eq("limitId", limitId)).collect()) await ctx.db.delete(c._id);
     await ctx.db.delete(old._id);
-    await markFactsChanged(ctx);
+    await markFactsChanged(ctx, userId);
     return true;
   },
 });
@@ -42,12 +42,12 @@ export const remove = mutation({
 export const addRecord = mutation({
   args: { token: v.string(), record: v.object(recordFields) },
   handler: async (ctx, { token, record }) => {
-    requireToken(token);
+    const userId = await requireUser(ctx, token);
     parseOrThrow(RecordInputSchema, record, "record");
-    if (!(await limitByLimitId(ctx, record.limitId))) throw new ConvexError(`limit not found: ${record.limitId}`);
-    const old = await recordByRecordId(ctx, record.recordId);
-    if (old) await ctx.db.replace(old._id, record);
-    else await ctx.db.insert("records", record);
+    if (!(await limitByLimitId(ctx, userId, record.limitId))) throw new ConvexError(`limit not found: ${record.limitId}`);
+    const old = await recordByRecordId(ctx, userId, record.recordId);
+    if (old) await ctx.db.replace(old._id, { ...record, userId });
+    else await ctx.db.insert("records", { ...record, userId });
     return record.recordId;
   },
 });
@@ -56,8 +56,8 @@ export const addRecord = mutation({
 export const removeRecord = mutation({
   args: { token: v.string(), recordId: v.string() },
   handler: async (ctx, { token, recordId }) => {
-    requireToken(token);
-    const old = await recordByRecordId(ctx, recordId);
+    const userId = await requireUser(ctx, token);
+    const old = await recordByRecordId(ctx, userId, recordId);
     if (!old) return false;
     await ctx.db.delete(old._id);
     return true;
@@ -68,12 +68,12 @@ export const removeRecord = mutation({
 export const checkin = mutation({
   args: { token: v.string(), checkin: v.object(checkinFields) },
   handler: async (ctx, { token, checkin }) => {
-    requireToken(token);
+    const userId = await requireUser(ctx, token);
     parseOrThrow(CheckinSchema, checkin, "checkin");
-    if (!(await limitByLimitId(ctx, checkin.limitId))) throw new ConvexError(`limit not found: ${checkin.limitId}`);
-    const old = await checkinByCheckinId(ctx, checkin.checkinId);
-    if (old) await ctx.db.replace(old._id, checkin);
-    else await ctx.db.insert("checkins", checkin);
+    if (!(await limitByLimitId(ctx, userId, checkin.limitId))) throw new ConvexError(`limit not found: ${checkin.limitId}`);
+    const old = await checkinByCheckinId(ctx, userId, checkin.checkinId);
+    if (old) await ctx.db.replace(old._id, { ...checkin, userId });
+    else await ctx.db.insert("checkins", { ...checkin, userId });
     return checkin.checkinId;
   },
 });

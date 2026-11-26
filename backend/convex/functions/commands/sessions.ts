@@ -1,7 +1,7 @@
 import { ConvexError, v } from "convex/values";
 import { internal } from "../_generated/api";
 import { internalMutation, mutation } from "../_generated/server";
-import { requireToken } from "../lib/auth";
+import { requireUser } from "../lib/auth";
 import { sessionBySessionId, sessionRowBySessionId, stableJson, withoutSystemFields } from "../lib/db";
 import { markFactsChanged, scheduleReview } from "../lib/factsChanged";
 import { parseOrThrow } from "../lib/validate";
@@ -28,23 +28,23 @@ import { sessionFields } from "../schema";
 export const save = mutation({
   args: { token: v.string(), session: v.object({ ...sessionFields, type: v.optional(v.string()) }) },
   handler: async (ctx, { token, session: given }) => {
-    requireToken(token);
+    const userId = await requireUser(ctx, token);
     const { parse: _parse, ...clean } = given;
     void _parse;
     const first = normalizeSession({ ...clean, type: clean.type ?? (clean.kind === "gym" ? GYM_TYPE : "") });
     const { sessionId, ...rest } = first;
     parseOrThrow(SessionSchema, { id: sessionId, ...rest }, "session");
-    const old = await sessionRowBySessionId(ctx, sessionId);
+    const old = await sessionRowBySessionId(ctx, userId, sessionId);
     const withPlace = first.placeId === undefined && old?.placeId !== undefined ? { ...first, placeId: old.placeId } : first;
     // The program link (like the place): an old app build does not send it, so a save without it keeps the stored one.
     const keepsLink = withPlace.programId === undefined && old?.programId !== undefined;
-    const session = keepsLink ? { ...withPlace, programId: old.programId, ...(old.programWeek !== undefined ? { programWeek: old.programWeek } : {}), ...(old.programSlot !== undefined ? { programSlot: old.programSlot } : {}), ...(old.programKey !== undefined ? { programKey: old.programKey } : {}) } : withPlace;
+    const session = { userId, ...(keepsLink ? { ...withPlace, programId: old.programId, ...(old.programWeek !== undefined ? { programWeek: old.programWeek } : {}), ...(old.programSlot !== undefined ? { programSlot: old.programSlot } : {}), ...(old.programKey !== undefined ? { programKey: old.programKey } : {}) } : withPlace) };
     if (old?.deletedAt !== undefined) return sessionId; // marked as deleted (ADR-020): a late resend must not bring it back
     if (old && stableJson(withoutSystemFields({ ...old, parse: undefined })) === stableJson(session)) return sessionId; // resend, nothing changed
     if (old) await ctx.db.replace(old._id, session);
     else await ctx.db.insert("sessions", session);
-    await markFactsChanged(ctx);
-    if (session.source !== "import") await scheduleReview(ctx, sessionId);
+    await markFactsChanged(ctx, userId);
+    if (session.source !== "import") await scheduleReview(ctx, userId, sessionId);
     return sessionId;
   },
 });
@@ -58,11 +58,12 @@ export const save = mutation({
 export const logText = mutation({
   args: { token: v.string(), sessionId: v.string(), type: v.string(), text: v.string(), at: v.number() },
   handler: async (ctx, { token, sessionId, ...input }) => {
-    requireToken(token);
+    const userId = await requireUser(ctx, token);
     if (!sessionId || sessionId.length > 100) throw new ConvexError("sessionId: must be 1 to 100 characters");
     const valid = parseOrThrow(LogTextInputSchema, input, "log");
-    if (await sessionRowBySessionId(ctx, sessionId)) return sessionId; // resend, or marked as deleted (ADR-020): a late resend must not bring it back
+    if (await sessionRowBySessionId(ctx, userId, sessionId)) return sessionId; // resend, or marked as deleted (ADR-020): a late resend must not bring it back
     await ctx.db.insert("sessions", {
+      userId,
       sessionId,
       kind: "activity",
       type: valid.type,
@@ -73,8 +74,8 @@ export const logText = mutation({
       source: "app",
       parse: "pending",
     });
-    await markFactsChanged(ctx);
-    await ctx.scheduler.runAfter(0, internal.jobs.parseLog.run, { sessionId, text: valid.text });
+    await markFactsChanged(ctx, userId);
+    await ctx.scheduler.runAfter(0, internal.jobs.parseLog.run, { userId, sessionId, text: valid.text });
     return sessionId;
   },
 });
@@ -88,23 +89,23 @@ export const logText = mutation({
 export const remove = mutation({
   args: { token: v.string(), sessionId: v.string() },
   handler: async (ctx, { token, sessionId }) => {
-    requireToken(token);
-    const old = await sessionRowBySessionId(ctx, sessionId);
+    const userId = await requireUser(ctx, token);
+    const old = await sessionRowBySessionId(ctx, userId, sessionId);
     if (!old || old.deletedAt !== undefined) return false;
     await ctx.db.patch(old._id, { deletedAt: Date.now() });
-    await markFactsChanged(ctx);
+    await markFactsChanged(ctx, userId);
     return true;
   },
 });
 
-/** Operator tool (`npx convex run`): clears the mark of a session, if it is not erased yet. Returns true when it brought one back. */
+/** Operator tool (`npx convex run`, args `{ userId, sessionId }`): clears the mark of a session, if it is not erased yet. Returns true when it brought one back. */
 export const restoreSession = internalMutation({
-  args: { sessionId: v.string() },
-  handler: async (ctx, { sessionId }) => {
-    const old = await sessionRowBySessionId(ctx, sessionId);
+  args: { userId: v.string(), sessionId: v.string() },
+  handler: async (ctx, { userId, sessionId }) => {
+    const old = await sessionRowBySessionId(ctx, userId, sessionId);
     if (!old || old.deletedAt === undefined) return false;
     await ctx.db.patch(old._id, { deletedAt: undefined });
-    await markFactsChanged(ctx);
+    await markFactsChanged(ctx, userId);
     return true;
   },
 });
@@ -117,9 +118,9 @@ export const restoreSession = internalMutation({
 export const setPlace = mutation({
   args: { token: v.string(), sessionId: v.string(), placeId: v.union(v.string(), v.null()) },
   handler: async (ctx, { token, sessionId, placeId }) => {
-    requireToken(token);
+    const userId = await requireUser(ctx, token);
     if (placeId !== null && (placeId.length < 1 || placeId.length > 100)) throw new ConvexError("placeId: must be 1 to 100 characters");
-    const doc = await sessionBySessionId(ctx, sessionId);
+    const doc = await sessionBySessionId(ctx, userId, sessionId);
     if (!doc) return false;
     await ctx.db.patch(doc._id, { placeId: placeId ?? undefined });
     return true;

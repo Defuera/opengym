@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { internal } from "../_generated/api";
 import { mutation } from "../_generated/server";
-import { requireToken } from "../lib/auth";
+import { requireUser } from "../lib/auth";
 import { START_FEEDBACK_MAX, START_REQUEST_MAX_NAME, START_REQUEST_MAX_TEXT, START_REQUEST_PURGE_BATCH, START_REQUEST_TTL_MS } from "../lib/constants";
 import { startRequestById } from "../lib/db";
 import { compactPlan, feedbackChain } from "../lib/startFeedback";
@@ -39,7 +39,7 @@ export const request = mutation({
     previousPlan: v.optional(previousPlanShape),
   },
   handler: async (ctx, { token, requestId, text, name, feedback, previousRequestId, previousPlan: givenPlan }): Promise<string> => {
-    requireToken(token);
+    const userId = await requireUser(ctx, token);
     const id = requestId.trim();
     if (id.length < 1 || id.length > 100) throw new Error("requestId must be 1..100 characters");
     if (feedback === undefined && (previousRequestId !== undefined || givenPlan !== undefined)) throw new Error("feedback and previousRequestId go together");
@@ -63,17 +63,18 @@ export const request = mutation({
     const now = Date.now();
     const old = await ctx.db.query("startRequests").withIndex("by_createdAt", (q) => q.lt("createdAt", now - START_REQUEST_TTL_MS)).take(START_REQUEST_PURGE_BATCH);
     for (const d of old) await ctx.db.delete(d._id);
-    if (await startRequestById(ctx, id)) return id;
-    const prev = prevId !== undefined ? await startRequestById(ctx, prevId) : null;
+    if (await startRequestById(ctx, userId, id)) return id;
+    const prev = prevId !== undefined ? await startRequestById(ctx, userId, prevId) : null;
     if (prevId !== undefined && !prev) throw new Error("previous request not found (it may be older than a day)");
     const plan = compactPlan(prev?.proposal?.plan);
     await ctx.db.insert("startRequests", {
+      userId,
       requestId: id,
       ...(givenPlan ? { name: planName!, ...(clean ? { text: clean.slice(0, START_REQUEST_MAX_TEXT) } : {}), feedback: [cleanFeedback!], previousPlan: givenPlan } : prev ? { ...(prev.text ? { text: prev.text } : {}), ...(prev.name ? { name: prev.name } : {}), feedback: feedbackChain(prev.feedback, cleanFeedback!), ...(plan ? { previousPlan: plan } : {}), ...(prev.proposal?.place ? { previousPlaceId: prev.proposal.place.placeId } : {}) } : { ...(clean ? { text: clean } : {}), ...(cleanName ? { name: cleanName } : {}) }),
       status: "pending",
       createdAt: now,
     });
-    await ctx.scheduler.runAfter(0, internal.jobs.startRequest.build, { requestId: id });
+    await ctx.scheduler.runAfter(0, internal.jobs.startRequest.build, { userId, requestId: id });
     return id;
   },
 });

@@ -13,25 +13,27 @@ import { loggedName } from "../model/rules/foci";
 
 /** Bounded model input for one plan. Reads the full history, returns the small input. */
 export const input = internalQuery({
-  args: { activity: v.string(), focus: v.optional(v.string()) },
-  handler: async (ctx, { activity, focus }) => buildPlanInput(await allSessions(ctx), await allGoals(ctx), await allContext(ctx), activity, focus, await limitsForAi(ctx), await coachTracker(ctx, Date.now())),
+  args: { userId: v.string(), activity: v.string(), focus: v.optional(v.string()) },
+  handler: async (ctx, { userId, activity, focus }) => buildPlanInput(await allSessions(ctx, userId), await allGoals(ctx, userId), await allContext(ctx, userId), activity, focus, await limitsForAi(ctx, userId), await coachTracker(ctx, userId, Date.now())),
 });
 
 /** Applies the safety limits against the FULL history, then replaces the stored plan for the activity and focus. */
 export const save = internalMutation({
   args: {
+    userId: v.string(),
     activity: v.string(),
     focus: v.optional(v.string()),
     version: v.number(),
     source: proposalSource,
     draft: v.object({ rationale: v.string(), exercises: v.array(planExercise) }),
   },
-  handler: async (ctx, { activity, focus, version, source, draft }) => {
-    const old = await planFor(ctx, activity, focus);
+  handler: async (ctx, { userId, activity, focus, version, source, draft }) => {
+    const old = await planFor(ctx, userId, activity, focus);
     if (old && old.version > version) return; // a newer rebuild already stored its result
-    const sessions = await allSessions(ctx);
-    const plan = finalizePlan(draft, sessions, await activeLimits(ctx));
+    const sessions = await allSessions(ctx, userId);
+    const plan = finalizePlan(draft, sessions, await activeLimits(ctx, userId));
     const doc = {
+      userId,
       ...planKey(activity, focus),
       activity: loggedName(sessions, activity, "gym") ?? activity.trim(),
       ...(focus ? { focus: focus.trim() } : {}),
@@ -47,10 +49,10 @@ export const save = internalMutation({
 
 /** plan_session job: input query -> AI pipeline -> save. */
 export const build = internalAction({
-  args: { activity: v.string(), focus: v.optional(v.string()), version: v.number() },
-  handler: async (ctx, { activity, focus, version }): Promise<void> => {
-    const input = await ctx.runQuery(internal.jobs.plans.input, { activity, focus });
-    const r = await runAiJob(ctx, planSessionJob, input);
-    await ctx.runMutation(internal.jobs.plans.save, { activity, focus, version, source: r.path === "ai" ? "ai" : "rules", draft: r.value });
+  args: { userId: v.string(), activity: v.string(), focus: v.optional(v.string()), version: v.number() },
+  handler: async (ctx, { userId, activity, focus, version }): Promise<void> => {
+    const input = await ctx.runQuery(internal.jobs.plans.input, { userId, activity, focus });
+    const r = await runAiJob(ctx, userId, planSessionJob, input);
+    await ctx.runMutation(internal.jobs.plans.save, { userId, activity, focus, version, source: r.path === "ai" ? "ai" : "rules", draft: r.value });
   },
 });

@@ -47,7 +47,7 @@ describe("the executor sets detail", () => {
       { id: "a5", name: "add_open_exercise", arguments: { exercise: { name: "Wall Sit", measure: "time", sets: [{ minutes: 0.5 }, { minutes: 0.5 }, { minutes: 0.5 }] } } },
       { id: "a6", name: "remove_open_exercise", arguments: { exerciseId: "nope" } },
     ];
-    const r = await t.mutation(internal.jobs.coachTurn.save, { threadId: "th1", turnId: "m1", openSessionId: "s1", rev: 1, message: "x", actions, sources: [] });
+    const r = await t.mutation(internal.jobs.coachTurn.save, { userId: "owner", threadId: "th1", turnId: "m1", openSessionId: "s1", rev: 1, message: "x", actions, sources: [] });
     expect(r.map((x: { detail?: string }) => x.detail)).toEqual(["Gym: removed second bike", "Removed: Brisk Walk", "Tandem Stand → Balance Board", "Leg press: note and sets changed", "Added: Wall Sit, 3 × 30 s", undefined]);
     const ms = await t.query(api.queries.messages.list, { token: TOKEN, threadId: "th1" });
     expect(ms[1]!.actions![0]).toMatchObject({ detail: "Gym: removed second bike" });

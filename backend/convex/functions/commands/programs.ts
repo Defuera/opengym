@@ -1,6 +1,6 @@
 import { ConvexError, v } from "convex/values";
 import { mutation } from "../_generated/server";
-import { requireToken } from "../lib/auth";
+import { requireUser } from "../lib/auth";
 import { deleteThreadWithMessages } from "../lib/db";
 import { markFactsChanged } from "../lib/factsChanged";
 import { programStatus } from "../lib/programFields";
@@ -10,8 +10,8 @@ import { programByProgramId } from "../lib/programsDb";
 export const setStatus = mutation({
   args: { token: v.string(), programId: v.string(), status: programStatus },
   handler: async (ctx, { token, programId, status }): Promise<null> => {
-    requireToken(token);
-    const p = await programByProgramId(ctx, programId);
+    const userId = await requireUser(ctx, token);
+    const p = await programByProgramId(ctx, userId, programId);
     if (!p) throw new ConvexError("program not found");
     if (p.status !== status) await ctx.db.patch(p._id, { status, rev: p.rev + 1, updatedAt: Date.now() });
     return null;
@@ -26,12 +26,12 @@ export const setStatus = mutation({
 export const remove = mutation({
   args: { token: v.string(), programId: v.string() },
   handler: async (ctx, { token, programId }): Promise<null> => {
-    requireToken(token);
-    const p = await programByProgramId(ctx, programId);
+    const userId = await requireUser(ctx, token);
+    const p = await programByProgramId(ctx, userId, programId);
     if (!p) return null;
     await ctx.db.patch(p._id, { deletedAt: Date.now() });
-    for (const th of await ctx.db.query("threads").collect()) if (th.about?.id === programId) await deleteThreadWithMessages(ctx, th);
-    await markFactsChanged(ctx);
+    for (const th of await ctx.db.query("threads").collect()) if (th.about?.id === programId) await deleteThreadWithMessages(ctx, userId, th);
+    await markFactsChanged(ctx, userId);
     return null;
   },
 });

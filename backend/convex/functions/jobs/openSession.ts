@@ -15,8 +15,8 @@ const plannedExercise = v.object({
  * given and another session is open. Returns the new `rev`, or null when nothing changed.
  */
 export const replacePlan = internalMutation({
-  args: { id: v.optional(v.string()), by: v.union(v.literal("coach"), v.literal("owner")), exercises: v.array(plannedExercise), focus: v.optional(v.string()), planNote: v.optional(v.string()) },
-  handler: async (ctx, { id, by, exercises, focus, planNote }): Promise<number | null> => {
+  args: { userId: v.string(), id: v.optional(v.string()), by: v.union(v.literal("coach"), v.literal("owner")), exercises: v.array(plannedExercise), focus: v.optional(v.string()), planNote: v.optional(v.string()) },
+  handler: async (ctx, { userId, id, by, exercises, focus, planNote }): Promise<number | null> => {
     const row = await ctx.db.query("openSession").first();
     if (!row || (id !== undefined && row.id !== id)) return null;
     let n = 0;

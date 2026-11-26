@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { query } from "../_generated/server";
-import { requireToken } from "../lib/auth";
+import { requireUser } from "../lib/auth";
 import { PROPOSAL_FOR_THREAD_MAX, PROPOSAL_OPEN_MAX } from "../lib/constants";
 import { isStale, proposalByProposalId, proposalView } from "../lib/programsDb";
 
@@ -8,9 +8,9 @@ import { isStale, proposalByProposalId, proposalView } from "../lib/programsDb";
 export const get = query({
   args: { token: v.string(), proposalId: v.string() },
   handler: async (ctx, { token, proposalId }) => {
-    requireToken(token);
-    const d = await proposalByProposalId(ctx, proposalId);
-    return d ? proposalView(d, await isStale(ctx, d)) : null;
+    const userId = await requireUser(ctx, token);
+    const d = await proposalByProposalId(ctx, userId, proposalId);
+    return d ? proposalView(d, await isStale(ctx, userId, d)) : null;
   },
 });
 
@@ -21,10 +21,10 @@ export const get = query({
 export const open = query({
   args: { token: v.string() },
   handler: async (ctx, { token }) => {
-    requireToken(token);
+    const userId = await requireUser(ctx, token);
     const docs = await ctx.db.query("proposals").withIndex("by_createdAt").order("desc").filter((f) => f.and(f.eq(f.field("approval"), "explicit"), f.or(f.eq(f.field("status"), "building"), f.eq(f.field("status"), "ready")))).take(PROPOSAL_OPEN_MAX * 4);
     const out = [];
-    for (const d of docs) if (!(await isStale(ctx, d))) out.push(proposalView(d));
+    for (const d of docs) if (!(await isStale(ctx, userId, d))) out.push(proposalView(d));
     return out.slice(0, PROPOSAL_OPEN_MAX);
   },
 });
@@ -36,10 +36,10 @@ export const open = query({
 export const forThread = query({
   args: { token: v.string(), threadId: v.string() },
   handler: async (ctx, { token, threadId }) => {
-    requireToken(token);
+    const userId = await requireUser(ctx, token);
     const docs = await ctx.db.query("proposals").withIndex("by_threadId", (q) => q.eq("threadId", threadId)).order("asc").take(PROPOSAL_FOR_THREAD_MAX);
     const out = [];
-    for (const d of docs) out.push(proposalView(d, await isStale(ctx, d)));
+    for (const d of docs) out.push(proposalView(d, await isStale(ctx, userId, d)));
     return out;
   },
 });

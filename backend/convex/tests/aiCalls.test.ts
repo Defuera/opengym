@@ -80,7 +80,7 @@ describe("stored AI calls", () => {
   });
   afterEach(() => vi.useRealTimers());
   const rows = () => t.run((c) => c.db.query("aiCalls").collect());
-  const save = (system = "SYS") => t.mutation(internal.jobs.aiCalls.save, { job: "build_session", provider: "openai", model: "m", system, messages: [{ role: "user", content: "in" }], images: 0, attempts: [{ raw: "out", ms: 5 }], path: "ai", ms: 5 });
+  const save = (system = "SYS") => t.mutation(internal.jobs.aiCalls.save, { userId: "owner", job: "build_session", provider: "openai", model: "m", system, messages: [{ role: "user", content: "in" }], images: 0, attempts: [{ raw: "out", ms: 5 }], path: "ai", ms: 5 });
 
   it("stores a call with its time and cuts a very long text", async () => {
     await save("x".repeat(AI_CALL_TEXT_MAX + 10));

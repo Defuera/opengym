@@ -40,10 +40,10 @@ function sessionProblem(row: Row | null, base: TurnBase): string | null {
 }
 
 /** Why the person's message cannot be the evidence, or null. Only the person's own words or a photo of this turn count (ADR-021, ADR-032). */
-async function evidenceProblem(ctx: Ctx, trigger: Doc<"messages"> | null, evidence: Evidence): Promise<string | null> {
+async function evidenceProblem(ctx: Ctx, userId: string, trigger: Doc<"messages"> | null, evidence: Evidence): Promise<string | null> {
   if (!trigger || trigger.role !== "user") return "no message of the person in this turn";
   if (evidence === "person_said") return trigger.text.trim() ? null : "the person said nothing in this turn";
-  for (const id of trigger.fileIds) if ((await fileByFileId(ctx, id))?.kind === "image") return null;
+  for (const id of trigger.fileIds) if ((await fileByFileId(ctx, userId, id))?.kind === "image") return null;
   return "no photo in this turn";
 }
 
@@ -54,19 +54,19 @@ async function evidenceProblem(ctx: Ctx, trigger: Doc<"messages"> | null, eviden
  * written once, with `rev + 1` and `updatedBy: "coach"`. A rebuild writes nothing: it is checked the same way and returned as a
  * proposal (status "drafted"), one per turn, for the message to hold until the person approves (lib/proposalDb.ts).
  */
-export async function executeActions(ctx: Ctx, base: TurnBase, actions: unknown[]): Promise<{ results: ActionResult[]; proposal?: StoredProposal | StoredLogDraft; program?: { brief: string; programId?: string } }> {
+export async function executeActions(ctx: Ctx, userId: string, base: TurnBase, actions: unknown[]): Promise<{ results: ActionResult[]; proposal?: StoredProposal | StoredLogDraft; program?: { brief: string; programId?: string } }> {
   const results: ActionResult[] = [];
   const row = await ctx.db.query("openSession").first();
   const problem = sessionProblem(row, base);
   let exercises: OpenExercise[] = row?.exercises ?? [];
   let changed = false;
   let placeId = row?.placeId;
-  const trigger = await messageByMessageId(ctx, base.turnId);
+  const trigger = await messageByMessageId(ctx, userId, base.turnId);
   const seen = new Set<string>();
   let facts: { sessions: Session[]; limits: Limit[] } | null = null;
   // The plan safety limits and the avoid rules, as for any proposed plan. The weight cap reads the FULL history.
   const safe = async (list: PlanExercise[]) => {
-    facts ??= { sessions: await allSessions(ctx), limits: await activeLimits(ctx) };
+    facts ??= { sessions: await allSessions(ctx, userId), limits: await activeLimits(ctx, userId) };
     return finalizePlan({ rationale: "", exercises: list }, facts.sessions, facts.limits).exercises;
   };
   const stamp = Date.now().toString(36);
@@ -100,8 +100,8 @@ export async function executeActions(ctx: Ctx, base: TurnBase, actions: unknown[
     let detail = "";
     switch (a.name) {
       case "update_place": {
-        const why = await evidenceProblem(ctx, trigger, a.arguments.evidence);
-        const place = why ? null : await placeByPlaceId(ctx, a.arguments.placeId);
+        const why = await evidenceProblem(ctx, userId, trigger, a.arguments.evidence);
+        const place = why ? null : await placeByPlaceId(ctx, userId, a.arguments.placeId);
         if (why || !place) {
           reject(why ?? "no such place");
           continue;
@@ -112,13 +112,13 @@ export async function executeActions(ctx: Ctx, base: TurnBase, actions: unknown[
           continue;
         }
         const quote = (trigger!.text.trim() || "(photo)").slice(0, PLACE_QUOTE_MAX);
-        const wrote = await setPlaceText(ctx, place, after, "chat", quote, undefined, a.arguments.evidence);
+        const wrote = await setPlaceText(ctx, userId, place, after, "chat", quote, undefined, a.arguments.evidence);
         results.push({ actionId: a.id, name: a.name, status: "applied", ...(wrote ? { detail: placeDetail(place.name, a.arguments.add, a.arguments.remove) } : { reason: "no change: the place text says it already" }) });
         continue;
       }
       case "set_session_place": {
-        const why = await evidenceProblem(ctx, trigger, "person_said");
-        const place = why ? null : await placeByPlaceId(ctx, a.arguments.placeId);
+        const why = await evidenceProblem(ctx, userId, trigger, "person_said");
+        const place = why ? null : await placeByPlaceId(ctx, userId, a.arguments.placeId);
         if (why || !place) {
           reject(why ?? "no such place");
           continue;
@@ -127,7 +127,7 @@ export async function executeActions(ctx: Ctx, base: TurnBase, actions: unknown[
           results.push({ actionId: a.id, name: a.name, status: "applied", reason: "no change: the session is at this place already" });
           continue;
         }
-        const was = placeId ? await placeByPlaceId(ctx, placeId) : null;
+        const was = placeId ? await placeByPlaceId(ctx, userId, placeId) : null;
         placeId = place.placeId;
         changed = true;
         results.push({ actionId: a.id, name: a.name, status: "applied", detail: sessionPlaceDetail(was?.name ?? null, place.name) });
@@ -161,7 +161,7 @@ export async function executeActions(ctx: Ctx, base: TurnBase, actions: unknown[
           reject("no message of the person in this turn");
           continue;
         }
-        const made = await buildLogDraft(ctx, a.arguments, Date.now(), base.screen === "log");
+        const made = await buildLogDraft(ctx, userId, a.arguments, Date.now(), base.screen === "log");
         if ("reject" in made) {
           reject(made.reject);
           continue;
@@ -180,9 +180,9 @@ export async function executeActions(ctx: Ctx, base: TurnBase, actions: unknown[
           reject("no message of the person in this turn");
           continue;
         }
-        const thread = await threadByThreadId(ctx, trigger.threadId);
+        const thread = await threadByThreadId(ctx, userId, trigger.threadId);
         const target = a.arguments.programId ?? trigger.context?.programId ?? thread?.about?.id;
-        if (target !== undefined && !(await programByProgramId(ctx, target))) {
+        if (target !== undefined && !(await programByProgramId(ctx, userId, target))) {
           reject("no such program");
           continue;
         }
@@ -224,6 +224,6 @@ export async function executeActions(ctx: Ctx, base: TurnBase, actions: unknown[
   }
 
   if (changed && row) await ctx.db.patch(row._id, { exercises, ...(placeId !== undefined ? { placeId } : {}), rev: row.rev + 1, updatedAt: Date.now(), updatedBy: "coach" });
-  if (art.length > 0) await requestExerciseArt(ctx, [...new Set(art)].filter((x) => x.length > 0).slice(0, 12));
+  if (art.length > 0) await requestExerciseArt(ctx, userId, [...new Set(art)].filter((x) => x.length > 0).slice(0, 12));
   return { results, ...(proposal ? { proposal } : {}), ...(program ? { program } : {}) };
 }

@@ -8,22 +8,22 @@ type Reader = { db: DatabaseReader };
  * The row of a program, MARKED OR NOT. Only code that must see a marked row uses this (commands/programs, jobs/purge).
  * Every other read uses `programByProgramId` or `liveProgramDocs`.
  */
-export const programRowByProgramId = (ctx: Reader, programId: string) =>
+export const programRowByProgramId = (ctx: Reader, userId: string, programId: string) =>
   ctx.db.query("programs").withIndex("by_programId", (q) => q.eq("programId", programId)).unique();
 
 /** The live program (not marked as deleted, ADR-020), or null. */
-export async function programByProgramId(ctx: Reader, programId: string): Promise<Doc<"programs"> | null> {
-  const d = await programRowByProgramId(ctx, programId);
+export async function programByProgramId(ctx: Reader, userId: string, programId: string): Promise<Doc<"programs"> | null> {
+  const d = await programRowByProgramId(ctx, userId, programId);
   return d && d.deletedAt === undefined ? d : null;
 }
 
 /** Every live program, newest first. There are few, so one read is fine. */
-export async function liveProgramDocs(ctx: Reader): Promise<Doc<"programs">[]> {
+export async function liveProgramDocs(ctx: Reader, userId: string): Promise<Doc<"programs">[]> {
   const docs = await ctx.db.query("programs").withIndex("by_deletedAt", (q) => q.eq("deletedAt", undefined)).collect();
   return docs.sort((a, b) => b.createdAt - a.createdAt);
 }
 
-export const proposalByProposalId = (ctx: Reader, proposalId: string) =>
+export const proposalByProposalId = (ctx: Reader, userId: string, proposalId: string) =>
   ctx.db.query("proposals").withIndex("by_proposalId", (q) => q.eq("proposalId", proposalId)).unique();
 
 /** A stored program as a program VALUE (the shape the coach proposes): the tests are plain texts again. */
@@ -35,9 +35,9 @@ export function programValueOf(d: Doc<"programs">): ProgramValue {
  * True when a `ready` change proposal can no longer be applied: its program was deleted or changed after the proposal was made.
  * `accept` cannot store "stale" itself (a thrown mutation rolls its writes back), so the reads work it out here.
  */
-export async function isStale(ctx: Reader, d: Doc<"proposals">): Promise<boolean> {
+export async function isStale(ctx: Reader, userId: string, d: Doc<"proposals">): Promise<boolean> {
   if (d.status !== "ready" || d.target.id === undefined) return false;
-  const program = await programByProgramId(ctx, d.target.id);
+  const program = await programByProgramId(ctx, userId, d.target.id);
   return !program || program.rev !== d.base;
 }
 

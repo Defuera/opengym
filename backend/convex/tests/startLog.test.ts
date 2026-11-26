@@ -379,9 +379,9 @@ describe("start request", () => {
 
   it("an unexpected error marks the request failed; a late result does not change a finished request", async () => {
     await request("r1", "home");
-    await t.mutation(internal.jobs.startRequest.save, { requestId: "r1", failed: true });
+    await t.mutation(internal.jobs.startRequest.save, { userId: "owner", requestId: "r1", failed: true });
     expect(await getRequest("r1")).toEqual({ requestId: "r1", status: "failed" });
-    await t.mutation(internal.jobs.startRequest.save, { requestId: "r1", source: "ai", proposal: { kind: "gym", type: "Late", plan: { rationale: "r", exercises: [] } } });
+    await t.mutation(internal.jobs.startRequest.save, { userId: "owner", requestId: "r1", source: "ai", proposal: { kind: "gym", type: "Late", plan: { rationale: "r", exercises: [] } } });
     expect(await getRequest("r1")).toEqual({ requestId: "r1", status: "failed" });
     await settle(t);
     expect(await getRequest("r1")).toEqual({ requestId: "r1", status: "failed" }); // the job sees it is not pending

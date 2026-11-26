@@ -16,23 +16,23 @@ export function listError(e: unknown): string {
 
 /** Store a fresh list, or only an error text (the old list stays). */
 export const saveModels = internalMutation({
-  args: { models: v.optional(v.array(v.string())), error: v.optional(v.string()) },
-  handler: async (ctx, { models, error }) => {
-    if (models) await patchSettings(ctx, { modelList: { models, fetchedAt: Date.now() }, modelListError: undefined });
-    else await patchSettings(ctx, { modelListError: error ?? "Could not load the list." });
+  args: { userId: v.string(), models: v.optional(v.array(v.string())), error: v.optional(v.string()) },
+  handler: async (ctx, { userId, models, error }) => {
+    if (models) await patchSettings(ctx, userId, { modelList: { models, fetchedAt: Date.now() }, modelListError: undefined });
+    else await patchSettings(ctx, userId, { modelListError: error ?? "Could not load the list." });
   },
 });
 
 /** Asks the current provider (env key, current base URL) for its text models. Scheduled by commands/settings:refreshModels. */
 export const refresh = internalAction({
-  args: {},
-  handler: async (ctx): Promise<void> => {
+  args: { userId: v.string() },
+  handler: async (ctx, { userId }): Promise<void> => {
     try {
       const provider = createProviderFromEnv(process.env);
       const models = provider ? await provider.listModels() : [];
-      await ctx.runMutation(internal.jobs.models.saveModels, { models });
+      await ctx.runMutation(internal.jobs.models.saveModels, { userId, models });
     } catch (e) {
-      await ctx.runMutation(internal.jobs.models.saveModels, { error: listError(e) });
+      await ctx.runMutation(internal.jobs.models.saveModels, { userId, error: listError(e) });
     }
   },
 });

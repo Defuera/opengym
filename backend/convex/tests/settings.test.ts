@@ -86,10 +86,10 @@ describe("coach model setting", () => {
     useOpenAi();
     const calls = stubFetch(() => new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({ modules: [{ type: "trend" }] }) } }] }), { status: 200 }));
     await setModel(t, "my-model");
-    await t.action(internal.jobs.dashboards.build, { days: 7, version: 1 });
+    await t.action(internal.jobs.dashboards.build, { userId: "owner", days: 7, version: 1 });
     expect(calls[0]!.body.model).toBe("my-model");
     await setModel(t, null);
-    await t.action(internal.jobs.dashboards.build, { days: 30, version: 2 });
+    await t.action(internal.jobs.dashboards.build, { userId: "owner", days: 30, version: 2 });
     expect(calls.at(-1)!.body.model).toBe("env-model");
   });
 
@@ -98,10 +98,10 @@ describe("coach model setting", () => {
     vi.stubEnv("OPENAI_API_KEY", "k");
     vi.stubEnv("OPENAI_MODEL", "");
     const calls = stubFetch(() => new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({ modules: [{ type: "trend" }] }) } }] }), { status: 200 }));
-    await t.action(internal.jobs.dashboards.build, { days: 7, version: 1 });
+    await t.action(internal.jobs.dashboards.build, { userId: "owner", days: 7, version: 1 });
     expect(calls).toHaveLength(0); // no model at all: AI off, fallback
     await setModel(t, "chosen");
-    await t.action(internal.jobs.dashboards.build, { days: 7, version: 2 });
+    await t.action(internal.jobs.dashboards.build, { userId: "owner", days: 7, version: 2 });
     expect(calls[0]!.body.model).toBe("chosen");
   });
 
@@ -110,7 +110,7 @@ describe("coach model setting", () => {
     for (const status of [400, 404]) {
       stubFetch(() => new Response('{"error":{"message":"model not found"}}', { status }));
       await setModel(t, `bad-${status}`);
-      await t.action(internal.jobs.dashboards.build, { days: 7, version: status });
+      await t.action(internal.jobs.dashboards.build, { userId: "owner", days: 7, version: status });
       const d = await t.run((c) => c.db.query("dashboards").withIndex("by_days", (q) => q.eq("days", 7)).unique());
       expect(d, String(status)).toMatchObject({ source: "rules" });
     }

@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { query } from "../_generated/server";
-import { requireToken } from "../lib/auth";
+import { requireUser } from "../lib/auth";
 import { liveProgramDocs } from "../lib/programsDb";
 import { liveSessionDocs } from "../lib/db";
 import { fillKg, localDate, programNow } from "../model/program";
@@ -14,11 +14,11 @@ import { fillKg, localDate, programNow } from "../model/program";
 export const list = query({
   args: { token: v.string() },
   handler: async (ctx, { token }) => {
-    requireToken(token);
-    const programs = await liveProgramDocs(ctx);
+    const userId = await requireUser(ctx, token);
+    const programs = await liveProgramDocs(ctx, userId);
     if (programs.length === 0) return [];
     // The whole live log, newest first: slots and kg come from it. An activity row has no exercises, so it adds nothing to the kg.
-    const log = await liveSessionDocs(ctx, { order: "desc" });
+    const log = await liveSessionDocs(ctx, userId, { order: "desc" });
     const today = localDate(Date.now());
     return programs.map((p) => {
       const mine = log.filter((s) => s.programId === p.programId);

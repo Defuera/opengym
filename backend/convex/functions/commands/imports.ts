@@ -1,7 +1,7 @@
 import { ConvexError, v } from "convex/values";
 import { internal } from "../_generated/api";
 import { mutation } from "../_generated/server";
-import { requireToken } from "../lib/auth";
+import { requireUser } from "../lib/auth";
 import { IMPORT_BATCH_SIZE, IMPORT_INLINE_MAX } from "../lib/constants";
 import { fromSession, withoutSystemFields } from "../lib/db";
 import { fileByFileId } from "../lib/files";
@@ -28,7 +28,7 @@ export const loadStructured = mutation({
     note: v.optional(v.string()),
   },
   handler: async (ctx, { token, importId: given, ...body }) => {
-    requireToken(token);
+    const userId = await requireUser(ctx, token);
     const importId = given ?? crypto.randomUUID();
     const existing = await ctx.db.query("imports").withIndex("by_importId", (q) => q.eq("importId", importId)).unique();
     if (existing) return withoutSystemFields(existing);
@@ -49,18 +49,18 @@ export const loadStructured = mutation({
     const notes = parsed.note ? [parsed.note] : [];
 
     if (total <= IMPORT_INLINE_MAX) {
-      await writeImportItems(ctx, { sessions, goals, context });
-      const job = { importId, status: "done" as const, total, processed: total, counts, notes, createdAt: now };
+      await writeImportItems(ctx, userId, { sessions, goals, context });
+      const job = { userId, importId, status: "done" as const, total, processed: total, counts, notes, createdAt: now };
       await ctx.db.insert("imports", job);
-      await markFactsChanged(ctx);
+      await markFactsChanged(ctx, userId);
       return job;
     }
 
-    const job = { importId, status: "running" as const, total, processed: 0, counts, notes, createdAt: now };
+    const job = { userId, importId, status: "running" as const, total, processed: 0, counts, notes, createdAt: now };
     await ctx.db.insert("imports", job);
-    for (const batch of chunk(sessions, IMPORT_BATCH_SIZE)) await ctx.scheduler.runAfter(0, internal.jobs.imports.writeBatch, { importId, sessions: batch });
-    for (const batch of chunk(goals, IMPORT_BATCH_SIZE)) await ctx.scheduler.runAfter(0, internal.jobs.imports.writeBatch, { importId, goals: batch });
-    for (const batch of chunk(context, IMPORT_BATCH_SIZE)) await ctx.scheduler.runAfter(0, internal.jobs.imports.writeBatch, { importId, context: batch });
+    for (const batch of chunk(sessions, IMPORT_BATCH_SIZE)) await ctx.scheduler.runAfter(0, internal.jobs.imports.writeBatch, { userId, importId, sessions: batch });
+    for (const batch of chunk(goals, IMPORT_BATCH_SIZE)) await ctx.scheduler.runAfter(0, internal.jobs.imports.writeBatch, { userId, importId, goals: batch });
+    for (const batch of chunk(context, IMPORT_BATCH_SIZE)) await ctx.scheduler.runAfter(0, internal.jobs.imports.writeBatch, { userId, importId, context: batch });
     return job;
   },
 });
@@ -69,13 +69,13 @@ export const loadStructured = mutation({
 export const remove = mutation({
   args: { token: v.string(), importId: v.string() },
   handler: async (ctx, { token, importId }) => {
-    requireToken(token);
+    const userId = await requireUser(ctx, token);
     const job = await ctx.db.query("imports").withIndex("by_importId", (q) => q.eq("importId", importId)).unique();
     if (!job) return false;
-    if (await purgeImportStep(ctx, importId)) return true;
+    if (await purgeImportStep(ctx, userId, importId)) return true;
     // Too much for one mutation: stop any batch still writing, and continue in the background.
     await ctx.db.patch(job._id, { status: "failed", notes: [...job.notes, "Removal in progress."] });
-    await ctx.scheduler.runAfter(0, internal.jobs.imports.purge, { importId });
+    await ctx.scheduler.runAfter(0, internal.jobs.imports.purge, { userId, importId });
     return true;
   },
 });
@@ -88,15 +88,15 @@ export const remove = mutation({
 export const start = mutation({
   args: { token: v.string(), importId: v.string(), fileIds: v.array(v.string()) },
   handler: async (ctx, { token, importId, fileIds }) => {
-    requireToken(token);
+    const userId = await requireUser(ctx, token);
     if (!importId || importId.length > 100) throw new ConvexError("importId: must be 1 to 100 characters");
     const existing = await ctx.db.query("imports").withIndex("by_importId", (q) => q.eq("importId", importId)).unique();
     if (existing) return withoutSystemFields(existing);
     if (fileIds.length < 1) throw new ConvexError("fileIds: send at least one file");
-    for (const id of fileIds) if (!(await fileByFileId(ctx, id))) throw new ConvexError(`file not found: ${id}`);
-    const job = { importId, status: "running" as const, total: fileIds.length, processed: 0, counts: { sessions: 0, goals: 0, context: 0 }, notes: [], createdAt: Date.now() };
+    for (const id of fileIds) if (!(await fileByFileId(ctx, userId, id))) throw new ConvexError(`file not found: ${id}`);
+    const job = { userId, importId, status: "running" as const, total: fileIds.length, processed: 0, counts: { sessions: 0, goals: 0, context: 0 }, notes: [], createdAt: Date.now() };
     await ctx.db.insert("imports", job);
-    await ctx.scheduler.runAfter(0, internal.jobs.importFiles.prepare, { importId, fileIds });
+    await ctx.scheduler.runAfter(0, internal.jobs.importFiles.prepare, { userId, importId, fileIds });
     return job;
   },
 });

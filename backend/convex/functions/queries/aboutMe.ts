@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import type { Doc } from "../_generated/dataModel";
 import { query } from "../_generated/server";
-import { requireToken } from "../lib/auth";
+import { requireUser } from "../lib/auth";
 import { allGoals, allSessions, sessionBySessionId, toSession } from "../lib/db";
 import { toLimit } from "../lib/limitsDb";
 import { focusPartsFromGoals } from "../model/rules/focusParts";
@@ -22,9 +22,9 @@ const recordOrder = (a: Doc<"records">, b: Doc<"records">) => (b.date ?? "").loc
 export const get = query({
   args: { token: v.string() },
   handler: async (ctx, { token }) => {
-    requireToken(token);
+    const userId = await requireUser(ctx, token);
     const limitDocs = (await ctx.db.query("limits").collect()).sort((a, b) => STATUS_ORDER[a.status] - STATUS_ORDER[b.status] || a.title.localeCompare(b.title));
-    const sessions = await allSessions(ctx);
+    const sessions = await allSessions(ctx, userId);
     const byId = new Map(sessions.map((s) => [s.id, s]));
     const limits = [];
     for (const d of limitDocs) {
@@ -43,7 +43,7 @@ export const get = query({
     return {
       limits,
       load: { d14: loadForDays(sessions, 14, now), d90: loadForDays(sessions, 90, now) },
-      focusParts: focusPartsFromGoals(await allGoals(ctx)) as string[],
+      focusParts: focusPartsFromGoals(await allGoals(ctx, userId)) as string[],
     };
   },
 });
@@ -52,8 +52,8 @@ export const get = query({
 export const askAfter = query({
   args: { token: v.string(), sessionId: v.string() },
   handler: async (ctx, { token, sessionId }) => {
-    requireToken(token);
-    const doc = await sessionBySessionId(ctx, sessionId);
+    const userId = await requireUser(ctx, token);
+    const doc = await sessionBySessionId(ctx, userId, sessionId);
     if (!doc) return [];
     const answered = new Set((await ctx.db.query("checkins").withIndex("by_sessionId", (q) => q.eq("sessionId", sessionId)).collect()).map((c) => c.limitId));
     const limits = (await ctx.db.query("limits").collect()).map(toLimit);

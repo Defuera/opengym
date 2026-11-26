@@ -103,7 +103,7 @@ describe("the balance-board case (owner, 2026-11-24)", () => {
     await send("m1", "I do have a balance board", CONTEXT);
     await settle(t);
     const after = await open();
-    await t.action(internal.jobs.coachTurn.run, { threadId: "th1", messageId: "m1" });
+    await t.action(internal.jobs.coachTurn.run, { userId: "owner", threadId: "th1", messageId: "m1" });
     await settle(t);
     expect(turns(calls)).toHaveLength(2);
     expect(await open()).toEqual(after);
@@ -177,9 +177,9 @@ describe("the coach turn refuses what it may not do", () => {
     await send("m1", "swap it", CONTEXT);
     await t.mutation(api.commands.openSession.put, { token: TOKEN, session: { id: "s1", kind: "gym", type: "Gym", startedAt: 1000, placeId: "p-gym", exercises: EXERCISES } }); // rev 2: the phone changed it
     const replace = { id: "a1", name: "replace_open_exercise", arguments: { exerciseId: "e2", exercise: BALANCE } };
-    const stale = await t.mutation(internal.jobs.coachTurn.save, { threadId: "th1", turnId: "m1", openSessionId: "s1", rev: 1, message: "x", actions: [replace], sources: [] });
+    const stale = await t.mutation(internal.jobs.coachTurn.save, { userId: "owner", threadId: "th1", turnId: "m1", openSessionId: "s1", rev: 1, message: "x", actions: [replace], sources: [] });
     expect(stale).toEqual([{ actionId: "a1", name: "replace_open_exercise", status: "rejected", reason: "the session changed since the coach read it" }]);
-    const other = await t.mutation(internal.jobs.coachTurn.save, { threadId: "th1", turnId: "m2", openSessionId: "s0", rev: 2, message: "x", actions: [replace], sources: [] });
+    const other = await t.mutation(internal.jobs.coachTurn.save, { userId: "owner", threadId: "th1", turnId: "m2", openSessionId: "s0", rev: 2, message: "x", actions: [replace], sources: [] });
     expect(other[0]).toMatchObject({ status: "rejected", reason: "another session is open now" });
     expect((await open()).rev).toBe(2);
   });
@@ -188,7 +188,7 @@ describe("the coach turn refuses what it may not do", () => {
     await world();
     await t.run((c) => c.db.insert("limits", { limitId: "l1", part: "left_knee", title: "Knee", status: "active", rules: [{ kind: "avoid", text: "no stands", exercises: ["Balance board stand"] }] }));
     await send("m1", "hi", CONTEXT);
-    const r = await t.mutation(internal.jobs.coachTurn.save, {
+    const r = await t.mutation(internal.jobs.coachTurn.save, { userId: "owner", 
       threadId: "th1",
       turnId: "m1",
       openSessionId: "s1",

@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { internal } from "../_generated/api";
 import { internalMutation } from "../_generated/server";
+import { OWNER_USER_ID as userId } from "../lib/currentUser";
 import { ensureCategory } from "../lib/categoriesDb";
 import { usedCategories } from "../model/entryCategory";
 import { markFactsChanged } from "../lib/factsChanged";
@@ -26,6 +27,7 @@ const BATCH = 100;
  * If anything changed it marks facts changed, so the debounced rebuild refreshes the read models.
  *
  * Idempotent: a second run finds nothing to change, writes nothing and does not trigger a rebuild.
+ * Old one-off migration of the first user (ADR-039): it works on the owner's data only (`userId` below is the owner constant).
  * Returns what this call changed. `done` is false while more pages are scheduled.
  */
 export const activityFirst = internalMutation({
@@ -41,7 +43,7 @@ export const activityFirst = internalMutation({
     }
     if (!page.isDone) {
       // Carry the count of this page into the rebuild decision: a later page may find nothing, so mark now.
-      if (sessions > 0) await markFactsChanged(ctx);
+      if (sessions > 0) await markFactsChanged(ctx, userId);
       await ctx.scheduler.runAfter(0, internal.jobs.migrations.activityFirst, { cursor: page.continueCursor, batch });
       return { sessions, plans: 0, predictions: 0, done: false };
     }
@@ -64,7 +66,7 @@ export const activityFirst = internalMutation({
         predictions = 1;
       }
     }
-    if (sessions + plans + predictions > 0) await markFactsChanged(ctx);
+    if (sessions + plans + predictions > 0) await markFactsChanged(ctx, userId);
     return { sessions, plans, predictions, done: true };
   },
 });
@@ -84,7 +86,7 @@ export const categoryColors = internalMutation({
     const made: string[] = [];
     for (const label of labels) {
       const before = await ctx.db.query("entryCategories").collect();
-      const row = await ensureCategory(ctx, label, undefined, "rules");
+      const row = await ensureCategory(ctx, userId, label, undefined, "rules");
       if (row && (await ctx.db.query("entryCategories").collect()).length > before.length) made.push(row.label);
     }
     return { made };

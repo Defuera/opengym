@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { query } from "../_generated/server";
-import { requireToken } from "../lib/auth";
+import { requireUser } from "../lib/auth";
 import { type StoredLogDraft, logView } from "../model/logDraft";
 import { proposalView } from "../model/proposalText";
 
@@ -15,7 +15,7 @@ import { proposalView } from "../model/proposalText";
 export const list = query({
   args: { token: v.string(), threadId: v.string() },
   handler: async (ctx, { token, threadId }) => {
-    requireToken(token);
+    const userId = await requireUser(ctx, token);
     const rows = await ctx.db.query("messages").withIndex("by_threadId", (q) => q.eq("threadId", threadId)).order("asc").collect();
     const lastWith = rows.reduce((at, m, i) => (m.proposal ? i : at), -1);
     const sessionId = rows.some((m) => m.proposal) ? ((await ctx.db.query("openSession").first())?.id ?? null) : null;

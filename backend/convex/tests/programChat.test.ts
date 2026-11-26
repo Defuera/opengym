@@ -31,7 +31,7 @@ async function saveTurn(threadId: string, turnId: string, actions: object[] = [{
   if (!(await t.run((c) => c.db.query("messages").withIndex("by_messageId", (q) => q.eq("messageId", turnId)).unique()))) {
     await t.run((c) => c.db.insert("messages", { messageId: turnId, threadId, role: "user", text: "hello", fileIds: [], sources: [], ...(context ? { context } : {}), createdAt: Date.now() }));
   }
-  return t.mutation(internal.jobs.coachTurn.save, { threadId, turnId, message: "On it.", actions, sources: [] });
+  return t.mutation(internal.jobs.coachTurn.save, { userId: "owner", threadId, turnId, message: "On it.", actions, sources: [] });
 }
 
 /** The stubbed AI: coach_turn answers come from `replies` in order (the last one repeats); build_program gives the mock program. */

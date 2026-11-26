@@ -17,15 +17,15 @@ export const SEED_BATCH = 2_000;
 
 /** The note of the place and the names of the other places, or null when the place is gone (the app may be ahead of the server). */
 export const learnInput = internalQuery({
-  args: { placeId: v.string(), fileIds: v.optional(v.array(v.string())) },
-  handler: async (ctx, { placeId, fileIds }) => {
-    const place = await placeByPlaceId(ctx, placeId);
+  args: { userId: v.string(), placeId: v.string(), fileIds: v.optional(v.array(v.string())) },
+  handler: async (ctx, { userId, placeId, fileIds }) => {
+    const place = await placeByPlaceId(ctx, userId, placeId);
     if (!place) return null;
-    const others = (await allPlaces(ctx)).filter((p) => p.placeId !== placeId).map((p) => p.name);
+    const others = (await allPlaces(ctx, userId)).filter((p) => p.placeId !== placeId).map((p) => p.name);
     // The photos that came with the sentence (at most 6): the user may show the equipment instead of naming it.
     const files = [];
     for (const id of (fileIds ?? []).slice(0, 6)) {
-      const f = await fileByFileId(ctx, id);
+      const f = await fileByFileId(ctx, userId, id);
       if (f && f.kind === "image") files.push({ fileId: f.fileId, storageId: f.storageId, name: f.name, mime: f.mime, size: f.size, kind: f.kind, createdAt: f.createdAt });
     }
     return { place: { name: place.name, equipment: place.text }, otherPlaces: others, files };
@@ -37,11 +37,11 @@ export const learnInput = internalQuery({
  * (`before`): a newer edit by the user wins. Logs a placeChanges row with the source and the user's sentence. Returns true when it wrote.
  */
 export const learnSave = internalMutation({
-  args: { placeId: v.string(), source: placeChangeSource, sentence: v.string(), before: v.string(), equipment: v.string() },
-  handler: async (ctx, { placeId, source, sentence, before, equipment }): Promise<boolean> => {
-    const place = await placeByPlaceId(ctx, placeId);
+  args: { userId: v.string(), placeId: v.string(), source: placeChangeSource, sentence: v.string(), before: v.string(), equipment: v.string() },
+  handler: async (ctx, { userId, placeId, source, sentence, before, equipment }): Promise<boolean> => {
+    const place = await placeByPlaceId(ctx, userId, placeId);
     if (!place) return false;
-    return setPlaceText(ctx, place, equipment, source, sentence, before);
+    return setPlaceText(ctx, userId, place, equipment, source, sentence, before);
   },
 });
 
@@ -50,19 +50,19 @@ export const learnSave = internalMutation({
  * saved (feedback or a note) and after a user message in a thread that has a place. Any error is logged and changes nothing.
  */
 export const learn = internalAction({
-  args: { placeId: v.string(), source: placeChangeSource, sentence: v.string(), fileIds: v.optional(v.array(v.string())) },
-  handler: async (ctx, { placeId, source, sentence, fileIds }): Promise<void> => {
+  args: { userId: v.string(), placeId: v.string(), source: placeChangeSource, sentence: v.string(), fileIds: v.optional(v.array(v.string())) },
+  handler: async (ctx, { userId, placeId, source, sentence, fileIds }): Promise<void> => {
     try {
       const quote = sentence.trim().slice(0, PLACE_QUOTE_MAX);
       if (!quote && !fileIds?.length) return;
-      const got = await ctx.runQuery(internal.jobs.places.learnInput, { placeId, ...(fileIds ? { fileIds } : {}) });
+      const got = await ctx.runQuery(internal.jobs.places.learnInput, { userId, placeId, ...(fileIds ? { fileIds } : {}) });
       if (!got) return;
       const { files, ...i } = got;
-      const images = files.length > 0 ? await loadEntryImages(ctx, files, !!(await providerFor(ctx))?.supportsImages) : [];
+      const images = files.length > 0 ? await loadEntryImages(ctx, files, !!(await providerFor(ctx, userId))?.supportsImages) : [];
       if (!quote && images.length === 0) return;
-      const r = await runAiJob(ctx, learnPlaceJob, { ...i, sentence: quote, ...(images.length > 0 ? { images } : {}) }, { timeoutMs: images.length > 0 ? 60_000 : BUDGET_MS });
+      const r = await runAiJob(ctx, userId, learnPlaceJob, { ...i, sentence: quote, ...(images.length > 0 ? { images } : {}) }, { timeoutMs: images.length > 0 ? 60_000 : BUDGET_MS });
       if (r.path !== "ai" || !r.value.changed) return;
-      await ctx.runMutation(internal.jobs.places.learnSave, { placeId, source, sentence: quote || "(photos)", before: i.place.equipment, equipment: r.value.equipment });
+      await ctx.runMutation(internal.jobs.places.learnSave, { userId, placeId, source, sentence: quote || "(photos)", before: i.place.equipment, equipment: r.value.equipment });
     } catch (e) {
       console.error(`[places] learn failed: ${(e as Error).message}`);
     }
@@ -87,14 +87,14 @@ export function seedPlaceName(type: string): "Gym" | "Home" | null {
  * A second run changes nothing. Returns counts.
  */
 export const seed = internalMutation({
-  args: {},
-  handler: async (ctx) => {
-    let gym = await placeByName(ctx, "Gym");
+  args: { userId: v.string() },
+  handler: async (ctx, { userId }) => {
+    let gym = await placeByName(ctx, userId, "Gym");
     const gymCreated = !gym;
-    gym ??= await createPlace(ctx, "Gym");
-    let home = await placeByName(ctx, "Home");
+    gym ??= await createPlace(ctx, userId, "Gym");
+    let home = await placeByName(ctx, userId, "Home");
     const homeCreated = !home;
-    home ??= await createPlace(ctx, "Home");
+    home ??= await createPlace(ctx, userId, "Home");
 
     let equipmentMoved = 0;
     if (gym.text === "") {
@@ -108,13 +108,13 @@ export const seed = internalMutation({
         used.push(c);
       }
       if (used.length > 0) {
-        await setPlaceText(ctx, gym, text, "seed", "Moved from the context note about equipment");
+        await setPlaceText(ctx, userId, gym, text, "seed", "Moved from the context note about equipment");
         for (const c of used) await ctx.db.patch(c._id, { active: false });
         equipmentMoved = used.length;
       }
     }
 
-    const todo = (await liveSessionDocs(ctx, { order: "asc" })).filter((s) => s.placeId === undefined);
+    const todo = (await liveSessionDocs(ctx, userId, { order: "asc" })).filter((s) => s.placeId === undefined);
     let sessionsGym = 0;
     let sessionsHome = 0;
     for (const s of todo.slice(0, SEED_BATCH)) {

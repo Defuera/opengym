@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { query } from "../_generated/server";
-import { requireToken } from "../lib/auth";
+import { requireUser } from "../lib/auth";
 import { startRequestById } from "../lib/db";
 
 /**
@@ -11,8 +11,8 @@ import { startRequestById } from "../lib/db";
 export const request = query({
   args: { token: v.string(), requestId: v.string() },
   handler: async (ctx, { token, requestId }) => {
-    requireToken(token);
-    const doc = await startRequestById(ctx, requestId);
+    const userId = await requireUser(ctx, token);
+    const doc = await startRequestById(ctx, userId, requestId);
     if (!doc) return null;
     const p = doc.proposal;
     if (doc.status === "pending" || !p) return { requestId: doc.requestId, status: doc.status };

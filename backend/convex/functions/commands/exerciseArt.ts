@@ -1,6 +1,6 @@
 import { ConvexError, v } from "convex/values";
 import { mutation } from "../_generated/server";
-import { requireToken } from "../lib/auth";
+import { requireUser } from "../lib/auth";
 import { requestExerciseArt } from "../lib/exerciseArtDb";
 import { ART_NAME_MAX } from "../model/exerciseArt";
 
@@ -12,11 +12,11 @@ import { ART_NAME_MAX } from "../model/exerciseArt";
 export const request = mutation({
   args: { token: v.string(), names: v.array(v.string()) },
   handler: async (ctx, { token, names }): Promise<null> => {
-    requireToken(token);
+    const userId = await requireUser(ctx, token);
     if (names.length < 1 || names.length > 12) throw new ConvexError("names: must be 1 to 12 names");
     const clean = names.map((n) => n.trim());
     if (clean.some((n) => n.length < 1 || n.length > ART_NAME_MAX)) throw new ConvexError(`names: each name must be 1 to ${ART_NAME_MAX} characters`);
-    await requestExerciseArt(ctx, clean);
+    await requestExerciseArt(ctx, userId, clean);
     return null;
   },
 });

@@ -59,7 +59,7 @@ describe("the open session row", () => {
 
   it("an outside plan keeps the done work, raises rev and names the writer", async () => {
     await put("a", [ex("Bike", [true]), ex("Walk", [false])]);
-    const rev = await t.mutation(internal.jobs.openSession.replacePlan, { id: "a", by: "owner", focus: "Legs", exercises: [{ name: "Squat", sets: [{ reps: 10, kg: 0 }] }] });
+    const rev = await t.mutation(internal.jobs.openSession.replacePlan, { userId: "owner", id: "a", by: "owner", focus: "Legs", exercises: [{ name: "Squat", sets: [{ reps: 10, kg: 0 }] }] });
     expect(rev).toBe(2);
     const r = await get();
     expect(r).toMatchObject({ rev: 2, updatedBy: "owner" });
@@ -68,9 +68,9 @@ describe("the open session row", () => {
   });
 
   it("an outside plan changes nothing with no open session or another id", async () => {
-    expect(await t.mutation(internal.jobs.openSession.replacePlan, { by: "coach", exercises: [] })).toBeNull();
+    expect(await t.mutation(internal.jobs.openSession.replacePlan, { userId: "owner", by: "coach", exercises: [] })).toBeNull();
     await put("a", [ex("Bike", [false])]);
-    expect(await t.mutation(internal.jobs.openSession.replacePlan, { id: "zzz", by: "coach", exercises: [] })).toBeNull();
+    expect(await t.mutation(internal.jobs.openSession.replacePlan, { userId: "owner", id: "zzz", by: "coach", exercises: [] })).toBeNull();
     expect((await get()).rev).toBe(1);
   });
 

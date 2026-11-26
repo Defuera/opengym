@@ -107,7 +107,7 @@ describe("a marked session is invisible", () => {
     const seen = await t.run(async (ctx) => {
       const { allSessions } = await import("../functions/lib/db");
       const { coachPicture } = await import("../functions/model/ai/jobs/coachPicture");
-      const all = await allSessions(ctx);
+      const all = await allSessions(ctx, "owner");
       const picture = coachPicture(all, [], [], [], [], NOW);
       return { ids: all.map((s) => s.id), picture: JSON.stringify(picture) };
     });
@@ -116,7 +116,7 @@ describe("a marked session is invisible", () => {
     const none = await t.run(async (ctx) => {
       const { allSessions } = await import("../functions/lib/db");
       const { coachPicture } = await import("../functions/model/ai/jobs/coachPicture");
-      return { all: await allSessions(ctx), picture: coachPicture(await allSessions(ctx), [], [], [], [], NOW) };
+      return { all: await allSessions(ctx, "owner"), picture: coachPicture(await allSessions(ctx, "owner"), [], [], [], [], NOW) };
     });
     expect(none.all).toEqual([]);
     expect(none.picture.exercisesTheUserKnows).toEqual([]);
@@ -156,14 +156,14 @@ describe("a late write does not bring a marked row back", () => {
     await removeS("s1");
     await settle(t); // the jobs scheduled by the writes run now
     expect((await sessionRows()).find((s) => s.sessionId === "l1")!.parse).toBe("pending");
-    await t.mutation(internal.jobs.parseLog.save, { sessionId: "l1", text: "ran 5k", parse: "done", minutes: 30 });
+    await t.mutation(internal.jobs.parseLog.save, { userId: "owner", sessionId: "l1", text: "ran 5k", parse: "done", minutes: 30 });
     expect((await sessionRows()).find((s) => s.sessionId === "l1")).toMatchObject({ parse: "pending" });
     expect((await sessionRows()).find((s) => s.sessionId === "l1")!.minutes).toBeUndefined();
-    expect(await t.query(internal.jobs.parseLog.input, { sessionId: "l1", text: "ran 5k" })).toBeNull();
+    expect(await t.query(internal.jobs.parseLog.input, { userId: "owner", sessionId: "l1", text: "ran 5k" })).toBeNull();
     expect(await reviewRows()).toHaveLength(0);
-    await t.mutation(internal.jobs.reviews.save, { sessionId: "s1", version: 1, source: "rules", summary: "x", changes: [] });
+    await t.mutation(internal.jobs.reviews.save, { userId: "owner", sessionId: "s1", version: 1, source: "rules", summary: "x", changes: [] });
     expect(await reviewRows()).toHaveLength(0);
-    expect(await t.query(internal.jobs.reviews.input, { sessionId: "s1" })).toBeNull();
+    expect(await t.query(internal.jobs.reviews.input, { userId: "owner", sessionId: "s1" })).toBeNull();
   });
 
   it("an import does not bring a marked session back", async () => {
@@ -172,7 +172,7 @@ describe("a late write does not bring a marked row back", () => {
     await t.run(async (ctx) => {
       const { writeImportItems } = await import("../functions/lib/importWrite");
       const rest = pushSession("s1", NOW - 2 * HOUR);
-      await writeImportItems(ctx, { sessions: [{ ...rest, source: "import", importId: "i1" }], goals: [], context: [] });
+      await writeImportItems(ctx, "owner", { sessions: [{ ...rest, source: "import", importId: "i1" }], goals: [], context: [] });
     });
     await settle(t);
     expect((await sessionRows()).filter((s) => s.sessionId === "s1")).toHaveLength(1);
@@ -189,7 +189,7 @@ describe("a marked note is invisible", () => {
     const coach = () =>
       t.run(async (ctx) => {
         const { coachEntries, entryImageFiles } = await import("../functions/lib/entriesDb");
-        return { entries: (await coachEntries(ctx, NOW)).map((e) => e.id), images: (await entryImageFiles(ctx, NOW)).map((f) => f.fileId) };
+        return { entries: (await coachEntries(ctx, "owner", NOW)).map((e) => e.id), images: (await entryImageFiles(ctx, "owner", NOW)).map((f) => f.fileId) };
       });
     expect(await coach()).toEqual({ entries: ["e2", "e1"], images: ["f1"] });
     expect(await removeE("e1")).toBe(true);
@@ -256,25 +256,25 @@ describe("restore", () => {
     await removeS("s1");
     await settle(t);
     const runs = (await t.run((c) => c.db.query("rebuilds").first()))!.runs;
-    expect(await t.mutation(internal.commands.sessions.restoreSession, { sessionId: "s1" })).toBe(true);
+    expect(await t.mutation(internal.commands.sessions.restoreSession, { userId: "owner", sessionId: "s1" })).toBe(true);
     expect((await q(api.queries.sessions.recent)).map((s: { sessionId: string }) => s.sessionId)).toEqual(["s1"]);
     expect((await q(api.queries.reviews.get, { sessionId: "s1" })).stored).toBe(true);
     expect("deletedAt" in (await sessionRows())[0]!).toBe(false);
     await settle(t);
     expect((await t.run((c) => c.db.query("rebuilds").first()))!.runs).toBe(runs + 1);
-    expect(await t.mutation(internal.commands.sessions.restoreSession, { sessionId: "s1" })).toBe(false);
-    expect(await t.mutation(internal.commands.sessions.restoreSession, { sessionId: "nope" })).toBe(false);
+    expect(await t.mutation(internal.commands.sessions.restoreSession, { userId: "owner", sessionId: "s1" })).toBe(false);
+    expect(await t.mutation(internal.commands.sessions.restoreSession, { userId: "owner", sessionId: "nope" })).toBe(false);
   });
 
   it("brings a marked note back with its files", async () => {
     await upload("f1");
     await saveE(entry("e1", { fileIds: ["f1"] }));
     await removeE("e1");
-    expect(await t.mutation(internal.commands.entries.restoreEntry, { entryId: "e1" })).toBe(true);
+    expect(await t.mutation(internal.commands.entries.restoreEntry, { userId: "owner", entryId: "e1" })).toBe(true);
     const [back] = await q(api.queries.entries.recent);
     expect(back).toMatchObject({ entryId: "e1" });
     expect(back.files).toHaveLength(1);
-    expect(await t.mutation(internal.commands.entries.restoreEntry, { entryId: "e1" })).toBe(false);
+    expect(await t.mutation(internal.commands.entries.restoreEntry, { userId: "owner", entryId: "e1" })).toBe(false);
   });
 
   it("cannot bring back what the purge erased", async () => {
@@ -282,7 +282,7 @@ describe("restore", () => {
     await removeS("s1");
     vi.setSystemTime(NOW + DELETE_AFTER_MS + HOUR);
     await purge();
-    expect(await t.mutation(internal.commands.sessions.restoreSession, { sessionId: "s1" })).toBe(false);
+    expect(await t.mutation(internal.commands.sessions.restoreSession, { userId: "owner", sessionId: "s1" })).toBe(false);
     await settle(t);
   });
 });

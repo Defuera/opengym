@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { query } from "../_generated/server";
-import { requireToken } from "../lib/auth";
+import { requireUser } from "../lib/auth";
 import { allSessions, sessionBySessionId } from "../lib/db";
 import { finalizeReview } from "../model/proposals";
 import { rulesReview } from "../model/rules/review";
@@ -13,11 +13,11 @@ import { rulesReview } from "../model/rules/review";
 export const get = query({
   args: { token: v.string(), sessionId: v.string() },
   handler: async (ctx, { token, sessionId }) => {
-    requireToken(token);
-    if (!(await sessionBySessionId(ctx, sessionId))) return { review: null, stored: false }; // gone, or marked as deleted (ADR-020)
+    const userId = await requireUser(ctx, token);
+    if (!(await sessionBySessionId(ctx, userId, sessionId))) return { review: null, stored: false }; // gone, or marked as deleted (ADR-020)
     const doc = await ctx.db.query("reviews").withIndex("by_sessionId", (q) => q.eq("sessionId", sessionId)).unique();
     if (doc) return { review: { sessionId, source: doc.source, summary: doc.summary, changes: doc.changes }, stored: true };
-    const sessions = await allSessions(ctx);
+    const sessions = await allSessions(ctx, userId);
     const session = sessions.find((s) => s.id === sessionId);
     if (!session) return { review: null, stored: false };
     return { review: { sessionId, source: "rules" as const, ...finalizeReview(rulesReview(sessions, session)) }, stored: false };

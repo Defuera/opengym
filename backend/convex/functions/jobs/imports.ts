@@ -12,19 +12,20 @@ import { contextFields, goalFields, sessionFields } from "../schema";
  */
 export const writeBatch = internalMutation({
   args: {
+    userId: v.string(),
     importId: v.string(),
     sessions: v.optional(v.array(v.object(sessionFields))),
     goals: v.optional(v.array(v.object(goalFields))),
     context: v.optional(v.array(v.object(contextFields))),
   },
-  handler: async (ctx, { importId, ...items }) => {
+  handler: async (ctx, { userId, importId, ...items }) => {
     const job = await ctx.db.query("imports").withIndex("by_importId", (q) => q.eq("importId", importId)).unique();
     if (!job || job.status !== "running") return;
-    const written = await writeImportItems(ctx, items);
+    const written = await writeImportItems(ctx, userId, items);
     const processed = job.processed + written;
     if (processed >= job.total) {
       await ctx.db.patch(job._id, { processed, status: "done" });
-      await markFactsChanged(ctx);
+      await markFactsChanged(ctx, userId);
     } else {
       await ctx.db.patch(job._id, { processed });
     }
@@ -33,8 +34,8 @@ export const writeBatch = internalMutation({
 
 /** Continues removing an import that was too big for one mutation. */
 export const purge = internalMutation({
-  args: { importId: v.string() },
-  handler: async (ctx, { importId }) => {
-    if (!(await purgeImportStep(ctx, importId))) await ctx.scheduler.runAfter(0, internal.jobs.imports.purge, { importId });
+  args: { userId: v.string(), importId: v.string() },
+  handler: async (ctx, { userId, importId }) => {
+    if (!(await purgeImportStep(ctx, userId, importId))) await ctx.scheduler.runAfter(0, internal.jobs.imports.purge, { userId, importId });
   },
 });

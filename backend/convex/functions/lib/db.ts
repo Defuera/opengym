@@ -71,12 +71,12 @@ export function toEntry(d: Doc<"entries">): Entry {
  * The row of an entry, MARKED OR NOT. Only code that must see a marked row uses this: commands/entries (save, remove, restore)
  * and jobs/purge. Every read for a user, a job or the coach uses `entryByEntryId`.
  */
-export const entryRowByEntryId = (ctx: Reader, entryId: string) =>
+export const entryRowByEntryId = (ctx: Reader, userId: string, entryId: string) =>
   ctx.db.query("entries").withIndex("by_entryId", (q) => q.eq("entryId", entryId)).unique();
 
 /** The live entry (not marked as deleted, ADR-020), or null. */
-export async function entryByEntryId(ctx: Reader, entryId: string): Promise<Doc<"entries"> | null> {
-  const d = await entryRowByEntryId(ctx, entryId);
+export async function entryByEntryId(ctx: Reader, userId: string, entryId: string): Promise<Doc<"entries"> | null> {
+  const d = await entryRowByEntryId(ctx, userId, entryId);
   return d && d.deletedAt === undefined ? d : null;
 }
 
@@ -84,7 +84,7 @@ export async function entryByEntryId(ctx: Reader, entryId: string): Promise<Doc<
  * Live entries by `at` (ADR-020: rows marked as deleted are left out BEFORE the limit, so `limit` stays the count of live rows).
  * `from` and `to` bound `at` (both inclusive). The one way to list entries.
  */
-export function liveEntryDocs(ctx: Reader, o: { order: "asc" | "desc"; from?: number; to?: number; limit?: number }): Promise<Doc<"entries">[]> {
+export function liveEntryDocs(ctx: Reader, userId: string, o: { order: "asc" | "desc"; from?: number; to?: number; limit?: number }): Promise<Doc<"entries">[]> {
   const q = ctx.db
     .query("entries")
     .withIndex("by_at", (r) => (o.from !== undefined ? (o.to !== undefined ? r.gte("at", o.from).lte("at", o.to) : r.gte("at", o.from)) : o.to !== undefined ? r.lte("at", o.to) : r))
@@ -99,7 +99,7 @@ type Reader = { db: DatabaseReader };
  * Live sessions by `endedAt` (ADR-020: rows marked as deleted are left out BEFORE the limit, so `limit` stays the count of
  * live rows). `after` keeps only sessions that ended after it. The one way to list sessions.
  */
-export function liveSessionDocs(ctx: Reader, o: { order: "asc" | "desc"; after?: number; limit?: number }): Promise<Doc<"sessions">[]> {
+export function liveSessionDocs(ctx: Reader, userId: string, o: { order: "asc" | "desc"; after?: number; limit?: number }): Promise<Doc<"sessions">[]> {
   const q = ctx.db
     .query("sessions")
     .withIndex("by_endedAt", (r) => (o.after !== undefined ? r.gt("endedAt", o.after) : r))
@@ -109,16 +109,16 @@ export function liveSessionDocs(ctx: Reader, o: { order: "asc" | "desc"; after?:
 }
 
 /** The FULL live history, oldest first. Code that computes numbers or applies limits reads this. */
-export async function allSessions(ctx: Reader): Promise<Session[]> {
-  return (await liveSessionDocs(ctx, { order: "asc" })).map(toSession);
+export async function allSessions(ctx: Reader, userId: string): Promise<Session[]> {
+  return (await liveSessionDocs(ctx, userId, { order: "asc" })).map(toSession);
 }
 
-export async function allGoals(ctx: Reader): Promise<Goal[]> {
+export async function allGoals(ctx: Reader, userId: string): Promise<Goal[]> {
   const docs = await ctx.db.query("goals").withIndex("by_createdAt").order("asc").collect();
   return docs.map(toGoal);
 }
 
-export async function allContext(ctx: Reader): Promise<ContextItem[]> {
+export async function allContext(ctx: Reader, userId: string): Promise<ContextItem[]> {
   const docs = await ctx.db.query("context").withIndex("by_createdAt").order("asc").collect();
   return docs.map(toContextItem);
 }
@@ -127,19 +127,19 @@ export async function allContext(ctx: Reader): Promise<ContextItem[]> {
  * The row of a session, MARKED OR NOT. Only code that must see a marked row uses this: commands/sessions (save, logText,
  * remove, restore), lib/importWrite and jobs/purge. Every read for a user, a job or the coach uses `sessionBySessionId`.
  */
-export const sessionRowBySessionId = (ctx: Reader, sessionId: string) =>
+export const sessionRowBySessionId = (ctx: Reader, userId: string, sessionId: string) =>
   ctx.db.query("sessions").withIndex("by_sessionId", (q) => q.eq("sessionId", sessionId)).unique();
 
 /** The live session (not marked as deleted, ADR-020), or null. */
-export async function sessionBySessionId(ctx: Reader, sessionId: string): Promise<Doc<"sessions"> | null> {
-  const d = await sessionRowBySessionId(ctx, sessionId);
+export async function sessionBySessionId(ctx: Reader, userId: string, sessionId: string): Promise<Doc<"sessions"> | null> {
+  const d = await sessionRowBySessionId(ctx, userId, sessionId);
   return d && d.deletedAt === undefined ? d : null;
 }
 
-export const goalByGoalId = (ctx: Reader, goalId: string) =>
+export const goalByGoalId = (ctx: Reader, userId: string, goalId: string) =>
   ctx.db.query("goals").withIndex("by_goalId", (q) => q.eq("goalId", goalId)).unique();
 
-export const contextByItemId = (ctx: Reader, itemId: string) =>
+export const contextByItemId = (ctx: Reader, userId: string, itemId: string) =>
   ctx.db.query("context").withIndex("by_itemId", (q) => q.eq("itemId", itemId)).unique();
 
 /** Strip Convex system fields so a fact can be compared with what a client sent. */
@@ -160,16 +160,16 @@ export function stableJson(value: unknown): string {
   return JSON.stringify(value) ?? "null";
 }
 
-export const threadByThreadId = (ctx: Reader, threadId: string) =>
+export const threadByThreadId = (ctx: Reader, userId: string, threadId: string) =>
   ctx.db.query("threads").withIndex("by_threadId", (q) => q.eq("threadId", threadId)).unique();
 
 /** Deletes a thread and its messages (commands/threads:remove, commands/programs:remove). Goals and context items it produced stay: they are facts. */
-export async function deleteThreadWithMessages(ctx: { db: DatabaseWriter }, thread: Doc<"threads">): Promise<void> {
+export async function deleteThreadWithMessages(ctx: { db: DatabaseWriter }, userId: string, thread: Doc<"threads">): Promise<void> {
   for (const m of await ctx.db.query("messages").withIndex("by_threadId", (q) => q.eq("threadId", thread.threadId)).collect()) await ctx.db.delete(m._id);
   await ctx.db.delete(thread._id);
 }
 
-export const messageByMessageId = (ctx: Reader, messageId: string) =>
+export const messageByMessageId = (ctx: Reader, userId: string, messageId: string) =>
   ctx.db.query("messages").withIndex("by_messageId", (q) => q.eq("messageId", messageId)).unique();
 
 /** The key of a stored plan: the activity and the focus, each by `activityKey`. */
@@ -179,7 +179,7 @@ export const planKey = (activity: string, focus?: string) => ({ activityKey: act
  * The plan stored for an activity and focus, or null. A plan row from before ADR-016 has no activity key:
  * it is read as a Gym plan until the next rebuild replaces it (jobs/rebuild prunes it).
  */
-export async function planFor(ctx: Reader, activity: string, focus?: string): Promise<Doc<"plans"> | null> {
+export async function planFor(ctx: Reader, userId: string, activity: string, focus?: string): Promise<Doc<"plans"> | null> {
   const k = planKey(activity, focus);
   const doc = await ctx.db.query("plans").withIndex("by_activity", (q) => q.eq("activityKey", k.activityKey).eq("focusKey", k.focusKey)).unique();
   if (doc || k.activityKey !== "gym" || !focus) return doc;
@@ -187,5 +187,5 @@ export async function planFor(ctx: Reader, activity: string, focus?: string): Pr
   return legacy.find((p) => p.activityKey === undefined) ?? null;
 }
 
-export const startRequestById = (ctx: Reader, requestId: string) =>
+export const startRequestById = (ctx: Reader, userId: string, requestId: string) =>
   ctx.db.query("startRequests").withIndex("by_requestId", (q) => q.eq("requestId", requestId)).unique();

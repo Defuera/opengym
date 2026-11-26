@@ -147,7 +147,7 @@ describe("a chat thread about a place", () => {
     await savePlace("p-home", "Home", "A pair of 10 kg dumbbells");
     await create("th1", "p-home");
     await t.mutation(api.commands.messages.send, { token: TOKEN, threadId: "th1", messageId: "m1", text: "I also have a pull-up bar" });
-    const input = await t.query(internal.jobs.coachTurn.input, { threadId: "th1", messageId: "m1" });
+    const input = await t.query(internal.jobs.coachTurn.input, { userId: "owner", threadId: "th1", messageId: "m1" });
     expect(input!.turn).toMatchObject({ placeInView: { placeId: "p-home", name: "Home" } });
     expect(input!.turn.places).toContainEqual({ placeId: "p-home", name: "Home", equipment: "A pair of 10 kg dumbbells", knowledge: "partial" });
   });
@@ -157,8 +157,8 @@ describe("a chat thread about a place", () => {
     await create("th2", "gone");
     await t.mutation(api.commands.messages.send, { token: TOKEN, threadId: "th1", messageId: "m1", text: "hello" });
     await t.mutation(api.commands.messages.send, { token: TOKEN, threadId: "th2", messageId: "m2", text: "hello" });
-    expect((await t.query(internal.jobs.coachTurn.input, { threadId: "th1", messageId: "m1" }))!.turn.placeInView).toBeUndefined();
-    expect((await t.query(internal.jobs.coachTurn.input, { threadId: "th2", messageId: "m2" }))!.turn.placeInView).toBeUndefined();
+    expect((await t.query(internal.jobs.coachTurn.input, { userId: "owner", threadId: "th1", messageId: "m1" }))!.turn.placeInView).toBeUndefined();
+    expect((await t.query(internal.jobs.coachTurn.input, { userId: "owner", threadId: "th2", messageId: "m2" }))!.turn.placeInView).toBeUndefined();
   });
 
   it("a message in a place thread runs no learn_place job: the coach turn updates the place itself, with the person's words as evidence", async () => {

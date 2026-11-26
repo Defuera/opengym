@@ -99,7 +99,7 @@ describe("chat round trip (mock provider)", () => {
     await t.run(async (c) => {
       for (const j of await c.db.system.query("_scheduled_functions").collect()) await c.scheduler.cancel(j._id);
     });
-    await t.mutation(internal.jobs.chat.fail, { threadId: "th1", error: "boom" });
+    await t.mutation(internal.jobs.chat.fail, { userId: "owner", threadId: "th1", error: "boom" });
     expect((await threads())[0]).toMatchObject({ status: "failed", pending: 0 });
 
     await send("m1");
@@ -121,7 +121,7 @@ describe("chat round trip (mock provider)", () => {
     await t.run(async (c) => {
       for (const j of await c.db.system.query("_scheduled_functions").collect()) if (j.state.kind === "pending") await c.scheduler.cancel(j._id);
     });
-    await t.mutation(internal.jobs.chat.fail, { threadId: "th1", error: "boom" });
+    await t.mutation(internal.jobs.chat.fail, { userId: "owner", threadId: "th1", error: "boom" });
     await send("m1"); // answered: no new reply
     expect((await threads())[0]).toMatchObject({ status: "failed", pending: 0 });
     await send("m2"); // not answered: retried
@@ -260,11 +260,11 @@ describe("chat limits and failure", () => {
       await t.run((c) => c.db.insert("messages", { messageId: `h${i}`, threadId: "th1", role: i % 2 ? "assistant" : "user", text: `msg ${i}`, fileIds: [], sources: [], createdAt: base + i }));
     }
     await t.run((c) => c.db.insert("messages", { messageId: "last", threadId: "th1", role: "user", text: "newest", fileIds: [], sources: [], createdAt: base + 99 }));
-    const inp = await t.query(internal.jobs.coachTurn.input, { threadId: "th1", messageId: "last" });
+    const inp = await t.query(internal.jobs.coachTurn.input, { userId: "owner", threadId: "th1", messageId: "last" });
     expect(inp!.chat.history).toHaveLength(CHAT_HISTORY_MESSAGES);
     expect(inp!.chat.history.at(-1)).toEqual({ role: "user", content: "newest" });
     expect(inp!.chat.history[0]!.content).toBe("msg 11");
-    expect(await t.query(internal.jobs.coachTurn.input, { threadId: "th1", messageId: "ghost" })).toBeNull();
+    expect(await t.query(internal.jobs.coachTurn.input, { userId: "owner", threadId: "th1", messageId: "ghost" })).toBeNull();
   });
 
   it("an image attachment goes to the model when the provider takes images, and the file is a source", async () => {
@@ -308,7 +308,7 @@ describe("chat limits and failure", () => {
 
     // A real failure: the fail mutation records it.
     await send("m2", "again");
-    await t.mutation(internal.jobs.chat.fail, { threadId: "th1", error: "boom" });
+    await t.mutation(internal.jobs.chat.fail, { userId: "owner", threadId: "th1", error: "boom" });
     expect((await threads())[0]).toMatchObject({ status: "failed", error: "boom", pending: 0 });
     await settle(t);
     expect((await messages()).filter((m) => m.role === "user")).toHaveLength(2);

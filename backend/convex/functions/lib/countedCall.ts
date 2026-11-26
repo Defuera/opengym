@@ -4,6 +4,8 @@ import type { Usage } from "../model/ai/usage";
 import { consoleLogger } from "../model/ai/runJob";
 
 export interface CountedMeta {
+  /** The user the call is made for (ADR-039). */
+  userId: string;
   /** The AI job name, or "transcribe" / "exercise_art". */
   job: string;
   kind: "transcribe" | "image";

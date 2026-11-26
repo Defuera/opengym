@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { internalMutation, mutation } from "../_generated/server";
-import { requireToken } from "../lib/auth";
+import { requireUser } from "../lib/auth";
 import { entryRowByEntryId, sessionRowBySessionId } from "../lib/db";
 import { storeEntry } from "../lib/entriesDb";
 import { markFactsChanged } from "../lib/factsChanged";
@@ -15,8 +15,8 @@ import { entryFields } from "../schema";
 export const save = mutation({
   args: { token: v.string(), entry: v.object(entryFields) },
   handler: async (ctx, { token, entry }) => {
-    requireToken(token);
-    return storeEntry(ctx, entry);
+    const userId = await requireUser(ctx, token);
+    return storeEntry(ctx, userId, entry);
   },
 });
 
@@ -28,31 +28,31 @@ export const save = mutation({
 export const remove = mutation({
   args: { token: v.string(), entryId: v.string() },
   handler: async (ctx, { token, entryId }) => {
-    requireToken(token);
-    const old = await entryRowByEntryId(ctx, entryId);
+    const userId = await requireUser(ctx, token);
+    const old = await entryRowByEntryId(ctx, userId, entryId);
     if (!old || old.deletedAt !== undefined) return false;
     const now = Date.now();
     await ctx.db.patch(old._id, { deletedAt: now });
     // The session the log chat made with this entry goes with it (ADR-020). The goal, limit and note it made stay: nothing says cheaply whether the person edited them since.
     const made = old.read?.made?.sessionId;
-    const session = made !== undefined ? await sessionRowBySessionId(ctx, made) : null;
+    const session = made !== undefined ? await sessionRowBySessionId(ctx, userId, made) : null;
     if (session && session.deletedAt === undefined) await ctx.db.patch(session._id, { deletedAt: now });
-    await markFactsChanged(ctx);
+    await markFactsChanged(ctx, userId);
     return true;
   },
 });
 
-/** Operator tool (`npx convex run`): clears the mark of an entry, and of the session it made, if not erased yet. Returns true when it brought one back. */
+/** Operator tool (`npx convex run`, args `{ userId, entryId }`): clears the mark of an entry, and of the session it made, if not erased yet. Returns true when it brought one back. */
 export const restoreEntry = internalMutation({
-  args: { entryId: v.string() },
-  handler: async (ctx, { entryId }) => {
-    const old = await entryRowByEntryId(ctx, entryId);
+  args: { userId: v.string(), entryId: v.string() },
+  handler: async (ctx, { userId, entryId }) => {
+    const old = await entryRowByEntryId(ctx, userId, entryId);
     if (!old || old.deletedAt === undefined) return false;
     await ctx.db.patch(old._id, { deletedAt: undefined });
     const made = old.read?.made?.sessionId;
-    const session = made !== undefined ? await sessionRowBySessionId(ctx, made) : null;
+    const session = made !== undefined ? await sessionRowBySessionId(ctx, userId, made) : null;
     if (session?.deletedAt !== undefined) await ctx.db.patch(session._id, { deletedAt: undefined });
-    await markFactsChanged(ctx);
+    await markFactsChanged(ctx, userId);
     return true;
   },
 });

@@ -18,11 +18,11 @@ const BUDGET_MS = 25_000;
  * any more (the stored note is no longer the text this job was started for).
  */
 export const input = internalQuery({
-  args: { sessionId: v.string(), text: v.string() },
-  handler: async (ctx, { sessionId, text }) => {
-    const doc = await sessionBySessionId(ctx, sessionId);
+  args: { userId: v.string(), sessionId: v.string(), text: v.string() },
+  handler: async (ctx, { userId, sessionId, text }) => {
+    const doc = await sessionBySessionId(ctx, userId, sessionId);
     if (!doc || doc.parse !== "pending" || doc.note !== text) return null;
-    return buildParseLogInput(await allSessions(ctx), doc, text, Date.now());
+    return buildParseLogInput(await allSessions(ctx, userId), doc, text, Date.now());
   },
 });
 
@@ -34,6 +34,7 @@ export const input = internalQuery({
  */
 export const save = internalMutation({
   args: {
+    userId: v.string(),
     sessionId: v.string(),
     text: v.string(),
     parse: v.union(v.literal("done"), v.literal("failed")),
@@ -44,8 +45,8 @@ export const save = internalMutation({
     distanceKm: v.optional(v.number()),
     exercises: v.optional(v.array(exercise)),
   },
-  handler: async (ctx, { sessionId, text, parse, ...found }) => {
-    const doc = await sessionBySessionId(ctx, sessionId);
+  handler: async (ctx, { userId, sessionId, text, parse, ...found }) => {
+    const doc = await sessionBySessionId(ctx, userId, sessionId);
     if (!doc || doc.parse !== "pending" || doc.note !== text) return;
     const exercises = found.exercises ?? [];
     const patch = {
@@ -59,8 +60,8 @@ export const save = internalMutation({
     void _parse;
     const ok = parse === "done" && SessionSchema.safeParse({ id, ...rest }).success;
     await ctx.db.patch(doc._id, ok ? { ...patch, parse: "done" } : { parse: "failed" });
-    await markFactsChanged(ctx);
-    await scheduleReview(ctx, sessionId);
+    await markFactsChanged(ctx, userId);
+    await scheduleReview(ctx, userId, sessionId);
   },
 });
 
@@ -69,18 +70,18 @@ export const save = internalMutation({
  * AI did not answer and the fallback read nothing. An unexpected error also ends in "failed", so the app never waits for ever.
  */
 export const run = internalAction({
-  args: { sessionId: v.string(), text: v.string() },
-  handler: async (ctx, { sessionId, text }): Promise<void> => {
+  args: { userId: v.string(), sessionId: v.string(), text: v.string() },
+  handler: async (ctx, { userId, sessionId, text }): Promise<void> => {
     try {
-      const i = await ctx.runQuery(internal.jobs.parseLog.input, { sessionId, text });
+      const i = await ctx.runQuery(internal.jobs.parseLog.input, { userId, sessionId, text });
       if (!i) return;
-      const r = await runAiJob(ctx, parseLogJob, i.job, { timeoutMs: BUDGET_MS });
+      const r = await runAiJob(ctx, userId, parseLogJob, i.job, { timeoutMs: BUDGET_MS });
       const usual = new Map(i.usual.map((e) => [activityKey(e.name), e as Exercise]));
       const found = structureOf(r.value, usual, i.at, i.now);
-      await ctx.runMutation(internal.jobs.parseLog.save, { sessionId, text, parse: r.path === "ai" || Object.keys(found).length > 0 ? "done" : "failed", ...found });
+      await ctx.runMutation(internal.jobs.parseLog.save, { userId, sessionId, text, parse: r.path === "ai" || Object.keys(found).length > 0 ? "done" : "failed", ...found });
     } catch (e) {
       console.error(`[log] parse failed: ${(e as Error).message}`);
-      await ctx.runMutation(internal.jobs.parseLog.save, { sessionId, text, parse: "failed" });
+      await ctx.runMutation(internal.jobs.parseLog.save, { userId, sessionId, text, parse: "failed" });
     }
   },
 });

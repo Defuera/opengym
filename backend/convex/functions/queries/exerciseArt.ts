@@ -1,13 +1,13 @@
 import { ConvexError, v } from "convex/values";
 import { query } from "../_generated/server";
-import { requireToken } from "../lib/auth";
+import { requireUser } from "../lib/auth";
 import { artKey } from "../model/exerciseArt";
 
 /** The art state of the given names (0..30), one item per name, same order. `url` is set only when the status is `ready`. */
 export const get = query({
   args: { token: v.string(), names: v.array(v.string()) },
   handler: async (ctx, { token, names }) => {
-    requireToken(token);
+    const userId = await requireUser(ctx, token);
     if (names.length > 30) throw new ConvexError("names: at most 30 names");
     const out: { name: string; status: "none" | "pending" | "ready" | "failed"; url: string | null }[] = [];
     for (const name of names) {

@@ -1,7 +1,7 @@
 import { ConvexError, v } from "convex/values";
 import { internal } from "../_generated/api";
 import { action } from "../_generated/server";
-import { requireToken } from "../lib/auth";
+import { requireUser } from "../lib/auth";
 import { transcribeFile } from "../lib/transcribe";
 import { MAX_VOICE_BYTES } from "../model/voice";
 
@@ -15,16 +15,16 @@ import { MAX_VOICE_BYTES } from "../model/voice";
 export const transcribe = action({
   args: { token: v.string(), fileId: v.string() },
   handler: async (ctx, { token, fileId }): Promise<{ ok: true; text: string } | { ok: false; reason: string }> => {
-    requireToken(token);
-    const file = await ctx.runQuery(internal.jobs.voice.audioFile, { fileId });
+    const userId = await requireUser(ctx, token);
+    const file = await ctx.runQuery(internal.jobs.voice.audioFile, { userId, fileId });
     if (!file) return { ok: false, reason: "The recording is gone." };
     if (file.size > MAX_VOICE_BYTES) throw new ConvexError("fileId: the recording is larger than 10 MB");
-    const out = await transcribeFile(ctx, file);
+    const out = await transcribeFile(ctx, userId, file);
     if (!out.ok) {
       console.error(`[voice] transcription failed: ${out.why}`);
       return { ok: false, reason: out.why };
     }
-    await ctx.runMutation(internal.jobs.voice.dropAudio, { fileId });
+    await ctx.runMutation(internal.jobs.voice.dropAudio, { userId, fileId });
     return { ok: true, text: out.text };
   },
 });

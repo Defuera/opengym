@@ -1,7 +1,7 @@
 import { ConvexError, v } from "convex/values";
 import { internal } from "../_generated/api";
 import { mutation } from "../_generated/server";
-import { requireToken } from "../lib/auth";
+import { requireUser } from "../lib/auth";
 import { PROPOSAL_FEEDBACK_KEEP, PROPOSAL_FEEDBACK_MAX, PROPOSAL_PURGE_BATCH, PROPOSAL_TEXT_MAX, PROPOSAL_TTL_MS } from "../lib/constants";
 import { threadByThreadId } from "../lib/db";
 import { markFactsChanged } from "../lib/factsChanged";
@@ -38,7 +38,7 @@ export const request = mutation({
     previousProposalId: v.optional(v.string()),
   },
   handler: async (ctx, { token, proposalId, kind, targetId, text, feedback, previousProposalId }): Promise<string> => {
-    requireToken(token);
+    const userId = await requireUser(ctx, token);
     const id = clip(proposalId, "proposalId");
     if ((feedback === undefined) !== (previousProposalId === undefined)) throw new ConvexError("feedback and previousProposalId go together");
     const rebuild = feedback !== undefined;
@@ -51,21 +51,22 @@ export const request = mutation({
     const now = Date.now();
     const old = await ctx.db.query("proposals").withIndex("by_createdAt", (q) => q.lt("createdAt", now - PROPOSAL_TTL_MS)).take(PROPOSAL_PURGE_BATCH);
     for (const d of old) await ctx.db.delete(d._id);
-    if (await proposalByProposalId(ctx, id)) return id;
-    const prev = rebuild ? await proposalByProposalId(ctx, prevId!) : null;
+    if (await proposalByProposalId(ctx, userId, id)) return id;
+    const prev = rebuild ? await proposalByProposalId(ctx, userId, prevId!) : null;
     if (rebuild && !prev) throw new ConvexError("previous proposal not found (it may be older than 7 days)");
     if (prev && prev.status !== "ready") throw new ConvexError("previous proposal is not ready");
     const target = prev ? prev.target : { kind, ...(cleanTarget !== undefined ? { id: cleanTarget } : {}) };
     // A change: the program must exist now. Its rev is what the proposal is made on (accept checks it again).
     let base: number | undefined;
     if (target.id !== undefined) {
-      const program = await programByProgramId(ctx, target.id);
+      const program = await programByProgramId(ctx, userId, target.id);
       if (!program) throw new ConvexError("program not found");
       base = program.rev;
     }
     const origin = rebuild ? "feedback" : "request";
     const askText = prev ? prev.ask.text : cleanText;
     await ctx.db.insert("proposals", {
+      userId,
       proposalId: id,
       target,
       ...(base !== undefined ? { base } : {}),
@@ -79,7 +80,7 @@ export const request = mutation({
       createdAt: now,
     });
     if (prev) await ctx.db.patch(prev._id, { status: "declined", decidedAt: now });
-    await ctx.scheduler.runAfter(0, internal.jobs.programs.build, { proposalId: id });
+    await ctx.scheduler.runAfter(0, internal.jobs.programs.build, { userId, proposalId: id });
     return id;
   },
 });
@@ -95,13 +96,13 @@ export const request = mutation({
 export const accept = mutation({
   args: { token: v.string(), proposalId: v.string() },
   handler: async (ctx, { token, proposalId }): Promise<{ programId: string }> => {
-    requireToken(token);
-    const p = await proposalByProposalId(ctx, proposalId);
+    const userId = await requireUser(ctx, token);
+    const p = await proposalByProposalId(ctx, userId, proposalId);
     if (!p) throw new ConvexError("proposal not found");
     // A second agree changes nothing and gives the same program (ADR-032: approve is done once).
     if (p.status === "applied") return { programId: p.target.id ?? p.proposalId };
     if (p.status !== "ready" || !p.value) throw new ConvexError("This proposal is not ready.");
-    const bad = checkProgramValue(p.value, await activeLimits(ctx));
+    const bad = checkProgramValue(p.value, await activeLimits(ctx, userId));
     if (bad) throw new ConvexError(bad);
     const now = Date.now();
     const { tests, ...value } = p.value;
@@ -109,6 +110,7 @@ export const accept = mutation({
     if (p.target.id === undefined) {
       programId = p.proposalId;
       await ctx.db.insert("programs", {
+        userId,
         programId,
         ...value,
         tests: tests.map((text, i) => ({ testId: `${programId}-t${i + 1}`, text })),
@@ -120,7 +122,7 @@ export const accept = mutation({
       });
     } else {
       programId = p.target.id;
-      const program = await programByProgramId(ctx, programId);
+      const program = await programByProgramId(ctx, userId, programId);
       if (!program || program.rev !== p.base) throw new ConvexError("The program changed. Ask again.");
       const rev = program.rev + 1;
       await ctx.db.patch(program._id, {
@@ -135,9 +137,9 @@ export const accept = mutation({
     }
     await ctx.db.patch(p._id, { status: "applied", decidedAt: now });
     // A chat about a new program becomes the chat about this program (ADR-026); an unnamed thread takes the program's title.
-    const thread = p.threadId !== undefined ? await threadByThreadId(ctx, p.threadId) : null;
+    const thread = p.threadId !== undefined ? await threadByThreadId(ctx, userId, p.threadId) : null;
     if (thread?.about && thread.about.id === undefined) await ctx.db.patch(thread._id, { about: { ...thread.about, id: programId }, ...(thread.titleSource === "auto" ? { title: value.title } : {}) });
-    await markFactsChanged(ctx);
+    await markFactsChanged(ctx, userId);
     return { programId };
   },
 });
@@ -146,8 +148,8 @@ export const accept = mutation({
 export const decline = mutation({
   args: { token: v.string(), proposalId: v.string() },
   handler: async (ctx, { token, proposalId }): Promise<null> => {
-    requireToken(token);
-    const p = await proposalByProposalId(ctx, proposalId);
+    const userId = await requireUser(ctx, token);
+    const p = await proposalByProposalId(ctx, userId, proposalId);
     if (p && (p.status === "building" || p.status === "ready")) await ctx.db.patch(p._id, { status: "declined", decidedAt: Date.now() });
     return null;
   },

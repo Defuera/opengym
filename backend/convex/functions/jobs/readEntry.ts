@@ -22,27 +22,27 @@ const pending = (d: Doc<"entries"> | null, rev: string): d is Doc<"entries"> => 
 
 /** The entry and its files, or null when the entry is gone, was changed, or is already read. */
 export const input = internalQuery({
-  args: { entryId: v.string(), rev: v.string() },
-  handler: async (ctx, { entryId, rev }) => {
-    const d = await entryByEntryId(ctx, entryId);
+  args: { userId: v.string(), entryId: v.string(), rev: v.string() },
+  handler: async (ctx, { userId, entryId, rev }) => {
+    const d = await entryByEntryId(ctx, userId, entryId);
     if (!pending(d, rev)) return null;
     const files: FileDoc[] = [];
     for (const id of d.fileIds) {
-      const f = await fileByFileId(ctx, id);
+      const f = await fileByFileId(ctx, userId, id);
       if (f) files.push(fileDoc(f));
     }
-    return { text: d.text, at: d.at, files, categories: await knownCategories(ctx) };
+    return { text: d.text, at: d.at, files, categories: await knownCategories(ctx, userId) };
   },
 });
 
 /** Stores the label. It does nothing when the entry is gone or its text or files changed meanwhile (the newer run labels it). */
 export const save = internalMutation({
-  args: { entryId: v.string(), read: entryRead, color: v.optional(v.string()) },
-  handler: async (ctx, { entryId, read, color }) => {
-    const d = await entryByEntryId(ctx, entryId);
+  args: { userId: v.string(), entryId: v.string(), read: entryRead, color: v.optional(v.string()) },
+  handler: async (ctx, { userId, entryId, read, color }) => {
+    const d = await entryByEntryId(ctx, userId, entryId);
     if (!pending(d, read.rev)) return;
     // A new category is stored with its colour (the AI's, else plain code); an old one keeps the colour it has.
-    if (read.kind) read = { ...read, kind: (await ensureCategory(ctx, read.kind, color, "ai"))?.label ?? read.kind };
+    if (read.kind) read = { ...read, kind: (await ensureCategory(ctx, userId, read.kind, color, "ai"))?.label ?? read.kind };
     await ctx.db.patch(d._id, { read: { ...read, ...(d.read?.made ? { made: d.read.made } : {}) } });
   },
 });
@@ -52,12 +52,12 @@ export const save = internalMutation({
  * photo, so a run with no AI answer ends in "failed" and the entry shows as the user wrote it. It never throws.
  */
 export const run = internalAction({
-  args: { entryId: v.string(), rev: v.string() },
-  handler: async (ctx, { entryId, rev }): Promise<void> => {
+  args: { userId: v.string(), entryId: v.string(), rev: v.string() },
+  handler: async (ctx, { userId, entryId, rev }): Promise<void> => {
     try {
-      const i = await ctx.runQuery(internal.jobs.readEntry.input, { entryId, rev });
+      const i = await ctx.runQuery(internal.jobs.readEntry.input, { userId, entryId, rev });
       if (!i) return;
-      const takesImages = (await providerFor(ctx))?.supportsImages ?? false;
+      const takesImages = (await providerFor(ctx, userId))?.supportsImages ?? false;
       const images: ImageInput[] = [];
       const files: { name: string; text: string }[] = [];
       for (const f of i.files) {
@@ -69,19 +69,19 @@ export const run = internalAction({
       }
       // Nothing the model can read: an image-only entry on a provider with no image input.
       if (!i.text.trim() && images.length === 0 && files.every((f) => !f.text)) {
-        await ctx.runMutation(internal.jobs.readEntry.save, { entryId, read: { status: "failed", rev } });
+        await ctx.runMutation(internal.jobs.readEntry.save, { userId, entryId, read: { status: "failed", rev } });
         return;
       }
       const when = `${new Date(i.at).toISOString().slice(0, 10)} ${localTime(i.at)}`;
-      const r = await runAiJob(ctx, readEntryJob, { text: i.text, when, files, images, categories: i.categories }, { timeoutMs: BUDGET_MS });
-      await ctx.runMutation(internal.jobs.readEntry.save, {
+      const r = await runAiJob(ctx, userId, readEntryJob, { text: i.text, when, files, images, categories: i.categories }, { timeoutMs: BUDGET_MS });
+      await ctx.runMutation(internal.jobs.readEntry.save, {userId, 
         entryId,
         ...(r.path === "ai" && r.value.color ? { color: r.value.color } : {}),
         read: r.path === "ai" ? { status: "ready", rev, kind: normaliseCategory(r.value.kind, i.categories.map((c) => c.label)), summary: r.value.summary } : { status: "failed", rev },
       });
     } catch (e) {
       console.error(`[entry] read failed: ${(e as Error).message}`);
-      await ctx.runMutation(internal.jobs.readEntry.save, { entryId, read: { status: "failed", rev } });
+      await ctx.runMutation(internal.jobs.readEntry.save, { userId, entryId, read: { status: "failed", rev } });
     }
   },
 });

@@ -65,7 +65,7 @@ describe("a voice message carries the screen context of a typed one", () => {
     await settle(t);
     const stored = await t.run((c) => c.db.query("messages").withIndex("by_messageId", (q) => q.eq("messageId", "v1")).unique());
     expect(stored).toMatchObject({ voice: "done", context: { screen: "log" } });
-    const input = await t.query(internal.jobs.coachTurn.input, { threadId: "th1", messageId: "v1" });
+    const input = await t.query(internal.jobs.coachTurn.input, { userId: "owner", threadId: "th1", messageId: "v1" });
     expect(input!.turn.screen).toBe("log");
   });
 
@@ -81,7 +81,7 @@ describe("a voice message carries the screen context of a typed one", () => {
     await upload("f1");
     await sendVoice("v1");
     await settle(t);
-    expect((await t.query(internal.jobs.coachTurn.input, { threadId: "th1", messageId: "v1" }))!.turn.screen).toBe("chat");
+    expect((await t.query(internal.jobs.coachTurn.input, { userId: "owner", threadId: "th1", messageId: "v1" }))!.turn.screen).toBe("chat");
   });
 });
 

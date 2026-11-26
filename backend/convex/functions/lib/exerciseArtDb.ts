@@ -7,8 +7,9 @@ import { ART_NAME_MAX, artKey } from "../model/exerciseArt";
  * Makes sure art is on its way for these exercise names (already trimmed, 1..80 characters). A name with no row gets a `pending` row and a job.
  * A `failed` row older than 24 hours goes back to `pending` and the job runs again. Other rows stay. At most EXERCISE_ART_DAILY_MAX rows
  * are new or retried within 24 hours (counted by updatedAt); names over the cap are skipped silently. Idempotent.
+ * The art is SHARED by all users (ADR-039); `userId` is the user the paid image call is counted for (`aiUsage`).
  */
-export async function requestExerciseArt(ctx: MutationCtx, names: string[]): Promise<void> {
+export async function requestExerciseArt(ctx: MutationCtx, userId: string, names: string[]): Promise<void> {
   const now = Date.now();
   let budget = EXERCISE_ART_DAILY_MAX - (await ctx.db.query("exerciseArt").withIndex("by_updatedAt", (q) => q.gte("updatedAt", now - EXERCISE_ART_RETRY_MS)).collect()).length;
   const seen = new Set<string>();
@@ -23,6 +24,6 @@ export async function requestExerciseArt(ctx: MutationCtx, names: string[]): Pro
     budget--;
     if (row) await ctx.db.patch(row._id, { status: "pending", error: undefined, updatedAt: now });
     else await ctx.db.insert("exerciseArt", { key, name, status: "pending", createdAt: now, updatedAt: now });
-    await ctx.scheduler.runAfter(0, internal.jobs.exerciseArt.make, { key });
+    await ctx.scheduler.runAfter(0, internal.jobs.exerciseArt.make, { userId, key });
   }
 }

@@ -23,8 +23,8 @@ type Reader = { db: DatabaseReader };
  * Entries of the last 7 days that the coach reads: the newest 20, oldest first. An entry that made a session (the log chat, ADR-032) is left out:
  * the session is read as training, so the same words are not read twice.
  */
-export async function coachEntries(ctx: Reader, now: number): Promise<CoachSourceEntry[]> {
-  const docs = (await liveEntryDocs(ctx, { order: "desc", from: now - COACH_ENTRY_DAYS * DAY, to: now, limit: COACH_ENTRY_MAX })).filter((d) => d.read?.made?.sessionId === undefined);
+export async function coachEntries(ctx: Reader, userId: string, now: number): Promise<CoachSourceEntry[]> {
+  const docs = (await liveEntryDocs(ctx, userId, { order: "desc", from: now - COACH_ENTRY_DAYS * DAY, to: now, limit: COACH_ENTRY_MAX })).filter((d) => d.read?.made?.sessionId === undefined);
   return docs.reverse().map((d) => ({ ...toEntry(d), ...(d.fileIds.length > 0 && d.read?.status === "ready" && d.read.summary ? { seen: d.read.summary } : {}) }));
 }
 
@@ -41,11 +41,11 @@ const fileDoc = (f: Doc<"files">): FileDoc => ({ fileId: f.fileId, storageId: f.
  * The image files of the entry the person has open, at most COACH_IMAGE_MAX. No entry in view: none. Photos of other entries
  * are not sent (their text and `seen` summary are already in the context). Bytes are read later, in an action.
  */
-export async function entryInViewImageFiles(ctx: Reader, entryId: string | undefined): Promise<FileDoc[]> {
-  const entry = entryId ? await entryByEntryId(ctx, entryId) : null;
+export async function entryInViewImageFiles(ctx: Reader, userId: string, entryId: string | undefined): Promise<FileDoc[]> {
+  const entry = entryId ? await entryByEntryId(ctx, userId, entryId) : null;
   const out: FileDoc[] = [];
   for (const id of entry?.fileIds ?? []) {
-    const f = await fileByFileId(ctx, id);
+    const f = await fileByFileId(ctx, userId, id);
     if (f && f.kind === "image") out.push(fileDoc(f));
     if (out.length >= COACH_IMAGE_MAX) break;
   }
@@ -53,12 +53,12 @@ export async function entryInViewImageFiles(ctx: Reader, entryId: string | undef
 }
 
 /** The image files of entries of the last 24 hours, newest entry first, at most 4. Only for building a session, which reads the last day (not for a chat). */
-export async function entryImageFiles(ctx: Reader, now: number): Promise<FileDoc[]> {
-  const docs = await liveEntryDocs(ctx, { order: "desc", from: now - COACH_IMAGE_HOURS * 3_600_000, to: now, limit: COACH_ENTRY_MAX });
+export async function entryImageFiles(ctx: Reader, userId: string, now: number): Promise<FileDoc[]> {
+  const docs = await liveEntryDocs(ctx, userId, { order: "desc", from: now - COACH_IMAGE_HOURS * 3_600_000, to: now, limit: COACH_ENTRY_MAX });
   const out: FileDoc[] = [];
   for (const e of docs) {
     for (const id of e.fileIds) {
-      const f = await fileByFileId(ctx, id);
+      const f = await fileByFileId(ctx, userId, id);
       if (f && f.kind === "image") out.push(fileDoc(f));
       if (out.length >= COACH_IMAGE_MAX) return out;
     }
@@ -78,8 +78,8 @@ export async function loadEntryImages(ctx: ActionCtx, files: FileDoc[], supports
 }
 
 /** Deletes a file row and its blob. No error when it is gone. */
-export async function deleteFile(ctx: Pick<MutationCtx, "db" | "storage">, fileId: string): Promise<void> {
-  const f = await fileByFileId(ctx, fileId);
+export async function deleteFile(ctx: Pick<MutationCtx, "db" | "storage">, userId: string, fileId: string): Promise<void> {
+  const f = await fileByFileId(ctx, userId, fileId);
   if (!f) return;
   await ctx.storage.delete(f.storageId);
   await ctx.db.delete(f._id);
@@ -106,10 +106,10 @@ export interface EntryLabel {
  * registered, a dropped file deleted, a resend changes nothing, an entry marked as deleted stays so (ADR-020). A new or changed text or
  * file list starts the reader job (ADR-031), unless `label` is given: then the label is "ready" at once and no reader job is scheduled.
  */
-export async function storeEntry(ctx: MutationCtx, entry: EntryInput, label?: EntryLabel): Promise<string> {
+export async function storeEntry(ctx: MutationCtx, userId: string, entry: EntryInput, label?: EntryLabel): Promise<string> {
   const { entryId, ...rest } = entry;
   parseOrThrow(EntrySchema, { id: entryId, ...rest }, "entry");
-  const old = await entryRowByEntryId(ctx, entryId);
+  const old = await entryRowByEntryId(ctx, userId, entryId);
   if (old?.deletedAt !== undefined) return entryId; // marked as deleted (ADR-020): a late resend must not bring it back
   for (const id of entry.fileIds) {
     if (!(await ctx.db.query("files").withIndex("by_fileId", (q) => q.eq("fileId", id)).unique())) throw new ConvexError(`entry.fileIds: no registered file "${id}"`);
@@ -121,7 +121,7 @@ export async function storeEntry(ctx: MutationCtx, entry: EntryInput, label?: En
   }
   // The reader job labels the entry (ADR-031). A label is kept only while the text and the files it read are the same.
   const rev = entryRev(entry);
-  if (label) await ensureCategory(ctx, label.kind, undefined, "rules");
+  if (label) await ensureCategory(ctx, userId, label.kind, undefined, "rules");
   const made = label?.made ?? old?.read?.made;
   const read = label
     ? { status: "ready" as const, rev, kind: label.kind, summary: label.summary, ...(made ? { made } : {}) }
@@ -129,11 +129,11 @@ export async function storeEntry(ctx: MutationCtx, entry: EntryInput, label?: En
       ? old.read
       : { status: "pending" as const, rev, ...(made ? { made } : {}) };
   if (old) {
-    await ctx.db.replace(old._id, { ...entry, read });
-    for (const id of old.fileIds) if (!entry.fileIds.includes(id)) await deleteFile(ctx, id);
+    await ctx.db.replace(old._id, { ...entry, read, userId });
+    for (const id of old.fileIds) if (!entry.fileIds.includes(id)) await deleteFile(ctx, userId, id);
   } else {
-    await ctx.db.insert("entries", { ...entry, read });
+    await ctx.db.insert("entries", { ...entry, read, userId });
   }
-  if (read.status === "pending") await ctx.scheduler.runAfter(0, internal.jobs.readEntry.run, { entryId, rev });
+  if (read.status === "pending") await ctx.scheduler.runAfter(0, internal.jobs.readEntry.run, { userId, entryId, rev });
   return entryId;
 }

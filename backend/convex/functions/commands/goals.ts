@@ -1,6 +1,6 @@
 import { ConvexError, v } from "convex/values";
 import { mutation } from "../_generated/server";
-import { requireToken } from "../lib/auth";
+import { requireUser } from "../lib/auth";
 import { goalByGoalId } from "../lib/db";
 import { markFactsChanged } from "../lib/factsChanged";
 import { goalKind, goalStatus } from "../lib/validators";
@@ -19,12 +19,12 @@ export const create = mutation({
     sessionsPerWeek: v.optional(v.number()),
   },
   handler: async (ctx, { token, goalId, ...input }) => {
-    requireToken(token);
+    const userId = await requireUser(ctx, token);
     if (!goalId || goalId.length > 100) throw new ConvexError("goalId: must be 1 to 100 characters");
     const valid = parseOrThrow(GoalInputSchema, input, "goal");
-    if (await goalByGoalId(ctx, goalId)) return goalId;
-    await ctx.db.insert("goals", { goalId, ...valid, status: "active", source: "user", createdAt: Date.now() });
-    await markFactsChanged(ctx);
+    if (await goalByGoalId(ctx, userId, goalId)) return goalId;
+    await ctx.db.insert("goals", { userId, goalId, ...valid, status: "active", source: "user", createdAt: Date.now() });
+    await markFactsChanged(ctx, userId);
     return goalId;
   },
 });
@@ -42,14 +42,14 @@ export const update = mutation({
     status: v.optional(goalStatus),
   },
   handler: async (ctx, { token, goalId, ...patch }) => {
-    requireToken(token);
+    const userId = await requireUser(ctx, token);
     const valid = parseOrThrow(GoalPatchSchema, patch, "goal");
-    const old = await goalByGoalId(ctx, goalId);
+    const old = await goalByGoalId(ctx, userId, goalId);
     if (!old) throw new ConvexError(`goal not found: ${goalId}`);
     // A new title makes the old structure stale: it is cleared unless sent now. No AI reads it again (ADR-032, step D): the coach drafts a changed goal in the chat.
     const retitled = valid.title !== undefined && valid.title !== old.title;
     await ctx.db.patch(old._id, retitled ? { kind: "custom", exercise: undefined, targetKg: undefined, sessionsPerWeek: undefined, ...valid } : valid);
-    await markFactsChanged(ctx);
+    await markFactsChanged(ctx, userId);
     return goalId;
   },
 });
@@ -58,11 +58,11 @@ export const update = mutation({
 export const remove = mutation({
   args: { token: v.string(), goalId: v.string() },
   handler: async (ctx, { token, goalId }) => {
-    requireToken(token);
-    const old = await goalByGoalId(ctx, goalId);
+    const userId = await requireUser(ctx, token);
+    const old = await goalByGoalId(ctx, userId, goalId);
     if (!old) return false;
     await ctx.db.delete(old._id);
-    await markFactsChanged(ctx);
+    await markFactsChanged(ctx, userId);
     return true;
   },
 });

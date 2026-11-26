@@ -22,7 +22,7 @@ const calls = () => t.run((c) => c.db.query("aiCalls").collect());
 /** Runs the summarise_thread job through its real action, so the provider is called from an action as in production. */
 async function run(): Promise<void> {
   await t.mutation(api.commands.threads.create, { token: TOKEN, threadId: "th1" });
-  await t.action(internal.jobs.chat.summarise, { threadId: "th1" });
+  await t.action(internal.jobs.chat.summarise, { userId: "owner", threadId: "th1" });
 }
 const pathOfLastCall = async () => (await calls()).at(-1)!.path;
 
@@ -88,7 +88,7 @@ describe("aiUsage rows of a job run", () => {
 
 describe("aiUsage ref", () => {
   it("carries the ref of the aiCalls row", async () => {
-    await t.mutation(internal.jobs.aiCalls.save, { job: "coach_turn", provider: "openai", model: "m", system: "S", messages: [], images: 0, attempts: [{ ms: 5, at: NOW, usage: { inputTokens: 3 } }], path: "ai", ms: 5, ref: "msg-1" });
+    await t.mutation(internal.jobs.aiCalls.save, { userId: "owner", job: "coach_turn", provider: "openai", model: "m", system: "S", messages: [], images: 0, attempts: [{ ms: 5, at: NOW, usage: { inputTokens: 3 } }], path: "ai", ms: 5, ref: "msg-1" });
     expect(await usageRows()).toMatchObject([{ ref: "msg-1", inputTokens: 3, at: NOW, userId: "owner", model: "m" }]);
   });
 });

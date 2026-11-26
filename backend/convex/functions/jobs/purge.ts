@@ -1,6 +1,7 @@
 import { internal } from "../_generated/api";
 import { internalMutation } from "../_generated/server";
 import { AI_CALL_KEEP_MS, DELETE_AFTER_MS, PURGE_BATCH } from "../lib/constants";
+import { OWNER_USER_ID } from "../lib/currentUser";
 import { deleteFile } from "../lib/entriesDb";
 
 /**
@@ -22,7 +23,7 @@ export const run = internalMutation({
     }
     const entries = await ctx.db.query("entries").withIndex("by_deletedAt", (q) => q.gt("deletedAt", 0).lt("deletedAt", cutoff)).take(PURGE_BATCH);
     for (const e of entries) {
-      for (const id of e.fileIds) await deleteFile(ctx, id);
+      for (const id of e.fileIds) await deleteFile(ctx, e.userId ?? OWNER_USER_ID, id);
       await ctx.db.delete(e._id);
     }
     const programs = await ctx.db.query("programs").withIndex("by_deletedAt", (q) => q.gt("deletedAt", 0).lt("deletedAt", cutoff)).take(PURGE_BATCH);

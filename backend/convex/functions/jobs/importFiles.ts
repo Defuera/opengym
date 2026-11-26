@@ -19,6 +19,7 @@ const jobOf = (ctx: { db: import("../_generated/server").DatabaseReader }, impor
 const mergeNotes = (old: string[], add: Iterable<string>) => [...new Set([...old, ...add])];
 
 const unitArgs = {
+  userId: v.string(),
   importId: v.string(),
   fileName: v.string(),
   fileCreatedAt: v.number(),
@@ -30,11 +31,11 @@ const unitArgs = {
 };
 
 export const files = internalQuery({
-  args: { fileIds: v.array(v.string()) },
-  handler: async (ctx, { fileIds }): Promise<FileDoc[]> => {
+  args: { userId: v.string(), fileIds: v.array(v.string()) },
+  handler: async (ctx, { userId, fileIds }): Promise<FileDoc[]> => {
     const out: FileDoc[] = [];
     for (const id of fileIds) {
-      const f = await fileByFileId(ctx, id);
+      const f = await fileByFileId(ctx, userId, id);
       if (f) out.push({ fileId: f.fileId, storageId: f.storageId, name: f.name, mime: f.mime, size: f.size, kind: f.kind, createdAt: f.createdAt });
     }
     return out;
@@ -42,26 +43,26 @@ export const files = internalQuery({
 });
 
 export const isRunning = internalQuery({
-  args: { importId: v.string() },
-  handler: async (ctx, { importId }) => (await jobOf(ctx, importId))?.status === "running",
+  args: { userId: v.string(), importId: v.string() },
+  handler: async (ctx, { userId, importId }) => (await jobOf(ctx, importId))?.status === "running",
 });
 
 /** Sets the real unit count and the notes found while reading the files. With no units the job is done at once. */
 export const plan = internalMutation({
-  args: { importId: v.string(), total: v.number(), notes: v.array(v.string()) },
-  handler: async (ctx, { importId, total, notes }): Promise<boolean> => {
+  args: { userId: v.string(), importId: v.string(), total: v.number(), notes: v.array(v.string()) },
+  handler: async (ctx, { userId, importId, total, notes }): Promise<boolean> => {
     const job = await jobOf(ctx, importId);
     if (!job || job.status !== "running") return false;
     await ctx.db.patch(job._id, { total, notes: mergeNotes(job.notes, notes), ...(total === 0 ? { status: "done" as const } : {}) });
-    if (total === 0) await markFactsChanged(ctx);
+    if (total === 0) await markFactsChanged(ctx, userId);
     return true;
   },
 });
 
 /** Ends the job as failed with a note. Units that run later see the status and stop. */
 export const failJob = internalMutation({
-  args: { importId: v.string(), error: v.string() },
-  handler: async (ctx, { importId, error }) => {
+  args: { userId: v.string(), importId: v.string(), error: v.string() },
+  handler: async (ctx, { userId, importId, error }) => {
     const job = await jobOf(ctx, importId);
     if (!job || job.status !== "running") return;
     await ctx.db.patch(job._id, { status: "failed", notes: mergeNotes(job.notes, [`Import failed: ${error}`]) });
@@ -74,8 +75,8 @@ export const failJob = internalMutation({
  * Skipped if the job was removed or is no longer running.
  */
 export const applyUnit = internalMutation({
-  args: { importId: v.string(), fileName: v.string(), fileCreatedAt: v.number(), output: v.any() },
-  handler: async (ctx, { importId, fileName, fileCreatedAt, output }) => {
+  args: { userId: v.string(), importId: v.string(), fileName: v.string(), fileCreatedAt: v.number(), output: v.any() },
+  handler: async (ctx, { userId, importId, fileName, fileCreatedAt, output }) => {
     const job = await jobOf(ctx, importId);
     if (!job || job.status !== "running") return;
     const out = ImportOutputSchema.parse(output);
@@ -87,12 +88,12 @@ export const applyUnit = internalMutation({
       .map(fromSession);
     const goals = out.goals.map((g) => ({ goalId: crypto.randomUUID(), ...g, status: "active" as const, source: "import" as const, importId, createdAt: now }));
     const context = out.context.map((c) => ({ itemId: crypto.randomUUID(), text: c.text, topic: c.topic, active: true, source: "import" as const, importId, createdAt: now }));
-    await writeImportItems(ctx, { sessions, goals, context });
+    await writeImportItems(ctx, userId, { sessions, goals, context });
     const processed = job.processed + 1;
     const counts = { sessions: job.counts.sessions + sessions.length, goals: job.counts.goals + goals.length, context: job.counts.context + context.length };
     const done = processed >= job.total;
     await ctx.db.patch(job._id, { processed, counts, notes: mergeNotes(job.notes, notes), ...(done ? { status: "done" as const } : {}) });
-    if (done) await markFactsChanged(ctx);
+    if (done) await markFactsChanged(ctx, userId);
   },
 });
 
@@ -101,15 +102,15 @@ export const applyUnit = internalMutation({
  * `unit` action per unit. Port of import-runner buildUnits. PDFs are read by the Node action in pdfText.ts.
  */
 export const prepare = internalAction({
-  args: { importId: v.string(), fileIds: v.array(v.string()) },
-  handler: async (ctx, { importId, fileIds }): Promise<void> => {
+  args: { userId: v.string(), importId: v.string(), fileIds: v.array(v.string()) },
+  handler: async (ctx, { userId, importId, fileIds }): Promise<void> => {
     try {
-      const provider = await providerFor(ctx);
+      const provider = await providerFor(ctx, userId);
       const notes = new Set<string>();
       const uploadedAt = new Date().toISOString();
       const units: Record<string, unknown>[] = [];
-      for (const f of await ctx.runQuery(internal.jobs.importFiles.files, { fileIds })) {
-        const base = { importId, fileName: f.name, fileCreatedAt: f.createdAt, uploadedAt };
+      for (const f of await ctx.runQuery(internal.jobs.importFiles.files, { userId, fileIds })) {
+        const base = { userId, importId, fileName: f.name, fileCreatedAt: f.createdAt, uploadedAt };
         if (f.kind === "image") {
           if (provider && !provider.supportsImages) {
             notes.add(`${f.name}: ${provider.name} has no image input, so this photo was skipped.`);
@@ -128,12 +129,12 @@ export const prepare = internalAction({
         if (total > chunks.length) notes.add(`${f.name}: only the first ${MAX_CHUNKS} of ${total} chunks (${CHUNK_CHARS} chars each) were processed.`);
         chunks.forEach((chunk, i) => units.push({ ...base, chunk, chunkIndex: i, chunkCount: chunks.length }));
       }
-      if (!(await ctx.runMutation(internal.jobs.importFiles.plan, { importId, total: units.length, notes: [...notes] }))) return;
+      if (!(await ctx.runMutation(internal.jobs.importFiles.plan, { userId, importId, total: units.length, notes: [...notes] }))) return;
       for (const [i, u] of units.entries()) {
         await ctx.scheduler.runAfter(i * IMPORT_UNIT_STAGGER_MS, internal.jobs.importFiles.unit, u as never);
       }
     } catch (e) {
-      await ctx.runMutation(internal.jobs.importFiles.failJob, { importId, error: (e as Error).message });
+      await ctx.runMutation(internal.jobs.importFiles.failJob, { userId, importId, error: (e as Error).message });
     }
   },
 });
@@ -142,18 +143,19 @@ export const prepare = internalAction({
 export const unit = internalAction({
   args: unitArgs,
   handler: async (ctx, a): Promise<void> => {
+    const { userId } = a;
     try {
-      if (!(await ctx.runQuery(internal.jobs.importFiles.isRunning, { importId: a.importId }))) return;
+      if (!(await ctx.runQuery(internal.jobs.importFiles.isRunning, { userId, importId: a.importId }))) return;
       const input: ImportInput = { fileName: a.fileName, uploadedAt: a.uploadedAt, chunk: a.chunk, chunkIndex: a.chunkIndex, chunkCount: a.chunkCount };
       if (a.image) {
         const blob = await ctx.storage.get(a.image.storageId);
         if (!blob) throw new Error(`${a.fileName}: the stored file is missing.`);
         input.image = { mime: a.image.mime, base64: toBase64(new Uint8Array(await blob.arrayBuffer())) };
       }
-      const r = await runAiJob(ctx, importDataJob, input);
-      await ctx.runMutation(internal.jobs.importFiles.applyUnit, { importId: a.importId, fileName: a.fileName, fileCreatedAt: a.fileCreatedAt, output: r.value });
+      const r = await runAiJob(ctx, userId, importDataJob, input);
+      await ctx.runMutation(internal.jobs.importFiles.applyUnit, { userId, importId: a.importId, fileName: a.fileName, fileCreatedAt: a.fileCreatedAt, output: r.value });
     } catch (e) {
-      await ctx.runMutation(internal.jobs.importFiles.failJob, { importId: a.importId, error: (e as Error).message });
+      await ctx.runMutation(internal.jobs.importFiles.failJob, { userId, importId: a.importId, error: (e as Error).message });
     }
   },
 });

@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { query } from "../_generated/server";
-import { requireToken } from "../lib/auth";
+import { requireUser } from "../lib/auth";
 import { liveSessionDocs, sessionBySessionId, toSession } from "../lib/db";
 import { loadForPlan, loadForSession } from "../model/rules/load";
 import { normalizeSession } from "../model/sessionShape";
@@ -12,8 +12,8 @@ import { normalizeSession } from "../model/sessionShape";
 export const recent = query({
   args: { token: v.string(), limit: v.optional(v.number()) },
   handler: async (ctx, { token, limit }) => {
-    requireToken(token);
-    const docs = await liveSessionDocs(ctx, { order: "desc", limit: Math.min(limit ?? 20, 200) });
+    const userId = await requireUser(ctx, token);
+    const docs = await liveSessionDocs(ctx, userId, { order: "desc", limit: Math.min(limit ?? 20, 200) });
     return docs.map(normalizeSession);
   },
 });
@@ -22,8 +22,8 @@ export const recent = query({
 export const since = query({
   args: { token: v.string(), since: v.number() },
   handler: async (ctx, { token, since }) => {
-    requireToken(token);
-    const docs = await liveSessionDocs(ctx, { order: "asc", after: since });
+    const userId = await requireUser(ctx, token);
+    const docs = await liveSessionDocs(ctx, userId, { order: "asc", after: since });
     return docs.map(normalizeSession);
   },
 });
@@ -35,8 +35,8 @@ export const since = query({
 export const load = query({
   args: { token: v.string(), sessionId: v.string() },
   handler: async (ctx, { token, sessionId }) => {
-    requireToken(token);
-    const doc = await sessionBySessionId(ctx, sessionId);
+    const userId = await requireUser(ctx, token);
+    const doc = await sessionBySessionId(ctx, userId, sessionId);
     return doc ? loadForSession(toSession(doc)) : null;
   },
 });
@@ -47,8 +47,8 @@ export const load = query({
  */
 export const planLoad = query({
   args: { token: v.string(), exercises: v.array(v.object({ name: v.string(), sets: v.number(), minutes: v.number() })) },
-  handler: async (_ctx, { token, exercises }) => {
-    requireToken(token);
+  handler: async (ctx, { token, exercises }) => {
+    const userId = await requireUser(ctx, token);
     return loadForPlan(exercises.slice(0, 30).map((e) => ({ name: e.name.slice(0, 80), sets: Math.max(0, Math.min(20, e.sets)), minutes: Math.max(0, Math.min(600, e.minutes)) })));
   },
 });

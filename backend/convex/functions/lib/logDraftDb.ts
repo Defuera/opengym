@@ -23,14 +23,14 @@ const ENTRY_FILES_MAX = 10;
 const FUTURE_SLACK_MS = 3_600_000;
 
 /** The person's messages of a thread up to a point (`_creationTime`, inclusive), oldest first. */
-export async function logThreadMessages(ctx: Reader, threadId: string, upTo?: number): Promise<Doc<"messages">[]> {
+export async function logThreadMessages(ctx: Reader, userId: string, threadId: string, upTo?: number): Promise<Doc<"messages">[]> {
   const rows = await ctx.db.query("messages").withIndex("by_threadId", (q) => q.eq("threadId", threadId)).order("asc").collect();
   return rows.filter((m) => m.role === "user" && (upTo === undefined || m._creationTime <= upTo));
 }
 
 /** What the log of this thread holds up to a point: the words joined by a blank line, and every file. */
-export async function logThreadContent(ctx: Reader, threadId: string, upTo?: number) {
-  return logContent((await logThreadMessages(ctx, threadId, upTo)).map((m) => ({ role: m.role, text: m.text, fileIds: m.fileIds, ...(m.voice ? { voice: m.voice } : {}), answered: m.answer !== undefined })));
+export async function logThreadContent(ctx: Reader, userId: string, threadId: string, upTo?: number) {
+  return logContent((await logThreadMessages(ctx, userId, threadId, upTo)).map((m) => ({ role: m.role, text: m.text, fileIds: m.fileIds, ...(m.voice ? { voice: m.voice } : {}), answered: m.answer !== undefined })));
 }
 
 type DraftExercise = ImportSessionDraft["exercises"][number];
@@ -51,7 +51,7 @@ function withUsualSets(e: DraftExercise, usual: Parameters<typeof finalizeLogExe
  * or a note only and writes those parts with no entry (`noEntry`). On the Log tab (`inLogChat`) every draft makes an entry: with no `kind` it is named after its part
  * (Goal, Limit or Note), as before. A draft with no `kind` and no part is rejected (`reject`).
  */
-export async function buildLogDraft(ctx: MutationCtx, a: DraftLogArgs, now: number, inLogChat = false): Promise<{ draft: StoredLogDraft; dropped?: string } | { reject: string }> {
+export async function buildLogDraft(ctx: MutationCtx, userId: string, a: DraftLogArgs, now: number, inLogChat = false): Promise<{ draft: StoredLogDraft; dropped?: string } | { reject: string }> {
   const given = a.at ? Date.parse(a.at) : NaN;
   const at = Number.isNaN(given) || given > now + FUTURE_SLACK_MS ? now : Math.max(0, Math.round(given));
   const drops: string[] = [];
@@ -60,15 +60,15 @@ export async function buildLogDraft(ctx: MutationCtx, a: DraftLogArgs, now: numb
   let limit = a.limit;
   let note = a.note;
   if (goal && a.edits?.goalId) {
-    if (await goalByGoalId(ctx, a.edits.goalId)) edits.goalId = a.edits.goalId;
+    if (await goalByGoalId(ctx, userId, a.edits.goalId)) edits.goalId = a.edits.goalId;
     else (goal = undefined), drops.push("The goal to change is gone.");
   }
   if (limit && a.edits?.limitId) {
-    if (await limitByLimitId(ctx, a.edits.limitId)) edits.limitId = a.edits.limitId;
+    if (await limitByLimitId(ctx, userId, a.edits.limitId)) edits.limitId = a.edits.limitId;
     else (limit = undefined), drops.push("The limit to change is gone.");
   }
   if (note && a.edits?.noteId) {
-    if (await contextByItemId(ctx, a.edits.noteId)) edits.noteId = a.edits.noteId;
+    if (await contextByItemId(ctx, userId, a.edits.noteId)) edits.noteId = a.edits.noteId;
     else (note = undefined), drops.push("The note to change is gone.");
   }
   if (!a.kind && !goal && !limit && !note) return { reject: drops[0] ?? "a draft needs a category (kind) for a log, or a goal, a limit or a note" };
@@ -77,15 +77,15 @@ export async function buildLogDraft(ctx: MutationCtx, a: DraftLogArgs, now: numb
   const base = { type: "log" as const, at, summary: a.summary, ...(Object.keys(edits).length > 0 ? { edits } : {}), ...(inLog ? {} : { noEntry: true }) };
   let draft: StoredLogDraft;
   if (inLog) {
-    const kind = normaliseCategory(a.kind ?? partKind, (await knownCategories(ctx)).map((c) => c.label));
-    const category = await ensureCategory(ctx, kind, a.color, "ai");
+    const kind = normaliseCategory(a.kind ?? partKind, (await knownCategories(ctx, userId)).map((c) => c.label));
+    const category = await ensureCategory(ctx, userId, kind, a.color, "ai");
     draft = { ...base, kind: category?.label ?? kind, ...(category ? { color: category.color } : {}) };
   } else {
     draft = { ...base, kind: partKind };
   }
   if (a.session && inLog) {
     const s = a.session;
-    const usual = usualSets(await allSessions(ctx));
+    const usual = usualSets(await allSessions(ctx, userId));
     // An exercise with no sets takes its usual sets; when the log has none it is KEPT with no sets (the person's word, never invented sets).
     const exercises = s.kind === "gym" ? s.exercises.flatMap((e) => (e.sets.length > 0 ? [e] : withUsualSets(e, usual))) : [];
     const candidate: ImportSessionDraft = { ...s, exercises, date: new Date(at).toISOString() };
@@ -94,7 +94,7 @@ export async function buildLogDraft(ctx: MutationCtx, a: DraftLogArgs, now: numb
     else drops.push("The session was left out: it did not validate.");
   } else if (a.session) drops.push("The session was left out: it needs a category (kind).");
   if (goal) {
-    const names = [...new Set((await allSessions(ctx)).flatMap((s) => s.exercises.map((e) => e.name)))];
+    const names = [...new Set((await allSessions(ctx, userId)).flatMap((s) => s.exercises.map((e) => e.name)))];
     draft.goal = finalizeGoalExercise(goal, names);
   }
   if (limit) draft.limit = limit;
@@ -108,16 +108,16 @@ export async function buildLogDraft(ctx: MutationCtx, a: DraftLogArgs, now: numb
  * replaced an open earlier log draft of the thread (the coach sends the whole draft again), the message of that draft too, and so on back. Messages in between
  * (questions, other talk) are left out. A draft that was applied, or a part-only draft, ends the chain.
  */
-export async function entryContent(ctx: Reader, message: Doc<"messages">) {
-  const trigger = message.turnId ? await messageByMessageId(ctx, message.turnId) : null;
-  if (!trigger || trigger.context?.screen === "log") return logThreadContent(ctx, message.threadId, message._creationTime);
+export async function entryContent(ctx: Reader, userId: string, message: Doc<"messages">) {
+  const trigger = message.turnId ? await messageByMessageId(ctx, userId, message.turnId) : null;
+  if (!trigger || trigger.context?.screen === "log") return logThreadContent(ctx, userId, message.threadId, message._creationTime);
   const chain: Doc<"messages">[] = [trigger];
   let from = message._creationTime;
   for (;;) {
     const prev = await ctx.db.query("messages").withIndex("by_threadId", (q) => q.eq("threadId", message.threadId).lt("_creationTime", from)).order("desc").filter((q) => q.neq(q.field("proposal"), undefined)).first();
     const p = prev?.proposal;
     if (!prev || !p || p.type !== "log" || (p as StoredLogDraft).appliedAt !== undefined || (p as StoredLogDraft).noEntry || !prev.turnId) break;
-    const earlier = await messageByMessageId(ctx, prev.turnId);
+    const earlier = await messageByMessageId(ctx, userId, prev.turnId);
     if (!earlier) break;
     chain.unshift(earlier);
     from = prev._creationTime;
@@ -128,7 +128,7 @@ export async function entryContent(ctx: Reader, message: Doc<"messages">) {
 export type LogOutcome = { status: "applied" | "already" | "refused"; text: string; reason?: string; entryId?: string };
 
 /** Why a stored log draft cannot be applied: a newer proposal came after it in the thread. */
-async function staleReason(ctx: Reader, message: Doc<"messages">): Promise<string | null> {
+async function staleReason(ctx: Reader, userId: string, message: Doc<"messages">): Promise<string | null> {
   const newer = await ctx.db
     .query("messages")
     .withIndex("by_threadId", (q) => q.eq("threadId", message.threadId).gt("_creationTime", message._creationTime))
@@ -146,12 +146,12 @@ async function staleReason(ctx: Reader, message: Doc<"messages">): Promise<strin
  * A draft with no category (`noEntry`: a goal, a limit or a note only) writes the parts only. A part with `edits` changes that goal, limit or note (the draft is the whole
  * new value; the rules of a limit keep their stored exercises, its records and check-ins stay); when that row is gone now, the part is skipped and the reply says so.
  */
-export async function applyLogDraft(ctx: MutationCtx, message: Doc<"messages">): Promise<LogOutcome> {
+export async function applyLogDraft(ctx: MutationCtx, userId: string, message: Doc<"messages">): Promise<LogOutcome> {
   const p = message.proposal;
   if (!p || p.type !== "log") return { status: "refused", text: "There is nothing to log.", reason: "there is no log draft" };
   const draft = p as StoredLogDraft;
   if (draft.appliedAt !== undefined) return { status: "already", text: draft.noEntry ? "This was saved already. Nothing more changed." : "This was logged already. Nothing more changed.", ...(draft.entryId ? { entryId: draft.entryId } : {}) };
-  const stale = await staleReason(ctx, message);
+  const stale = await staleReason(ctx, userId, message);
   if (stale || message.turnId === undefined) return { status: "refused", text: `I could not log this: ${stale ?? "the draft has no turn"}. Nothing was changed. Say it again if you still want it.`, reason: stale ?? "the draft has no turn" };
   const now = Date.now();
   const entryId = `l-${message.turnId}`;
@@ -162,42 +162,42 @@ export async function applyLogDraft(ctx: MutationCtx, message: Doc<"messages">):
   if (draft.session) {
     const session = draftToSession({ ...draft.session, date: new Date(draft.at).toISOString() }, { name: "log", createdAt: draft.at }, entryId, () => `${entryId}-s`, new Set());
     if (session) {
-      await writeImportItems(ctx, { sessions: [fromSession(session)] });
+      await writeImportItems(ctx, userId, { sessions: [fromSession(session)] });
       made.sessionId = session.id;
     }
   }
   if (draft.goal) {
-    const old = edits.goalId ? await goalByGoalId(ctx, edits.goalId) : null;
+    const old = edits.goalId ? await goalByGoalId(ctx, userId, edits.goalId) : null;
     const g = draft.goal;
     if (old) {
       // A change of an existing goal: the same structure fields as a new one; title and fields the draft leaves out are cleared (the draft is the whole goal).
       await ctx.db.patch(old._id, { title: g.title, kind: g.kind, exercise: g.exercise, targetKg: g.targetKg, sessionsPerWeek: g.sessionsPerWeek });
       wrote.goal = "changed";
-    } else if (!edits.goalId && !(await goalByGoalId(ctx, `${entryId}-g`))) {
-      await ctx.db.insert("goals", { goalId: `${entryId}-g`, ...g, status: "active", source: "ai", threadId: message.threadId, importId: entryId, createdAt: now });
+    } else if (!edits.goalId && !(await goalByGoalId(ctx, userId, `${entryId}-g`))) {
+      await ctx.db.insert("goals", { userId, goalId: `${entryId}-g`, ...g, status: "active", source: "ai", threadId: message.threadId, importId: entryId, createdAt: now });
       made.goalId = `${entryId}-g`;
       wrote.goal = "added";
     }
   }
   if (draft.limit) {
-    const old = edits.limitId ? await limitByLimitId(ctx, edits.limitId) : null;
+    const old = edits.limitId ? await limitByLimitId(ctx, userId, edits.limitId) : null;
     const l = draft.limit;
     if (old) {
       await ctx.db.patch(old._id, { title: l.title, status: l.status, since: l.since ?? old.since, rules: mergeRules(old.rules, l.rules) });
       wrote.limit = "changed";
-    } else if (!edits.limitId && !(await limitByLimitId(ctx, `${entryId}-l`))) {
-      await ctx.db.insert("limits", { limitId: `${entryId}-l`, ...l, importId: entryId });
+    } else if (!edits.limitId && !(await limitByLimitId(ctx, userId, `${entryId}-l`))) {
+      await ctx.db.insert("limits", { userId, limitId: `${entryId}-l`, ...l, importId: entryId });
       made.limitId = `${entryId}-l`;
       wrote.limit = "added";
     }
   }
   if (draft.note) {
-    const old = edits.noteId ? await contextByItemId(ctx, edits.noteId) : null;
+    const old = edits.noteId ? await contextByItemId(ctx, userId, edits.noteId) : null;
     if (old) {
       await ctx.db.patch(old._id, { text: draft.note.text, topic: draft.note.topic });
       wrote.note = "changed";
-    } else if (!edits.noteId && !(await contextByItemId(ctx, `${entryId}-n`))) {
-      await ctx.db.insert("context", { itemId: `${entryId}-n`, ...draft.note, active: true, source: "ai", threadId: message.threadId, importId: entryId, createdAt: now });
+    } else if (!edits.noteId && !(await contextByItemId(ctx, userId, `${entryId}-n`))) {
+      await ctx.db.insert("context", { userId, itemId: `${entryId}-n`, ...draft.note, active: true, source: "ai", threadId: message.threadId, importId: entryId, createdAt: now });
       made.contextId = `${entryId}-n`;
       wrote.note = "added";
     }
@@ -206,15 +206,15 @@ export async function applyLogDraft(ctx: MutationCtx, message: Doc<"messages">):
   let storedEntry: string | undefined;
   if (!draft.noEntry) {
     // ONE entry from the person's words and files, unchanged, labelled from the draft (the reader job does not run).
-    const content = await entryContent(ctx, message);
+    const content = await entryContent(ctx, userId, message);
     const fileIds: string[] = [];
-    for (const id of content.fileIds) if (fileIds.length < ENTRY_FILES_MAX && (await fileByFileId(ctx, id))) fileIds.push(id);
+    for (const id of content.fileIds) if (fileIds.length < ENTRY_FILES_MAX && (await fileByFileId(ctx, userId, id))) fileIds.push(id);
     const text = content.text.slice(0, ENTRY_TEXT_MAX);
-    await storeEntry(ctx, { entryId, text: text.trim() || fileIds.length > 0 ? text : draft.summary, fileIds, at: draft.at, createdAt: now }, { kind: draft.kind, summary: draft.summary, ...(Object.keys(made).length > 0 ? { made } : {}) });
+    await storeEntry(ctx, userId, { entryId, text: text.trim() || fileIds.length > 0 ? text : draft.summary, fileIds, at: draft.at, createdAt: now }, { kind: draft.kind, summary: draft.summary, ...(Object.keys(made).length > 0 ? { made } : {}) });
     storedEntry = entryId;
   }
-  if (wrote.session || wrote.goal || wrote.limit || wrote.note) await markFactsChanged(ctx);
-  if (made.sessionId !== undefined) await scheduleReview(ctx, made.sessionId);
+  if (wrote.session || wrote.goal || wrote.limit || wrote.note) await markFactsChanged(ctx, userId);
+  if (made.sessionId !== undefined) await scheduleReview(ctx, userId, made.sessionId);
   await ctx.db.patch(message._id, { proposal: { ...p, appliedAt: now, ...(storedEntry ? { entryId: storedEntry } : {}) } });
   const out = logDoneText(draft, wrote, now);
   return { status: "applied", text: out, ...(storedEntry ? { entryId: storedEntry } : {}) };

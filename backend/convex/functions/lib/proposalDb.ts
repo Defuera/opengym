@@ -21,7 +21,7 @@ export const proposalQuestion = (text?: string) => ({ text: text?.trim() || PROP
 type Reader = QueryCtx | MutationCtx;
 
 /** Why a stored proposal cannot be applied (a newer proposal in the thread, no open session, another session), or null. */
-export async function staleReason(ctx: Reader, message: Doc<"messages">): Promise<string | null> {
+export async function staleReason(ctx: Reader, userId: string, message: Doc<"messages">): Promise<string | null> {
   const p = message.proposal;
   if (!p || p.type === "log") return "there is no proposal";
   const newer = await ctx.db
@@ -43,15 +43,15 @@ export type ApplyOutcome = { status: "applied" | "already" | "refused"; text: st
  * checked again, then the same merge as every outside plan (the person's done sets and comments stay at the front, ADR-028/029).
  * Writes the open session once (`rev + 1`, `updatedBy: "coach"`) and marks the proposal applied. A second call changes nothing.
  */
-export async function applyProposal(ctx: MutationCtx, message: Doc<"messages">): Promise<ApplyOutcome> {
+export async function applyProposal(ctx: MutationCtx, userId: string, message: Doc<"messages">): Promise<ApplyOutcome> {
   const p = message.proposal;
   if (!p || p.type === "log") return { status: "refused", text: "There is no plan to apply.", reason: "there is no proposal" };
   if (p.appliedAt !== undefined) return { status: "already", text: "This plan was applied already. Nothing more changed." };
-  const stale = await staleReason(ctx, message);
+  const stale = await staleReason(ctx, userId, message);
   const refuse = (reason: string): ApplyOutcome => ({ status: "refused", text: `I could not apply this plan: ${reason}. Nothing was changed. Ask me again if you still want it.`, reason });
   if (stale) return refuse(stale);
   const row = (await ctx.db.query("openSession").first())!;
-  const list = finalizePlan({ rationale: "", exercises: p.exercises }, await allSessions(ctx), await activeLimits(ctx)).exercises;
+  const list = finalizePlan({ rationale: "", exercises: p.exercises }, await allSessions(ctx, userId), await activeLimits(ctx, userId)).exercises;
   if (list.length === 0) return refuse("no exercise is left after the limits");
   const stamp = Date.now().toString(36);
   let n = 0;

@@ -12,21 +12,21 @@ import { finalizeReview } from "../model/proposals";
 
 /** Bounded input for one review; null if the session is gone. */
 export const input = internalQuery({
-  args: { sessionId: v.string() },
-  handler: async (ctx, { sessionId }) => {
-    const doc = await sessionBySessionId(ctx, sessionId);
-    return doc ? buildReviewInput(await allSessions(ctx), toSession(doc), await limitsForAi(ctx), { goals: await allGoals(ctx), context: await allContext(ctx), tracker: await coachTracker(ctx, doc.startedAt) }) : null;
+  args: { userId: v.string(), sessionId: v.string() },
+  handler: async (ctx, { userId, sessionId }) => {
+    const doc = await sessionBySessionId(ctx, userId, sessionId);
+    return doc ? buildReviewInput(await allSessions(ctx, userId), toSession(doc), await limitsForAi(ctx, userId), { goals: await allGoals(ctx, userId), context: await allContext(ctx, userId), tracker: await coachTracker(ctx, userId, doc.startedAt) }) : null;
   },
 });
 
 /** Stores the review unless the session was deleted meanwhile or a newer review is stored. */
 export const save = internalMutation({
-  args: { sessionId: v.string(), version: v.number(), source: proposalSource, summary: v.string(), changes: v.array(v.string()) },
-  handler: async (ctx, { sessionId, version, source, ...draft }) => {
-    if (!(await sessionBySessionId(ctx, sessionId))) return;
+  args: { userId: v.string(), sessionId: v.string(), version: v.number(), source: proposalSource, summary: v.string(), changes: v.array(v.string()) },
+  handler: async (ctx, { userId, sessionId, version, source, ...draft }) => {
+    if (!(await sessionBySessionId(ctx, userId, sessionId))) return;
     const old = await ctx.db.query("reviews").withIndex("by_sessionId", (q) => q.eq("sessionId", sessionId)).unique();
     if (old && old.version > version) return;
-    const doc = { sessionId, version, createdAt: Date.now(), source, ...finalizeReview(draft) };
+    const doc = { userId, sessionId, version, createdAt: Date.now(), source, ...finalizeReview(draft) };
     if (old) await ctx.db.replace(old._id, doc);
     else await ctx.db.insert("reviews", doc);
   },
@@ -34,11 +34,11 @@ export const save = internalMutation({
 
 /** review_session job. Scheduled by commands/sessions:save, never for imports. */
 export const build = internalAction({
-  args: { sessionId: v.string(), version: v.number() },
-  handler: async (ctx, { sessionId, version }): Promise<void> => {
-    const input = await ctx.runQuery(internal.jobs.reviews.input, { sessionId });
+  args: { userId: v.string(), sessionId: v.string(), version: v.number() },
+  handler: async (ctx, { userId, sessionId, version }): Promise<void> => {
+    const input = await ctx.runQuery(internal.jobs.reviews.input, { userId, sessionId });
     if (!input) return;
-    const r = await runAiJob(ctx, reviewSessionJob, input);
-    await ctx.runMutation(internal.jobs.reviews.save, { sessionId, version, source: r.path === "ai" ? "ai" : "rules", ...r.value });
+    const r = await runAiJob(ctx, userId, reviewSessionJob, input);
+    await ctx.runMutation(internal.jobs.reviews.save, { userId, sessionId, version, source: r.path === "ai" ? "ai" : "rules", ...r.value });
   },
 });

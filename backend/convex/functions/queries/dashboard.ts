@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { query } from "../_generated/server";
-import { requireToken } from "../lib/auth";
+import { requireUser } from "../lib/auth";
 import { allGoals, allSessions } from "../lib/db";
 import { dashboardDays } from "../lib/validators";
 import { resolveDashboard, rulesSpec } from "../model/rules/dashboard";
@@ -13,10 +13,10 @@ import { resolveDashboard, rulesSpec } from "../model/rules/dashboard";
 export const get = query({
   args: { token: v.string(), days: dashboardDays },
   handler: async (ctx, { token, days }) => {
-    requireToken(token);
-    const goals = await allGoals(ctx);
+    const userId = await requireUser(ctx, token);
+    const goals = await allGoals(ctx, userId);
     const doc = await ctx.db.query("dashboards").withIndex("by_days", (q) => q.eq("days", days)).unique();
     const spec = doc ? { source: doc.source, modules: doc.modules } : rulesSpec(goals);
-    return { dashboard: resolveDashboard(spec, await allSessions(ctx), goals, days, Date.now()), stored: doc !== null };
+    return { dashboard: resolveDashboard(spec, await allSessions(ctx, userId), goals, days, Date.now()), stored: doc !== null };
   },
 });

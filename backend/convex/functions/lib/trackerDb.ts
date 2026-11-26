@@ -21,7 +21,7 @@ const strip = <T extends { _id: unknown; _creationTime: number; updatedAt: numbe
  * What the coach reads of the phone's tracker (ADR-036): the day rows of the last 7 days and the workouts of the last 14, as of `now`
  * (a workout that ends after `now` is left out). Bounded. Never the person's sessions: those come from the log.
  */
-export async function coachTracker(ctx: Reader, now: number): Promise<TrackerForCoach> {
+export async function coachTracker(ctx: Reader, userId: string, now: number): Promise<TrackerForCoach> {
   const from = localDate(now - (TRACKER_PROMPT_DAYS - 1) * DAY);
   const to = localDate(now);
   const days = await ctx.db.query("trackerDays").withIndex("by_date", (q) => q.gte("date", from).lte("date", to)).collect();

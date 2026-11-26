@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { query } from "../_generated/server";
-import { requireToken } from "../lib/auth";
+import { requireUser } from "../lib/auth";
 import { allSessions, planFor } from "../lib/db";
 import { finalizePlan } from "../model/proposals";
 import { fociByDue, loggedName } from "../model/rules/foci";
@@ -21,15 +21,15 @@ import { activityKey } from "../model/sessionShape";
 export const next = query({
   args: { token: v.string(), activity: v.optional(v.string()), focus: v.optional(v.string()), type: v.optional(v.string()) },
   handler: async (ctx, { token, activity: givenActivity, focus: given, type }) => {
-    requireToken(token);
-    const sessions = await allSessions(ctx);
+    const userId = await requireUser(ctx, token);
+    const sessions = await allSessions(ctx, userId);
     const asked = (givenActivity ?? "").trim() || GYM_TYPE;
     const activity = loggedName(sessions, asked, "gym") ?? asked.slice(0, 40);
     const key = activityKey(activity);
     const legacy = givenActivity === undefined && type && activityKey(type) !== activityKey(GYM_TYPE) ? type : undefined;
     const wanted = (given ?? legacy)?.trim() || undefined;
     const focus = wanted ?? fociByDue(sessions, activity)[0];
-    const doc = await planFor(ctx, activity, focus);
+    const doc = await planFor(ctx, userId, activity, focus);
     if (doc) {
       const { _id, createdAt, source, rationale, exercises } = doc;
       return { plan: { id: _id as string, type: activity, ...(focus ? { focus } : {}), createdAt, source, rationale, exercises }, stored: true };

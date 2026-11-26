@@ -20,17 +20,17 @@ const KNOWN_EXERCISES_MAX = 60;
 
 /** Bounded model input for one program proposal, or null when it is gone or no longer `building`. Reads the limits with their records (ADR-033). */
 export const input = internalQuery({
-  args: { proposalId: v.string() },
-  handler: async (ctx, { proposalId }): Promise<BuildProgramInput | null> => {
-    const doc = await proposalByProposalId(ctx, proposalId);
+  args: { userId: v.string(), proposalId: v.string() },
+  handler: async (ctx, { userId, proposalId }): Promise<BuildProgramInput | null> => {
+    const doc = await proposalByProposalId(ctx, userId, proposalId);
     if (!doc || doc.status !== "building") return null;
     const now = Date.now();
-    const limits = await limitsForAi(ctx);
-    const goals = (await allGoals(ctx)).filter((g) => g.status === "active").sort((a, b) => a.createdAt - b.createdAt);
+    const limits = await limitsForAi(ctx, userId);
+    const goals = (await allGoals(ctx, userId)).filter((g) => g.status === "active").sort((a, b) => a.createdAt - b.createdAt);
     // The picture of the user is the same one the session coach reads; only the parts a program needs are kept.
-    const picture = coachPicture(await allSessions(ctx), goals, [], limits, [], now);
-    const prev = doc.ask.previousProposalId ? await proposalByProposalId(ctx, doc.ask.previousProposalId) : null;
-    const program = doc.target.id !== undefined ? await programByProgramId(ctx, doc.target.id) : null;
+    const picture = coachPicture(await allSessions(ctx, userId), goals, [], limits, [], now);
+    const prev = doc.ask.previousProposalId ? await proposalByProposalId(ctx, userId, doc.ask.previousProposalId) : null;
+    const program = doc.target.id !== undefined ? await programByProgramId(ctx, userId, doc.target.id) : null;
     return {
       today: todayLabel(now),
       request: doc.ask.text ?? "",
@@ -38,7 +38,7 @@ export const input = internalQuery({
       ...(program ? { currentProgram: programValueOf(program) } : {}),
       goalsInOrderOfPriority: picture.goalsInOrderOfPriority,
       limits,
-      placesTheCoachKnows: (await allPlaces(ctx)).map((p) => ({ name: p.name, equipment: p.text, knowledge: knowledgeOf(p) })),
+      placesTheCoachKnows: (await allPlaces(ctx, userId)).map((p) => ({ name: p.name, equipment: p.text, knowledge: knowledgeOf(p) })),
       exercisesTheUserKnows: picture.exercisesTheUserKnows.slice(0, KNOWN_EXERCISES_MAX).map((e) => ({ name: e.name, lastSets: e.lastSets, bestKg: e.bestKg })),
     };
   },
@@ -46,10 +46,10 @@ export const input = internalQuery({
 
 /** The files of the thread a proposal came from (newest 6 of the person's messages, not audio); none when it has no thread (ADR-026). */
 export const threadFiles = internalQuery({
-  args: { proposalId: v.string() },
-  handler: async (ctx, { proposalId }) => {
-    const doc = await proposalByProposalId(ctx, proposalId);
-    return doc?.threadId !== undefined ? await threadUserFiles(ctx, doc.threadId) : [];
+  args: { userId: v.string(), proposalId: v.string() },
+  handler: async (ctx, { userId, proposalId }) => {
+    const doc = await proposalByProposalId(ctx, userId, proposalId);
+    return doc?.threadId !== undefined ? await threadUserFiles(ctx, userId, doc.threadId) : [];
   },
 });
 
@@ -58,9 +58,9 @@ export const threadFiles = internalQuery({
  * repeated job (or one the person cancelled meanwhile) changes nothing.
  */
 export const save = internalMutation({
-  args: { proposalId: v.string(), value: v.optional(programValue), reason: v.optional(v.string()), error: v.optional(v.string()) },
-  handler: async (ctx, { proposalId, value, reason, error }) => {
-    const doc = await proposalByProposalId(ctx, proposalId);
+  args: { userId: v.string(), proposalId: v.string(), value: v.optional(programValue), reason: v.optional(v.string()), error: v.optional(v.string()) },
+  handler: async (ctx, { userId, proposalId, value, reason, error }) => {
+    const doc = await proposalByProposalId(ctx, userId, proposalId);
     if (!doc || doc.status !== "building") return;
     if (!value) {
       await ctx.db.patch(doc._id, { status: "failed", error: (error ?? "The coach could not make the program.").slice(0, 200), decidedAt: Date.now() });
@@ -75,15 +75,15 @@ export const save = internalMutation({
  * fails the proposal is `failed` with a short error. Any unexpected error marks it failed too. Never throws.
  */
 export const build = internalAction({
-  args: { proposalId: v.string() },
-  handler: async (ctx, { proposalId }): Promise<void> => {
+  args: { userId: v.string(), proposalId: v.string() },
+  handler: async (ctx, { userId, proposalId }): Promise<void> => {
     try {
-      const job = await ctx.runQuery(internal.jobs.programs.input, { proposalId });
+      const job = await ctx.runQuery(internal.jobs.programs.input, { userId, proposalId });
       if (!job) return;
       // A proposal made in a chat reads the files of that chat (a photo or a text of a program), as the chat reply does.
-      const files = await ctx.runQuery(internal.jobs.programs.threadFiles, { proposalId });
+      const files = await ctx.runQuery(internal.jobs.programs.threadFiles, { userId, proposalId });
       if (files.length) {
-        const supportsImages = !!(await providerFor(ctx))?.supportsImages;
+        const supportsImages = !!(await providerFor(ctx, userId))?.supportsImages;
         const loaded = [];
         for (const f of files) {
           const a = await loadAttachment(ctx, f, supportsImages);
@@ -91,16 +91,16 @@ export const build = internalAction({
         }
         Object.assign(job, attachmentsForPrompt(loaded, supportsImages));
       }
-      const r = await runAiJob(ctx, buildProgramJob, job, { timeoutMs: PROGRAM_BUILD_BUDGET_MS });
+      const r = await runAiJob(ctx, userId, buildProgramJob, job, { timeoutMs: PROGRAM_BUILD_BUDGET_MS });
       if (r.path !== "ai") {
-        await ctx.runMutation(internal.jobs.programs.save, { proposalId, error: `The coach could not write the program (${r.reason ?? "no answer"}).` });
+        await ctx.runMutation(internal.jobs.programs.save, { userId, proposalId, error: `The coach could not write the program (${r.reason ?? "no answer"}).` });
         return;
       }
       const { reason, ...value } = r.value;
-      await ctx.runMutation(internal.jobs.programs.save, { proposalId, value, reason });
+      await ctx.runMutation(internal.jobs.programs.save, { userId, proposalId, value, reason });
     } catch (e) {
       console.error(`[program] build failed: ${(e as Error).message.slice(0, 200)}`);
-      await ctx.runMutation(internal.jobs.programs.save, { proposalId, error: "The coach could not write the program." });
+      await ctx.runMutation(internal.jobs.programs.save, { userId, proposalId, error: "The coach could not write the program." });
     }
   },
 });

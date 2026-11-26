@@ -13,6 +13,7 @@ const cut = (s: string): string => (s.length > AI_CALL_TEXT_MAX ? s.slice(0, AI_
  */
 export const save = internalMutation({
   args: {
+    userId: v.string(),
     job: v.string(),
     provider: v.string(),
     model: v.optional(v.string()),
@@ -25,11 +26,12 @@ export const save = internalMutation({
     ms: v.number(),
     ref: v.optional(v.string()),
   },
-  handler: async (ctx, a): Promise<void> => {
+  handler: async (ctx, { userId, ...a }): Promise<void> => {
     const sum = sumUsage(a.attempts.map((t) => t.usage));
     const { attempts: _attempts, ...rest } = a;
     await ctx.db.insert("aiCalls", {
       ...rest,
+      userId,
       ...(sum.inputTokens !== undefined ? { inputTokens: sum.inputTokens } : {}),
       ...(sum.cachedInputTokens !== undefined ? { cachedInputTokens: sum.cachedInputTokens } : {}),
       ...(sum.outputTokens !== undefined ? { outputTokens: sum.outputTokens } : {}),
@@ -40,7 +42,7 @@ export const save = internalMutation({
       attempts: a.attempts.map((t) => ({ ms: t.ms, ...(t.raw !== undefined ? { raw: cut(t.raw) } : {}), ...(t.error !== undefined ? { error: t.error.slice(0, 2000) } : {}) })),
       ...(a.reason !== undefined ? { reason: a.reason.slice(0, 2000) } : {}),
     });
-    await insertUsage(ctx, a.attempts.map((t) => ({
+    await insertUsage(ctx, userId, a.attempts.map((t) => ({
       ...(t.at !== undefined ? { at: t.at } : {}),
       job: a.job,
       kind: "chat" as const,

@@ -62,7 +62,7 @@ describe("debounce", () => {
     await t.run(async (c) => {
       await c.db.insert("plans", { activity: "Gym", activityKey: "gym", focusKey: "push", focus: "Push", version: 200, createdAt: 1, source: "ai", rationale: "newer", exercises: [] });
     });
-    await t.mutation(internal.jobs.plans.save, { activity: "Gym", focus: "Push", version: 100, source: "rules", draft: { rationale: "older", exercises: [] } });
+    await t.mutation(internal.jobs.plans.save, { userId: "owner", activity: "Gym", focus: "Push", version: 100, source: "rules", draft: { rationale: "older", exercises: [] } });
     expect(await t.run((c) => c.db.query("plans").collect())).toMatchObject([{ rationale: "newer", version: 200 }]);
   });
 });
@@ -101,13 +101,13 @@ describe("bounded model input (in the database)", () => {
     for (const s of forty()) await save(pushSession(s.id, s.endedAt, s.id === "s0" ? 100 : 40, s.focus));
     await settle(t);
 
-    const input = await t.query(internal.jobs.plans.input, { activity: "Gym", focus: "Push" });
+    const input = await t.query(internal.jobs.plans.input, { userId: "owner", activity: "Gym", focus: "Push" });
     expect(input.sessions.length).toBeLessThanOrEqual(PLAN_RECENT_OF_TYPE + PLAN_RECENT_ANY);
     expect(input.sessions.some((s) => s.id === "s0")).toBe(false); // the 100 kg session is outside the model input
     expect(input.rules.exercises.length).toBeGreaterThan(0);
 
     // The model asks for 500 kg bench. The cap comes from the heaviest ever (100 kg in s0 -> 125), not from the model input (40 kg -> 50).
-    await t.mutation(internal.jobs.plans.save, {
+    await t.mutation(internal.jobs.plans.save, { userId: "owner", 
       activity: "Gym",
       focus: "Push",
       version: Date.now(),
@@ -117,9 +117,9 @@ describe("bounded model input (in the database)", () => {
     const { plan } = await t.query(api.queries.plans.next, { token: TOKEN, focus: "Push" });
     expect(plan.exercises[0]!.sets[0]!.kg).toBe(125);
 
-    const dash = await t.query(internal.jobs.dashboards.input, { days: 7 });
+    const dash = await t.query(internal.jobs.dashboards.input, { userId: "owner", days: 7 });
     expect(dash.sessions).toHaveLength(DASHBOARD_RECENT);
-    const rev = await t.query(internal.jobs.reviews.input, { sessionId: "s37" });
+    const rev = await t.query(internal.jobs.reviews.input, { userId: "owner", sessionId: "s37" });
     expect(rev!.sessions).toHaveLength(REVIEW_RECENT_OF_TYPE + 1);
   });
 

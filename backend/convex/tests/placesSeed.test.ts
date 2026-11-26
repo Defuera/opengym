@@ -16,7 +16,7 @@ afterEach(() => {
 });
 
 const saveSession = (s: unknown) => t.mutation(api.commands.sessions.save, { token: TOKEN, session: s as never });
-const seed = () => t.mutation(internal.jobs.places.seed, {});
+const seed = () => t.mutation(internal.jobs.places.seed, { userId: "owner" });
 const rows = () => t.run((c) => c.db.query("sessions").collect());
 const places = () => t.run((c) => c.db.query("places").collect());
 const changes = () => t.run((c) => c.db.query("placeChanges").collect());

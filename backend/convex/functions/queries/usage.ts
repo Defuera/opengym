@@ -1,7 +1,7 @@
 import { ConvexError, v } from "convex/values";
 import { internalQuery, query } from "../_generated/server";
 import type { QueryCtx } from "../_generated/server";
-import { requireToken } from "../lib/auth";
+import { requireUser } from "../lib/auth";
 import { USAGE_SUMMARY_DEFAULT_DAYS, USAGE_SUMMARY_MAX_DAYS, USAGE_SUMMARY_MAX_ROWS } from "../lib/constants";
 import { AI_PRICES } from "../model/aiPrices";
 import { summarise } from "../model/usageSummary";
@@ -35,7 +35,7 @@ async function readSummary(ctx: Pick<QueryCtx, "db">, a: { from?: number; to?: n
 export const summary = query({
   args: { token: v.string(), ...args },
   handler: async (ctx, { token, ...range }) => {
-    requireToken(token);
+    const userId = await requireUser(ctx, token);
     return readSummary(ctx, range);
   },
 });

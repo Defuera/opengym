@@ -176,7 +176,7 @@ describe("imports:start (AI import of files, mock provider)", () => {
     const j = await start("imp1", ["p1"]);
     const storageId = (await t.run((c) => c.db.query("files").first()))!.storageId;
     await t.run((c) => c.storage.delete(storageId)); // the blob vanishes before the unit reads it
-    await t.action(internal.jobs.importFiles.unit, { importId: j.importId, fileName: "gone.png", fileCreatedAt: 1, uploadedAt: "x", chunkIndex: 0, chunkCount: 1, image: { storageId, mime: "image/png" } });
+    await t.action(internal.jobs.importFiles.unit, { userId: "owner", importId: j.importId, fileName: "gone.png", fileCreatedAt: 1, uploadedAt: "x", chunkIndex: 0, chunkCount: 1, image: { storageId, mime: "image/png" } });
     expect(await job("imp1")).toMatchObject({ status: "failed" });
     expect((await job("imp1"))!.notes.at(-1)).toMatch(/^Import failed: gone\.png: the stored file is missing/);
     await settle(t); // prepare finds the blob missing and skips; it must not revive the job

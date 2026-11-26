@@ -264,9 +264,9 @@ describe("learn_place", () => {
   it("a newer edit by the user wins over a job that read the old text", async () => {
     await place("p-home", "Home", "Dumbbells");
     await place("p-home", "Home", "Dumbbells and a bench");
-    const wrote = await t.mutation(internal.jobs.places.learnSave, { placeId: "p-home", source: "chat", sentence: "s", before: "Dumbbells", equipment: "Dumbbells, bands" });
+    const wrote = await t.mutation(internal.jobs.places.learnSave, { userId: "owner", placeId: "p-home", source: "chat", sentence: "s", before: "Dumbbells", equipment: "Dumbbells, bands" });
     expect(wrote).toBe(false);
     expect((await places())[0]!.text).toBe("Dumbbells and a bench");
-    expect(await t.mutation(internal.jobs.places.learnSave, { placeId: "gone", source: "chat", sentence: "s", before: "", equipment: "x" })).toBe(false);
+    expect(await t.mutation(internal.jobs.places.learnSave, { userId: "owner", placeId: "gone", source: "chat", sentence: "s", before: "", equipment: "x" })).toBe(false);
   });
 });

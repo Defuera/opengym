@@ -20,8 +20,8 @@ export function providerFromEnv(model?: string | null): AiProvider | null {
 }
 
 /** The provider with the model the owner chose in Settings (queries/settings:override), else the env model. */
-export async function providerFor(ctx: Ctx): Promise<AiProvider | null> {
-  return providerFromEnv(await ctx.runQuery(internal.queries.settings.override, {}));
+export async function providerFor(ctx: Ctx, userId: string): Promise<AiProvider | null> {
+  return providerFromEnv(await ctx.runQuery(internal.queries.settings.override, { userId }));
 }
 
 /**
@@ -29,9 +29,9 @@ export async function providerFor(ctx: Ctx): Promise<AiProvider | null> {
  * Each run that reached the provider is stored (ADR-027): the exact prompt, every attempt, the outcome. A failed store never fails the job.
  * The same store writes one `aiUsage` row per attempt, with the tokens the provider reported (ADR-038).
  */
-export async function runAiJob<I, O>(ctx: Ctx & Pick<ActionCtx, "runMutation">, job: JobDef<I, O>, input: I, opts?: RunOptions & { ref?: string }): Promise<JobResult<O>> {
+export async function runAiJob<I, O>(ctx: Ctx & Pick<ActionCtx, "runMutation">, userId: string, job: JobDef<I, O>, input: I, opts?: RunOptions & { ref?: string }): Promise<JobResult<O>> {
   const { ref, ...runOpts } = opts ?? {};
-  const model = await ctx.runQuery(internal.queries.settings.override, {});
+  const model = await ctx.runQuery(internal.queries.settings.override, { userId });
   let trace: JobTrace | null = null;
   const provider = providerFromEnv(model);
   const r = await runJob(job, input, provider, consoleLogger, { ...runOpts, onTrace: (t) => (trace = t) });
@@ -40,7 +40,7 @@ export async function runAiJob<I, O>(ctx: Ctx & Pick<ActionCtx, "runMutation">, 
     const env = envInfo(process.env);
     const usedModel = model?.trim() || env.defaultModel || provider?.model;
     try {
-      await ctx.runMutation(internal.jobs.aiCalls.save, { ...t, provider: env.provider, ...(usedModel ? { model: usedModel } : {}), ...(ref !== undefined ? { ref } : {}) });
+      await ctx.runMutation(internal.jobs.aiCalls.save, { userId, ...t, provider: env.provider, ...(usedModel ? { model: usedModel } : {}), ...(ref !== undefined ? { ref } : {}) });
     } catch (e) {
       consoleLogger.warn(`[ai] call not stored: ${(e as Error).message}`);
     }

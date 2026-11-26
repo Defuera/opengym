@@ -40,6 +40,7 @@ const legs = (id: string, endedAt: number) => ({ ...pushSession(id, endedAt), fo
 
 describe("session remove marks", () => {
   it("sets deletedAt, keeps the row and the review, and is idempotent", async () => {
+    vi.stubEnv("AI_PROVIDER", "mock"); // the review is written by the AI only (ADR-041)
     await saveS(pushSession("s1", NOW - 2 * HOUR));
     await settle(t);
     expect(await reviewRows()).toHaveLength(1);
@@ -150,6 +151,7 @@ describe("a late write does not bring a marked row back", () => {
   });
 
   it("a pending parse_log result and a review for a marked session are dropped", async () => {
+    vi.stubEnv("AI_PROVIDER", "mock"); // the review is written by the AI only (ADR-041)
     await t.mutation(api.commands.sessions.logText, { token: TOKEN, sessionId: "l1", type: "Run", text: "ran 5k", at: NOW - HOUR });
     await saveS(pushSession("s1", NOW - 2 * HOUR));
     await removeS("l1");
@@ -161,7 +163,7 @@ describe("a late write does not bring a marked row back", () => {
     expect((await sessionRows()).find((s) => s.sessionId === "l1")!.minutes).toBeUndefined();
     expect(await t.query(internal.jobs.parseLog.input, { userId: "owner", sessionId: "l1", text: "ran 5k" })).toBeNull();
     expect(await reviewRows()).toHaveLength(0);
-    await t.mutation(internal.jobs.reviews.save, { userId: "owner", sessionId: "s1", version: 1, source: "rules", summary: "x", changes: [] });
+    await t.mutation(internal.jobs.reviews.save, { userId: "owner", sessionId: "s1", version: 1, source: "ai", message: "x" });
     expect(await reviewRows()).toHaveLength(0);
     expect(await t.query(internal.jobs.reviews.input, { userId: "owner", sessionId: "s1" })).toBeNull();
   });
@@ -202,6 +204,7 @@ describe("a marked note is invisible", () => {
 
 describe("purge", () => {
   it("erases only rows marked more than 72 hours ago, with the review and the files", async () => {
+    vi.stubEnv("AI_PROVIDER", "mock"); // the review is written by the AI only (ADR-041)
     await saveS(pushSession("old", NOW - 90 * HOUR));
     await saveS(pushSession("young", NOW - 80 * HOUR));
     await saveS(pushSession("live", NOW - 2 * HOUR));
@@ -251,6 +254,7 @@ describe("purge", () => {
 
 describe("restore", () => {
   it("brings a marked session back, and asks for a rebuild", async () => {
+    vi.stubEnv("AI_PROVIDER", "mock"); // the review is written by the AI only (ADR-041)
     await saveS(pushSession("s1", NOW - 2 * HOUR));
     await settle(t);
     await removeS("s1");

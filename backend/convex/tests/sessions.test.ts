@@ -100,15 +100,25 @@ describe("sessions", () => {
   });
 
   it("a session write produces a review in the background, not for imports", async () => {
+    vi.stubEnv("AI_PROVIDER", "mock");
     await t.mutation(api.commands.sessions.save, { token: TOKEN, session: pushSession("p1", 5_000_000) });
     await t.mutation(api.commands.sessions.save, { token: TOKEN, session: { ...pushSession("p2", 6_000_000), source: "import" as const, importId: "imp" } });
     await settle(t);
     const r1 = await t.query(api.queries.reviews.get, { token: TOKEN, sessionId: "p1" });
-    expect(r1).toMatchObject({ stored: true, review: { sessionId: "p1", source: "rules" } });
+    expect(r1).toMatchObject({ stored: true, review: { sessionId: "p1", source: "ai", message: expect.any(String), question: { answers: [{ id: "a1", label: "Fine" }, { id: "a2" }, { id: "a3" }] } } });
     expect(await t.run((ctx) => ctx.db.query("reviews").collect())).toHaveLength(1);
   });
 
+  it("with the AI off a session gets no review at all, not a fake one (ADR-041)", async () => {
+    await t.mutation(api.commands.sessions.save, { token: TOKEN, session: pushSession("p1", Date.now() - 1000) });
+    expect(await t.query(api.queries.reviews.get, { token: TOKEN, sessionId: "p1" })).toEqual({ review: null, stored: false, pending: true });
+    await settle(t);
+    expect(await t.run((ctx) => ctx.db.query("reviews").collect())).toHaveLength(0);
+    expect(await t.query(api.queries.reviews.get, { token: TOKEN, sessionId: "p1" })).toMatchObject({ review: null, stored: false });
+  });
+
   it("removing a session hides its review; the review row goes with the purge (see softDelete.test.ts)", async () => {
+    vi.stubEnv("AI_PROVIDER", "mock");
     await t.mutation(api.commands.sessions.save, { token: TOKEN, session: pushSession("p1", 5_000_000) });
     await settle(t);
     await t.mutation(api.commands.sessions.remove, { token: TOKEN, sessionId: "p1" });

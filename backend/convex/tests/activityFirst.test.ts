@@ -308,15 +308,13 @@ describe("imports accept the old shape", () => {
 });
 
 describe("reviews and context use the new shape", () => {
-  it("a review compares the same activity and focus and names it", async () => {
+  it("the review facts compare the same exercise and name the activity and focus", async () => {
     await save(pushSession("a", NOW - 3 * DAY, 60, "Upper"));
     await save(pushSession("b", NOW - 2 * DAY, 60, "Legs"));
     await save(pushSession("c", NOW - DAY, 70, "Upper"));
-    const r = await t.query(api.queries.reviews.get, { token: TOKEN, sessionId: "c" });
-    expect(r.review!.summary).toContain("Gym (Upper)");
-    expect(r.review!.changes.join(" ")).toContain("Bench press: top set 70 kg (was 60 kg)");
-    const first = await t.query(api.queries.reviews.get, { token: TOKEN, sessionId: "b" });
-    expect(first.review!.summary).toContain("First session of this kind");
+    const r = await t.query(internal.jobs.reviews.input, { userId: "owner", sessionId: "c" });
+    expect(r!.facts.session).toMatchObject({ activity: "Gym", focus: "Upper" });
+    expect(r!.facts.exercises[0]).toMatchObject({ name: "Bench press", change: "+10 kg", firstTime: false });
     await settle(t);
   });
 

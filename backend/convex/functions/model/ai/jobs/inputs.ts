@@ -3,7 +3,8 @@ import type { ContextItem, Goal, LimitForAi, PlanDraft, Session } from "../../sc
 import { activityKey } from "../../sessionShape";
 import { fociByDue, loggedActivities } from "../../rules/foci";
 import { rulesPlan } from "../../rules/planner";
-import { rulesReview } from "../../rules/review";
+import { type FactsEntry, reviewFacts } from "../../reviewFacts";
+import type { ProgramForCoach } from "../../programForCoach";
 import type { DashboardInput } from "./buildDashboard";
 import { coachPicture } from "./coachPicture";
 import { type TrackerForCoach, trackerForPrompt } from "../../trackerForCoach";
@@ -19,7 +20,6 @@ import type { KnownActivity } from "./shared";
  */
 export const PLAN_RECENT_OF_TYPE = 6;
 export const PLAN_RECENT_ANY = 6;
-export const REVIEW_RECENT_OF_TYPE = 6;
 export const DASHBOARD_RECENT = 30;
 
 const lastN = <T>(xs: T[], n: number): T[] => (n <= 0 ? [] : xs.slice(-n));
@@ -65,12 +65,12 @@ export function buildDashboardInput(all: Session[], goals: Goal[], context: Cont
 }
 
 /**
- * Review: the session, the last 6 of the same activity and focus before it (oldest first), and, when the caller gives the goals
- * and notes, the picture of the person as it was just before the session started (so "last sets" never holds the session itself).
+ * Review (ADR-041): the facts of the session, made in code from the FULL history `all`, the limits, and, when the caller gives the goals
+ * and notes, the picture of the person as it was just before the session started (the review reads goals, notes and tracker of it).
  */
-export function buildReviewInput(all: Session[], session: Session, limits: LimitForAi[] = [], about?: { goals: Goal[]; context: ContextItem[]; tracker?: TrackerForCoach; timeZone?: string }): ReviewInput {
-  const before = all.filter((s) => s.id !== session.id && s.kind === session.kind && s.type === session.type && s.focus === session.focus && s.endedAt <= session.endedAt);
+export function buildReviewInput(all: Session[], session: Session, limits: LimitForAi[] = [], about?: { goals: Goal[]; context: ContextItem[]; tracker?: TrackerForCoach; timeZone?: string; entries?: FactsEntry[]; programs?: ProgramForCoach[] }): ReviewInput {
   const earlier = all.filter((s) => s.id !== session.id && s.endedAt <= session.startedAt);
   const picture = about ? coachPicture(earlier, [...about.goals].sort((x, y) => x.createdAt - y.createdAt), about.context, limits, [], session.startedAt, about.tracker, about.timeZone) : undefined;
-  return { session, sessions: [...lastN(before, REVIEW_RECENT_OF_TYPE), session], limits, ...(picture ? { picture } : {}), rules: rulesReview(all, session), ...(about?.timeZone ? { timeZone: about.timeZone } : {}) };
+  const facts = reviewFacts(all, session, { ...(about?.timeZone ? { timeZone: about.timeZone } : {}), ...(about?.entries ? { entries: about.entries } : {}), ...(about?.programs ? { programs: about.programs } : {}) });
+  return { facts, limits, ...(picture ? { picture } : {}), ...(about?.timeZone ? { timeZone: about.timeZone } : {}) };
 }

@@ -4,7 +4,8 @@ import { internalAction, internalMutation, internalQuery } from "../_generated/s
 import { runAiJob } from "../lib/ai";
 import { userTimezone } from "../lib/timezoneDb";
 import { coachTracker } from "../lib/trackerDb";
-import { allContext, allGoals, allSessions, sessionBySessionId, toSession } from "../lib/db";
+import { allContext, allGoals, allSessions, liveEntryDocs, sessionBySessionId, toSession } from "../lib/db";
+import { liveProgramDocs } from "../lib/programsDb";
 import { limitsForAi } from "../lib/limitsDb";
 import { proposalSource } from "../lib/validators";
 import { buildReviewInput } from "../model/ai/jobs/inputs";
@@ -17,13 +18,15 @@ export const input = internalQuery({
   handler: async (ctx, { userId, sessionId }) => {
     const doc = await sessionBySessionId(ctx, userId, sessionId);
     const tz = await userTimezone(ctx, userId);
-    return doc ? buildReviewInput(await allSessions(ctx, userId), toSession(doc), await limitsForAi(ctx, userId), { goals: await allGoals(ctx, userId), context: await allContext(ctx, userId), tracker: await coachTracker(ctx, userId, doc.startedAt, tz), timeZone: tz }) : null;
+    // The entries of the day of the session (the body log of the day is part of the facts) and the programs of the person.
+    const entries = doc ? (await liveEntryDocs(ctx, userId, { order: "asc", from: doc.startedAt - 86_400_000, to: doc.endedAt + 86_400_000, limit: 100 })).map((e) => ({ kind: e.read?.kind ?? "", text: e.text, at: e.at })) : [];
+    return doc ? buildReviewInput(await allSessions(ctx, userId), toSession(doc), await limitsForAi(ctx, userId), { goals: await allGoals(ctx, userId), context: await allContext(ctx, userId), tracker: await coachTracker(ctx, userId, doc.startedAt, tz), timeZone: tz, entries, programs: await liveProgramDocs(ctx, userId) }) : null;
   },
 });
 
-/** Stores the review unless the session was deleted meanwhile or a newer review is stored. */
+/** Stores the debrief unless the session was deleted meanwhile or a newer review is stored. */
 export const save = internalMutation({
-  args: { userId: v.string(), sessionId: v.string(), version: v.number(), source: proposalSource, summary: v.string(), changes: v.array(v.string()) },
+  args: { userId: v.string(), sessionId: v.string(), version: v.number(), source: proposalSource, message: v.string(), question: v.optional(v.object({ text: v.string(), answers: v.array(v.string()) })) },
   handler: async (ctx, { userId, sessionId, version, source, ...draft }) => {
     if (!(await sessionBySessionId(ctx, userId, sessionId))) return;
     const old = await ctx.db.query("reviews").withIndex("by_user_and_sessionId", (q) => q.eq("userId", userId).eq("sessionId", sessionId)).unique();
@@ -41,6 +44,8 @@ export const build = internalAction({
     const input = await ctx.runQuery(internal.jobs.reviews.input, { userId, sessionId });
     if (!input) return;
     const r = await runAiJob(ctx, userId, reviewSessionJob, input);
-    await ctx.runMutation(internal.jobs.reviews.save, { userId, sessionId, version, source: r.path === "ai" ? "ai" : "rules", ...r.value });
+    // No AI answer: no review. A fake one (a count of the log) is worth less than none (ADR-041).
+    if (r.path !== "ai") return;
+    await ctx.runMutation(internal.jobs.reviews.save, { userId, sessionId, version, source: "ai", ...r.value });
   },
 });

@@ -8,7 +8,7 @@ import { loadLevels, setsPerMuscle } from "../functions/model/rules/load";
 import { musclesFor } from "../functions/model/rules/muscles";
 import { fitPlanToMinutes, rulesPlan } from "../functions/model/rules/planner";
 import { resolveDashboard } from "../functions/model/rules/dashboard";
-import { rulesReview } from "../functions/model/rules/review";
+import { reviewFacts } from "../functions/model/reviewFacts";
 import { stats } from "../functions/model/rules/stats";
 import { ExerciseSchema, PlanDraftSchema, PlanExerciseSchema, SessionSchema, type Session } from "../functions/model/schema";
 import { setup, TOKEN } from "./helpers";
@@ -111,10 +111,10 @@ describe("time exercise in rules", () => {
     expect(d.modules.some((m) => m.type === "trend")).toBe(false);
   });
 
-  it("review counts timed exercises, not their entries as sets", () => {
-    const r = rulesReview([session("a", 5000, [bike, bench])], session("a", 5000, [bike, bench]));
-    expect(r.summary).toContain("1 sets");
-    expect(r.summary).toContain("1 timed");
+  it("review facts count timed work in minutes, and its entries as sets", () => {
+    const f = reviewFacts([session("a", 5000, [bike, bench])], session("a", 5000, [bike, bench]));
+    expect(f.exercises.map((e) => e.bestToday)).toEqual(["25 min", expect.stringMatching(/x/)]);
+    expect(f.session.doneSets).toBe(2);
   });
 });
 

@@ -49,13 +49,11 @@ describe("rules answers (AI off, nothing stored)", () => {
     await expect(t.query(api.queries.dashboard.get, { token: TOKEN, days: 9 as never })).rejects.toThrow();
   });
 
-  it("review is the rules review until the job has stored one; unknown session gives null", async () => {
+  it("a review exists only when the AI wrote it; unknown session gives null", async () => {
     await save(pushSession("p1", 5_000_000, 60));
-    await save(pushSession("p2", 6_000_000, 70));
-    const r = await t.query(api.queries.reviews.get, { token: TOKEN, sessionId: "p2" });
-    expect(r.stored).toBe(false);
-    expect(r.review).toMatchObject({ source: "rules" });
-    expect(r.review!.changes.join(" ")).toContain("Bench press: top set 70 kg (was 60 kg)");
+    await save(pushSession("p2", Date.now() - 1000, 70));
+    expect(await t.query(api.queries.reviews.get, { token: TOKEN, sessionId: "p1" })).toEqual({ review: null, stored: false, pending: false }); // old: nothing to wait for
+    expect(await t.query(api.queries.reviews.get, { token: TOKEN, sessionId: "p2" })).toEqual({ review: null, stored: false, pending: true }); // just finished
     expect((await t.query(api.queries.reviews.get, { token: TOKEN, sessionId: "nope" })).review).toBeNull();
     await settle(t);
   });

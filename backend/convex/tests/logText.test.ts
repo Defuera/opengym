@@ -87,7 +87,8 @@ describe("parse_log job", () => {
   });
 
   it("exercises with given sets make it a gym session; time work inside is a time exercise", async () => {
-    stubOpenAi(() =>
+    stubOpenAi((job) =>
+      job === "review_session" ? JSON.stringify({ message: "Solid session." }) :
       JSON.stringify({
         minutes: 50,
         exercises: [

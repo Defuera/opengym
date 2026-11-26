@@ -398,8 +398,12 @@ export default defineSchema({
     version: v.number(),
     createdAt: v.number(),
     source: proposalSource,
-    summary: v.string(),
-    changes: v.array(v.string()),
+    /** An OLD review (before ADR-041): a summary and up to 5 lines. Still read; never written any more. */
+    summary: v.optional(v.string()),
+    changes: v.optional(v.array(v.string())),
+    /** A NEW review, the coach's debrief (ADR-041): a message and, most days, one question with quick answers. */
+    message: v.optional(v.string()),
+    question: v.optional(coachQuestion),
     ...ownedBy,
   }).index("by_user_and_sessionId", ["userId", "sessionId"]),
 

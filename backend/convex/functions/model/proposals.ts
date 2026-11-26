@@ -3,7 +3,7 @@ import { fociByUse, loggedName } from "./rules/foci";
 import { truncate } from "./rules/util";
 import { dropAvoided } from "./rules/limits";
 import { activityKey } from "./sessionShape";
-import type { Limit, PlanDraft, ReviewDraft, Session, StartProposal } from "./schema";
+import { REVIEW_MESSAGE_MAX, type Limit, type PlanDraft, type ReviewDraft, type Session, type StartProposal } from "./schema";
 
 /**
  * Safety limits and truncations for a plan draft (ADR-004). `allSessions` must be the FULL history:
@@ -17,8 +17,13 @@ export function finalizePlan(draft: PlanDraft, allSessions: Session[], limits: L
   };
 }
 
-export function finalizeReview(draft: ReviewDraft): ReviewDraft {
-  return { summary: truncate(draft.summary, 400), changes: draft.changes.slice(0, 5) };
+/** The stored shape of a debrief: the message cut to its limit, the answers with ids made here (a1, a2, ...). */
+export function finalizeReview(draft: ReviewDraft) {
+  const q = draft.question;
+  return {
+    message: truncate(draft.message, REVIEW_MESSAGE_MAX),
+    ...(q ? { question: { text: truncate(q.text, 120), answers: q.answers.slice(0, 4).map((label, i) => ({ id: `a${i + 1}`, label: truncate(label, 24) })) } } : {}),
+  };
 }
 
 /**

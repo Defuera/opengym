@@ -17,14 +17,32 @@ export const ImportJobSchema = z.object({
   createdAt: MsSchema,
 });
 
+/** The question of a debrief (ADR-041), as stored and shown: the answers have ids made in code. */
+export const ReviewQuestionSchema = z.object({
+  text: z.string().min(1).max(120),
+  answers: z.array(z.object({ id: z.string().min(1).max(20), label: z.string().min(1).max(24) })).min(2).max(4),
+});
+
+export const REVIEW_MESSAGE_MAX = 500;
+
+/**
+ * A review as stored. A NEW review (ADR-041) has `message` and maybe `question`. An OLD one has `summary` and `changes`
+ * (no longer written, still read and shown). A stored review has either.
+ */
 export const ReviewSchema = z.object({
   sessionId: z.string(),
   source: z.enum(["ai", "rules"]),
-  summary: z.string().max(400),
-  changes: z.array(z.string()).max(5),
+  summary: z.string().max(400).optional(),
+  changes: z.array(z.string()).max(5).optional(),
+  message: z.string().max(REVIEW_MESSAGE_MAX).optional(),
+  question: ReviewQuestionSchema.optional(),
 });
 
-export const ReviewDraftSchema = ReviewSchema.omit({ sessionId: true, source: true });
+/** What the review job returns: the debrief message, and a question with 2 to 4 short answer labels (the ids are made in code). */
+export const ReviewDraftSchema = z.object({
+  message: z.string().min(1).max(REVIEW_MESSAGE_MAX),
+  question: z.object({ text: z.string().min(1).max(120), answers: z.array(z.string().min(1).max(24)).min(2).max(4) }).optional(),
+});
 
 const ImportExerciseSchema = z.union([
   z.object({

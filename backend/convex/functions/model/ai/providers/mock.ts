@@ -190,7 +190,7 @@ export class MockProvider implements AiProvider {
         return JSON.stringify({ id: hit ? hit.id : null });
       }
       case "review_session":
-        return JSON.stringify({ summary: "Mock review: solid session, repeat it next time.", changes: [] });
+        return JSON.stringify({ message: "Mock debrief: solid session, keep it up.", question: { text: "How do you feel?", answers: ["Fine", "A bit sore", "Pain"] } });
       default:
         throw new Error(`mock provider has no canned answer for job "${job}"`);
     }

@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api, internal } from "../functions/_generated/api";
 import { REBUILD_DEBOUNCE_MS } from "../functions/lib/constants";
-import { boundedPlanSessions, buildReviewInput, DASHBOARD_RECENT, PLAN_RECENT_ANY, PLAN_RECENT_OF_TYPE, REVIEW_RECENT_OF_TYPE } from "../functions/model/ai/jobs/inputs";
+import { boundedPlanSessions, buildReviewInput, DASHBOARD_RECENT, PLAN_RECENT_ANY, PLAN_RECENT_OF_TYPE } from "../functions/model/ai/jobs/inputs";
 import type { Session } from "../functions/model/schema";
 import { TOKEN, pushSession, setup, settle, stubOpenAi, type T } from "./helpers";
 
@@ -85,14 +85,12 @@ describe("bounded model input (pure)", () => {
     expect(got.length).toBe(new Set(got.map((s) => s.id)).size);
   });
 
-  it("review: the session plus the last 6 of the same activity and focus before it", () => {
+  it("review: the facts of the session, with the usual of the same activity and focus", () => {
     const all = forty();
     const s = all[37]!; // a Pull
     const input = buildReviewInput(all, s);
-    expect(input.sessions).toHaveLength(REVIEW_RECENT_OF_TYPE + 1);
-    expect(input.sessions.every((x) => x.type === s.type && x.focus === s.focus)).toBe(true);
-    expect(input.sessions[input.sessions.length - 1]).toBe(s);
-    expect(input.sessions.every((x) => x.endedAt <= s.endedAt)).toBe(true);
+    expect(input.facts.session).toMatchObject({ activity: s.type, focus: s.focus });
+    expect(input.facts.session.usual?.sessions).toBeGreaterThanOrEqual(3);
   });
 });
 
@@ -120,7 +118,7 @@ describe("bounded model input (in the database)", () => {
     const dash = await t.query(internal.jobs.dashboards.input, { userId: "owner", days: 7 });
     expect(dash.sessions).toHaveLength(DASHBOARD_RECENT);
     const rev = await t.query(internal.jobs.reviews.input, { userId: "owner", sessionId: "s37" });
-    expect(rev!.sessions).toHaveLength(REVIEW_RECENT_OF_TYPE + 1);
+    expect(rev!.facts.exercises.map((e) => e.name)).toEqual(["Bench press", "Dips"]); // the review reads the facts, not the log
   });
 
   it("the prompt the model gets holds only the bounded history", async () => {

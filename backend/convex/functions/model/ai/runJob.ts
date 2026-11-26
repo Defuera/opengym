@@ -1,5 +1,6 @@
 import type { z } from "zod";
 import type { AiProvider, ChatMessage, ImageInput } from "./provider";
+import type { Usage } from "./usage";
 
 export interface Logger {
   info(msg: string): void;
@@ -43,11 +44,18 @@ export interface JobResult<O> {
   reason?: string;
 }
 
-/** One provider call of a job: the raw reply, or the error (a failed check or a failed request). */
+/**
+ * One provider call of a job: the raw reply, or the error (a failed check or a failed request).
+ * `usage` is what the provider reported for the call (plus `inputImages`); absent when it reported nothing.
+ * An attempt with an `error` did not give a valid output, but the provider may still have billed it.
+ */
 export interface JobAttempt {
   raw?: string;
   error?: string;
   ms: number;
+  /** When the call started (ms since epoch). */
+  at: number;
+  usage?: Usage;
 }
 
 /** What one job run sent and got back: the exact prompt, every attempt, the outcome. The caller may store it (ADR-027). */
@@ -123,6 +131,15 @@ export async function runJob<I, O>(
     if (remaining !== undefined && remaining <= 0) break;
     const attemptStarted = Date.now();
     let raw: string | undefined;
+    let reported: Usage | undefined;
+    const usageOf = (): Usage | undefined => {
+      const u: Usage = { ...reported, ...(sentImages > 0 ? { inputImages: sentImages } : {}) };
+      return Object.keys(u).length > 0 ? u : undefined;
+    };
+    const mark = (a: { raw?: string; error?: string }): JobAttempt => {
+      const usage = usageOf();
+      return { ...a, ms: Date.now() - attemptStarted, at: attemptStarted, ...(usage ? { usage } : {}) };
+    };
     try {
       raw = await provider.complete({
         system: prompt.system,
@@ -131,13 +148,14 @@ export async function runJob<I, O>(
         json: job.json,
         maxTokens: job.maxTokens,
         timeoutMs: remaining,
+        onUsage: (u) => (reported = u),
       });
       const parsed = job.json ? extractJson(raw) : raw.trim();
       const result = job.output.safeParse(parsed);
       const broken = result.success ? (job.check?.(result.data, input) ?? null) : null;
       if (result.success && !broken) {
         logger.info(`[ai] job=${job.name} path=ai provider=${provider.name} attempt=${attempt + 1} ms=${Date.now() - started}`);
-        attempts.push({ raw, ms: Date.now() - attemptStarted });
+        attempts.push(mark({ raw }));
         trace("ai");
         return { value: result.data, path: "ai" };
       }
@@ -147,10 +165,10 @@ export async function runJob<I, O>(
         { role: "assistant", content: raw.slice(0, 2000) },
         { role: "user", content: job.json ? `That reply was invalid (${lastError}). Reply again with only valid JSON in the required shape.` : "That reply was empty. Reply again." },
       ];
-      attempts.push({ raw, error: lastError, ms: Date.now() - attemptStarted });
+      attempts.push(mark({ raw, error: lastError }));
     } catch (e) {
       lastError = (e as Error).message;
-      attempts.push({ ...(raw !== undefined ? { raw } : {}), error: lastError, ms: Date.now() - attemptStarted });
+      attempts.push(mark({ ...(raw !== undefined ? { raw } : {}), error: lastError }));
       if (/timed out/.test(lastError)) break; // no point retrying a timeout inside a budget
     }
     logger.warn(`[ai] job=${job.name} attempt=${attempt + 1} failed: ${lastError}`);

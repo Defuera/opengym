@@ -1,11 +1,15 @@
 import { type AiProvider, type CompleteRequest, type HttpProviderOptions, ProviderError, getJson, postJson } from "../provider";
 import { chatModelIds } from "../modelList";
+import { anthropicUsage, reportUsage } from "../usage";
 
 export class AnthropicProvider implements AiProvider {
   readonly name = "anthropic";
   readonly supportsImages = true;
+  readonly model: string;
 
-  constructor(private readonly o: HttpProviderOptions) {}
+  constructor(private readonly o: HttpProviderOptions) {
+    this.model = o.model;
+  }
 
   async complete(req: CompleteRequest): Promise<string> {
     const lastUser = req.messages.map((m) => m.role).lastIndexOf("user");
@@ -31,7 +35,8 @@ export class AnthropicProvider implements AiProvider {
       { "x-api-key": this.o.apiKey, "anthropic-version": "2023-06-01" },
       { model: this.o.model, max_tokens: req.maxTokens, system: req.system, messages },
       req.timeoutMs ?? this.o.timeoutMs ?? 30_000,
-    )) as { content?: { type: string; text?: string }[] };
+    )) as { content?: { type: string; text?: string }[]; usage?: unknown };
+    reportUsage(req, anthropicUsage(data.usage));
     const text = (data.content ?? [])
       .filter((b) => b.type === "text")
       .map((b) => b.text ?? "")

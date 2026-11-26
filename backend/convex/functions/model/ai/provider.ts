@@ -1,3 +1,7 @@
+import type { Usage, UsageHook } from "./usage";
+
+export type { Usage, UsageHook };
+
 export interface ChatMessage {
   role: "user" | "assistant";
   content: string;
@@ -9,7 +13,7 @@ export interface ImageInput {
   base64: string;
 }
 
-export interface CompleteRequest {
+export interface CompleteRequest extends UsageHook {
   system: string;
   messages: ChatMessage[];
   /** Attached to the last user message. */
@@ -23,13 +27,18 @@ export interface CompleteRequest {
 export interface AiProvider {
   readonly name: string;
   readonly supportsImages: boolean;
+  /** Id of the chat model, when the provider knows it (the model the call is billed for). */
+  readonly model?: string;
+  /** Returns the reply. The usage the answer reports goes to `req.onUsage` (also when the reply is then found empty). */
   complete(req: CompleteRequest): Promise<string>;
   /** Ids of the text/chat models the provider offers (see modelList.ts). Throws ProviderError on a failed request. */
   listModels(): Promise<string[]>;
   /** Speech to text. Absent on a provider that cannot do it. Throws ProviderError on a failed request. Returns the text as the provider gave it. */
-  transcribe?(bytes: Uint8Array, mime: string, filename: string): Promise<string>;
+  transcribe?(bytes: Uint8Array, mime: string, filename: string, opts?: UsageHook): Promise<string>;
+  /** Id of the speech-to-text model, when the provider has `transcribe`. */
+  readonly transcribeModel?: string;
   /** Image generation. Absent on a provider that cannot do it. With photos it redraws them (edit); without it draws from the prompt. Throws ProviderError on a failed request. Returns PNG bytes. */
-  image?(prompt: string, photos: { bytes: Uint8Array; mime: string }[]): Promise<Uint8Array>;
+  image?(prompt: string, photos: { bytes: Uint8Array; mime: string }[], opts?: UsageHook): Promise<Uint8Array>;
   /** Id of the image model, when the provider has `image`. */
   readonly imageModel?: string;
 }

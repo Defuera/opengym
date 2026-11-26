@@ -1,10 +1,17 @@
 import type { AiProvider, CompleteRequest } from "../provider";
+import { type Usage, type UsageHook, reportUsage } from "../usage";
 import { goalFromText } from "../../goalDraft";
 
 /** The bytes the mock "draws": the 8-byte PNG signature, so tests need no image. */
 export const MOCK_IMAGE = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
 export const MOCK_TRANSCRIPT = "Mock voice: my left knee felt tight on squats today.";
+
+/** The usage the mock reports for every call, so tests can assert exact numbers. Fixed, not derived from the text. */
+export const MOCK_CHAT_USAGE: Usage = { inputTokens: 100, cachedInputTokens: 40, outputTokens: 20, reasoningTokens: 5 };
+export const MOCK_TRANSCRIBE_USAGE: Usage = { inputTokens: 60, outputTokens: 12, audioSeconds: 6 };
+export const MOCK_IMAGE_SPEC = "mock-1536x1024";
+export const MOCK_IMAGE_USAGE: Usage = { inputTokens: 300, outputTokens: 1056, images: 1, imageSpec: MOCK_IMAGE_SPEC };
 
 type Data = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -73,23 +80,33 @@ export const MOCK_PROGRAM = {
 export class MockProvider implements AiProvider {
   readonly name = "mock";
   readonly supportsImages = true;
+  readonly model = "mock";
+  readonly transcribeModel = "mock-transcribe";
 
   async listModels(): Promise<string[]> {
     return [];
   }
 
   /** A fixed transcript, so tests need no audio. A file named "silence..." gives an empty one. */
-  async transcribe(_bytes: Uint8Array, _mime: string, filename: string): Promise<string> {
+  async transcribe(_bytes: Uint8Array, _mime: string, filename: string, opts?: UsageHook): Promise<string> {
+    reportUsage(opts, MOCK_TRANSCRIBE_USAGE);
     return /^silence/i.test(filename) ? "" : MOCK_TRANSCRIPT;
   }
 
   readonly imageModel = "mock-image";
 
-  async image(): Promise<Uint8Array> {
+  async image(_prompt?: string, photos: unknown[] = [], opts?: UsageHook): Promise<Uint8Array> {
+    reportUsage(opts, { ...MOCK_IMAGE_USAGE, inputImages: photos.length });
     return MOCK_IMAGE;
   }
 
   async complete(req: CompleteRequest): Promise<string> {
+    const text = await this.answer(req);
+    reportUsage(req, MOCK_CHAT_USAGE);
+    return text;
+  }
+
+  private async answer(req: CompleteRequest): Promise<string> {
     const job = jobOf(req.system);
     const d = inputOf(req);
     switch (job) {

@@ -128,4 +128,20 @@ void main() {
     await t.pumpAndSettle();
     expect(find.text('Could not open the camera or library.'), findsOneWidget);
   });
+
+  testWidgets('the note form: the sheet has no camera row, the library adds several photos, the cap shows a line', (WidgetTester t) async {
+    final (_, _, FakePickers p) = await _open(t);
+    await t.tap(find.byKey(const ValueKey<String>('composer-plus')));
+    await t.pumpAndSettle();
+    expect(find.text('Camera'), findsNothing);
+    expect(find.text('Photo library'), findsOneWidget);
+    await t.tap(find.byKey(const ValueKey<String>('og-sheet-close')));
+    await t.pumpAndSettle();
+    p.photos = <UploadItem>[upload('a.jpg'), upload('b.jpg'), upload('c.jpg')];
+    await _attach(t, 'Photo library');
+    expect(find.byType(AttachmentThumb), findsNWidgets(4)); // one kept photo and three new
+    p.photos = <UploadItem>[for (int i = 0; i < 9; i++) upload('x$i.jpg')];
+    await _attach(t, 'Photo library');
+    expect(find.text('A note holds up to 10 files.'), findsOneWidget);
+  });
 }

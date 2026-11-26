@@ -92,16 +92,18 @@ class _EntryFormScreenState extends State<EntryFormScreen> {
   }
 
   Future<void> _attach() async {
-    final String? error = await runAttachFlow(context, widget.deps.pickers, _add);
+    _pickError = null; // [_add] sets it again when a pick did not fit
+    final String? error = await runAttachFlow(context, widget.deps.pickers, _add, includeCamera: false);
     if (mounted) {
-      setState(() => _pickError = error ?? (_fileCount > entryMaxFiles ? _pickError : null));
+      setState(() => _pickError = error ?? _pickError);
     }
   }
 
   Future<void> _camera() async {
+    _pickError = null;
     final String? error = await runCameraFlow(widget.deps.pickers, _add);
     if (mounted) {
-      setState(() => _pickError = error ?? (_fileCount > entryMaxFiles ? _pickError : null));
+      setState(() => _pickError = error ?? _pickError);
     }
   }
 

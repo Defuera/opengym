@@ -5,14 +5,15 @@ import 'choice_sheet.dart';
 enum AttachChoice { library, camera, file }
 
 /// The "+" sheet of the composer. Returns what the user picked, or null.
-Future<AttachChoice?> showAttachSheet(BuildContext context) async {
+/// [includeCamera] false: no camera row (the composer has its own camera button).
+Future<AttachChoice?> showAttachSheet(BuildContext context, {bool includeCamera = true}) async {
   final String? v = await showChoiceSheet(
     context,
     title: 'Add to message',
-    choices: const <SheetChoice>[
-      SheetChoice(value: 'library', label: 'Photo library'),
-      SheetChoice(value: 'camera', label: 'Camera'),
-      SheetChoice(value: 'file', label: 'File'),
+    choices: <SheetChoice>[
+      const SheetChoice(value: 'library', label: 'Photo library'),
+      if (includeCamera) const SheetChoice(value: 'camera', label: 'Camera'),
+      const SheetChoice(value: 'file', label: 'File'),
     ],
   );
   for (final AttachChoice c in AttachChoice.values) {

@@ -19,6 +19,9 @@ class FakePickers implements Pickers {
 
   final UploadItem? photo;
   final List<UploadItem> files;
+
+  /// What the library picker returns when set; else [photo] as a list of one.
+  List<UploadItem>? photos;
   final List<String> calls = <String>[];
 
   @override
@@ -31,6 +34,12 @@ class FakePickers implements Pickers {
   Future<UploadItem?> pickPhoto({required bool camera}) async {
     calls.add(camera ? 'camera' : 'library');
     return photo;
+  }
+
+  @override
+  Future<List<UploadItem>> pickPhotos() async {
+    calls.add('library');
+    return photos ?? <UploadItem>[if (photo != null) photo!];
   }
 }
 

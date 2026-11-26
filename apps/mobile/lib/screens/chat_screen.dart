@@ -4,6 +4,7 @@ import '../app/deps.dart';
 import '../models.dart';
 import '../entry_category.dart';
 import '../data/outbox.dart' show ChatDelivery;
+import '../data/upload_item.dart';
 import '../stores/coach_store.dart';
 import '../stores/voice_controller.dart';
 import '../theme.dart';
@@ -97,17 +98,26 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
+  /// Hands a pick to the next message. A pick over the limit is dropped and a quiet line says so.
+  void _addPicked(UploadItem item) {
+    if (!_coach.addAttachment(item)) {
+      _pickError = 'A message holds up to $messageMaxFiles files.';
+    }
+  }
+
   Future<void> _attach() async {
-    final String? error = await runAttachFlow(context, widget.deps.pickers, _coach.addAttachment);
+    _pickError = null; // [_addPicked] sets it again when a pick did not fit
+    final String? error = await runAttachFlow(context, widget.deps.pickers, _addPicked, includeCamera: false);
     if (mounted) {
-      setState(() => _pickError = error);
+      setState(() => _pickError = error ?? _pickError);
     }
   }
 
   Future<void> _camera() async {
-    final String? error = await runCameraFlow(widget.deps.pickers, _coach.addAttachment);
+    _pickError = null;
+    final String? error = await runCameraFlow(widget.deps.pickers, _addPicked);
     if (mounted) {
-      setState(() => _pickError = error);
+      setState(() => _pickError = error ?? _pickError);
     }
   }
 

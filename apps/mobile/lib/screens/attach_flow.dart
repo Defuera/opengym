@@ -5,15 +5,18 @@ import '../widgets/attach_sheet.dart';
 import '../widgets/attachment_strip.dart';
 import 'chat_file_thumb.dart';
 
-/// The "+" of every composer: asks what to add (library, camera, file), runs
-/// the device picker and hands each pick to [add]. Returns a short message
-/// when the picker failed, null otherwise (also when the person cancelled).
+/// The "+" of every composer: asks what to add (library, file, and the camera
+/// when [includeCamera]), runs the device picker and hands each pick to [add].
+/// The library picks several photos at once. A composer that has its own camera
+/// button passes `includeCamera: false`. Returns a short message when the picker
+/// failed, null otherwise (also when the person cancelled).
 Future<String?> runAttachFlow(
   BuildContext context,
   Pickers pickers,
-  void Function(UploadItem) add,
-) async {
-  final AttachChoice? choice = await showAttachSheet(context);
+  void Function(UploadItem) add, {
+  bool includeCamera = true,
+}) async {
+  final AttachChoice? choice = await showAttachSheet(context, includeCamera: includeCamera);
   if (choice == null) {
     return null;
   }
@@ -22,8 +25,12 @@ Future<String?> runAttachFlow(
       for (final UploadItem f in await pickers.pickFiles()) {
         add(f);
       }
+    } else if (choice == AttachChoice.library) {
+      for (final UploadItem p in await pickers.pickPhotos()) {
+        add(p);
+      }
     } else {
-      final UploadItem? p = await pickers.pickPhoto(camera: choice == AttachChoice.camera);
+      final UploadItem? p = await pickers.pickPhoto(camera: true);
       if (p != null) {
         add(p);
       }

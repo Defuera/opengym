@@ -33,7 +33,7 @@ class _ImportScreenState extends State<ImportScreen> {
 
   /// The "+" and the camera of the shared composer: the picks wait to be imported.
   Future<void> _attach() async {
-    final String? error = await runAttachFlow(context, widget.deps.pickers, _imports.add);
+    final String? error = await runAttachFlow(context, widget.deps.pickers, _imports.add, includeCamera: false);
     _setPickError(error);
   }
 

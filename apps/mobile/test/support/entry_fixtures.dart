@@ -5,6 +5,9 @@ import 'package:opengym/models.dart';
 class FakePickers implements Pickers {
   List<UploadItem> files = <UploadItem>[];
   UploadItem? photo;
+
+  /// What the library picker returns when set; else [photo] as a list of one.
+  List<UploadItem>? photos;
   bool fail = false;
   bool? lastCamera;
 
@@ -23,6 +26,15 @@ class FakePickers implements Pickers {
     }
     lastCamera = camera;
     return photo;
+  }
+
+  @override
+  Future<List<UploadItem>> pickPhotos() async {
+    if (fail) {
+      throw StateError('no picker');
+    }
+    lastCamera = false;
+    return photos ?? <UploadItem>[if (photo != null) photo!];
   }
 }
 

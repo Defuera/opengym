@@ -35,21 +35,19 @@ void main() {
     expect(_sendOn(t), isFalse);
   });
 
-  testWidgets('the plus sheet offers Photo library, Camera and File, and closes', (WidgetTester t) async {
+  testWidgets('the plus sheet offers only Photo library and File (the camera has its own button), and closes', (WidgetTester t) async {
     final FakePickers p = FakePickers(photo: _photo());
     final AppDeps d = await testDeps(FakeConvexClient(), pickers: p);
     await openChat(t, d);
     await t.tap(find.byKey(_plus));
     await t.pumpAndSettle();
     expect(find.text('Photo library'), findsOneWidget);
-    expect(find.text('Camera'), findsOneWidget);
+    expect(find.text('Camera'), findsNothing);
     expect(find.text('File'), findsOneWidget);
     await t.tap(find.byKey(const ValueKey<String>('og-sheet-close')));
     await t.pumpAndSettle();
-    expect(find.text('Camera'), findsNothing);
-    await t.tap(find.byKey(_plus));
-    await t.pumpAndSettle();
-    await t.tap(find.text('Camera'));
+    expect(find.text('Photo library'), findsNothing);
+    await t.tap(find.byKey(const ValueKey<String>('composer-camera')));
     await t.pumpAndSettle();
     expect(p.calls, <String>['camera']);
   });

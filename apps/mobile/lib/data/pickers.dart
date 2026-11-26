@@ -9,8 +9,11 @@ export 'upload_item.dart';
 abstract class Pickers {
   Future<List<UploadItem>> pickFiles();
 
-  /// Camera or photo library. Null when cancelled.
+  /// Camera or photo library, one photo. Null when cancelled.
   Future<UploadItem?> pickPhoto({required bool camera});
+
+  /// The photo library, several photos at once. Empty when cancelled.
+  Future<List<UploadItem>> pickPhotos();
 }
 
 class DevicePickers implements Pickers {
@@ -31,19 +34,32 @@ class DevicePickers implements Pickers {
     return out;
   }
 
+  // A phone photo is several megabytes; this size still reads well and uploads fast.
+  static const double _maxSide = 2048;
+  static const int _quality = 85;
+
   @override
   Future<UploadItem?> pickPhoto({required bool camera}) async {
     final XFile? x = await ImagePicker().pickImage(
       source: camera ? ImageSource.camera : ImageSource.gallery,
-      // A phone photo is several megabytes; this size still reads well and uploads fast.
-      maxWidth: 2048,
-      maxHeight: 2048,
-      imageQuality: 85,
+      maxWidth: _maxSide,
+      maxHeight: _maxSide,
+      imageQuality: _quality,
     );
     if (x == null) {
       return null;
     }
     return UploadItem(path: x.path, name: x.name);
+  }
+
+  @override
+  Future<List<UploadItem>> pickPhotos() async {
+    final List<XFile> picked = await ImagePicker().pickMultiImage(
+      maxWidth: _maxSide,
+      maxHeight: _maxSide,
+      imageQuality: _quality,
+    );
+    return <UploadItem>[for (final XFile x in picked) UploadItem(path: x.path, name: x.name)];
   }
 }
 
@@ -54,4 +70,7 @@ class NoPickers implements Pickers {
 
   @override
   Future<UploadItem?> pickPhoto({required bool camera}) async => null;
+
+  @override
+  Future<List<UploadItem>> pickPhotos() async => <UploadItem>[];
 }

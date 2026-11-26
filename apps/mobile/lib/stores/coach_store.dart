@@ -17,6 +17,9 @@ const String chatOfflineMessage = 'Chat needs a connection. Nothing was sent.';
 const String logComposerHint = 'What did you do or eat?';
 const String logChatHint = 'Write it, or add a photo or a file. I will work out what it is.';
 
+/// The most files one chat message holds. The same number as the server (`fileIds` max 10 in `model/schema/thread.ts`).
+const int messageMaxFiles = 10;
+
 class _Attachment {
   _Attachment(this.item, [String? id]) : fileId = id ?? newId();
 
@@ -663,9 +666,15 @@ class CoachStore extends ChangeNotifier {
     notifyListeners();
   }
 
-  void addAttachment(UploadItem item) {
+  /// Adds a file to the next message. Returns false, and adds nothing, when the
+  /// message already holds [messageMaxFiles] (the server's limit).
+  bool addAttachment(UploadItem item) {
+    if (_pending.length >= messageMaxFiles) {
+      return false;
+    }
     _pending.add(_Attachment(item));
     notifyListeners();
+    return true;
   }
 
   void removeAttachment(int index) {

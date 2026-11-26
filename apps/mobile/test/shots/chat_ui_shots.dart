@@ -60,6 +60,8 @@ class _Pick implements Pickers {
   Future<List<UploadItem>> pickFiles() async => <UploadItem>[];
   @override
   Future<UploadItem?> pickPhoto({required bool camera}) async => photo;
+  @override
+  Future<List<UploadItem>> pickPhotos() async => <UploadItem>[photo];
 }
 
 Future<(AppDeps, GlobalKey, FakeConvexClient)> _open(WidgetTester t,

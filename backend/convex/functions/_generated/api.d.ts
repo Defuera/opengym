@@ -79,6 +79,7 @@ import type * as lib_timezoneDb from "../lib/timezoneDb.js";
 import type * as lib_trackerDb from "../lib/trackerDb.js";
 import type * as lib_trackerFields from "../lib/trackerFields.js";
 import type * as lib_transcribe from "../lib/transcribe.js";
+import type * as lib_unansweredDb from "../lib/unansweredDb.js";
 import type * as lib_usageFields from "../lib/usageFields.js";
 import type * as lib_userTables from "../lib/userTables.js";
 import type * as lib_validate from "../lib/validate.js";
@@ -268,6 +269,7 @@ declare const fullApi: ApiFromModules<{
   "lib/trackerDb": typeof lib_trackerDb;
   "lib/trackerFields": typeof lib_trackerFields;
   "lib/transcribe": typeof lib_transcribe;
+  "lib/unansweredDb": typeof lib_unansweredDb;
   "lib/usageFields": typeof lib_usageFields;
   "lib/userTables": typeof lib_userTables;
   "lib/validate": typeof lib_validate;

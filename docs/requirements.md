@@ -155,6 +155,9 @@ conversation (A01–A16). Wording is kept close to his.
 ## Health store: Health Connect and Apple Health (ADR-036)
 - Confirmed 2026-11-25, the owner's words: "I want two way information exchange" (about the phone's health store: Health Connect on Android, Apple Health on iPhone). Tracker data comes in for the coach; finished sessions go out.
 
+## AI usage and more than one user (ADR-038)
+- Confirmed 2026-11-26, the owner's words: "Yeah, I know that I'm the only one user today, but let's rework schema and database such that we're ready for multi-user. We will implement a login soon, and let's count tokens so we can evaluate approximately how much it will cost us to run this app and for how much should we sell subscription." Every paid AI call is counted with its tokens and a user id. The data model is being made ready for more than one user; the tables are reworked in a later step.
+
 ## Open questions (the owner's list, still undecided unless noted)
 - Which activities are in v1 besides gym
 - What context inputs exist beyond injuries

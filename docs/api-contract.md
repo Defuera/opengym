@@ -182,11 +182,14 @@ Time exercises (a bike, a plank hold, a treadmill) inside a session with sets:
 | query `queries/openSession:get` | `{ token }` | `{ session, rev, updatedAt, updatedBy }`, or `{ session: null, rev: 0, updatedBy: null }`. The app subscribes and takes the server's copy only with no unsent local change and a newer `rev`. |
 | internal mutation `jobs/openSession:replacePlan` | `{ id?, by: "coach" \| "owner", exercises: [{ name, measure?, note?, sets }], focus?, planNote? }` | the new `rev`, or `null` when nothing changed. An exercise with a done set or a comment of the person stays as it is; the rest is replaced. |
 
+**AI usage (Convex backend, ADR-038).** Every paid provider attempt is one row in `aiUsage`: `{ at, userId, job, kind: "chat" | "transcribe" | "image", provider, model, inputTokens?, cachedInputTokens?, outputTokens?, reasoningTokens?, audioSeconds?, audioBytes?, images?, imageSpec?, inputImages?, ms, ok, ref? }`. Indexes `by_at`, `by_user_and_at`. A number the provider did not report is absent. `inputTokens` includes the cached ones; reasoning tokens are part of `outputTokens`. `ok` is true when the attempt gave a valid result. `userId` comes from `lib/currentUser.ts` (`"owner"` today). Written by `jobs/aiCalls:save` (one row per attempt of a job run; `job` is the job name, `ref` as in `aiCalls`) and by `jobs/aiUsage:record` (speech to text: job `transcribe`, `ref` the file id, `audioBytes`; image: job `exercise_art`, `ref` the art key). The purge does not erase it. `aiCalls` rows also hold the summed `inputTokens?`, `cachedInputTokens?`, `outputTokens?`, `reasoningTokens?`. Query `queries/usage:summary` `{ token, from?, to? }` (ms; default the last 30 days; at most 366 days, else a `ConvexError`) returns `{ from, to, observedTo, rowsRead, truncated, totals, byDay, byJob, byModel, byUser }`; it reads at most 8000 rows and sets `truncated` when it cut. Costs appear only for models priced in `model/aiPrices.ts` (empty today). Operator call: `npm run usage` (`-- '{"from":<ms>}'` for args).
+
 ## Providers
 
 `AI_PROVIDER=anthropic | openai | deepseek | mock`. One interface:
 `complete({ system, messages, images?, json: boolean, maxTokens }) -> string`.
 Model names come from env (`ANTHROPIC_MODEL`, `OPENAI_MODEL`, `DEEPSEEK_MODEL`).
+`complete`, `transcribe` and `image` also take an optional `onUsage` hook that receives the usage the answer reports (ADR-038).
 Optional methods: `transcribe` (see Voice message) and `image(prompt, photos) -> PNG bytes` (see Exercise art).
 Images are sent to Anthropic and OpenAI; DeepSeek has no image input, so image
 imports and image attachments answer with a clear note instead.

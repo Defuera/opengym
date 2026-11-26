@@ -94,7 +94,7 @@ class HomeSummary extends StatelessWidget {
 
   Widget? _review(int now) {
     final Review? r = review;
-    if (r == null || r.summary.trim().isEmpty) {
+    if (r == null || r.text.trim().isEmpty) {
       return null;
     }
     Session? s;
@@ -109,7 +109,7 @@ class HomeSummary extends StatelessWidget {
     final Session found = s;
     return LastReviewCard(
       session: '${sessionName(found)} · ${whenLabel(found.when, nowMs: now).toLowerCase()}',
-      summary: r.summary,
+      summary: r.text,
       onTap: onOpenSession == null ? null : () => onOpenSession!(found),
     );
   }

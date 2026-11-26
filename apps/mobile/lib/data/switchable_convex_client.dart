@@ -273,6 +273,15 @@ class SwitchableConvexClient implements ConvexClient {
   Future<void> saveSession(Session session) => _call((ConvexClient c) => c.saveSession(session));
 
   @override
+  Future<String> openDebrief(String sessionId) {
+    final ConvexClient? c = _inner;
+    if (c == null) {
+      return Future<String>.error(const ConvexCallException.notConfigured());
+    }
+    return c.openDebrief(sessionId);
+  }
+
+  @override
   Future<void> setSessionPlace({required String sessionId, required String? placeId}) =>
       _call((ConvexClient c) => c.setSessionPlace(sessionId: sessionId, placeId: placeId));
 

@@ -1,3 +1,4 @@
+import 'chat.dart' show CoachQuestion;
 import 'json_util.dart';
 
 /// A start suggestion (from the server or the local planner): one ACTIVITY
@@ -117,12 +118,20 @@ class ImportJob {
   }
 }
 
+/// The coach's review of a finished session (ADR-041). A NEW one is a debrief:
+/// a [message] in the coach's voice, a [question] with quick answers, and the
+/// chat it opened ([debriefThreadId], [debriefAnswered]). An OLD one has only a
+/// [summary] and [changes]; it still shows.
 class Review {
   const Review({
     required this.sessionId,
     required this.source,
-    required this.summary,
+    this.summary = '',
     this.changes = const <String>[],
+    this.message = '',
+    this.question,
+    this.debriefThreadId,
+    this.debriefAnswered = false,
   });
 
   final String sessionId;
@@ -132,21 +141,41 @@ class Review {
   final String summary;
   final List<String> changes;
 
+  /// The debrief text, or '' for an old review.
+  final String message;
+  final CoachQuestion? question;
+
+  /// The debrief chat, when the person opened it; [debriefAnswered] when they replied in it.
+  final String? debriefThreadId;
+  final bool debriefAnswered;
+
+  /// A new review: the coach's debrief with its question.
+  bool get isDebrief => message.trim().isNotEmpty;
+
+  /// One text for a short card: the debrief message, else the old summary.
+  String get text => isDebrief ? message : summary;
+
   Map<String, dynamic> toJson() {
     return <String, dynamic>{
       'sessionId': sessionId,
       'source': source,
       'summary': summary,
       'changes': changes,
+      if (isDebrief) 'message': message,
     };
   }
 
-  factory Review.fromJson(Map<String, dynamic> j) {
+  factory Review.fromJson(Map<String, dynamic> j, {Map<String, dynamic>? debrief}) {
+    final CoachQuestion? q = CoachQuestion.fromJson(j['question']);
     return Review(
       sessionId: str(j['sessionId']),
       source: str(j['source'], 'rules'),
       summary: str(j['summary']),
       changes: strList(j['changes']),
+      message: str(j['message']),
+      question: (q == null || q.text.isEmpty) ? null : q,
+      debriefThreadId: debrief == null ? null : strOrNull(debrief['threadId']),
+      debriefAnswered: debrief != null && debrief['answered'] == true,
     );
   }
 }

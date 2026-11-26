@@ -9,12 +9,14 @@ import '../stores/session_load_store.dart';
 import '../theme.dart';
 import '../widgets/body_figure.dart';
 import '../widgets/choice_sheet.dart';
+import '../widgets/debrief_card.dart';
 import '../widgets/note_box.dart';
 import '../widgets/og_button.dart';
 import '../widgets/og_icon_button.dart';
 import '../widgets/recap_exercise_card.dart';
 import '../widgets/sheet_link.dart';
 import '../widgets/review_card.dart';
+import 'chat_screen.dart';
 import 'entry_screen.dart';
 import 'place_mark_view.dart';
 import 'session_edit_screen.dart';
@@ -68,6 +70,23 @@ class _SessionRecapScreenState extends State<SessionRecapScreen> {
     if (mounted) {
       Navigator.of(context).pop();
     }
+  }
+
+  /// Opens the debrief chat of this session (ADR-041): the same thread every
+  /// time. With [answer] (a tap on a quick answer) the answer is the first
+  /// message the person sends; the normal coach turn replies to it.
+  Future<void> _openDebrief({String? answer}) async {
+    final NavigatorState nav = Navigator.of(context);
+    final String? threadId = await _review.openChat(widget.sessionId);
+    if (threadId == null || !mounted) {
+      return;
+    }
+    final AppDeps d = widget.deps;
+    await d.coach.openThread(threadId);
+    if (answer != null) {
+      await d.coach.send(answer);
+    }
+    await nav.push(MaterialPageRoute<void>(builder: (BuildContext c) => ChatScreen(deps: d)));
   }
 
   /// Opens the session again as it was before the finish, on the session screen.
@@ -151,6 +170,36 @@ class _SessionRecapScreenState extends State<SessionRecapScreen> {
     return null;
   }
 
+  /// Slot one: the debrief of a new review, an old review as it was, or a quiet
+  /// line while the coach is still writing. No review: nothing.
+  List<Widget> _debrief(Review? review) {
+    if (review == null) {
+      return <Widget>[if (_review.pending) const DebriefPending()];
+    }
+    if (!review.isDebrief) {
+      if (review.summary.trim().isEmpty) {
+        return const <Widget>[];
+      }
+      return <Widget>[
+        ReviewCard(title: 'Coach review', summary: review.summary, changes: review.changes),
+        const SizedBox(height: 16),
+      ];
+    }
+    final CoachQuestion? q = review.question;
+    return <Widget>[
+      DebriefCard(
+        message: review.message,
+        question: q?.text,
+        answers: <(String, String)>[for (final QuickAnswer a in q?.answers ?? const <QuickAnswer>[]) (a.id, a.label)],
+        answered: review.debriefAnswered,
+        failed: _review.openFailed,
+        onAnswer: (String id, String label) => _openDebrief(answer: label),
+        onOpenChat: _openDebrief,
+      ),
+      const SizedBox(height: 16),
+    ];
+  }
+
   List<Widget> _body(Session s) {
     final bool gym = s.kind == 'gym';
     final String? focus = s.focus;
@@ -204,6 +253,14 @@ class _SessionRecapScreenState extends State<SessionRecapScreen> {
           padding: const EdgeInsets.only(bottom: 12),
           child: Text('Reading your text…', key: const ValueKey<String>('recap-parsing'), style: OG.muted()),
         ),
+      // The order the owner asked for (2026-11-26): the coach's debrief, then the muscles it worked, then the log.
+      ..._debrief(review),
+      if (load != null && load.values.any((int v) => v > 0)) ...<Widget>[
+        Text('What it worked', style: OG.display(24)),
+        const SizedBox(height: 10),
+        BodyFigure(key: const ValueKey<String>('recap-figure'), load: load, loadOnly: true, onTap: (String _) {}),
+        const SizedBox(height: 16),
+      ],
       if (!gym && (s.minutes != null || km != null || spanKnown))
         Container(
           width: double.infinity,
@@ -224,17 +281,6 @@ class _SessionRecapScreenState extends State<SessionRecapScreen> {
         Text('Note', style: OG.muted(size: 14, weight: FontWeight.w600)),
         const SizedBox(height: 4),
         Text(note, key: const ValueKey<String>('recap-note'), style: OG.body()),
-        const SizedBox(height: 16),
-      ],
-      if (review != null) ...<Widget>[
-        const SizedBox(height: 6),
-        ReviewCard(title: 'Coach review', summary: review.summary, changes: review.changes),
-        const SizedBox(height: 16),
-      ],
-      if (load != null && load.values.any((int v) => v > 0)) ...<Widget>[
-        Text('What it worked', style: OG.display(24)),
-        const SizedBox(height: 10),
-        BodyFigure(key: const ValueKey<String>('recap-figure'), load: load, loadOnly: true, onTap: (String _) {}),
         const SizedBox(height: 16),
       ],
     ];

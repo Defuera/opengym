@@ -70,13 +70,17 @@ class ConvexCallException implements Exception {
 /// A read-model answer. [stored] false means "rules answer, the AI version is
 /// not built yet": the stream pushes the AI version later.
 class Stored<T> {
-  const Stored(this.value, {required this.stored, this.source = 'rules'});
+  const Stored(this.value, {required this.stored, this.source = 'rules', this.pending = false});
 
   final T value;
   final bool stored;
 
   /// `ai` or `rules`.
   final String source;
+
+  /// A review that is not there yet but is expected: the session just ended
+  /// and the coach is still writing (ADR-041).
+  final bool pending;
 }
 
 /// True for a hosted Convex address (`https://<name>.convex.cloud`).

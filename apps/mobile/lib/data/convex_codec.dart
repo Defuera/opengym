@@ -98,6 +98,15 @@ Proposal? decodeProposal(Object? v) => v is Map ? Proposal.fromJson(asMap(normal
 /// The answer of `queries/proposals:forThread`: the proposals, oldest first.
 List<Proposal> decodeProposals(Object? v) => _list(v, (Object? e) => Proposal.fromJson(asMap(normalize(e))));
 
+/// The answer of `commands/debrief:open`: `{ threadId }`.
+String decodeDebriefThread(Object? v) {
+  final String id = str(asMap(normalize(v))['threadId']);
+  if (id.isEmpty) {
+    throw const ConvexCallException('The server sent an answer the app does not understand.');
+  }
+  return id;
+}
+
 /// The answer of `commands/proposals:accept`: `{ programId }`.
 String decodeAccepted(Object? v) {
   final String id = str(asMap(normalize(v))['programId']);
@@ -125,15 +134,17 @@ Stored<Dashboard> decodeDashboard(Object? v) {
   return Stored<Dashboard>(d, stored: m['stored'] == true, source: d.source);
 }
 
-/// The value is null when the session does not exist on the server yet.
+/// The value is null when the session does not exist on the server yet, or has no review (`pending`: the coach is still writing it).
 Stored<Review?> decodeReview(Object? v) {
   final Map<String, dynamic> m = asMap(normalize(v));
   final Object? r = m['review'];
-  final Review? review = r is Map ? Review.fromJson(asMap(r)) : null;
+  final Object? d = m['debrief'];
+  final Review? review = r is Map ? Review.fromJson(asMap(r), debrief: d is Map ? asMap(d) : null) : null;
   return Stored<Review?>(
     review,
     stored: m['stored'] == true,
     source: review?.source ?? 'rules',
+    pending: m['pending'] == true,
   );
 }
 

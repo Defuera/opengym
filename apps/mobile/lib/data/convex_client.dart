@@ -115,6 +115,11 @@ abstract class ConvexClient {
   /// Deletes the program (the server marks it and erases it later).
   Future<void> removeProgram(String programId);
 
+  /// Opens the debrief chat of a finished session (ADR-041) and returns its
+  /// thread id. The first message of the thread is the coach's debrief. One
+  /// thread per session: a second call returns the same thread.
+  Future<String> openDebrief(String sessionId);
+
   /// Sets the place of one session, or clears it with null. Idempotent.
   Future<void> setSessionPlace({required String sessionId, required String? placeId});
 
@@ -557,6 +562,12 @@ class DartvexConvexClient implements ConvexClient {
   @override
   Future<void> removeSession(String sessionId) =>
       _mutate('commands/sessions:remove', <String, dynamic>{'sessionId': sessionId});
+
+  @override
+  Future<String> openDebrief(String sessionId) async {
+    final Object? v = await _mutateValue('commands/debrief:open', <String, dynamic>{'sessionId': sessionId});
+    return decodeDebriefThread(v);
+  }
 
   @override
   Future<void> setSessionPlace({required String sessionId, required String? placeId}) =>

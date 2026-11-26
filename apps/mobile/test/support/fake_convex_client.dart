@@ -615,6 +615,30 @@ class FakeConvexClient implements ConvexClient {
   Stream<List<Message>> watchMessages(String threadId) =>
       _messages.putIfAbsent(threadId, () => Live<List<Message>>(<Message>[])).stream();
 
+  /// Set to make [openDebrief] fail, like a phone that is offline.
+  ConvexCallException? debriefError;
+  final List<String> debriefOpened = <String>[];
+
+  @override
+  Future<String> openDebrief(String sessionId) async {
+    _command('openDebrief:$sessionId');
+    final ConvexCallException? e = debriefError;
+    if (e != null) {
+      throw e;
+    }
+    debriefOpened.add(sessionId);
+    final String threadId = 'debrief-$sessionId';
+    if (!serverThreads.containsKey(threadId)) {
+      final Review? r = reviews[sessionId]?.value?.value;
+      serverThreads[threadId] = Thread(id: threadId, title: 'Debrief', titleSource: 'user', createdAt: ++_clock, updatedAt: _clock);
+      serverMessages[threadId] = <Message>[
+        Message(id: 'debrief-msg-$sessionId', threadId: threadId, role: 'assistant', text: r?.message ?? '', createdAt: ++_clock, question: r?.question),
+      ];
+      _publish();
+    }
+    return threadId;
+  }
+
   @override
   Future<void> createThread({required String threadId, String? title, String? placeId, ThreadAbout? about}) async {
     _command('createThread:$threadId');

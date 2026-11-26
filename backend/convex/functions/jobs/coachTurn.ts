@@ -6,6 +6,7 @@ import { providerFor, runAiJob } from "../lib/ai";
 import { programTurnState, startProgramProposal } from "../lib/programChatDb";
 import { allContext, allGoals, allSessions, entryByEntryId, messageByMessageId, threadByThreadId } from "../lib/db";
 import { toLimit } from "../lib/limitsDb";
+import { hasNewerUserMessage, unansweredFileIds } from "../lib/unansweredDb";
 import { readChatInput } from "../lib/chatInputDb";
 import { executeActions } from "../lib/coachToolsDb";
 import { logThreadContent } from "../lib/logDraftDb";
@@ -74,6 +75,7 @@ export const input = internalQuery({
     const categories = await knownCategories(ctx, userId);
     const log = isLog ? await logInput(ctx, userId, threadId, trigger._creationTime) : null;
     const editables = editablesForTurn({ goals: await allGoals(ctx, userId), limits: (await ctx.db.query("limits").withIndex("by_user_and_limitId", (q) => q.eq("userId", userId)).collect()).map(toLimit), notes: await allContext(ctx, userId), goalId: hint.goalId, limitId: hint.limitId, noteId: hint.noteId, part: hint.part });
+    const unanswered = await unansweredFileIds(ctx, userId, threadId, trigger); // the files of every message this turn answers (ADR-040)
     const turn = {
       ...screen,
       ...editables,
@@ -85,7 +87,7 @@ export const input = internalQuery({
       ...(categories.length > 0 ? { categoriesInUse: categories } : {}),
       ...(entry ? { entryInView: { entryId: entry.entryId, text: entry.text, at: new Date(entry.at).toISOString(), files: entry.fileIds.length } } : {}),
       ...(programs.length > 0 ? { programsThePersonFollows: programs } : {}),
-      ...(trigger.fileIds.length > 0 ? { attachedToThisMessage: chat.files.filter((f) => trigger.fileIds.includes(f.fileId)).map((f) => f.name) } : {}),
+      ...(unanswered.length > 0 ? { attachedToThisMessage: chat.files.filter((f) => unanswered.includes(f.fileId)).map((f) => f.name) } : {}),
     };
     return { chat: log ? { ...chat, files: log.files } : chat, turn, log: log ? { photosOnly: log.photosOnly } : null, base: { turnId: messageId, screen: screen.screen, ...(row ? { openSessionId: row.id, rev: row.rev } : {}) } };
   },
@@ -155,10 +157,27 @@ export const save = internalMutation({
   },
 });
 
+/**
+ * A newer user message of the thread gets its own coach turn, which answers this one too (ADR-040): this turn stays silent and gives its pending count back.
+ * True when the turn was skipped.
+ */
+export const supersede = internalMutation({
+  args: { userId: v.string(), threadId: v.string(), messageId: v.string() },
+  handler: async (ctx, { userId, threadId, messageId }): Promise<boolean> => {
+    const trigger = await messageByMessageId(ctx, userId, messageId);
+    const thread = await threadByThreadId(ctx, userId, threadId);
+    if (!trigger || !thread || trigger.role !== "user" || !(await hasNewerUserMessage(ctx, userId, threadId, trigger))) return false;
+    const pending = Math.max(0, thread.pending - 1);
+    await ctx.db.patch(thread._id, { pending, status: pending > 0 ? "thinking" : "idle" });
+    return true;
+  },
+});
+
 /** The coach_turn job: input -> AI pipeline (JSON, zod, one retry, fallback with no action) -> save. Any unexpected error fails the reply. */
 export const run = internalAction({
   args: { userId: v.string(), threadId: v.string(), messageId: v.string() },
   handler: async (ctx, { userId, threadId, messageId }): Promise<void> => {
+    if (await ctx.runMutation(internal.jobs.coachTurn.supersede, { userId, threadId, messageId })) return;
     const data = await ctx.runQuery(internal.jobs.coachTurn.input, { userId, threadId, messageId });
     if (!data) return;
     try {

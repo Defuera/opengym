@@ -235,6 +235,7 @@ describe("question, context and the old path", () => {
     vi.stubEnv("AI_PROVIDER", "mock");
     await world();
     await send("m1", "hello");
+    await settle(t);
     await send("m2", "hello again", { screen: "start" });
     await settle(t);
     const as = (await messages()).filter((m) => m.role === "assistant");
@@ -252,6 +253,55 @@ describe("question, context and the old path", () => {
   it("rejects a context id that is too long", async () => {
     await world();
     await expect(send("m1", "x", { screen: "session", openSessionId: "x".repeat(101) })).rejects.toThrow(/context.openSessionId/);
+  });
+});
+
+/** ADR-040: one reply for quick messages. */
+describe("quick messages get one reply", () => {
+  const photo = async (fileId: string) => {
+    const storageId = await t.run((c) => c.storage.store(new Blob([new Uint8Array([1, 2, 3])], { type: "image/png" })));
+    await t.mutation(api.commands.files.register, { token: TOKEN, fileId, storageId, name: `${fileId}.png`, mime: "image/png", size: 3 });
+  };
+  const sendFiles = (messageId: string, text: string, fileIds: string[], context?: object) => t.mutation(api.commands.messages.send, { token: TOKEN, threadId: "th1", messageId, text, fileIds, ...(context ? { context } : {}) });
+  const waits = async () => (await t.run((c) => c.db.system.query("_scheduled_functions").collect())).filter((f) => f.name.includes("coachTurn:run")).map((f) => f.scheduledTime - Date.now());
+  const thread = async () => (await t.query(api.queries.threads.list, { token: TOKEN }))[0]!;
+
+  it("a photo with a short text, then the question: one reply; pending ends at 0; the photo counts for the second message", async () => {
+    await world();
+    await photo("p1");
+    const calls = stubOpenAi(coach(() => ({ message: "Noted the dumbbells.", actions: [{ id: "a1", name: "update_place", arguments: { placeId: "p-gym", add: "Technogym rack", evidence: "seen_in_photo" } }] })));
+    await sendFiles("m1", "See attached.", ["p1"], { screen: "chat" });
+    await send("m2", "What exercise should I use to track bicep curls with these?", { screen: "chat" });
+    expect((await thread()).pending).toBe(2);
+    await settle(t);
+    expect(turns(calls)).toHaveLength(1);
+    const as = (await messages()).filter((m) => m.role === "assistant");
+    expect(as).toHaveLength(1);
+    expect(as[0]).toMatchObject({ turnId: "m2", actions: [{ actionId: "a1", name: "update_place", status: "applied" }] });
+    expect(await thread()).toMatchObject({ pending: 0, status: "idle" });
+  });
+
+  it("a message answered before the next one arrives keeps its own reply", async () => {
+    await world();
+    stubOpenAi(coach(() => ({ message: "ok", actions: [] })));
+    await send("m1", "first question here", { screen: "chat" });
+    await settle(t);
+    await send("m2", "second question here", { screen: "chat" });
+    await settle(t);
+    expect((await messages()).filter((m) => m.role === "assistant").map((m) => m.turnId)).toEqual(["m1", "m2"]);
+    expect(await thread()).toMatchObject({ pending: 0, status: "idle" });
+  });
+
+  it("only a message with files and almost no text waits for a follow-up", async () => {
+    await world();
+    await photo("p1");
+    await sendFiles("m1", "See attached.", ["p1"]);
+    await sendFiles("m2", "This photo shows the dumbbells I use for my curls", ["p1"]);
+    await send("m3", "hello");
+    const [short, long, plain] = (await waits()).sort((a, b) => b - a).length === 3 ? await waits() : [];
+    expect(short).toBeGreaterThanOrEqual(2000);
+    expect(long).toBeLessThan(100);
+    expect(plain).toBeLessThan(100);
   });
 });
 

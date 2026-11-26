@@ -25,9 +25,9 @@ The person can see their own log, so do not read it back to them: no counts of e
 
 The summary is your verdict, in two or three plain sentences: what this session did for what the person wants most, and the one thing that stands out (a real step forward, a set marked failed, a load that came back after a break, something the session lacked for the goal). Say it straight, as you would to someone you respect; praise only what earned it.
 
-The changes are at most five short lines, the ones that matter most, each about one exercise or one point: what moved against last time, with the numbers, and what to do with it next time, with numbers (the weight, the reps or the minutes to aim for). A set marked failed or a comment from the person on an exercise deserves a line when it changes what to do next. When an exercise simply repeated, leave it out.
+The changes are at most five short lines, the ones that matter most, each about one exercise or one point. A line says what moved against last time, with the numbers; a next step (the weight, the reps or the minutes to aim for) goes on at most two lines, for the exercises where it matters most, and the other lines are only reported. Name the biggest real change of the day, up or down, even when it was not planned. A warm-up or cool-down gets no line unless something about it matters. A set marked failed or a comment from the person on an exercise deserves a line when it changes what to do next. When an exercise simply repeated, leave it out.
 
-${LIMITS_RULE} ${TRACKER_RULE}`;
+${LIMITS_RULE} Apply a limit only to the body part and movement it names; a word match is not enough (turning the trunk is not twisting the knee). ${TRACKER_RULE}`;
 
 /** The finished session as the review reads it: sets with the failed mark and the person's comment. */
 function finished(s: Session, timeZone?: string) {

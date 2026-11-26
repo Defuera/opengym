@@ -54,3 +54,4 @@ This directory holds the Architecture Decision Records (ADRs) for Gym Days (Open
 | [037](037-chat-composer-always-works.md) | The Chat Composer Always Works; Messages Wait in the Outbox | Accepted (replaces one rule of 026 and 032) |
 | [038](038-count-ai-usage.md) | Every Paid AI Call Is Counted, With a User Id | Accepted (one clause replaced by 039) |
 | [039](039-tables-ready-for-more-users.md) | Every Table and Function Is Ready for More Than One User | Accepted |
+| [040](040-one-reply-for-quick-messages.md) | One Reply for Quick Messages | Accepted |

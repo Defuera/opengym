@@ -14,6 +14,11 @@ import { applyProposal } from "../lib/proposalDb";
 import { truncate } from "../model/rules/util";
 
 const CONTEXT_ID_MAX = 100;
+const FOLLOW_UP_WAIT_MS = 2500;
+const SHORT_TEXT_CHARS = 25;
+
+/** A message with files and almost no text is often followed by the real question: wait a little before the turn starts (ADR-040). */
+const quickFollowUpDelay = (text: string, files: number) => (files > 0 && text.trim().length < SHORT_TEXT_CHARS ? FOLLOW_UP_WAIT_MS : 0);
 
 /**
  * Store the user's message at once and start the coach reply in the background.
@@ -77,7 +82,7 @@ export const send = mutation({
     await ctx.db.insert("messages", { userId, messageId, threadId, role: "user", text: valid.text, fileIds: valid.fileIds ?? [], sources: [], ...(context ? { context } : {}), ...(answer ? { answer } : {}), createdAt: now });
     const session = first && context?.openSessionId !== undefined && thread.openSessionId === undefined ? { openSessionId: context.openSessionId } : {};
     await ctx.db.patch(thread._id, { ...title, ...session, status: "thinking", error: undefined, pending: thread.pending + 1, updatedAt: now });
-    await ctx.scheduler.runAfter(0, internal.jobs.coachTurn.run, { userId, threadId, messageId });
+    await ctx.scheduler.runAfter(quickFollowUpDelay(valid.text, valid.fileIds?.length ?? 0), internal.jobs.coachTurn.run, { userId, threadId, messageId });
     return messageId;
   },
 });

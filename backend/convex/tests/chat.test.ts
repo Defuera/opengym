@@ -130,14 +130,14 @@ describe("chat round trip (mock provider)", () => {
     expect((await threads())[0]).toMatchObject({ status: "idle", pending: 0 });
   });
 
-  it("two quick messages: status stays thinking until both answers are stored", async () => {
+  it("two quick messages: status stays thinking until the one answer (ADR-040) is stored", async () => {
     vi.stubEnv("AI_PROVIDER", "mock");
     await create();
     await send("m1", "hello");
     await send("m2", "again");
     expect((await threads())[0]).toMatchObject({ status: "thinking", pending: 2 });
     await settle(t);
-    expect((await messages()).map((m) => m.role).sort()).toEqual(["assistant", "assistant", "user", "user"]);
+    expect((await messages()).map((m) => m.role).sort()).toEqual(["assistant", "user", "user"]);
     expect((await threads())[0]).toMatchObject({ status: "idle", pending: 0 });
   });
 

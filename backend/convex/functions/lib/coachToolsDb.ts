@@ -4,6 +4,7 @@ import { allSessions, messageByMessageId, threadByThreadId } from "./db";
 import { programByProgramId } from "./programsDb";
 import { activeLimits } from "./limitsDb";
 import { fileByFileId } from "./files";
+import { unansweredFileIds } from "./unansweredDb";
 import { PLACE_QUOTE_MAX, PLACE_TEXT_MAX } from "./placeFields";
 import { placeByPlaceId, setPlaceText } from "./placesDb";
 import { requestExerciseArt } from "./exerciseArtDb";
@@ -43,7 +44,8 @@ function sessionProblem(row: Row | null, base: TurnBase): string | null {
 async function evidenceProblem(ctx: Ctx, userId: string, trigger: Doc<"messages"> | null, evidence: Evidence): Promise<string | null> {
   if (!trigger || trigger.role !== "user") return "no message of the person in this turn";
   if (evidence === "person_said") return trigger.text.trim() ? null : "the person said nothing in this turn";
-  for (const id of trigger.fileIds) if ((await fileByFileId(ctx, userId, id))?.kind === "image") return null;
+  // The photos of the person's messages since the last coach answer count: one turn answers them all (ADR-040).
+  for (const id of await unansweredFileIds(ctx, userId, trigger.threadId, trigger)) if ((await fileByFileId(ctx, userId, id))?.kind === "image") return null;
   return "no photo in this turn";
 }
 

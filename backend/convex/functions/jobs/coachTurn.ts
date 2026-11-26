@@ -35,7 +35,7 @@ const LOG_FILES_MAX = 10;
  */
 /** The open log draft of the thread, as the coach reads it (currentLogDraft), on every screen; null when the last proposal is not an open log draft. */
 async function openLogDraft(ctx: QueryCtx, userId: string, threadId: string) {
-  const last = (await ctx.db.query("messages").withIndex("by_threadId", (q) => q.eq("threadId", threadId)).order("desc").filter((q) => q.neq(q.field("proposal"), undefined)).first())?.proposal;
+  const last = (await ctx.db.query("messages").withIndex("by_user_and_threadId", (q) => q.eq("userId", userId).eq("threadId", threadId)).order("desc").filter((q) => q.neq(q.field("proposal"), undefined)).first())?.proposal;
   const open = last && last.type === "log" && last.appliedAt === undefined ? (last as StoredLogDraft) : null;
   return open ? { kind: open.kind, ...(open.color ? { color: open.color } : {}), summary: open.summary, at: new Date(open.at).toISOString(), ...(open.session ? { session: open.session } : {}), ...(open.goal ? { goal: open.goal } : {}), ...(open.limit ? { limit: open.limit } : {}), ...(open.note ? { note: open.note } : {}) } : null;
 }
@@ -59,7 +59,7 @@ export const input = internalQuery({
     // Photos go with the turn only when they belong to the thread's messages or to the entry in view.
     const chat = await readChatInput(ctx, userId, threadId, messageId, hint.entryId);
     if (!chat || !trigger) return null;
-    const row = await ctx.db.query("openSession").first();
+    const row = await ctx.db.query("openSession").withIndex("by_user", (q) => q.eq("userId", userId)).unique();
     const places = await allPlaces(ctx, userId);
     const thread = await threadByThreadId(ctx, userId, threadId);
     // A thread about a program is the program chat whatever the message says (a program thread is the program chat whatever the context says).
@@ -73,7 +73,7 @@ export const input = internalQuery({
     const draft = await openLogDraft(ctx, userId, threadId);
     const categories = await knownCategories(ctx, userId);
     const log = isLog ? await logInput(ctx, userId, threadId, trigger._creationTime) : null;
-    const editables = editablesForTurn({ goals: await allGoals(ctx, userId), limits: (await ctx.db.query("limits").collect()).map(toLimit), notes: await allContext(ctx, userId), goalId: hint.goalId, limitId: hint.limitId, noteId: hint.noteId, part: hint.part });
+    const editables = editablesForTurn({ goals: await allGoals(ctx, userId), limits: (await ctx.db.query("limits").withIndex("by_user_and_limitId", (q) => q.eq("userId", userId)).collect()).map(toLimit), notes: await allContext(ctx, userId), goalId: hint.goalId, limitId: hint.limitId, noteId: hint.noteId, part: hint.part });
     const turn = {
       ...screen,
       ...editables,
@@ -119,7 +119,7 @@ export const save = internalMutation({
     if (!thread) return null;
     const now = Date.now();
     const pending = Math.max(0, thread.pending - 1);
-    const done = await ctx.db.query("messages").withIndex("by_turnId", (q) => q.eq("turnId", turnId)).first();
+    const done = await ctx.db.query("messages").withIndex("by_user_and_turnId", (q) => q.eq("userId", userId).eq("turnId", turnId)).first();
     if (done) {
       await ctx.db.patch(thread._id, { pending, status: pending > 0 ? "thinking" : "idle" });
       return done.actions ?? [];
@@ -127,7 +127,7 @@ export const save = internalMutation({
     const made = await executeActions(ctx, userId, { turnId, ...(screen !== undefined ? { screen } : {}), ...(openSessionId !== undefined ? { openSessionId } : {}), ...(rev !== undefined ? { rev } : {}) }, actions);
     const { results } = made;
     // The trace of the turn gets what each action did, so a bad turn can be read back (ADR-027, ADR-032).
-    const calls = await ctx.db.query("aiCalls").withIndex("by_job", (q) => q.eq("job", "coach_turn")).order("desc").take(20);
+    const calls = await ctx.db.query("aiCalls").withIndex("by_user_and_job", (q) => q.eq("userId", userId).eq("job", "coach_turn")).order("desc").take(20);
     const call = calls.find((c) => c.ref === turnId);
     if (call) await ctx.db.patch(call._id, { actions: results });
     let proposal = made.proposal;

@@ -98,7 +98,7 @@ export const seed = internalMutation({
 
     let equipmentMoved = 0;
     if (gym.text === "") {
-      const items = (await ctx.db.query("context").withIndex("by_createdAt").order("desc").collect()).filter((c) => c.active && c.topic.trim().toLowerCase() === "equipment");
+      const items = (await ctx.db.query("context").withIndex("by_user_and_createdAt", (q) => q.eq("userId", userId)).order("desc").collect()).filter((c) => c.active && c.topic.trim().toLowerCase() === "equipment");
       const used: typeof items = [];
       let text = "";
       for (const c of items) {

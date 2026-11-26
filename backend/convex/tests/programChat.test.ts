@@ -29,7 +29,7 @@ const BRIEF = "Write a two-week knee program.";
 /** A user message `turnId` in the thread and the stored answer of that turn with the given actions (the step the coach turn ends with). */
 async function saveTurn(threadId: string, turnId: string, actions: object[] = [{ id: "a1", name: "propose_program", arguments: { brief: BRIEF } }], context: object | undefined = PROGRAM_CONTEXT) {
   if (!(await t.run((c) => c.db.query("messages").withIndex("by_messageId", (q) => q.eq("messageId", turnId)).unique()))) {
-    await t.run((c) => c.db.insert("messages", { messageId: turnId, threadId, role: "user", text: "hello", fileIds: [], sources: [], ...(context ? { context } : {}), createdAt: Date.now() }));
+    await t.run((c) => c.db.insert("messages", { userId: "owner", messageId: turnId, threadId, role: "user", text: "hello", fileIds: [], sources: [], ...(context ? { context } : {}), createdAt: Date.now() }));
   }
   return t.mutation(internal.jobs.coachTurn.save, { userId: "owner", threadId, turnId, message: "On it.", actions, sources: [] });
 }
@@ -130,8 +130,8 @@ describe("the coach reply in a program thread", () => {
     await create("th1");
     const base = Date.now();
     await t.run(async (c) => {
-      await c.db.insert("messages", { messageId: "a", threadId: "th1", role: "user", text: `OLDEST ${"o".repeat(7000)}`, fileIds: [], sources: [], createdAt: base });
-      await c.db.insert("messages", { messageId: "b", threadId: "th1", role: "user", text: `${"x".repeat(7000)} NEWEST`, fileIds: [], sources: [], createdAt: base + 1 });
+      await c.db.insert("messages", { userId: "owner", messageId: "a", threadId: "th1", role: "user", text: `OLDEST ${"o".repeat(7000)}`, fileIds: [], sources: [], createdAt: base });
+      await c.db.insert("messages", { userId: "owner", messageId: "b", threadId: "th1", role: "user", text: `${"x".repeat(7000)} NEWEST`, fileIds: [], sources: [], createdAt: base + 1 });
     });
     await saveTurn("th1", "b");
     const text = (await proposals())[0]!.ask.text!;

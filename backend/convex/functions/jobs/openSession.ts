@@ -17,7 +17,7 @@ const plannedExercise = v.object({
 export const replacePlan = internalMutation({
   args: { userId: v.string(), id: v.optional(v.string()), by: v.union(v.literal("coach"), v.literal("owner")), exercises: v.array(plannedExercise), focus: v.optional(v.string()), planNote: v.optional(v.string()) },
   handler: async (ctx, { userId, id, by, exercises, focus, planNote }): Promise<number | null> => {
-    const row = await ctx.db.query("openSession").first();
+    const row = await ctx.db.query("openSession").withIndex("by_user", (q) => q.eq("userId", userId)).unique();
     if (!row || (id !== undefined && row.id !== id)) return null;
     let n = 0;
     const stamp = Date.now().toString(36);

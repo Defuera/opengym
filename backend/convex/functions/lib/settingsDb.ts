@@ -1,9 +1,8 @@
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 
-/** The settings row of a user, or null before the first write. (Deploy point 1 of ADR-039: not yet filtered by user.) */
+/** The settings row of a user, or null before the first write. */
 export async function settingsRow(ctx: QueryCtx | MutationCtx, userId: string) {
-  void userId;
-  return ctx.db.query("settings").first();
+  return ctx.db.query("settings").withIndex("by_user", (q) => q.eq("userId", userId)).unique();
 }
 
 /** Patch the settings row of a user; create it when missing. `undefined` values remove a field. */

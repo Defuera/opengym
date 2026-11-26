@@ -229,7 +229,7 @@ describe("thread titles", () => {
 
   it("an old row without titleSource counts as user: never changed", async () => {
     vi.stubEnv("AI_PROVIDER", "mock");
-    await t.run((c) => c.db.insert("threads", { threadId: "old", title: "Old name", createdAt: 1, updatedAt: 1, summary: "", status: "idle", pending: 0 }));
+    await t.run((c) => c.db.insert("threads", { userId: "owner", threadId: "old", title: "Old name", createdAt: 1, updatedAt: 1, summary: "", status: "idle", pending: 0 }));
     await send("m1", TEXT, "old");
     expect((await row("old")).title).toBe("Old name");
     await settle(t);
@@ -257,9 +257,9 @@ describe("chat limits and failure", () => {
     await create();
     const base = Date.now();
     for (let i = 0; i < 30; i++) {
-      await t.run((c) => c.db.insert("messages", { messageId: `h${i}`, threadId: "th1", role: i % 2 ? "assistant" : "user", text: `msg ${i}`, fileIds: [], sources: [], createdAt: base + i }));
+      await t.run((c) => c.db.insert("messages", { userId: "owner", messageId: `h${i}`, threadId: "th1", role: i % 2 ? "assistant" : "user", text: `msg ${i}`, fileIds: [], sources: [], createdAt: base + i }));
     }
-    await t.run((c) => c.db.insert("messages", { messageId: "last", threadId: "th1", role: "user", text: "newest", fileIds: [], sources: [], createdAt: base + 99 }));
+    await t.run((c) => c.db.insert("messages", { userId: "owner", messageId: "last", threadId: "th1", role: "user", text: "newest", fileIds: [], sources: [], createdAt: base + 99 }));
     const inp = await t.query(internal.jobs.coachTurn.input, { userId: "owner", threadId: "th1", messageId: "last" });
     expect(inp!.chat.history).toHaveLength(CHAT_HISTORY_MESSAGES);
     expect(inp!.chat.history.at(-1)).toEqual({ role: "user", content: "newest" });

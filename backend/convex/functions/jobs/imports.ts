@@ -19,7 +19,7 @@ export const writeBatch = internalMutation({
     context: v.optional(v.array(v.object(contextFields))),
   },
   handler: async (ctx, { userId, importId, ...items }) => {
-    const job = await ctx.db.query("imports").withIndex("by_importId", (q) => q.eq("importId", importId)).unique();
+    const job = await ctx.db.query("imports").withIndex("by_user_and_importId", (q) => q.eq("userId", userId).eq("importId", importId)).unique();
     if (!job || job.status !== "running") return;
     const written = await writeImportItems(ctx, userId, items);
     const processed = job.processed + written;

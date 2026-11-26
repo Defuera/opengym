@@ -15,7 +15,7 @@ export const get = query({
   handler: async (ctx, { token, days }) => {
     const userId = await requireUser(ctx, token);
     const goals = await allGoals(ctx, userId);
-    const doc = await ctx.db.query("dashboards").withIndex("by_days", (q) => q.eq("days", days)).unique();
+    const doc = await ctx.db.query("dashboards").withIndex("by_user_and_days", (q) => q.eq("userId", userId).eq("days", days)).unique();
     const spec = doc ? { source: doc.source, modules: doc.modules } : rulesSpec(goals);
     return { dashboard: resolveDashboard(spec, await allSessions(ctx, userId), goals, days, Date.now()), stored: doc !== null };
   },

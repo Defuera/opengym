@@ -60,7 +60,7 @@ describe("debounce", () => {
 
   it("a rebuild result older than the stored one is dropped", async () => {
     await t.run(async (c) => {
-      await c.db.insert("plans", { activity: "Gym", activityKey: "gym", focusKey: "push", focus: "Push", version: 200, createdAt: 1, source: "ai", rationale: "newer", exercises: [] });
+      await c.db.insert("plans", { userId: "owner", activity: "Gym", activityKey: "gym", focusKey: "push", focus: "Push", version: 200, createdAt: 1, source: "ai", rationale: "newer", exercises: [] });
     });
     await t.mutation(internal.jobs.plans.save, { userId: "owner", activity: "Gym", focus: "Push", version: 100, source: "rules", draft: { rationale: "older", exercises: [] } });
     expect(await t.run((c) => c.db.query("plans").collect())).toMatchObject([{ rationale: "newer", version: 200 }]);
@@ -125,7 +125,7 @@ describe("bounded model input (in the database)", () => {
 
   it("the prompt the model gets holds only the bounded history", async () => {
     const calls = stubOpenAi(() => "{}");
-    for (const s of forty()) await t.run(async (c) => void (await c.db.insert("sessions", { sessionId: s.id, kind: s.kind, type: s.type, focus: s.focus, startedAt: s.startedAt, endedAt: s.endedAt, exercises: s.exercises, source: "app" })));
+    for (const s of forty()) await t.run(async (c) => void (await c.db.insert("sessions", { userId: "owner", sessionId: s.id, kind: s.kind, type: s.type, focus: s.focus, startedAt: s.startedAt, endedAt: s.endedAt, exercises: s.exercises, source: "app" })));
     await save(pushSession("s40", 41_000_000, 40, "Push"));
     await settle(t);
     const plan = calls.find((c) => c.job === "plan_session" && c.input.focus === "Push")!;

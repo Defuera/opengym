@@ -186,7 +186,7 @@ describe("the coach turn refuses what it may not do", () => {
 
   it("a place change needs the person's own words or photo; an avoided exercise is refused; ids are used once", async () => {
     await world();
-    await t.run((c) => c.db.insert("limits", { limitId: "l1", part: "left_knee", title: "Knee", status: "active", rules: [{ kind: "avoid", text: "no stands", exercises: ["Balance board stand"] }] }));
+    await t.run((c) => c.db.insert("limits", { userId: "owner", limitId: "l1", part: "left_knee", title: "Knee", status: "active", rules: [{ kind: "avoid", text: "no stands", exercises: ["Balance board stand"] }] }));
     await send("m1", "hi", CONTEXT);
     const r = await t.mutation(internal.jobs.coachTurn.save, { userId: "owner", 
       threadId: "th1",

@@ -17,19 +17,19 @@ export async function readChatInput(ctx: Pick<QueryCtx, "db">, userId: string, t
   if (trigger.voice === "pending" || trigger.voice === "failed") return null; // a voice message gets its reply only after the transcript is stored
   const recent = await ctx.db
     .query("messages")
-    .withIndex("by_threadId", (q) => q.eq("threadId", threadId).lte("_creationTime", trigger._creationTime))
+    .withIndex("by_user_and_threadId", (q) => q.eq("userId", userId).eq("threadId", threadId).lte("_creationTime", trigger._creationTime))
     .order("desc")
     .take(CHAT_HISTORY_MESSAGES);
   // A voice message without its transcript has no text yet; it is not part of the history.
   const history = recent.reverse().filter((m) => m.voice !== "pending" && m.voice !== "failed").map((m) => ({ role: m.role, content: m.text }));
 
-  const threads = await ctx.db.query("threads").withIndex("by_updatedAt").order("desc").take(40);
+  const threads = await ctx.db.query("threads").withIndex("by_user_and_updatedAt", (q) => q.eq("userId", userId)).order("desc").take(40);
   const otherThreads = threads.filter((t) => t.threadId !== threadId && t.summary.trim()).slice(0, CHAT_OTHER_THREADS).map((t) => ({ title: t.title, summary: t.summary }));
 
   const sessions = (await liveSessionDocs(ctx, userId, { order: "desc", limit: CHAT_RECENT_SESSIONS })).reverse().map(toSession);
-  const goalDocs = await ctx.db.query("goals").withIndex("by_createdAt").order("desc").take(200);
+  const goalDocs = await ctx.db.query("goals").withIndex("by_user_and_createdAt", (q) => q.eq("userId", userId)).order("desc").take(200);
   const goals = goalDocs.filter((g) => g.status === "active").slice(0, CHAT_GOALS).reverse().map(toGoal);
-  const contextDocs = await ctx.db.query("context").withIndex("by_createdAt").order("desc").take(200);
+  const contextDocs = await ctx.db.query("context").withIndex("by_user_and_createdAt", (q) => q.eq("userId", userId)).order("desc").take(200);
   const context = contextDocs.filter((c) => c.active).slice(0, CHAT_CONTEXT_ITEMS).reverse().map(toContextItem);
 
   const files = [];

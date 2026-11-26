@@ -49,7 +49,7 @@ export const request = mutation({
     if (!rebuild && (cleanText === undefined || cleanText.length < 1 || cleanText.length > PROPOSAL_TEXT_MAX)) throw new ConvexError(`text must be 1..${PROPOSAL_TEXT_MAX} characters`);
     const cleanTarget = targetId === undefined ? undefined : clip(targetId, "targetId");
     const now = Date.now();
-    const old = await ctx.db.query("proposals").withIndex("by_createdAt", (q) => q.lt("createdAt", now - PROPOSAL_TTL_MS)).take(PROPOSAL_PURGE_BATCH);
+    const old = await ctx.db.query("proposals").withIndex("by_user_and_createdAt", (q) => q.eq("userId", userId).lt("createdAt", now - PROPOSAL_TTL_MS)).take(PROPOSAL_PURGE_BATCH);
     for (const d of old) await ctx.db.delete(d._id);
     if (await proposalByProposalId(ctx, userId, id)) return id;
     const prev = rebuild ? await proposalByProposalId(ctx, userId, prevId!) : null;

@@ -20,14 +20,14 @@ export const sync = mutation({
     let written = 0;
     // A date or id that appears twice in one batch: the last one wins.
     for (const day of [...new Map(batch.days.map((d) => [d.date, d])).values()]) {
-      const old = await ctx.db.query("trackerDays").withIndex("by_date", (q) => q.eq("date", day.date)).unique();
+      const old = await ctx.db.query("trackerDays").withIndex("by_user_and_date", (q) => q.eq("userId", userId).eq("date", day.date)).unique();
       if (old && stableJson(withoutSystemFields({ ...old, updatedAt: 0 })) === stableJson({ ...day, updatedAt: 0, userId })) continue;
       if (old) await ctx.db.replace(old._id, { ...day, updatedAt: now, userId });
       else await ctx.db.insert("trackerDays", { ...day, updatedAt: now, userId });
       written++;
     }
     for (const w of [...new Map(batch.workouts.map((x) => [x.workoutId, x])).values()]) {
-      const old = await ctx.db.query("trackerWorkouts").withIndex("by_workoutId", (q) => q.eq("workoutId", w.workoutId)).unique();
+      const old = await ctx.db.query("trackerWorkouts").withIndex("by_user_and_workoutId", (q) => q.eq("userId", userId).eq("workoutId", w.workoutId)).unique();
       if (old && stableJson(withoutSystemFields({ ...old, updatedAt: 0 })) === stableJson({ ...w, updatedAt: 0, userId })) continue;
       if (old) await ctx.db.replace(old._id, { ...w, updatedAt: now, userId });
       else await ctx.db.insert("trackerWorkouts", { ...w, updatedAt: now, userId });

@@ -24,10 +24,10 @@ const strip = <T extends { _id: unknown; _creationTime: number; updatedAt: numbe
 export async function coachTracker(ctx: Reader, userId: string, now: number): Promise<TrackerForCoach> {
   const from = localDate(now - (TRACKER_PROMPT_DAYS - 1) * DAY);
   const to = localDate(now);
-  const days = await ctx.db.query("trackerDays").withIndex("by_date", (q) => q.gte("date", from).lte("date", to)).collect();
+  const days = await ctx.db.query("trackerDays").withIndex("by_user_and_date", (q) => q.eq("userId", userId).gte("date", from).lte("date", to)).collect();
   const workouts = await ctx.db
     .query("trackerWorkouts")
-    .withIndex("by_startedAt", (q) => q.gte("startedAt", now - TRACKER_PROMPT_WORKOUT_DAYS * DAY).lte("startedAt", now))
+    .withIndex("by_user_and_startedAt", (q) => q.eq("userId", userId).gte("startedAt", now - TRACKER_PROMPT_WORKOUT_DAYS * DAY).lte("startedAt", now))
     .order("desc")
     .take(WORKOUT_SCAN);
   return { days: days.map((d: Doc<"trackerDays">) => strip(d) as TrackerDay), workouts: workouts.map((w: Doc<"trackerWorkouts">) => strip(w) as TrackerWorkout) };

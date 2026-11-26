@@ -10,12 +10,12 @@ const DAY = 86_400_000;
 const args = { from: v.optional(v.number()), to: v.optional(v.number()) };
 
 /** Reads `aiUsage` in [from, to) (ms since epoch; `to` defaults to now, `from` to 30 days before `to`) and sums it. See `summarise` for the formulas. */
-async function readSummary(ctx: Pick<QueryCtx, "db">, a: { from?: number; to?: number }) {
+async function readSummary(ctx: Pick<QueryCtx, "db">, who: { userId?: string }, a: { from?: number; to?: number }) {
   const to = a.to ?? Date.now();
   const from = a.from ?? to - USAGE_SUMMARY_DEFAULT_DAYS * DAY;
   if (!(from < to)) throw new ConvexError("from must be before to");
   if (to - from > USAGE_SUMMARY_MAX_DAYS * DAY) throw new ConvexError(`the range is longer than ${USAGE_SUMMARY_MAX_DAYS} days`);
-  const rows = await ctx.db.query("aiUsage").withIndex("by_at", (q) => q.gte("at", from).lt("at", to)).take(USAGE_SUMMARY_MAX_ROWS + 1);
+  const rows = await (who.userId !== undefined ? ctx.db.query("aiUsage").withIndex("by_user_and_at", (q) => q.eq("userId", who.userId!).gte("at", from).lt("at", to)) : ctx.db.query("aiUsage").withIndex("by_at", (q) => q.gte("at", from).lt("at", to))).take(USAGE_SUMMARY_MAX_ROWS + 1);
   const truncated = rows.length > USAGE_SUMMARY_MAX_ROWS;
   const used = truncated ? rows.slice(0, USAGE_SUMMARY_MAX_ROWS) : rows;
   const observedTo = truncated ? used[used.length - 1]!.at : Math.min(to, Date.now());
@@ -23,7 +23,7 @@ async function readSummary(ctx: Pick<QueryCtx, "db">, a: { from?: number; to?: n
 }
 
 /**
- * AI usage report for pricing a subscription (ADR-038). Args `{ token, from?, to? }`, times in ms since epoch.
+ * AI usage report for pricing a subscription (ADR-038), of the user of the token (ADR-039). Args `{ token, from?, to? }`, times in ms since epoch.
  * Returns `{ from, to, observedTo, rowsRead, truncated, totals, byDay, byJob, byModel, byUser }`.
  * Totals hold: calls, failed attempts, input / cached / output / reasoning / total tokens, audio seconds and bytes, images,
  * and `costUsd` (only for rows whose model has a price in `model/aiPrices.ts`; `unpricedCalls` counts the rest).
@@ -36,12 +36,12 @@ export const summary = query({
   args: { token: v.string(), ...args },
   handler: async (ctx, { token, ...range }) => {
     const userId = await requireUser(ctx, token);
-    return readSummary(ctx, range);
+    return readSummary(ctx, { userId }, range);
   },
 });
 
-/** The same report without a token, for the operator: `npm run usage` (runs `convex run queries/usage:report`). Internal functions cannot be called from the app. */
+/** The same report without a token, for the operator, over ALL users (`byUser` splits them): `npm run usage` (runs `convex run queries/usage:report`). Internal functions cannot be called from the app. */
 export const report = internalQuery({
   args,
-  handler: async (ctx, range) => readSummary(ctx, range),
+  handler: async (ctx, range) => readSummary(ctx, {}, range), // all users on purpose: the operator reads the whole app, split by user in `byUser`
 });

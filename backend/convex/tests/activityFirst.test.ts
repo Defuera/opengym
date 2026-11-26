@@ -34,7 +34,7 @@ const legacyRow = (sessionId: string, endedAt: number, type = "Upper", kind: "gy
   exercises: kind === "gym" ? [{ name: "Bench press", sets: [{ reps: 5, kg: 60, max: false }] }] : [],
   source: "app" as const,
 });
-const insertRaw = (rows: object[]) => t.run(async (c) => void (await Promise.all(rows.map((r) => c.db.insert("sessions", r as never)))));
+const insertRaw = (rows: object[]) => t.run(async (c) => void (await Promise.all(rows.map((r) => c.db.insert("sessions", { userId: "owner", ...r } as never)))));
 
 describe("normalizing the old shape", () => {
   it("turns a gym type into focus; leaves activities and the new shape alone", () => {
@@ -109,8 +109,8 @@ describe("old rows before the migration has run", () => {
 
   it("a legacy plan row (type, no focus) and a legacy predictions row still validate; the plan row is read as the new shape", async () => {
     await t.run(async (c) => {
-      await c.db.insert("plans", { type: "Upper", version: 1, createdAt: 1, source: "ai", rationale: "old", exercises: [] });
-      await c.db.insert("predictions", { version: 1, createdAt: 1, source: "ai", items: [{ kind: "gym", type: "Legs", reason: "r" }, { kind: "activity", type: "Run", reason: "x" }] });
+      await c.db.insert("plans", { userId: "owner", type: "Upper", version: 1, createdAt: 1, source: "ai", rationale: "old", exercises: [] });
+      await c.db.insert("predictions", { userId: "owner", version: 1, createdAt: 1, source: "ai", items: [{ kind: "gym", type: "Legs", reason: "r" }, { kind: "activity", type: "Run", reason: "x" }] });
     });
     // the old predictions row stays in the table (never read now); the advised focus comes from the log
     expect((await t.query(api.queries.plans.next, { token: TOKEN })).plan.type).toBe("Gym");
@@ -118,7 +118,7 @@ describe("old rows before the migration has run", () => {
 });
 
 describe("jobs/migrations:activityFirst", () => {
-  const run = (args: { cursor?: string | null; batch?: number } = {}) => t.mutation(internal.jobs.migrations.activityFirst, args);
+  const run = (args: { cursor?: string | null; batch?: number } = {}) => t.mutation(internal.jobs.migrations.activityFirst, { userId: "owner", ...args });
   const sessions = () => t.run((c) => c.db.query("sessions").collect());
 
   async function seed() {
@@ -129,12 +129,12 @@ describe("jobs/migrations:activityFirst", () => {
       { ...legacyRow("d", 4_000_000, "Gym"), focus: "Push" }, // already new
     ]);
     await t.run(async (c) => {
-      await c.db.insert("plans", { type: "Upper", version: 1, createdAt: 1, source: "ai", rationale: "u", exercises: [] });
-      await c.db.insert("plans", { type: "Legs", version: 1, createdAt: 1, source: "ai", rationale: "l-old", exercises: [] });
-      await c.db.insert("plans", { focus: "Legs", version: 9, createdAt: 9, source: "ai", rationale: "l-new", exercises: [] });
-      await c.db.insert("predictions", { version: 1, createdAt: 1, source: "ai", items: [{ kind: "gym", type: "Upper", reason: "r" }, { kind: "gym", type: "Legs", reason: "r" }, { kind: "activity", type: "Run", reason: "x" }] });
-      await c.db.insert("dashboards", { days: 7, version: 1, createdAt: 1, source: "ai", modules: [{ type: "consistency" }] });
-      await c.db.insert("reviews", { sessionId: "a", version: 1, createdAt: 1, source: "rules", summary: "Upper: 1 exercises, 1 sets.", changes: [] });
+      await c.db.insert("plans", { userId: "owner", type: "Upper", version: 1, createdAt: 1, source: "ai", rationale: "u", exercises: [] });
+      await c.db.insert("plans", { userId: "owner", type: "Legs", version: 1, createdAt: 1, source: "ai", rationale: "l-old", exercises: [] });
+      await c.db.insert("plans", { userId: "owner", focus: "Legs", version: 9, createdAt: 9, source: "ai", rationale: "l-new", exercises: [] });
+      await c.db.insert("predictions", { userId: "owner", version: 1, createdAt: 1, source: "ai", items: [{ kind: "gym", type: "Upper", reason: "r" }, { kind: "gym", type: "Legs", reason: "r" }, { kind: "activity", type: "Run", reason: "x" }] });
+      await c.db.insert("dashboards", { userId: "owner", days: 7, version: 1, createdAt: 1, source: "ai", modules: [{ type: "consistency" }] });
+      await c.db.insert("reviews", { userId: "owner", sessionId: "a", version: 1, createdAt: 1, source: "rules", summary: "Upper: 1 exercises, 1 sets.", changes: [] });
     });
   }
 

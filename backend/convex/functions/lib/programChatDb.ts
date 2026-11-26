@@ -22,7 +22,7 @@ const THREAD_READ_MAX = 200;
 export async function requestText(ctx: { db: DatabaseReader }, userId: string, threadId: string, brief: string): Promise<string> {
   const summary = `The coach's summary of what to write: ${brief}`;
   const budget = Math.max(0, PROPOSAL_TEXT_MAX - summary.length - 2);
-  const recent = await ctx.db.query("messages").withIndex("by_threadId", (q) => q.eq("threadId", threadId)).order("desc").take(THREAD_READ_MAX);
+  const recent = await ctx.db.query("messages").withIndex("by_user_and_threadId", (q) => q.eq("userId", userId).eq("threadId", threadId)).order("desc").take(THREAD_READ_MAX);
   const texts = recent.filter((m) => m.role === "user" && m.text.trim()).map((m) => m.text.trim()).reverse();
   const said = budget > 0 ? texts.join("\n\n").slice(-budget).trim() : "";
   return said ? `${said}\n\n${summary}` : summary;
@@ -38,7 +38,7 @@ export async function startProgramProposal(ctx: MutationCtx, userId: string, thr
   const programId = programIdOverride ?? thread.about?.id;
   const program = programId !== undefined ? await programByProgramId(ctx, userId, programId) : null;
   if (programId !== undefined && !program) return null;
-  const mine = await ctx.db.query("proposals").withIndex("by_threadId", (q) => q.eq("threadId", thread.threadId)).collect();
+  const mine = await ctx.db.query("proposals").withIndex("by_user_and_threadId", (q) => q.eq("userId", userId).eq("threadId", thread.threadId)).collect();
   const open = mine.filter((p) => p.status === "building" || p.status === "ready");
   const prev = open.filter((p) => p.status === "ready" && p.value).sort((a, b) => b.createdAt - a.createdAt)[0];
   for (const p of open) await ctx.db.patch(p._id, { status: "declined", decidedAt: now });
@@ -66,7 +66,7 @@ export async function startProgramProposal(ctx: MutationCtx, userId: string, thr
 
 /** The files of a thread's user messages, newest 6 (not audio), oldest first. Same pick as the chat reply makes. */
 export async function threadUserFiles(ctx: { db: DatabaseReader }, userId: string, threadId: string): Promise<FileDoc[]> {
-  const recent = await ctx.db.query("messages").withIndex("by_threadId", (q) => q.eq("threadId", threadId)).order("desc").take(THREAD_READ_MAX);
+  const recent = await ctx.db.query("messages").withIndex("by_user_and_threadId", (q) => q.eq("userId", userId).eq("threadId", threadId)).order("desc").take(THREAD_READ_MAX);
   const ids = [...new Set(recent.filter((m) => m.role === "user").flatMap((m) => [...(m.fileIds ?? [])].reverse()))];
   const out: FileDoc[] = [];
   for (const id of ids) {
@@ -83,7 +83,7 @@ export async function threadUserFiles(ctx: { db: DatabaseReader }, userId: strin
  */
 export async function programTurnState(ctx: { db: DatabaseReader }, userId: string, threadId: string, programId: string | undefined, now: number) {
   const program = programId !== undefined ? await programByProgramId(ctx, userId, programId) : null;
-  const mine = await ctx.db.query("proposals").withIndex("by_threadId", (q) => q.eq("threadId", threadId)).collect();
+  const mine = await ctx.db.query("proposals").withIndex("by_user_and_threadId", (q) => q.eq("userId", userId).eq("threadId", threadId)).collect();
   const open = mine.filter((p) => p.status === "ready" && p.value).sort((a, b) => b.createdAt - a.createdAt)[0];
   return {
     today: todayLabel(now),

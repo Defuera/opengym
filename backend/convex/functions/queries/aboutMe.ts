@@ -23,13 +23,13 @@ export const get = query({
   args: { token: v.string() },
   handler: async (ctx, { token }) => {
     const userId = await requireUser(ctx, token);
-    const limitDocs = (await ctx.db.query("limits").collect()).sort((a, b) => STATUS_ORDER[a.status] - STATUS_ORDER[b.status] || a.title.localeCompare(b.title));
+    const limitDocs = (await ctx.db.query("limits").withIndex("by_user_and_limitId", (q) => q.eq("userId", userId)).collect()).sort((a, b) => STATUS_ORDER[a.status] - STATUS_ORDER[b.status] || a.title.localeCompare(b.title));
     const sessions = await allSessions(ctx, userId);
     const byId = new Map(sessions.map((s) => [s.id, s]));
     const limits = [];
     for (const d of limitDocs) {
-      const records = (await ctx.db.query("records").withIndex("by_limitId", (q) => q.eq("limitId", d.limitId)).collect()).sort(recordOrder);
-      const checkins = (await ctx.db.query("checkins").withIndex("by_limitId", (q) => q.eq("limitId", d.limitId)).collect()).sort((a, b) => b.at - a.at || b._creationTime - a._creationTime).slice(0, MAX_CHECKINS);
+      const records = (await ctx.db.query("records").withIndex("by_user_and_limitId", (q) => q.eq("userId", userId).eq("limitId", d.limitId)).collect()).sort(recordOrder);
+      const checkins = (await ctx.db.query("checkins").withIndex("by_user_and_limitId", (q) => q.eq("userId", userId).eq("limitId", d.limitId)).collect()).sort((a, b) => b.at - a.at || b._creationTime - a._creationTime).slice(0, MAX_CHECKINS);
       limits.push({
         ...toLimit(d),
         records: records.map((r) => ({ recordId: r.recordId, title: r.title, ...(r.date !== undefined ? { date: r.date } : {}), text: r.text })),
@@ -55,8 +55,8 @@ export const askAfter = query({
     const userId = await requireUser(ctx, token);
     const doc = await sessionBySessionId(ctx, userId, sessionId);
     if (!doc) return [];
-    const answered = new Set((await ctx.db.query("checkins").withIndex("by_sessionId", (q) => q.eq("sessionId", sessionId)).collect()).map((c) => c.limitId));
-    const limits = (await ctx.db.query("limits").collect()).map(toLimit);
+    const answered = new Set((await ctx.db.query("checkins").withIndex("by_user_and_sessionId", (q) => q.eq("userId", userId).eq("sessionId", sessionId)).collect()).map((c) => c.limitId));
+    const limits = (await ctx.db.query("limits").withIndex("by_user_and_limitId", (q) => q.eq("userId", userId)).collect()).map(toLimit);
     return limitsLoadedBy(toSession(doc), limits)
       .filter((l) => !answered.has(l.limitId))
       .sort((a, b) => a.title.localeCompare(b.title))

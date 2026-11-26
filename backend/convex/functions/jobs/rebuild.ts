@@ -17,7 +17,7 @@ export const MAX_PRECOMPUTED_PLANS = 3;
 export const run = internalMutation({
   args: { userId: v.string() },
   handler: async (ctx, { userId }): Promise<void> => {
-    const state = await ctx.db.query("rebuilds").first(); // point 1 of ADR-039: not yet filtered by user
+    const state = await ctx.db.query("rebuilds").withIndex("by_user", (q) => q.eq("userId", userId)).unique();
     if (!state || !state.runnerScheduled) return;
     const now = Date.now();
     const quietFor = now - state.dirtyAt;
@@ -40,7 +40,7 @@ export const run = internalMutation({
       const k = planKey(p.type, p.focus);
       wanted.set(`${k.activityKey}|${k.focusKey}`, { activity: p.type, ...(p.focus ? { focus: p.focus } : {}) });
     }
-    for (const plan of await ctx.db.query("plans").collect()) {
+    for (const plan of await ctx.db.query("plans").withIndex("by_user_and_focus", (q) => q.eq("userId", userId)).collect()) {
       if (plan.activityKey === undefined || !wanted.has(`${plan.activityKey}|${plan.focusKey ?? ""}`)) await ctx.db.delete(plan._id);
     }
     for (const w of wanted.values()) await ctx.scheduler.runAfter(0, internal.jobs.plans.build, { userId, ...w, version });

@@ -26,7 +26,7 @@ export const summaryInput = internalQuery({
   handler: async (ctx, { userId, threadId }) => {
     const thread = await threadByThreadId(ctx, userId, threadId);
     if (!thread) return null;
-    const recent = await ctx.db.query("messages").withIndex("by_threadId", (q) => q.eq("threadId", threadId)).order("desc").take(SUMMARY_MESSAGES);
+    const recent = await ctx.db.query("messages").withIndex("by_user_and_threadId", (q) => q.eq("userId", userId).eq("threadId", threadId)).order("desc").take(SUMMARY_MESSAGES);
     return { title: thread.title, messages: recent.reverse().filter((m) => m.voice !== "pending" && m.voice !== "failed").map((m) => ({ role: m.role, text: m.text })) };
   },
 });

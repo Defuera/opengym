@@ -15,7 +15,7 @@ export const get = query({
   handler: async (ctx, { token, sessionId }) => {
     const userId = await requireUser(ctx, token);
     if (!(await sessionBySessionId(ctx, userId, sessionId))) return { review: null, stored: false }; // gone, or marked as deleted (ADR-020)
-    const doc = await ctx.db.query("reviews").withIndex("by_sessionId", (q) => q.eq("sessionId", sessionId)).unique();
+    const doc = await ctx.db.query("reviews").withIndex("by_user_and_sessionId", (q) => q.eq("userId", userId).eq("sessionId", sessionId)).unique();
     if (doc) return { review: { sessionId, source: doc.source, summary: doc.summary, changes: doc.changes }, stored: true };
     const sessions = await allSessions(ctx, userId);
     const session = sessions.find((s) => s.id === sessionId);

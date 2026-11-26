@@ -22,7 +22,7 @@ export const open = query({
   args: { token: v.string() },
   handler: async (ctx, { token }) => {
     const userId = await requireUser(ctx, token);
-    const docs = await ctx.db.query("proposals").withIndex("by_createdAt").order("desc").filter((f) => f.and(f.eq(f.field("approval"), "explicit"), f.or(f.eq(f.field("status"), "building"), f.eq(f.field("status"), "ready")))).take(PROPOSAL_OPEN_MAX * 4);
+    const docs = await ctx.db.query("proposals").withIndex("by_user_and_createdAt", (q) => q.eq("userId", userId)).order("desc").filter((f) => f.and(f.eq(f.field("approval"), "explicit"), f.or(f.eq(f.field("status"), "building"), f.eq(f.field("status"), "ready")))).take(PROPOSAL_OPEN_MAX * 4);
     const out = [];
     for (const d of docs) if (!(await isStale(ctx, userId, d))) out.push(proposalView(d));
     return out.slice(0, PROPOSAL_OPEN_MAX);
@@ -37,7 +37,7 @@ export const forThread = query({
   args: { token: v.string(), threadId: v.string() },
   handler: async (ctx, { token, threadId }) => {
     const userId = await requireUser(ctx, token);
-    const docs = await ctx.db.query("proposals").withIndex("by_threadId", (q) => q.eq("threadId", threadId)).order("asc").take(PROPOSAL_FOR_THREAD_MAX);
+    const docs = await ctx.db.query("proposals").withIndex("by_user_and_threadId", (q) => q.eq("userId", userId).eq("threadId", threadId)).order("asc").take(PROPOSAL_FOR_THREAD_MAX);
     const out = [];
     for (const d of docs) out.push(proposalView(d, await isStale(ctx, userId, d)));
     return out;

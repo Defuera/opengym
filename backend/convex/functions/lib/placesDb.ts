@@ -6,17 +6,17 @@ type Source = "feedback" | "note" | "chat" | "user" | "seed";
 
 /** Every place. There are few (a gym, a home, a hotel), so one read is fine. Sorted by name. */
 export async function allPlaces(ctx: { db: DatabaseReader }, userId: string): Promise<Doc<"places">[]> {
-  const rows = await ctx.db.query("places").collect();
+  const rows = await ctx.db.query("places").withIndex("by_user_and_placeId", (q) => q.eq("userId", userId)).collect();
   return rows.sort((a, b) => a.name.localeCompare(b.name));
 }
 
 export const placeByPlaceId = (ctx: { db: DatabaseReader }, userId: string, placeId: string) =>
-  ctx.db.query("places").withIndex("by_placeId", (q) => q.eq("placeId", placeId)).unique();
+  ctx.db.query("places").withIndex("by_user_and_placeId", (q) => q.eq("userId", userId).eq("placeId", placeId)).unique();
 
 /** The place whose name has this key, or null. The name key is unique, so there is at most one. */
 export async function placeByName(ctx: { db: DatabaseReader }, userId: string, name: string): Promise<Doc<"places"> | null> {
   const k = placeKey(name);
-  return (await ctx.db.query("places").collect()).find((p) => placeKey(p.name) === k) ?? null;
+  return (await ctx.db.query("places").withIndex("by_user_and_placeId", (q) => q.eq("userId", userId)).collect()).find((p) => placeKey(p.name) === k) ?? null;
 }
 
 type Evidence = "person_said" | "seen_in_photo";

@@ -24,7 +24,7 @@ export const save = internalMutation({
   args: { userId: v.string(), sessionId: v.string(), version: v.number(), source: proposalSource, summary: v.string(), changes: v.array(v.string()) },
   handler: async (ctx, { userId, sessionId, version, source, ...draft }) => {
     if (!(await sessionBySessionId(ctx, userId, sessionId))) return;
-    const old = await ctx.db.query("reviews").withIndex("by_sessionId", (q) => q.eq("sessionId", sessionId)).unique();
+    const old = await ctx.db.query("reviews").withIndex("by_user_and_sessionId", (q) => q.eq("userId", userId).eq("sessionId", sessionId)).unique();
     if (old && old.version > version) return;
     const doc = { userId, sessionId, version, createdAt: Date.now(), source, ...finalizeReview(draft) };
     if (old) await ctx.db.replace(old._id, doc);

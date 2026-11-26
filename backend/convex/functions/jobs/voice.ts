@@ -33,7 +33,7 @@ export const saveTranscript = internalMutation({
     const clean = text.trim().slice(0, MESSAGE_MAX_CHARS);
     await ctx.db.patch(m._id, { text: clean, voice: "done" });
     // Same as send: name an unnamed thread from its first user message.
-    const firstUser = await ctx.db.query("messages").withIndex("by_threadId", (q) => q.eq("threadId", m.threadId)).filter((q) => q.eq(q.field("role"), "user")).first();
+    const firstUser = await ctx.db.query("messages").withIndex("by_user_and_threadId", (q) => q.eq("userId", userId).eq("threadId", m.threadId)).filter((q) => q.eq(q.field("role"), "user")).first();
     const title = thread.titleSource === "auto" && !thread.about && firstUser?.messageId === messageId ? { title: titleFromMessage(clean) } : {};
     await ctx.db.patch(thread._id, { ...title, updatedAt: Date.now() });
     await ctx.scheduler.runAfter(0, internal.jobs.coachTurn.run, { userId, threadId: m.threadId, messageId });

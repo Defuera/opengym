@@ -37,12 +37,12 @@ export async function purgeImportStep(ctx: MutationCtx, userId: string, importId
   let budget = IMPORT_DELETE_BATCH;
   for (const table of ["sessions", "goals", "context"] as const) {
     if (budget <= 0) break;
-    const docs = await ctx.db.query(table).withIndex("by_importId", (q) => q.eq("importId", importId)).take(budget);
+    const docs = await ctx.db.query(table).withIndex("by_user_and_importId", (q) => q.eq("userId", userId).eq("importId", importId)).take(budget);
     for (const d of docs) await ctx.db.delete(d._id);
     budget -= docs.length;
   }
   if (budget <= 0) return false;
-  const job = await ctx.db.query("imports").withIndex("by_importId", (q) => q.eq("importId", importId)).unique();
+  const job = await ctx.db.query("imports").withIndex("by_user_and_importId", (q) => q.eq("userId", userId).eq("importId", importId)).unique();
   if (job) await ctx.db.delete(job._id);
   await markFactsChanged(ctx, userId);
   return true;

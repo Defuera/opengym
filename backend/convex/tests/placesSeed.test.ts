@@ -21,7 +21,7 @@ const rows = () => t.run((c) => c.db.query("sessions").collect());
 const places = () => t.run((c) => c.db.query("places").collect());
 const changes = () => t.run((c) => c.db.query("placeChanges").collect());
 const ctxItems = () => t.run((c) => c.db.query("context").collect());
-const noteItem = (itemId: string, topic: string, text: string, active = true, createdAt = 1) => t.run((c) => c.db.insert("context", { itemId, text, topic, active, source: "import", createdAt }));
+const noteItem = (itemId: string, topic: string, text: string, active = true, createdAt = 1) => t.run((c) => c.db.insert("context", { userId: "owner", itemId, text, topic, active, source: "import", createdAt }));
 const placeOf = async (sessionId: string) => (await rows()).find((r) => r.sessionId === sessionId)!.placeId;
 
 describe("seedPlaceName", () => {

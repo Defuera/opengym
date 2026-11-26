@@ -186,10 +186,10 @@ export const openSessionFields = {
 };
 
 /**
- * The owner of a row (ADR-039): the id of a user of the `users` table. Every table with a person's data has it and an index that starts with it.
- * Deploy point 1 of ADR-039: OPTIONAL, because the live rows have none until `jobs/migrations:assignOwner` has run. Deploy point 2 makes it required here.
+ * The owner of a row (ADR-039): the id of a user of the `users` table. Every table with a person's data has it, REQUIRED, and indexes that start with it.
+ * Convex refuses a deploy when a stored row has none: deploy point 2 of ADR-039 only after `jobs/migrations:userIdReport` shows zero rows without it.
  */
-const ownedBy = { userId: v.optional(v.string()) };
+const ownedBy = { userId: v.string() };
 
 export default defineSchema({
   // The people of the app (ADR-039). `userId` is the id the rest of the data uses ("owner" for the first person). Not a fact the coach reads.

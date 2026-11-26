@@ -30,8 +30,8 @@ export const remove = mutation({
     const userId = await requireUser(ctx, token);
     const old = await limitByLimitId(ctx, userId, limitId);
     if (!old) return false;
-    for (const r of await ctx.db.query("records").withIndex("by_limitId", (q) => q.eq("limitId", limitId)).collect()) await ctx.db.delete(r._id);
-    for (const c of await ctx.db.query("checkins").withIndex("by_limitId", (q) => q.eq("limitId", limitId)).collect()) await ctx.db.delete(c._id);
+    for (const r of await ctx.db.query("records").withIndex("by_user_and_limitId", (q) => q.eq("userId", userId).eq("limitId", limitId)).collect()) await ctx.db.delete(r._id);
+    for (const c of await ctx.db.query("checkins").withIndex("by_user_and_limitId", (q) => q.eq("userId", userId).eq("limitId", limitId)).collect()) await ctx.db.delete(c._id);
     await ctx.db.delete(old._id);
     await markFactsChanged(ctx, userId);
     return true;

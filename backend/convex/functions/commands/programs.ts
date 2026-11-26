@@ -30,7 +30,7 @@ export const remove = mutation({
     const p = await programByProgramId(ctx, userId, programId);
     if (!p) return null;
     await ctx.db.patch(p._id, { deletedAt: Date.now() });
-    for (const th of await ctx.db.query("threads").collect()) if (th.about?.id === programId) await deleteThreadWithMessages(ctx, userId, th);
+    for (const th of await ctx.db.query("threads").withIndex("by_user_and_threadId", (q) => q.eq("userId", userId)).collect()) if (th.about?.id === programId) await deleteThreadWithMessages(ctx, userId, th);
     await markFactsChanged(ctx, userId);
     return null;
   },

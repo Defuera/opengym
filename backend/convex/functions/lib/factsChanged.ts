@@ -12,7 +12,7 @@ import { REBUILD_DEBOUNCE_MS } from "./constants";
  */
 export async function markFactsChanged(ctx: MutationCtx, userId: string): Promise<void> {
   const now = Date.now();
-  const state = await ctx.db.query("rebuilds").first(); // point 1 of ADR-039: not yet filtered by user
+  const state = await ctx.db.query("rebuilds").withIndex("by_user", (q) => q.eq("userId", userId)).unique();
   if (!state) {
     await ctx.db.insert("rebuilds", { userId, dirtyAt: now, dirtySince: now, runnerScheduled: true, runs: 0 });
     await ctx.scheduler.runAfter(REBUILD_DEBOUNCE_MS, internal.jobs.rebuild.run, { userId });

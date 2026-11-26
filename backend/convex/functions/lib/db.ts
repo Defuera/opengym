@@ -29,7 +29,7 @@ export function toSession(d: Doc<"sessions">): Session {
 }
 
 /** Model session -> stored doc (client id goes to `sessionId`). */
-export function fromSession(s: Session): Omit<Doc<"sessions">, "_id" | "_creationTime"> {
+export function fromSession(s: Session): Omit<Doc<"sessions">, "_id" | "_creationTime" | "userId"> {
   const { id, ...rest } = s;
   return { sessionId: id, ...rest };
 }
@@ -72,7 +72,7 @@ export function toEntry(d: Doc<"entries">): Entry {
  * and jobs/purge. Every read for a user, a job or the coach uses `entryByEntryId`.
  */
 export const entryRowByEntryId = (ctx: Reader, userId: string, entryId: string) =>
-  ctx.db.query("entries").withIndex("by_entryId", (q) => q.eq("entryId", entryId)).unique();
+  ctx.db.query("entries").withIndex("by_user_and_entryId", (q) => q.eq("userId", userId).eq("entryId", entryId)).unique();
 
 /** The live entry (not marked as deleted, ADR-020), or null. */
 export async function entryByEntryId(ctx: Reader, userId: string, entryId: string): Promise<Doc<"entries"> | null> {
@@ -87,7 +87,10 @@ export async function entryByEntryId(ctx: Reader, userId: string, entryId: strin
 export function liveEntryDocs(ctx: Reader, userId: string, o: { order: "asc" | "desc"; from?: number; to?: number; limit?: number }): Promise<Doc<"entries">[]> {
   const q = ctx.db
     .query("entries")
-    .withIndex("by_at", (r) => (o.from !== undefined ? (o.to !== undefined ? r.gte("at", o.from).lte("at", o.to) : r.gte("at", o.from)) : o.to !== undefined ? r.lte("at", o.to) : r))
+    .withIndex("by_user_and_at", (r) => {
+      const mine = r.eq("userId", userId);
+      return o.from !== undefined ? (o.to !== undefined ? mine.gte("at", o.from).lte("at", o.to) : mine.gte("at", o.from)) : o.to !== undefined ? mine.lte("at", o.to) : mine;
+    })
     .order(o.order)
     .filter((f) => f.eq(f.field("deletedAt"), undefined));
   return o.limit === undefined ? q.collect() : q.take(o.limit);
@@ -102,7 +105,7 @@ type Reader = { db: DatabaseReader };
 export function liveSessionDocs(ctx: Reader, userId: string, o: { order: "asc" | "desc"; after?: number; limit?: number }): Promise<Doc<"sessions">[]> {
   const q = ctx.db
     .query("sessions")
-    .withIndex("by_endedAt", (r) => (o.after !== undefined ? r.gt("endedAt", o.after) : r))
+    .withIndex("by_user_and_endedAt", (r) => (o.after !== undefined ? r.eq("userId", userId).gt("endedAt", o.after) : r.eq("userId", userId)))
     .order(o.order)
     .filter((f) => f.eq(f.field("deletedAt"), undefined));
   return o.limit === undefined ? q.collect() : q.take(o.limit);
@@ -114,12 +117,12 @@ export async function allSessions(ctx: Reader, userId: string): Promise<Session[
 }
 
 export async function allGoals(ctx: Reader, userId: string): Promise<Goal[]> {
-  const docs = await ctx.db.query("goals").withIndex("by_createdAt").order("asc").collect();
+  const docs = await ctx.db.query("goals").withIndex("by_user_and_createdAt", (q) => q.eq("userId", userId)).order("asc").collect();
   return docs.map(toGoal);
 }
 
 export async function allContext(ctx: Reader, userId: string): Promise<ContextItem[]> {
-  const docs = await ctx.db.query("context").withIndex("by_createdAt").order("asc").collect();
+  const docs = await ctx.db.query("context").withIndex("by_user_and_createdAt", (q) => q.eq("userId", userId)).order("asc").collect();
   return docs.map(toContextItem);
 }
 
@@ -128,7 +131,7 @@ export async function allContext(ctx: Reader, userId: string): Promise<ContextIt
  * remove, restore), lib/importWrite and jobs/purge. Every read for a user, a job or the coach uses `sessionBySessionId`.
  */
 export const sessionRowBySessionId = (ctx: Reader, userId: string, sessionId: string) =>
-  ctx.db.query("sessions").withIndex("by_sessionId", (q) => q.eq("sessionId", sessionId)).unique();
+  ctx.db.query("sessions").withIndex("by_user_and_sessionId", (q) => q.eq("userId", userId).eq("sessionId", sessionId)).unique();
 
 /** The live session (not marked as deleted, ADR-020), or null. */
 export async function sessionBySessionId(ctx: Reader, userId: string, sessionId: string): Promise<Doc<"sessions"> | null> {
@@ -137,16 +140,23 @@ export async function sessionBySessionId(ctx: Reader, userId: string, sessionId:
 }
 
 export const goalByGoalId = (ctx: Reader, userId: string, goalId: string) =>
-  ctx.db.query("goals").withIndex("by_goalId", (q) => q.eq("goalId", goalId)).unique();
+  ctx.db.query("goals").withIndex("by_user_and_goalId", (q) => q.eq("userId", userId).eq("goalId", goalId)).unique();
 
 export const contextByItemId = (ctx: Reader, userId: string, itemId: string) =>
-  ctx.db.query("context").withIndex("by_itemId", (q) => q.eq("itemId", itemId)).unique();
+  ctx.db.query("context").withIndex("by_user_and_itemId", (q) => q.eq("userId", userId).eq("itemId", itemId)).unique();
 
 /** Strip Convex system fields so a fact can be compared with what a client sent. */
 export function withoutSystemFields<T extends { _id: unknown; _creationTime: number }>(doc: T): Omit<T, "_id" | "_creationTime"> {
   const { _id, _creationTime, ...rest } = doc;
   void _id;
   void _creationTime;
+  return rest;
+}
+
+/** Drops the owner of a row before it goes to the app: the app never sees a user id (ADR-039). */
+export function withoutUserId<T extends { userId?: string }>(doc: T): Omit<T, "userId"> {
+  const { userId, ...rest } = doc;
+  void userId;
   return rest;
 }
 
@@ -161,16 +171,16 @@ export function stableJson(value: unknown): string {
 }
 
 export const threadByThreadId = (ctx: Reader, userId: string, threadId: string) =>
-  ctx.db.query("threads").withIndex("by_threadId", (q) => q.eq("threadId", threadId)).unique();
+  ctx.db.query("threads").withIndex("by_user_and_threadId", (q) => q.eq("userId", userId).eq("threadId", threadId)).unique();
 
 /** Deletes a thread and its messages (commands/threads:remove, commands/programs:remove). Goals and context items it produced stay: they are facts. */
 export async function deleteThreadWithMessages(ctx: { db: DatabaseWriter }, userId: string, thread: Doc<"threads">): Promise<void> {
-  for (const m of await ctx.db.query("messages").withIndex("by_threadId", (q) => q.eq("threadId", thread.threadId)).collect()) await ctx.db.delete(m._id);
+  for (const m of await ctx.db.query("messages").withIndex("by_user_and_threadId", (q) => q.eq("userId", userId).eq("threadId", thread.threadId)).collect()) await ctx.db.delete(m._id);
   await ctx.db.delete(thread._id);
 }
 
 export const messageByMessageId = (ctx: Reader, userId: string, messageId: string) =>
-  ctx.db.query("messages").withIndex("by_messageId", (q) => q.eq("messageId", messageId)).unique();
+  ctx.db.query("messages").withIndex("by_user_and_messageId", (q) => q.eq("userId", userId).eq("messageId", messageId)).unique();
 
 /** The key of a stored plan: the activity and the focus, each by `activityKey`. */
 export const planKey = (activity: string, focus?: string) => ({ activityKey: activityKey(activity), focusKey: activityKey(focus ?? "") });
@@ -181,11 +191,11 @@ export const planKey = (activity: string, focus?: string) => ({ activityKey: act
  */
 export async function planFor(ctx: Reader, userId: string, activity: string, focus?: string): Promise<Doc<"plans"> | null> {
   const k = planKey(activity, focus);
-  const doc = await ctx.db.query("plans").withIndex("by_activity", (q) => q.eq("activityKey", k.activityKey).eq("focusKey", k.focusKey)).unique();
+  const doc = await ctx.db.query("plans").withIndex("by_user_and_activity", (q) => q.eq("userId", userId).eq("activityKey", k.activityKey).eq("focusKey", k.focusKey)).unique();
   if (doc || k.activityKey !== "gym" || !focus) return doc;
-  const legacy = await ctx.db.query("plans").withIndex("by_focus", (q) => q.eq("focus", focus)).collect();
+  const legacy = await ctx.db.query("plans").withIndex("by_user_and_focus", (q) => q.eq("userId", userId).eq("focus", focus)).collect();
   return legacy.find((p) => p.activityKey === undefined) ?? null;
 }
 
 export const startRequestById = (ctx: Reader, userId: string, requestId: string) =>
-  ctx.db.query("startRequests").withIndex("by_requestId", (q) => q.eq("requestId", requestId)).unique();
+  ctx.db.query("startRequests").withIndex("by_user_and_requestId", (q) => q.eq("userId", userId).eq("requestId", requestId)).unique();

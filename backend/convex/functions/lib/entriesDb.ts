@@ -112,7 +112,7 @@ export async function storeEntry(ctx: MutationCtx, userId: string, entry: EntryI
   const old = await entryRowByEntryId(ctx, userId, entryId);
   if (old?.deletedAt !== undefined) return entryId; // marked as deleted (ADR-020): a late resend must not bring it back
   for (const id of entry.fileIds) {
-    if (!(await ctx.db.query("files").withIndex("by_fileId", (q) => q.eq("fileId", id)).unique())) throw new ConvexError(`entry.fileIds: no registered file "${id}"`);
+    if (!(await ctx.db.query("files").withIndex("by_user_and_fileId", (q) => q.eq("userId", userId).eq("fileId", id)).unique())) throw new ConvexError(`entry.fileIds: no registered file "${id}"`);
   }
   if (old) {
     const { read: _read, ...was } = withoutSystemFields(old);

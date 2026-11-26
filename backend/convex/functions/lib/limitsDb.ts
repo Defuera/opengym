@@ -6,13 +6,13 @@ import { type LimitForAi, RECORDS_PER_LIMIT_MAX } from "../model/schema/limits";
 type Reader = { db: DatabaseReader };
 
 export const limitByLimitId = (ctx: Reader, userId: string, limitId: string) =>
-  ctx.db.query("limits").withIndex("by_limitId", (q) => q.eq("limitId", limitId)).unique();
+  ctx.db.query("limits").withIndex("by_user_and_limitId", (q) => q.eq("userId", userId).eq("limitId", limitId)).unique();
 
 export const recordByRecordId = (ctx: Reader, userId: string, recordId: string) =>
-  ctx.db.query("records").withIndex("by_recordId", (q) => q.eq("recordId", recordId)).unique();
+  ctx.db.query("records").withIndex("by_user_and_recordId", (q) => q.eq("userId", userId).eq("recordId", recordId)).unique();
 
 export const checkinByCheckinId = (ctx: Reader, userId: string, checkinId: string) =>
-  ctx.db.query("checkins").withIndex("by_checkinId", (q) => q.eq("checkinId", checkinId)).unique();
+  ctx.db.query("checkins").withIndex("by_user_and_checkinId", (q) => q.eq("userId", userId).eq("checkinId", checkinId)).unique();
 
 /** A stored limit without its records. Records are added by `limitsForAi` (ADR-033). */
 export function toLimit(d: Doc<"limits">): Limit {
@@ -28,7 +28,7 @@ export function toLimit(d: Doc<"limits">): Limit {
 
 /** The limits an AI job and the hard checks work from: every limit that is not cleared. */
 export async function activeLimits(ctx: Reader, userId: string): Promise<Limit[]> {
-  const docs = await ctx.db.query("limits").collect();
+  const docs = await ctx.db.query("limits").withIndex("by_user_and_limitId", (q) => q.eq("userId", userId)).collect();
   return docs.filter((d) => d.status !== "cleared").map(toLimit);
 }
 
@@ -38,8 +38,8 @@ export async function activeLimits(ctx: Reader, userId: string): Promise<Limit[]
  */
 export async function limitsForAi(ctx: Reader, userId: string): Promise<LimitForAi[]> {
   const out: LimitForAi[] = [];
-  for (const d of await ctx.db.query("limits").collect()) {
-    const rows = (await ctx.db.query("records").withIndex("by_limitId", (q) => q.eq("limitId", d.limitId)).collect())
+  for (const d of await ctx.db.query("limits").withIndex("by_user_and_limitId", (q) => q.eq("userId", userId)).collect()) {
+    const rows = (await ctx.db.query("records").withIndex("by_user_and_limitId", (q) => q.eq("userId", userId).eq("limitId", d.limitId)).collect())
       .sort((a, b) => (b.date ?? "").localeCompare(a.date ?? "") || b._creationTime - a._creationTime)
       .slice(0, RECORDS_PER_LIMIT_MAX);
     out.push({ ...toLimit(d), ...(rows.length > 0 ? { records: rows.map((r) => ({ title: r.title, ...(r.date !== undefined ? { date: r.date } : {}), text: r.text })) } : {}) });

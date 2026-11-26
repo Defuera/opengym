@@ -56,7 +56,7 @@ async function evidenceProblem(ctx: Ctx, userId: string, trigger: Doc<"messages"
  */
 export async function executeActions(ctx: Ctx, userId: string, base: TurnBase, actions: unknown[]): Promise<{ results: ActionResult[]; proposal?: StoredProposal | StoredLogDraft; program?: { brief: string; programId?: string } }> {
   const results: ActionResult[] = [];
-  const row = await ctx.db.query("openSession").first();
+  const row = await ctx.db.query("openSession").withIndex("by_user", (q) => q.eq("userId", userId)).unique();
   const problem = sessionProblem(row, base);
   let exercises: OpenExercise[] = row?.exercises ?? [];
   let changed = false;

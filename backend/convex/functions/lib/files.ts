@@ -5,7 +5,7 @@ import { type AttachedFile } from "../model/coachContext";
 import { extractPlain, imageMime, toBase64, type Extracted } from "../model/fileText";
 
 export const fileByFileId = (ctx: { db: DatabaseReader }, userId: string, fileId: string) =>
-  ctx.db.query("files").withIndex("by_fileId", (q) => q.eq("fileId", fileId)).unique();
+  ctx.db.query("files").withIndex("by_user_and_fileId", (q) => q.eq("userId", userId).eq("fileId", fileId)).unique();
 
 export type FileDoc = Pick<Doc<"files">, "fileId" | "storageId" | "name" | "mime" | "size" | "kind" | "createdAt">;
 

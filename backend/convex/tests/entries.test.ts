@@ -218,16 +218,16 @@ describe("the reader job labels an entry (ADR-031)", () => {
   it("an old label gets a stored colour without an AI call, once, through the migration", async () => {
     await t.run(async (c) => {
       for (const [i, kind] of ["meal", "meal", "training", "other"].entries()) {
-        await c.db.insert("entries", { entryId: `o${i}`, text: "x", fileIds: [], at: NOW - i * HOUR, createdAt: NOW, read: { status: "ready", rev: "r", kind, summary: "s" } });
+        await c.db.insert("entries", { userId: "owner", entryId: `o${i}`, text: "x", fileIds: [], at: NOW - i * HOUR, createdAt: NOW, read: { status: "ready", rev: "r", kind, summary: "s" } });
       }
     });
     expect(await colorOf("o0")).toBeUndefined();
-    const out = await t.mutation(internal.jobs.migrations.categoryColors, {});
+    const out = await t.mutation(internal.jobs.migrations.categoryColors, { userId: "owner" });
     expect(out.made).toEqual(["Meal", "Training"]);
     expect(await colorOf("o0")).toBe(REFERENCE_PALETTE[0]);
     expect(await colorOf("o2")).toBe(REFERENCE_PALETTE[1]);
     expect(await colorOf("o3")).toBeUndefined();
-    expect((await t.mutation(internal.jobs.migrations.categoryColors, {})).made).toEqual([]);
+    expect((await t.mutation(internal.jobs.migrations.categoryColors, { userId: "owner" })).made).toEqual([]);
   });
 
   it("parseColor accepts only #RRGGBB", () => {

@@ -9,7 +9,7 @@ type Reader = { db: DatabaseReader };
  * Every other read uses `programByProgramId` or `liveProgramDocs`.
  */
 export const programRowByProgramId = (ctx: Reader, userId: string, programId: string) =>
-  ctx.db.query("programs").withIndex("by_programId", (q) => q.eq("programId", programId)).unique();
+  ctx.db.query("programs").withIndex("by_user_and_programId", (q) => q.eq("userId", userId).eq("programId", programId)).unique();
 
 /** The live program (not marked as deleted, ADR-020), or null. */
 export async function programByProgramId(ctx: Reader, userId: string, programId: string): Promise<Doc<"programs"> | null> {
@@ -19,12 +19,12 @@ export async function programByProgramId(ctx: Reader, userId: string, programId:
 
 /** Every live program, newest first. There are few, so one read is fine. */
 export async function liveProgramDocs(ctx: Reader, userId: string): Promise<Doc<"programs">[]> {
-  const docs = await ctx.db.query("programs").withIndex("by_deletedAt", (q) => q.eq("deletedAt", undefined)).collect();
+  const docs = await ctx.db.query("programs").withIndex("by_user_and_deletedAt", (q) => q.eq("userId", userId).eq("deletedAt", undefined)).collect();
   return docs.sort((a, b) => b.createdAt - a.createdAt);
 }
 
 export const proposalByProposalId = (ctx: Reader, userId: string, proposalId: string) =>
-  ctx.db.query("proposals").withIndex("by_proposalId", (q) => q.eq("proposalId", proposalId)).unique();
+  ctx.db.query("proposals").withIndex("by_user_and_proposalId", (q) => q.eq("userId", userId).eq("proposalId", proposalId)).unique();
 
 /** A stored program as a program VALUE (the shape the coach proposes): the tests are plain texts again. */
 export function programValueOf(d: Doc<"programs">): ProgramValue {

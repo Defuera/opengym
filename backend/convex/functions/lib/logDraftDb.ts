@@ -24,7 +24,7 @@ const FUTURE_SLACK_MS = 3_600_000;
 
 /** The person's messages of a thread up to a point (`_creationTime`, inclusive), oldest first. */
 export async function logThreadMessages(ctx: Reader, userId: string, threadId: string, upTo?: number): Promise<Doc<"messages">[]> {
-  const rows = await ctx.db.query("messages").withIndex("by_threadId", (q) => q.eq("threadId", threadId)).order("asc").collect();
+  const rows = await ctx.db.query("messages").withIndex("by_user_and_threadId", (q) => q.eq("userId", userId).eq("threadId", threadId)).order("asc").collect();
   return rows.filter((m) => m.role === "user" && (upTo === undefined || m._creationTime <= upTo));
 }
 
@@ -114,7 +114,7 @@ export async function entryContent(ctx: Reader, userId: string, message: Doc<"me
   const chain: Doc<"messages">[] = [trigger];
   let from = message._creationTime;
   for (;;) {
-    const prev = await ctx.db.query("messages").withIndex("by_threadId", (q) => q.eq("threadId", message.threadId).lt("_creationTime", from)).order("desc").filter((q) => q.neq(q.field("proposal"), undefined)).first();
+    const prev = await ctx.db.query("messages").withIndex("by_user_and_threadId", (q) => q.eq("userId", userId).eq("threadId", message.threadId).lt("_creationTime", from)).order("desc").filter((q) => q.neq(q.field("proposal"), undefined)).first();
     const p = prev?.proposal;
     if (!prev || !p || p.type !== "log" || (p as StoredLogDraft).appliedAt !== undefined || (p as StoredLogDraft).noEntry || !prev.turnId) break;
     const earlier = await messageByMessageId(ctx, userId, prev.turnId);
@@ -131,7 +131,7 @@ export type LogOutcome = { status: "applied" | "already" | "refused"; text: stri
 async function staleReason(ctx: Reader, userId: string, message: Doc<"messages">): Promise<string | null> {
   const newer = await ctx.db
     .query("messages")
-    .withIndex("by_threadId", (q) => q.eq("threadId", message.threadId).gt("_creationTime", message._creationTime))
+    .withIndex("by_user_and_threadId", (q) => q.eq("userId", userId).eq("threadId", message.threadId).gt("_creationTime", message._creationTime))
     .filter((q) => q.neq(q.field("proposal"), undefined))
     .first();
   return newer ? "a newer draft came after it" : null;

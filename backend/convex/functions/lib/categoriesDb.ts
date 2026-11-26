@@ -16,7 +16,7 @@ export interface KnownCategory {
 
 /** The colour of each category by key (`categoryKey` of the label). */
 export async function categoryColors(ctx: Reader, userId: string): Promise<Map<string, string>> {
-  return new Map((await ctx.db.query("entryCategories").collect()).map((r) => [r.key, r.color]));
+  return new Map((await ctx.db.query("entryCategories").withIndex("by_user_and_key", (q) => q.eq("userId", userId)).collect()).map((r) => [r.key, r.color]));
 }
 
 /**
@@ -24,7 +24,7 @@ export async function categoryColors(ctx: Reader, userId: string): Promise<Map<s
  * the stored categories no recent entry uses. Old labels (Meal, Training, ...) count as their new label.
  */
 export async function knownCategories(ctx: Reader, userId: string): Promise<KnownCategory[]> {
-  const rows = await ctx.db.query("entryCategories").collect();
+  const rows = await ctx.db.query("entryCategories").withIndex("by_user_and_key", (q) => q.eq("userId", userId)).collect();
   const docs = await liveEntryDocs(ctx, userId, { order: "desc", limit: CATEGORY_SCAN });
   const used = usedCategories(docs.map((d) => (d.read?.status === "ready" ? d.read.kind : undefined)));
   const byKey = new Map(rows.map((r) => [r.key, r]));
@@ -45,9 +45,9 @@ export async function ensureCategory(ctx: MutationCtx, userId: string, kind: str
   const label = categoryLabel(kind);
   if (!label) return null;
   const key = categoryKey(label);
-  const old = await ctx.db.query("entryCategories").withIndex("by_key", (q) => q.eq("key", key)).unique();
+  const old = await ctx.db.query("entryCategories").withIndex("by_user_and_key", (q) => q.eq("userId", userId).eq("key", key)).unique();
   if (old) return { label: old.label, color: old.color };
-  const rows = await ctx.db.query("entryCategories").collect();
+  const rows = await ctx.db.query("entryCategories").withIndex("by_user_and_key", (q) => q.eq("userId", userId)).collect();
   const chosen = parseColor(color) ?? fallbackColor(rows.map((r) => r.color));
   await ctx.db.insert("entryCategories", { userId, key, label, color: chosen, createdAt: Date.now(), source });
   return { label, color: chosen };

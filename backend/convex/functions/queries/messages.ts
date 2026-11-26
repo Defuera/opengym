@@ -16,11 +16,12 @@ export const list = query({
   args: { token: v.string(), threadId: v.string() },
   handler: async (ctx, { token, threadId }) => {
     const userId = await requireUser(ctx, token);
-    const rows = await ctx.db.query("messages").withIndex("by_threadId", (q) => q.eq("threadId", threadId)).order("asc").collect();
+    const rows = await ctx.db.query("messages").withIndex("by_user_and_threadId", (q) => q.eq("userId", userId).eq("threadId", threadId)).order("asc").collect();
     const lastWith = rows.reduce((at, m, i) => (m.proposal ? i : at), -1);
-    const sessionId = rows.some((m) => m.proposal) ? ((await ctx.db.query("openSession").first())?.id ?? null) : null;
+    const sessionId = rows.some((m) => m.proposal) ? ((await ctx.db.query("openSession").withIndex("by_user", (q) => q.eq("userId", userId)).unique())?.id ?? null) : null;
     return rows.map((m, i) => {
-      const { proposal, ...rest } = m;
+      const { proposal, userId: _owner, ...rest } = m;
+      void _owner;
       if (!proposal) return rest;
       if (proposal.type === "log") return { ...rest, proposal: logView(proposal as StoredLogDraft, proposal.appliedAt !== undefined ? "applied" : i < lastWith ? "stale" : "open") };
       const state = proposal.appliedAt !== undefined ? "applied" : i < lastWith || sessionId !== proposal.openSessionId ? "stale" : "open";

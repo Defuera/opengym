@@ -12,8 +12,8 @@ import { CHUNK_CHARS, MAX_CHUNKS, chunkText, imageMime, toBase64 } from "../mode
 import { draftToSession } from "../model/importUnits";
 import { ImportOutputSchema } from "../model/schema";
 
-const jobOf = (ctx: { db: import("../_generated/server").DatabaseReader }, importId: string) =>
-  ctx.db.query("imports").withIndex("by_importId", (q) => q.eq("importId", importId)).unique();
+const jobOf = (ctx: { db: import("../_generated/server").DatabaseReader }, userId: string, importId: string) =>
+  ctx.db.query("imports").withIndex("by_user_and_importId", (q) => q.eq("userId", userId).eq("importId", importId)).unique();
 
 /** Notes keep their order and appear once. */
 const mergeNotes = (old: string[], add: Iterable<string>) => [...new Set([...old, ...add])];
@@ -44,14 +44,14 @@ export const files = internalQuery({
 
 export const isRunning = internalQuery({
   args: { userId: v.string(), importId: v.string() },
-  handler: async (ctx, { userId, importId }) => (await jobOf(ctx, importId))?.status === "running",
+  handler: async (ctx, { userId, importId }) => (await jobOf(ctx, userId, importId))?.status === "running",
 });
 
 /** Sets the real unit count and the notes found while reading the files. With no units the job is done at once. */
 export const plan = internalMutation({
   args: { userId: v.string(), importId: v.string(), total: v.number(), notes: v.array(v.string()) },
   handler: async (ctx, { userId, importId, total, notes }): Promise<boolean> => {
-    const job = await jobOf(ctx, importId);
+    const job = await jobOf(ctx, userId, importId);
     if (!job || job.status !== "running") return false;
     await ctx.db.patch(job._id, { total, notes: mergeNotes(job.notes, notes), ...(total === 0 ? { status: "done" as const } : {}) });
     if (total === 0) await markFactsChanged(ctx, userId);
@@ -63,7 +63,7 @@ export const plan = internalMutation({
 export const failJob = internalMutation({
   args: { userId: v.string(), importId: v.string(), error: v.string() },
   handler: async (ctx, { userId, importId, error }) => {
-    const job = await jobOf(ctx, importId);
+    const job = await jobOf(ctx, userId, importId);
     if (!job || job.status !== "running") return;
     await ctx.db.patch(job._id, { status: "failed", notes: mergeNotes(job.notes, [`Import failed: ${error}`]) });
   },
@@ -77,7 +77,7 @@ export const failJob = internalMutation({
 export const applyUnit = internalMutation({
   args: { userId: v.string(), importId: v.string(), fileName: v.string(), fileCreatedAt: v.number(), output: v.any() },
   handler: async (ctx, { userId, importId, fileName, fileCreatedAt, output }) => {
-    const job = await jobOf(ctx, importId);
+    const job = await jobOf(ctx, userId, importId);
     if (!job || job.status !== "running") return;
     const out = ImportOutputSchema.parse(output);
     const notes = new Set<string>(out.notes.map((n) => `${fileName}: ${n}`));

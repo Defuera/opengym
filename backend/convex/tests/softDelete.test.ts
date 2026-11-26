@@ -234,7 +234,7 @@ describe("purge", () => {
   it("works in bounded batches and schedules itself again when a batch is full", async () => {
     await t.run(async (ctx) => {
       for (let i = 0; i < PURGE_BATCH + 5; i++) {
-        await ctx.db.insert("entries", { entryId: `e${i}`, text: "x", fileIds: [], at: NOW, createdAt: NOW, deletedAt: 1 });
+        await ctx.db.insert("entries", { userId: "owner", entryId: `e${i}`, text: "x", fileIds: [], at: NOW, createdAt: NOW, deletedAt: 1 });
       }
     });
     expect(await purge()).toEqual({ sessions: 0, entries: PURGE_BATCH, programs: 0, aiCalls: 0 });

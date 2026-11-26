@@ -61,7 +61,7 @@ export const request = mutation({
     if (!rebuild && text !== undefined && clean!.length > START_REQUEST_MAX_TEXT) throw new Error(`text must be 1..${START_REQUEST_MAX_TEXT} characters`);
     if (!rebuild && cleanName === undefined && (clean === undefined || clean.length < 1)) throw new Error(`text must be 1..${START_REQUEST_MAX_TEXT} characters (or give a name)`);
     const now = Date.now();
-    const old = await ctx.db.query("startRequests").withIndex("by_createdAt", (q) => q.lt("createdAt", now - START_REQUEST_TTL_MS)).take(START_REQUEST_PURGE_BATCH);
+    const old = await ctx.db.query("startRequests").withIndex("by_user_and_createdAt", (q) => q.eq("userId", userId).lt("createdAt", now - START_REQUEST_TTL_MS)).take(START_REQUEST_PURGE_BATCH);
     for (const d of old) await ctx.db.delete(d._id);
     if (await startRequestById(ctx, userId, id)) return id;
     const prev = prevId !== undefined ? await startRequestById(ctx, userId, prevId) : null;

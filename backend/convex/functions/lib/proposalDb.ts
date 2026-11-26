@@ -26,11 +26,11 @@ export async function staleReason(ctx: Reader, userId: string, message: Doc<"mes
   if (!p || p.type === "log") return "there is no proposal";
   const newer = await ctx.db
     .query("messages")
-    .withIndex("by_threadId", (q) => q.eq("threadId", message.threadId).gt("_creationTime", message._creationTime))
+    .withIndex("by_user_and_threadId", (q) => q.eq("userId", userId).eq("threadId", message.threadId).gt("_creationTime", message._creationTime))
     .filter((q) => q.neq(q.field("proposal"), undefined))
     .first();
   if (newer) return "a newer proposal came after it";
-  const row = await ctx.db.query("openSession").first();
+  const row = await ctx.db.query("openSession").withIndex("by_user", (q) => q.eq("userId", userId)).unique();
   if (!row) return "no session is open now";
   if (row.id !== p.openSessionId) return "another session is open now";
   return null;
@@ -50,7 +50,7 @@ export async function applyProposal(ctx: MutationCtx, userId: string, message: D
   const stale = await staleReason(ctx, userId, message);
   const refuse = (reason: string): ApplyOutcome => ({ status: "refused", text: `I could not apply this plan: ${reason}. Nothing was changed. Ask me again if you still want it.`, reason });
   if (stale) return refuse(stale);
-  const row = (await ctx.db.query("openSession").first())!;
+  const row = (await ctx.db.query("openSession").withIndex("by_user", (q) => q.eq("userId", userId)).unique())!;
   const list = finalizePlan({ rationale: "", exercises: p.exercises }, await allSessions(ctx, userId), await activeLimits(ctx, userId)).exercises;
   if (list.length === 0) return refuse("no exercise is left after the limits");
   const stamp = Date.now().toString(36);

@@ -92,7 +92,7 @@ describe("a session with sets may have any activity name", () => {
     expect(by["home-no-focus"]).toMatchObject({ type: "Home" });
     expect(by["home-no-focus"]!.focus).toBeUndefined();
     // a row stored before the change, read raw
-    await t.run((c) => c.db.insert("sessions", { sessionId: "raw", kind: "gym", type: "Pull", startedAt: 1, endedAt: 8_000_000, exercises: [], source: "app" }));
+    await t.run((c) => c.db.insert("sessions", { userId: "owner", sessionId: "raw", kind: "gym", type: "Pull", startedAt: 1, endedAt: 8_000_000, exercises: [], source: "app" }));
     expect((await t.query(api.queries.sessions.since, { token: TOKEN, since: 7_500_000 }))[0]).toMatchObject({ type: "Gym", focus: "Pull" });
     expect(normalizeSession({ kind: "gym", type: "Home", focus: "Quick" })).toEqual({ kind: "gym", type: "Home", focus: "Quick" });
     expect(normalizeSession({ kind: "gym", type: "Upper", focus: "Heavy" })).toEqual({ kind: "gym", type: "Upper", focus: "Heavy" }); // a focus is given: an activity named Upper
@@ -203,8 +203,8 @@ describe("plans by activity and focus", () => {
   it("plan rows from before this change are read as Gym plans, and the next rebuild replaces and prunes them", async () => {
     await save(pushSession("g", NOW - DAY, 60, "Upper"));
     await t.run(async (c) => {
-      await c.db.insert("plans", { focus: "Upper", version: 1, createdAt: 1, source: "ai", rationale: "old upper", exercises: [] });
-      await c.db.insert("plans", { focus: "Pull", version: 1, createdAt: 1, source: "ai", rationale: "old pull", exercises: [] });
+      await c.db.insert("plans", { userId: "owner", focus: "Upper", version: 1, createdAt: 1, source: "ai", rationale: "old upper", exercises: [] });
+      await c.db.insert("plans", { userId: "owner", focus: "Pull", version: 1, createdAt: 1, source: "ai", rationale: "old pull", exercises: [] });
     });
     expect(await planNext({ focus: "Upper" })).toMatchObject({ stored: true, plan: { rationale: "old upper" } });
     await settle(t);

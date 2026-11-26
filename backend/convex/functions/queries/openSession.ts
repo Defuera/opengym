@@ -7,9 +7,10 @@ export const get = query({
   args: { token: v.string() },
   handler: async (ctx, { token }) => {
     const userId = await requireUser(ctx, token);
-    const row = await ctx.db.query("openSession").first();
+    const row = await ctx.db.query("openSession").withIndex("by_user", (q) => q.eq("userId", userId)).unique();
     if (!row) return { session: null, rev: 0, updatedBy: null };
-    const { _id, _creationTime, rev, updatedAt, updatedBy, ...session } = row;
+    const { _id, _creationTime, userId: _owner, rev, updatedAt, updatedBy, ...session } = row;
+    void _owner;
     return { session, rev, updatedAt, updatedBy };
   },
 });

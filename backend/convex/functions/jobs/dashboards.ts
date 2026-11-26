@@ -16,7 +16,7 @@ export const input = internalQuery({
 export const save = internalMutation({
   args: { userId: v.string(), days: dashboardDays, version: v.number(), source: proposalSource, modules: v.array(moduleSpec) },
   handler: async (ctx, { userId, days, version, source, modules }) => {
-    const old = await ctx.db.query("dashboards").withIndex("by_days", (q) => q.eq("days", days)).unique();
+    const old = await ctx.db.query("dashboards").withIndex("by_user_and_days", (q) => q.eq("userId", userId).eq("days", days)).unique();
     if (old && old.version > version) return;
     // Drop goal modules whose goal is gone (same as the old refreshDashboard).
     const ids = new Set((await allGoals(ctx, userId)).map((g) => g.id));

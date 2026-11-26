@@ -3,7 +3,7 @@ import { internal } from "../_generated/api";
 import { mutation } from "../_generated/server";
 import { requireUser } from "../lib/auth";
 import { IMPORT_BATCH_SIZE, IMPORT_INLINE_MAX } from "../lib/constants";
-import { fromSession, withoutSystemFields } from "../lib/db";
+import { fromSession, withoutSystemFields, withoutUserId } from "../lib/db";
 import { fileByFileId } from "../lib/files";
 import { markFactsChanged } from "../lib/factsChanged";
 import { purgeImportStep, writeImportItems } from "../lib/importWrite";
@@ -30,8 +30,8 @@ export const loadStructured = mutation({
   handler: async (ctx, { token, importId: given, ...body }) => {
     const userId = await requireUser(ctx, token);
     const importId = given ?? crypto.randomUUID();
-    const existing = await ctx.db.query("imports").withIndex("by_importId", (q) => q.eq("importId", importId)).unique();
-    if (existing) return withoutSystemFields(existing);
+    const existing = await ctx.db.query("imports").withIndex("by_user_and_importId", (q) => q.eq("userId", userId).eq("importId", importId)).unique();
+    if (existing) return withoutUserId(withoutSystemFields(existing));
 
     let parsed;
     try {
@@ -53,7 +53,7 @@ export const loadStructured = mutation({
       const job = { userId, importId, status: "done" as const, total, processed: total, counts, notes, createdAt: now };
       await ctx.db.insert("imports", job);
       await markFactsChanged(ctx, userId);
-      return job;
+      return withoutUserId(job);
     }
 
     const job = { userId, importId, status: "running" as const, total, processed: 0, counts, notes, createdAt: now };
@@ -61,7 +61,7 @@ export const loadStructured = mutation({
     for (const batch of chunk(sessions, IMPORT_BATCH_SIZE)) await ctx.scheduler.runAfter(0, internal.jobs.imports.writeBatch, { userId, importId, sessions: batch });
     for (const batch of chunk(goals, IMPORT_BATCH_SIZE)) await ctx.scheduler.runAfter(0, internal.jobs.imports.writeBatch, { userId, importId, goals: batch });
     for (const batch of chunk(context, IMPORT_BATCH_SIZE)) await ctx.scheduler.runAfter(0, internal.jobs.imports.writeBatch, { userId, importId, context: batch });
-    return job;
+    return withoutUserId(job);
   },
 });
 
@@ -70,7 +70,7 @@ export const remove = mutation({
   args: { token: v.string(), importId: v.string() },
   handler: async (ctx, { token, importId }) => {
     const userId = await requireUser(ctx, token);
-    const job = await ctx.db.query("imports").withIndex("by_importId", (q) => q.eq("importId", importId)).unique();
+    const job = await ctx.db.query("imports").withIndex("by_user_and_importId", (q) => q.eq("userId", userId).eq("importId", importId)).unique();
     if (!job) return false;
     if (await purgeImportStep(ctx, userId, importId)) return true;
     // Too much for one mutation: stop any batch still writing, and continue in the background.
@@ -90,13 +90,13 @@ export const start = mutation({
   handler: async (ctx, { token, importId, fileIds }) => {
     const userId = await requireUser(ctx, token);
     if (!importId || importId.length > 100) throw new ConvexError("importId: must be 1 to 100 characters");
-    const existing = await ctx.db.query("imports").withIndex("by_importId", (q) => q.eq("importId", importId)).unique();
-    if (existing) return withoutSystemFields(existing);
+    const existing = await ctx.db.query("imports").withIndex("by_user_and_importId", (q) => q.eq("userId", userId).eq("importId", importId)).unique();
+    if (existing) return withoutUserId(withoutSystemFields(existing));
     if (fileIds.length < 1) throw new ConvexError("fileIds: send at least one file");
     for (const id of fileIds) if (!(await fileByFileId(ctx, userId, id))) throw new ConvexError(`file not found: ${id}`);
     const job = { userId, importId, status: "running" as const, total: fileIds.length, processed: 0, counts: { sessions: 0, goals: 0, context: 0 }, notes: [], createdAt: Date.now() };
     await ctx.db.insert("imports", job);
     await ctx.scheduler.runAfter(0, internal.jobs.importFiles.prepare, { userId, importId, fileIds });
-    return job;
+    return withoutUserId(job);
   },
 });

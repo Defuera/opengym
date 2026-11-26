@@ -44,7 +44,7 @@ export const send = mutation({
       if (stored.voice !== undefined && stored.voice !== "done") return messageId; // a voice message waits for its transcript (retryVoice); no coach run yet
       // A resend after a failed coach reply is a retry: run the coach again for the stored message.
       // Only if no assistant message came after it, so an answered message never gets a second answer.
-      const answered = stored.role !== "user" || (await ctx.db.query("messages").withIndex("by_threadId", (q) => q.eq("threadId", threadId).gt("_creationTime", stored._creationTime)).filter((q) => q.eq(q.field("role"), "assistant")).first());
+      const answered = stored.role !== "user" || (await ctx.db.query("messages").withIndex("by_user_and_threadId", (q) => q.eq("userId", userId).eq("threadId", threadId).gt("_creationTime", stored._creationTime)).filter((q) => q.eq(q.field("role"), "assistant")).first());
       if (thread.status === "failed" && !answered) {
         await ctx.db.patch(thread._id, { status: "thinking", error: undefined, pending: thread.pending + 1, updatedAt: now });
         await ctx.scheduler.runAfter(0, internal.jobs.coachTurn.run, { userId, threadId, messageId });
@@ -53,7 +53,7 @@ export const send = mutation({
     }
     // The person approves a whole-session proposal: plain code applies it. No AI call, no pending reply.
     if (answer?.id === "approve") {
-      const asked = await ctx.db.query("messages").withIndex("by_turnId", (q) => q.eq("turnId", answer.turnId)).first();
+      const asked = await ctx.db.query("messages").withIndex("by_user_and_turnId", (q) => q.eq("userId", userId).eq("turnId", answer.turnId)).first();
       if (asked?.proposal && asked.threadId === threadId && asked.role === "assistant") {
         await ctx.db.insert("messages", { userId, messageId, threadId, role: "user", text: valid.text, fileIds: valid.fileIds ?? [], sources: [], ...(context ? { context } : {}), answer, createdAt: now });
         if (asked.proposal.type === "log") {
@@ -72,7 +72,7 @@ export const send = mutation({
       }
     }
     // First user message of a thread the user has not named: name it now by plain code. The coach job may improve it later.
-    const first = !(await ctx.db.query("messages").withIndex("by_threadId", (q) => q.eq("threadId", threadId)).filter((q) => q.eq(q.field("role"), "user")).first());
+    const first = !(await ctx.db.query("messages").withIndex("by_user_and_threadId", (q) => q.eq("userId", userId).eq("threadId", threadId)).filter((q) => q.eq(q.field("role"), "user")).first());
     const title = thread.titleSource === "auto" && first && !thread.about ? { title: titleFromMessage(valid.text) } : {};
     await ctx.db.insert("messages", { userId, messageId, threadId, role: "user", text: valid.text, fileIds: valid.fileIds ?? [], sources: [], ...(context ? { context } : {}), ...(answer ? { answer } : {}), createdAt: now });
     const session = first && context?.openSessionId !== undefined && thread.openSessionId === undefined ? { openSessionId: context.openSessionId } : {};

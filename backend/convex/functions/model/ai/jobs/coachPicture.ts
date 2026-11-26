@@ -2,6 +2,7 @@ import { limitsForPrompt } from "../../rules/limits";
 import { musclesFor } from "../../rules/muscles";
 import type { Entry, Goal, LimitForAi, Session } from "../../schema";
 import { entriesForPrompt } from "../../entryContext";
+import { timezoneOf } from "../../timezone";
 import { timeText } from "../../rules/util";
 import { topKg, type ContextItem } from "../../schema";
 import { type TrackerForCoach, trackerForPrompt } from "../../trackerForCoach";
@@ -17,8 +18,8 @@ const setsText = (sets: ({ reps: number; kg: number } | { minutes: number; dista
  * full log with its last sets and best weight), what the last weeks looked like, the recent sessions with their
  * notes, the goals in order, the limits, the notes, the log entries of the last week, the tracker readings of the phone. Plain code, no AI. Holds the records of the limits (ADR-033).
  */
-export function coachPicture(all: Session[], goals: Goal[], context: ContextItem[], limits: LimitForAi[], entries: Entry[], now: number, tracker?: TrackerForCoach) {
-  const phone = trackerForPrompt(tracker, all, now);
+export function coachPicture(all: Session[], goals: Goal[], context: ContextItem[], limits: LimitForAi[], entries: Entry[], now: number, tracker?: TrackerForCoach, timeZone?: string) {
+  const phone = trackerForPrompt(tracker, all, now, timeZone);
   const gym = all.filter((s) => s.kind === "gym");
   const byName = new Map<string, { name: string; times: number; last: Session; lastSets: string; bestKg: number; time: boolean }>();
   for (const s of gym) {
@@ -41,7 +42,7 @@ export function coachPicture(all: Session[], goals: Goal[], context: ContextItem
   });
   const recent = all.filter((s) => s.endedAt > now - 21 * DAY).slice(-12).map((s) => ({
     date: day(s.endedAt),
-    ...(s.endedAt > s.startedAt || s.source !== "import" ? { start: localTime(s.startedAt) } : {}),
+    ...(s.endedAt > s.startedAt || s.source !== "import" ? { start: localTime(s.startedAt, timeZone) } : {}),
     type: s.type,
     focus: s.focus,
     // A comment is what the person wrote about the exercise in that session (ADR-029), word for word.
@@ -53,14 +54,14 @@ export function coachPicture(all: Session[], goals: Goal[], context: ContextItem
     note: s.note,
   }));
   return {
-    today: `${day(now)} (${new Date(now).toLocaleDateString("en-GB", { weekday: "long", timeZone: process.env.APP_TIMEZONE || "UTC" })})`,
-    timeNow: localTime(now),
+    today: `${day(now)} (${new Date(now).toLocaleDateString("en-GB", { weekday: "long", timeZone: timezoneOf({ timezone: timeZone }) })})`,
+    timeNow: localTime(now, timeZone),
     trainingSince: all.length > 0 ? day(all[0]!.startedAt) : null,
     sessionsLogged: all.length,
     goalsInOrderOfPriority: goalsForPrompt(goals.filter((g) => g.status === "active")),
     limits: limitsForPrompt(limits),
     notesFromTheUser: contextForPrompt(context),
-    logEntriesFromTheUser: entriesForPrompt(entries),
+    logEntriesFromTheUser: entriesForPrompt(entries, timeZone),
     last4Weeks: weeks,
     recentSessions: recent,
     exercisesTheUserKnows: exercises,

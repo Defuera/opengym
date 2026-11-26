@@ -15,5 +15,5 @@ export interface CoachEntry {
 export type CoachSourceEntry = Entry & { seen?: string };
 
 /** The user's entries as plain data for a prompt. The caller bounds and orders the list (oldest first). */
-export const entriesForPrompt = (entries: CoachSourceEntry[]): CoachEntry[] =>
-  entries.map((e) => ({ date: new Date(e.at).toISOString().slice(0, 10), time: localTime(e.at), text: e.text, attachments: e.fileIds.length, ...(e.seen ? { attachmentsShow: e.seen } : {}) }));
+export const entriesForPrompt = (entries: CoachSourceEntry[], timeZone?: string): CoachEntry[] =>
+  entries.map((e) => ({ date: new Date(e.at).toISOString().slice(0, 10), time: localTime(e.at, timeZone), text: e.text, attachments: e.fileIds.length, ...(e.seen ? { attachmentsShow: e.seen } : {}) }));

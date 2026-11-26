@@ -11,6 +11,8 @@ import { TIME_RULE, contextForPrompt, goalsForPrompt, limitsForPrompt, logForPro
  * `rules` is the plain-code plan, computed by the caller from the FULL history.
  */
 export interface PlanInput {
+  /** The time zone of the user (ADR-039), for the clock times in the prompt. Absent: the deployment's zone. */
+  timeZone?: string;
   /** The activity to plan a session with sets for ("Gym", "Home", ...), as the log spells it. */
   activity: string;
   /** The focus of that session ("Upper", "Quick", ...), when it has one. */
@@ -52,7 +54,7 @@ export const planSessionJob: JobDef<PlanInput, PlanDraft> = {
         content: dataPrompt(`Plan the next session with sets for ${i.activity}${i.focus ? `, focus ${i.focus}` : ""}.`, {
           activity: i.activity,
           focus: i.focus,
-          recentLog: logForPrompt(i.sessions),
+          recentLog: logForPrompt(i.sessions, 12, i.timeZone),
           goals: goalsForPrompt(i.goals.filter((g) => g.status === "active")),
           context: contextForPrompt(i.context),
           limits: limitsForPrompt(i.limits),

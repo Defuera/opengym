@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { internal } from "../_generated/api";
 import { internalAction, internalMutation, internalQuery } from "../_generated/server";
 import { providerFor, runAiJob } from "../lib/ai";
+import { userTimezone } from "../lib/timezoneDb";
 import { allContext, allGoals, allSessions, startRequestById } from "../lib/db";
 import { coachTracker } from "../lib/trackerDb";
 import { coachEntries, entryImageFiles, loadEntryImages } from "../lib/entriesDb";
@@ -27,10 +28,11 @@ export const input = internalQuery({
     const doc = await startRequestById(ctx, userId, requestId);
     if (!doc || doc.status !== "pending") return null;
     const now = Date.now();
+    const tz = await userTimezone(ctx, userId);
     // The pure part (the picture of the user, the places, the rules plan for the fallback) is in model/startInput.ts: the eval runner calls it too.
     const built = buildStartInput(
       { name: doc.name, text: doc.text, feedback: doc.feedback, previousPlan: doc.previousPlan, previousPlaceId: doc.previousPlaceId },
-      { sessions: await allSessions(ctx, userId), goals: await allGoals(ctx, userId), context: await allContext(ctx, userId), limits: await limitsForAi(ctx, userId), places: await allPlaces(ctx, userId), entries: await coachEntries(ctx, userId, now), tracker: await coachTracker(ctx, userId, now), programs: await liveProgramDocs(ctx, userId), now },
+      { sessions: await allSessions(ctx, userId), goals: await allGoals(ctx, userId), context: await allContext(ctx, userId), limits: await limitsForAi(ctx, userId), places: await allPlaces(ctx, userId), entries: await coachEntries(ctx, userId, now), tracker: await coachTracker(ctx, userId, now, tz), programs: await liveProgramDocs(ctx, userId), now, timeZone: tz },
     );
     return { ...built, entryImages: await entryImageFiles(ctx, userId, now) };
   },
@@ -58,7 +60,7 @@ export const save = internalMutation({
     const pick = pickPlace(await allPlaces(ctx, userId), proposal.place, lastPlaceIdFor(sessions, checked.type), doc.feedback && doc.previousPlaceId ? { previousPlaceId: doc.previousPlaceId, feedback: doc.feedback } : undefined);
     const place = pick ? ("place" in pick ? pick.place : await createPlace(ctx, userId, pick.newName)) : null;
     // The program link (ADR-030): the coach names the program session, code finds the week and the open slot. No open slot, no link.
-    const link = proposal.program ? programLinkFor(await programByProgramId(ctx, userId, proposal.program.programId), proposal.program.key, sessions, localDate(Date.now())) : null;
+    const link = proposal.program ? programLinkFor(await programByProgramId(ctx, userId, proposal.program.programId), proposal.program.key, sessions, localDate(Date.now(), await userTimezone(ctx, userId))) : null;
     await ctx.db.patch(doc._id, {
       status: "ready",
       proposal: {

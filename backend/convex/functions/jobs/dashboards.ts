@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { internal } from "../_generated/api";
 import { internalAction, internalMutation, internalQuery } from "../_generated/server";
 import { runAiJob } from "../lib/ai";
+import { userTimezone } from "../lib/timezoneDb";
 import { allContext, allGoals, allSessions } from "../lib/db";
 import { dashboardDays, moduleSpec, proposalSource } from "../lib/validators";
 import { buildDashboardInput } from "../model/ai/jobs/inputs";
@@ -9,7 +10,7 @@ import { buildDashboardJob } from "../model/ai/jobs/buildDashboard";
 
 export const input = internalQuery({
   args: { userId: v.string(), days: dashboardDays },
-  handler: async (ctx, { userId, days }) => buildDashboardInput(await allSessions(ctx, userId), await allGoals(ctx, userId), await allContext(ctx, userId), days),
+  handler: async (ctx, { userId, days }) => buildDashboardInput(await allSessions(ctx, userId), await allGoals(ctx, userId), await allContext(ctx, userId), days, await userTimezone(ctx, userId)),
 });
 
 /** Stores the layout spec only. Dashboard numbers are computed by code at query time (resolveDashboard). */

@@ -149,9 +149,9 @@ export function finalizeLogExercises(given: NonNullable<ParsedLog["exercises"]>,
 }
 
 /** What the save step takes: the structure found, with the day applied, the exercises finished and the minutes rounded. */
-export function structureOf(parsed: ParsedLog, usual: Map<string, Exercise>, at: number, now: number) {
+export function structureOf(parsed: ParsedLog, usual: Map<string, Exercise>, at: number, now: number, timeZone: string = appTimeZone()) {
   const exercises = finalizeLogExercises(parsed.exercises ?? [], usual);
-  const startedAt = parsed.date ? shiftToDay(at, parsed.date, now, appTimeZone()) : at;
+  const startedAt = parsed.date ? shiftToDay(at, parsed.date, now, timeZone) : at;
   return {
     ...(startedAt !== at ? { startedAt, endedAt: startedAt } : {}),
     ...(parsed.focus !== undefined ? { focus: parsed.focus } : {}),

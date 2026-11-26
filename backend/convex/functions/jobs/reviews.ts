@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { internal } from "../_generated/api";
 import { internalAction, internalMutation, internalQuery } from "../_generated/server";
 import { runAiJob } from "../lib/ai";
+import { userTimezone } from "../lib/timezoneDb";
 import { coachTracker } from "../lib/trackerDb";
 import { allContext, allGoals, allSessions, sessionBySessionId, toSession } from "../lib/db";
 import { limitsForAi } from "../lib/limitsDb";
@@ -15,7 +16,8 @@ export const input = internalQuery({
   args: { userId: v.string(), sessionId: v.string() },
   handler: async (ctx, { userId, sessionId }) => {
     const doc = await sessionBySessionId(ctx, userId, sessionId);
-    return doc ? buildReviewInput(await allSessions(ctx, userId), toSession(doc), await limitsForAi(ctx, userId), { goals: await allGoals(ctx, userId), context: await allContext(ctx, userId), tracker: await coachTracker(ctx, userId, doc.startedAt) }) : null;
+    const tz = await userTimezone(ctx, userId);
+    return doc ? buildReviewInput(await allSessions(ctx, userId), toSession(doc), await limitsForAi(ctx, userId), { goals: await allGoals(ctx, userId), context: await allContext(ctx, userId), tracker: await coachTracker(ctx, userId, doc.startedAt, tz), timeZone: tz }) : null;
   },
 });
 

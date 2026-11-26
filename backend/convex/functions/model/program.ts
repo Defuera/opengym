@@ -1,4 +1,5 @@
 import { PROGRAM_MAX_WEEKS } from "../lib/constants";
+import { timezoneOf } from "./timezone";
 import { avoidedInPlan } from "./rules/limits";
 import type { Exercise, Limit, PlanExercise, ProgramPhase, ProgramSession, ProgramValue } from "./schema";
 import { activityKey } from "./sessionShape";
@@ -14,9 +15,9 @@ export function dayNumber(ymd: string): number | null {
   return d.toISOString().slice(0, 10) === ymd ? Math.round(ms / DAY) : null;
 }
 
-/** The calendar day of a moment in the owner's time zone (env APP_TIMEZONE, an IANA name; UTC when not set), as "YYYY-MM-DD". */
-export function localDate(ms: number): string {
-  return new Intl.DateTimeFormat("en-CA", { timeZone: process.env.APP_TIMEZONE || "UTC", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(ms));
+/** The calendar day of a moment in a time zone (default: `timezoneOf()`; the callers pass the zone of the user, ADR-039), as "YYYY-MM-DD". */
+export function localDate(ms: number, timeZone: string = timezoneOf()): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(ms));
 }
 
 /** How many weeks a program spans: both days count, so 1 Dec to 7 Dec is one week and 1 Dec to 8 Dec is two. Null for bad dates. */

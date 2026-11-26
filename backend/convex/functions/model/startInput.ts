@@ -35,6 +35,8 @@ export interface StartData {
   /** Every live program. Absent in old callers: then the coach gets none. */
   programs?: ProgramForCoach[];
   now: number;
+  /** The time zone of the user (ADR-039). Absent: the deployment's zone. */
+  timeZone?: string;
 }
 
 /**
@@ -51,7 +53,7 @@ export function buildStartInput(doc: StartDoc, d: StartData) {
   // The focus names of the log (bounded): of the named activity, or of every activity with sets when the coach names it.
   const withSets = known.filter((a) => a.kind === "gym" && (!doc.name || activityKey(a.type) === activityKey(doc.name)));
   const fociTheUserUses = withSets.map((a) => ({ activity: a.type, foci: fociByUse(d.sessions, a.type).slice(0, 8) })).filter((a) => a.foci.length > 0).slice(0, 6);
-  const programs = programsForCoach(d.programs ?? [], d.sessions, localDate(d.now));
+  const programs = programsForCoach(d.programs ?? [], d.sessions, localDate(d.now, d.timeZone));
   const current = doc.feedback && doc.previousPlaceId ? d.places.find((p) => p.placeId === doc.previousPlaceId) : undefined;
   const job: BuildSessionInput = {
     name: doc.name ?? null,
@@ -62,7 +64,7 @@ export function buildStartInput(doc: StartDoc, d: StartData) {
     placesTheCoachKnows,
     ...(programs.length > 0 ? { programsThePersonFollows: programs } : {}),
     fociTheUserUses,
-    picture: coachPicture(d.sessions, [...d.goals].sort((x, y) => x.createdAt - y.createdAt), d.context, d.limits, d.entries, d.now, d.tracker),
+    picture: coachPicture(d.sessions, [...d.goals].sort((x, y) => x.createdAt - y.createdAt), d.context, d.limits, d.entries, d.now, d.tracker, d.timeZone),
     limits: d.limits,
   };
   return { job, known, text: doc.text ?? "", name: doc.name ?? null, rules };

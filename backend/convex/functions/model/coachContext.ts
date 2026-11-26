@@ -21,6 +21,8 @@ export interface AttachedFile {
 
 /** What the coach may read. The caller bounds every list (ADR-012); `sessions` is oldest first. */
 export interface CoachData {
+  /** The time zone of the user (ADR-039). Absent: the deployment's zone. */
+  timeZone?: string;
   otherThreads: { title: string; summary: string }[];
   sessions: Session[];
   goals: Goal[];
@@ -47,7 +49,7 @@ export function assembleCoachContext(data: CoachData, files: AttachedFile[], sup
     for (const t of others) sources.push(`${t.title} thread`);
   }
   if (data.sessions.length) {
-    parts.push(`Recent log (oldest first):\n${JSON.stringify(logForPrompt(data.sessions, 10))}`);
+    parts.push(`Recent log (oldest first):\n${JSON.stringify(logForPrompt(data.sessions, 10, data.timeZone))}`);
     sources.push("gym log");
   }
   const goals = data.goals.filter((g) => g.status === "active");
@@ -66,10 +68,10 @@ export function assembleCoachContext(data: CoachData, files: AttachedFile[], sup
     sources.push("limits");
   }
   if (data.entries?.length) {
-    parts.push(`Log entries from the user, free notes (oldest first):\n${JSON.stringify(entriesForPrompt(data.entries))}`);
+    parts.push(`Log entries from the user, free notes (oldest first):\n${JSON.stringify(entriesForPrompt(data.entries, data.timeZone))}`);
     sources.push("log entries");
   }
-  const phone = trackerForPrompt(data.tracker, data.sessions, data.now ?? Date.now());
+  const phone = trackerForPrompt(data.tracker, data.sessions, data.now ?? Date.now(), data.timeZone);
   if (phone) {
     parts.push(`Tracker data from the phone (trackerFromThePhone):\n${JSON.stringify(phone)}`);
     sources.push("tracker");

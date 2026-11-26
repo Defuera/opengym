@@ -68,7 +68,7 @@ export const input = internalQuery({
     const programId = hint.programId ?? thread?.about?.id;
     const program = screen.screen === "program" ? await programTurnState(ctx, userId, threadId, programId, Date.now()) : null;
     const entry = hint.entryId ? await entryByEntryId(ctx, userId, hint.entryId) : null;
-    const programs = programsForCoach(await liveProgramDocs(ctx, userId), await allSessions(ctx, userId), localDate(Date.now()));
+    const programs = programsForCoach(await liveProgramDocs(ctx, userId), await allSessions(ctx, userId), localDate(Date.now(), chat.data.timeZone));
     const isLog = hint.screen === "log";
     const draft = await openLogDraft(ctx, userId, threadId);
     const categories = await knownCategories(ctx, userId);
@@ -79,7 +79,7 @@ export const input = internalQuery({
       ...editables,
       ...(program ?? {}),
       // What any log needs, on every screen: the day, the time, the categories in use and the open draft.
-      today: dayWithWeekday(Date.now()),
+      today: dayWithWeekday(Date.now(), chat.data.timeZone),
       now: new Date().toISOString(),
       ...(draft ? { currentLogDraft: draft } : {}),
       ...(categories.length > 0 ? { categoriesInUse: categories } : {}),

@@ -5,6 +5,8 @@ import { type ContextItem, type DashboardSpecDraft, DashboardSpecDraftSchema, ty
 import { contextForPrompt, goalsForPrompt, logForPrompt } from "./shared";
 
 export interface DashboardInput {
+  /** The time zone of the user (ADR-039), for the clock times in the prompt. Absent: the deployment's zone. */
+  timeZone?: string;
   days: 7 | 30;
   sessions: Session[];
   goals: Goal[];
@@ -33,7 +35,7 @@ export const buildDashboardJob: JobDef<DashboardInput, DashboardSpecDraft> = {
       "You pick the layout of a training dashboard. You choose module types, order and parameters only; never write numbers or statistics yourself, code fills them in. A note module may hold one short motivating sentence about training, with no figures you were not given.",
       SHAPE,
     ),
-    messages: [{ role: "user", content: dataPrompt(`Pick modules for a ${i.days}-day dashboard.`, { days: i.days, recentLog: logForPrompt(i.sessions, 20), goals: goalsForPrompt(i.goals), context: contextForPrompt(i.context) }) }],
+    messages: [{ role: "user", content: dataPrompt(`Pick modules for a ${i.days}-day dashboard.`, { days: i.days, recentLog: logForPrompt(i.sessions, 20, i.timeZone), goals: goalsForPrompt(i.goals), context: contextForPrompt(i.context) }) }],
   }),
   fallback: (i) => ({ modules: rulesSpec(i.goals).modules }),
 };

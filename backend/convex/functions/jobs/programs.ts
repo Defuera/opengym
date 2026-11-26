@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { internal } from "../_generated/api";
 import { internalAction, internalMutation, internalQuery } from "../_generated/server";
 import { providerFor, runAiJob } from "../lib/ai";
+import { userTimezone } from "../lib/timezoneDb";
 import { PROGRAM_BUILD_BUDGET_MS } from "../lib/constants";
 import { loadAttachment } from "../lib/files";
 import { attachmentsForPrompt } from "../model/attachedFiles";
@@ -25,14 +26,15 @@ export const input = internalQuery({
     const doc = await proposalByProposalId(ctx, userId, proposalId);
     if (!doc || doc.status !== "building") return null;
     const now = Date.now();
+    const tz = await userTimezone(ctx, userId);
     const limits = await limitsForAi(ctx, userId);
     const goals = (await allGoals(ctx, userId)).filter((g) => g.status === "active").sort((a, b) => a.createdAt - b.createdAt);
     // The picture of the user is the same one the session coach reads; only the parts a program needs are kept.
-    const picture = coachPicture(await allSessions(ctx, userId), goals, [], limits, [], now);
+    const picture = coachPicture(await allSessions(ctx, userId), goals, [], limits, [], now, undefined, tz);
     const prev = doc.ask.previousProposalId ? await proposalByProposalId(ctx, userId, doc.ask.previousProposalId) : null;
     const program = doc.target.id !== undefined ? await programByProgramId(ctx, userId, doc.target.id) : null;
     return {
-      today: todayLabel(now),
+      today: todayLabel(now, tz),
       request: doc.ask.text ?? "",
       ...(doc.ask.feedback ? { feedbackFromThePerson: doc.ask.feedback, ...(prev?.value ? { previousProgram: prev.value } : {}) } : {}),
       ...(program ? { currentProgram: programValueOf(program) } : {}),

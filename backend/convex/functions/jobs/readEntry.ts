@@ -3,6 +3,7 @@ import { internal } from "../_generated/api";
 import type { Doc } from "../_generated/dataModel";
 import { internalAction, internalMutation, internalQuery } from "../_generated/server";
 import { providerFor, runAiJob } from "../lib/ai";
+import { userTimezone } from "../lib/timezoneDb";
 import { entryByEntryId } from "../lib/db";
 import { ensureCategory, knownCategories } from "../lib/categoriesDb";
 import { fileByFileId, loadAttachment, type FileDoc } from "../lib/files";
@@ -31,7 +32,7 @@ export const input = internalQuery({
       const f = await fileByFileId(ctx, userId, id);
       if (f) files.push(fileDoc(f));
     }
-    return { text: d.text, at: d.at, files, categories: await knownCategories(ctx, userId) };
+    return { text: d.text, at: d.at, files, categories: await knownCategories(ctx, userId), timeZone: await userTimezone(ctx, userId) };
   },
 });
 
@@ -72,7 +73,7 @@ export const run = internalAction({
         await ctx.runMutation(internal.jobs.readEntry.save, { userId, entryId, read: { status: "failed", rev } });
         return;
       }
-      const when = `${new Date(i.at).toISOString().slice(0, 10)} ${localTime(i.at)}`;
+      const when = `${new Date(i.at).toISOString().slice(0, 10)} ${localTime(i.at, i.timeZone)}`;
       const r = await runAiJob(ctx, userId, readEntryJob, { text: i.text, when, files, images, categories: i.categories }, { timeoutMs: BUDGET_MS });
       await ctx.runMutation(internal.jobs.readEntry.save, {userId, 
         entryId,

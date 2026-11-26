@@ -6,6 +6,8 @@ import type { coachPicture } from "./coachPicture";
 import { limitsForPrompt, localTime, logForPrompt } from "./shared";
 
 export interface ReviewInput {
+  /** The time zone of the user (ADR-039), for the clock times in the prompt. Absent: the deployment's zone. */
+  timeZone?: string;
   session: Session;
   /** The session plus the recent sessions of the same activity and focus before it, oldest first (bounded, see inputs.ts). */
   sessions: Session[];
@@ -28,11 +30,11 @@ The changes are at most five short lines, the ones that matter most, each about 
 ${LIMITS_RULE} ${TRACKER_RULE}`;
 
 /** The finished session as the review reads it: sets with the failed mark and the person's comment. */
-function finished(s: Session) {
-  const base = logForPrompt([s], 1)[0]!;
+function finished(s: Session, timeZone?: string) {
+  const base = logForPrompt([s], 1, timeZone)[0]!;
   return {
     ...base,
-    end: localTime(s.endedAt),
+    end: localTime(s.endedAt, timeZone),
     exercises: s.exercises.map((e) => ({
       name: e.name,
       sets: e.sets.map((x) => ("kg" in x ? `${x.reps}x${x.kg}${x.max ? " max" : ""}${x.failed ? " (last rep failed)" : ""}` : timeText(x))).join(", "),
@@ -51,7 +53,7 @@ export const reviewSessionJob: JobDef<ReviewInput, ReviewDraft> = {
   output: ReviewDraftSchema,
   build: (i) => ({
     system: systemPrompt("review_session", ROLE, `{"summary": string (max 400 chars), "changes": string[] (max 5 lines, each max 160 chars)}`),
-    messages: [{ role: "user", content: dataPrompt("Review this session.", { session: finished(i.session), ...(i.picture ? { before: i.picture } : { recentSameType: logForPrompt(i.sessions.filter((x) => x.id !== i.session.id), 6), limits: limitsForPrompt(i.limits) }) }) }],
+    messages: [{ role: "user", content: dataPrompt("Review this session.", { session: finished(i.session, i.timeZone), ...(i.picture ? { before: i.picture } : { recentSameType: logForPrompt(i.sessions.filter((x) => x.id !== i.session.id), 6, i.timeZone), limits: limitsForPrompt(i.limits) }) }) }],
   }),
   fallback: (i) => i.rules,
 };

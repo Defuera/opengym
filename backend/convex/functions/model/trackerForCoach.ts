@@ -40,11 +40,11 @@ function dayLine(d: TrackerDay): string | null {
   return parts.length ? `${d.date}: ${parts.join(", ")}` : null;
 }
 
-function workoutLine(w: TrackerWorkout): string {
+function workoutLine(w: TrackerWorkout, timeZone?: string): string {
   const parts = [`${w.minutes} min`];
   if (w.distanceKm !== undefined) parts.push(`${Math.round(w.distanceKm * 10) / 10} km`);
   if (w.avgHeartRate !== undefined) parts.push(`avg heart rate ${w.avgHeartRate}`);
-  return `${localDate(w.startedAt)} ${localTime(w.startedAt)} ${w.type}, ${parts.join(", ")}`;
+  return `${localDate(w.startedAt, timeZone)} ${localTime(w.startedAt, timeZone)} ${w.type}, ${parts.join(", ")}`;
 }
 
 const overlaps = (w: TrackerWorkout, s: SessionTimes) => w.startedAt < s.endedAt + OVERLAP_MARGIN_MS && w.endedAt > s.startedAt - OVERLAP_MARGIN_MS;
@@ -54,10 +54,10 @@ const overlaps = (w: TrackerWorkout, s: SessionTimes) => w.startedAt < s.endedAt
  * workout that overlaps a logged session in time is the same workout: it is not listed as a workout; its average heart rate and energy
  * go on a line about that session instead (when it has any). Null when there is nothing to say. `sessions` are the logged ones (any order).
  */
-export function trackerForPrompt(tracker: TrackerForCoach | undefined, sessions: SessionTimes[], now: number): TrackerBlock | null {
+export function trackerForPrompt(tracker: TrackerForCoach | undefined, sessions: SessionTimes[], now: number, timeZone?: string): TrackerBlock | null {
   if (!tracker) return null;
-  const from = localDate(now - (TRACKER_PROMPT_DAYS - 1) * DAY);
-  const to = localDate(now);
+  const from = localDate(now - (TRACKER_PROMPT_DAYS - 1) * DAY, timeZone);
+  const to = localDate(now, timeZone);
   const last7Days = tracker.days
     .filter((d) => d.date >= from && d.date <= to)
     .sort((a, b) => a.date.localeCompare(b.date))
@@ -69,11 +69,11 @@ export function trackerForPrompt(tracker: TrackerForCoach | undefined, sessions:
   for (const w of recent) {
     const s = sessions.find((x) => overlaps(w, x));
     if (!s) {
-      own.push(workoutLine(w));
+      own.push(workoutLine(w, timeZone));
       continue;
     }
     const numbers = [w.avgHeartRate !== undefined ? `avg heart rate ${w.avgHeartRate}` : "", w.energyKcal !== undefined ? `${Math.round(w.energyKcal)} kcal` : ""].filter(Boolean);
-    if (numbers.length) onSessions.push(`${localDate(s.endedAt)} ${s.type}${s.focus ? ` ${s.focus}` : ""}: tracker saw ${numbers.join(", ")}`);
+    if (numbers.length) onSessions.push(`${localDate(s.endedAt, timeZone)} ${s.type}${s.focus ? ` ${s.focus}` : ""}: tracker saw ${numbers.join(", ")}`);
   }
   const workoutsLast14Days = own.slice(-TRACKER_PROMPT_WORKOUTS_MAX);
   if (!last7Days.length && !workoutsLast14Days.length && !onSessions.length) return null;

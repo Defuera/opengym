@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { internal } from "../_generated/api";
 import { internalAction, internalMutation, internalQuery } from "../_generated/server";
 import { runAiJob } from "../lib/ai";
+import { userTimezone } from "../lib/timezoneDb";
 import { allContext, allGoals, allSessions, planFor, planKey } from "../lib/db";
 import { coachTracker } from "../lib/trackerDb";
 import { activeLimits, limitsForAi } from "../lib/limitsDb";
@@ -14,7 +15,10 @@ import { loggedName } from "../model/rules/foci";
 /** Bounded model input for one plan. Reads the full history, returns the small input. */
 export const input = internalQuery({
   args: { userId: v.string(), activity: v.string(), focus: v.optional(v.string()) },
-  handler: async (ctx, { userId, activity, focus }) => buildPlanInput(await allSessions(ctx, userId), await allGoals(ctx, userId), await allContext(ctx, userId), activity, focus, await limitsForAi(ctx, userId), await coachTracker(ctx, userId, Date.now())),
+  handler: async (ctx, { userId, activity, focus }) => {
+    const tz = await userTimezone(ctx, userId);
+    return buildPlanInput(await allSessions(ctx, userId), await allGoals(ctx, userId), await allContext(ctx, userId), activity, focus, await limitsForAi(ctx, userId), await coachTracker(ctx, userId, Date.now(), tz), Date.now(), tz);
+  },
 });
 
 /** Applies the safety limits against the FULL history, then replaces the stored plan for the activity and focus. */

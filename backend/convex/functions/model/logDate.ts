@@ -1,8 +1,11 @@
-/** Day arithmetic in the owner's time zone (env APP_TIMEZONE, an IANA name; UTC when not set). Used by the parse_log job (ADR-018). */
+import { timezoneOf } from "./timezone";
+
+/** Day arithmetic in a time zone (default: `timezoneOf()`, the deployment's zone; the callers pass the zone of the user, ADR-039). Used by the parse_log job (ADR-018). */
+
 const DAY = 86_400_000;
 const MAX_DAYS_BACK = 366;
 
-export const appTimeZone = (): string => process.env.APP_TIMEZONE || "UTC";
+export const appTimeZone = (): string => timezoneOf();
 
 /** "YYYY-MM-DD" of a moment in the time zone. */
 export const localDay = (ms: number, timeZone = appTimeZone()): string =>

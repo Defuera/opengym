@@ -142,6 +142,11 @@ describe("static guard: every read and write is for a user (ADR-039)", () => {
     expect(bad).toEqual([]);
   });
 
+  it("the time zone variable is read in one place only (model/timezone.ts)", () => {
+    const bad = entries.filter(([f, src]) => f !== "model/timezone.ts" && /process\.env\.APP_TIMEZONE/.test(src)).map(([f]) => f);
+    expect(bad).toEqual([]);
+  });
+
   it("every write of a per-user table names the user (insert and replace carry userId)", () => {
     const bad: string[] = [];
     for (const [file, src] of entries) {

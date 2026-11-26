@@ -1,3 +1,4 @@
+import { userTimezone } from "./timezoneDb";
 import type { QueryCtx } from "../_generated/server";
 import { liveSessionDocs, toContextItem, toGoal, toSession, messageByMessageId, threadByThreadId } from "./db";
 import { limitsForAi } from "./limitsDb";
@@ -40,11 +41,12 @@ export async function readChatInput(ctx: Pick<QueryCtx, "db">, userId: string, t
     if (f && f.kind !== "audio") files.push({ fileId: f.fileId, storageId: f.storageId, name: f.name, mime: f.mime, size: f.size, kind: f.kind, createdAt: f.createdAt });
   }
   const now = Date.now();
+  const timeZone = await userTimezone(ctx, userId);
   const entries = await coachEntries(ctx, userId, now);
   const entryImages = await entryInViewImageFiles(ctx, userId, entryId);
   return {
     history,
-    data: { otherThreads, sessions, goals, context, limits: await limitsForAi(ctx, userId), entries, tracker: await coachTracker(ctx, userId, now), now },
+    data: { otherThreads, sessions, goals, context, limits: await limitsForAi(ctx, userId), entries, tracker: await coachTracker(ctx, userId, now, timeZone), now, timeZone },
     files,
     entryImages,
   };

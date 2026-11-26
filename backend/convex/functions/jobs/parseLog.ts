@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { internal } from "../_generated/api";
 import { internalAction, internalMutation, internalQuery } from "../_generated/server";
 import { runAiJob } from "../lib/ai";
+import { userTimezone } from "../lib/timezoneDb";
 import { allSessions, sessionBySessionId, withoutSystemFields } from "../lib/db";
 import { markFactsChanged, scheduleReview } from "../lib/factsChanged";
 import { exercise } from "../schema";
@@ -22,7 +23,7 @@ export const input = internalQuery({
   handler: async (ctx, { userId, sessionId, text }) => {
     const doc = await sessionBySessionId(ctx, userId, sessionId);
     if (!doc || doc.parse !== "pending" || doc.note !== text) return null;
-    return buildParseLogInput(await allSessions(ctx, userId), doc, text, Date.now());
+    return buildParseLogInput(await allSessions(ctx, userId), doc, text, Date.now(), await userTimezone(ctx, userId));
   },
 });
 
@@ -77,7 +78,7 @@ export const run = internalAction({
       if (!i) return;
       const r = await runAiJob(ctx, userId, parseLogJob, i.job, { timeoutMs: BUDGET_MS });
       const usual = new Map(i.usual.map((e) => [activityKey(e.name), e as Exercise]));
-      const found = structureOf(r.value, usual, i.at, i.now);
+      const found = structureOf(r.value, usual, i.at, i.now, i.timeZone);
       await ctx.runMutation(internal.jobs.parseLog.save, { userId, sessionId, text, parse: r.path === "ai" || Object.keys(found).length > 0 ? "done" : "failed", ...found });
     } catch (e) {
       console.error(`[log] parse failed: ${(e as Error).message}`);

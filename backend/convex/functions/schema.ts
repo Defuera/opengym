@@ -197,7 +197,7 @@ export default defineSchema({
     userId: v.string(),
     createdAt: v.number(),
     name: v.optional(v.string()),
-    /** An IANA time zone name. Absent = the deployment's APP_TIMEZONE (lib/timezone:timezoneOf). */
+    /** An IANA time zone name. Absent = the deployment's APP_TIMEZONE (model/timezone:timezoneOf). */
     timezone: v.optional(v.string()),
   }).index("by_userId", ["userId"]),
 

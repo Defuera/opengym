@@ -5,10 +5,12 @@ import { PROPOSAL_FEEDBACK_KEEP, PROPOSAL_TEXT_MAX } from "./constants";
 import { fileByFileId, type FileDoc } from "./files";
 import { programByProgramId, programValueOf } from "./programsDb";
 import { localDate } from "../model/program";
+import { timezoneOf } from "../model/timezone";
+import { userTimezone } from "./timezoneDb";
 import { approvalFor } from "../model/proposalPolicy";
 
-/** Today as the program jobs read it: "YYYY-MM-DD (Weekday)" in the owner's time zone. */
-export const todayLabel = (now: number): string => `${localDate(now)} (${new Date(now).toLocaleDateString("en-GB", { weekday: "long", timeZone: process.env.APP_TIMEZONE || "UTC" })})`;
+/** Today as the program jobs read it: "YYYY-MM-DD (Weekday)" in the time zone of the user (ADR-039). */
+export const todayLabel = (now: number, timeZone?: string): string => `${localDate(now, timeZone)} (${new Date(now).toLocaleDateString("en-GB", { weekday: "long", timeZone: timezoneOf({ timezone: timeZone }) })})`;
 
 /** The most files of a thread that go to a program build. */
 export const THREAD_FILES_MAX = 6;
@@ -86,7 +88,7 @@ export async function programTurnState(ctx: { db: DatabaseReader }, userId: stri
   const mine = await ctx.db.query("proposals").withIndex("by_user_and_threadId", (q) => q.eq("userId", userId).eq("threadId", threadId)).collect();
   const open = mine.filter((p) => p.status === "ready" && p.value).sort((a, b) => b.createdAt - a.createdAt)[0];
   return {
-    today: todayLabel(now),
+    today: todayLabel(now, await userTimezone(ctx, userId)),
     ...(program ? { programInView: { programId: program.programId, ...programValueOf(program) } } : {}),
     ...(open?.value ? { programYouProposedAndThePersonSees: open.value } : {}),
     ...(mine.some((p) => p.status === "building") ? { aProgramProposalIsBeingWritten: true } : {}),

@@ -54,3 +54,9 @@ export const PROGRAM_BUILD_BUDGET_MS = 300_000;
 export const AI_CALL_KEEP_MS = 90 * 86_400_000;
 /** Longest text kept per field of a stored AI call; longer text is cut. */
 export const AI_CALL_TEXT_MAX = 200_000;
+
+/** The most `aiUsage` rows one summary reads (ADR-038). A larger range answers with `truncated: true`. */
+export const USAGE_SUMMARY_MAX_ROWS = 8000;
+/** The longest range one summary accepts, and the range it reads when `from` is absent. */
+export const USAGE_SUMMARY_MAX_DAYS = 366;
+export const USAGE_SUMMARY_DEFAULT_DAYS = 30;

@@ -178,6 +178,7 @@ import type * as queries_sessions from "../queries/sessions.js";
 import type * as queries_settings from "../queries/settings.js";
 import type * as queries_start from "../queries/start.js";
 import type * as queries_threads from "../queries/threads.js";
+import type * as queries_usage from "../queries/usage.js";
 
 import type {
   ApiFromModules,
@@ -356,6 +357,7 @@ declare const fullApi: ApiFromModules<{
   "queries/settings": typeof queries_settings;
   "queries/start": typeof queries_start;
   "queries/threads": typeof queries_threads;
+  "queries/usage": typeof queries_usage;
 }>;
 
 /**

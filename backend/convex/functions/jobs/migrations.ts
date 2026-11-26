@@ -1,7 +1,8 @@
 import { v } from "convex/values";
 import { internal } from "../_generated/api";
-import { internalMutation } from "../_generated/server";
-import { OWNER_USER_ID as userId } from "../lib/currentUser";
+import { internalAction, internalMutation, internalQuery } from "../_generated/server";
+import { OWNER_USER_ID, OWNER_USER_ID as userId } from "../lib/currentUser";
+import { PAGE_SIZE, PER_USER_TABLES } from "../lib/userTables";
 import { ensureCategory } from "../lib/categoriesDb";
 import { usedCategories } from "../model/entryCategory";
 import { markFactsChanged } from "../lib/factsChanged";
@@ -91,4 +92,106 @@ export const categoryColors = internalMutation({
     }
     return { made };
   },
+});
+
+const tableName = v.union(...PER_USER_TABLES.map((t) => v.literal(t)));
+
+/** Makes the `users` row of the owner when it is missing. Returns true when it made it. */
+export const ensureOwner = internalMutation({
+  args: {},
+  handler: async (ctx): Promise<boolean> => {
+    if (await ctx.db.query("users").withIndex("by_userId", (q) => q.eq("userId", OWNER_USER_ID)).unique()) return false;
+    await ctx.db.insert("users", { userId: OWNER_USER_ID, createdAt: Date.now() });
+    return true;
+  },
+});
+
+/** One page of one table: every row with no `userId` gets the owner. Returns what the page held and where the next one starts. */
+export const assignOwnerPage = internalMutation({
+  args: { table: tableName, cursor: v.optional(v.union(v.string(), v.null())), batch: v.optional(v.number()) },
+  handler: async (ctx, { table, cursor, batch }): Promise<{ read: number; assigned: number; cursor: string; isDone: boolean }> => {
+    const page = await ctx.db.query(table).paginate({ cursor: cursor ?? null, numItems: Math.max(1, Math.floor(batch ?? PAGE_SIZE[table])) });
+    let assigned = 0;
+    for (const row of page.page) {
+      if ((row as { userId?: string }).userId !== undefined) continue;
+      await ctx.db.patch(row._id, { userId: OWNER_USER_ID } as never);
+      assigned++;
+    }
+    return { read: page.page.length, assigned, cursor: page.continueCursor, isDone: page.isDone };
+  },
+});
+
+/**
+ * ADR-039, deploy point 1: gives every old row to the owner. Run by hand once after deploy point 1:
+ *   npx convex run jobs/migrations:assignOwner '{}'
+ * Optional args: `{ batch?: number }` (rows per page; default per table, see lib/userTables.ts).
+ * (a) makes the `users` row of the owner when it is missing; (b) walks every per-user table in pages (one mutation per page, so no call is
+ * too big) and sets `userId: "owner"` on each row that has none; (c) returns per table `{ read, assigned }`, and `users` (true when it made the row).
+ * Idempotent and resumable: a row that has a `userId` is never touched, so a second run (or a run after a stop) changes nothing more and
+ * `assigned` is 0 everywhere. Writes made by the live app between the pages are safe: since deploy point 1 they carry the `userId` themselves.
+ * Makes no rebuild and changes no other field.
+ */
+export const assignOwner = internalAction({
+  args: { batch: v.optional(v.number()) },
+  handler: async (ctx, { batch }): Promise<{ users: boolean; tables: Record<string, { read: number; assigned: number }> }> => {
+    const users = await ctx.runMutation(internal.jobs.migrations.ensureOwner, {});
+    const tables: Record<string, { read: number; assigned: number }> = {};
+    for (const table of PER_USER_TABLES) {
+      const sum = { read: 0, assigned: 0 };
+      let cursor: string | null = null;
+      for (;;) {
+        const r: { read: number; assigned: number; cursor: string; isDone: boolean } = await ctx.runMutation(internal.jobs.migrations.assignOwnerPage, { table, cursor, ...(batch !== undefined ? { batch } : {}) });
+        sum.read += r.read;
+        sum.assigned += r.assigned;
+        if (r.isDone) break;
+        cursor = r.cursor;
+      }
+      tables[table] = sum;
+    }
+    return { users, tables };
+  },
+});
+
+/** One page of one table for the report: how many rows, and how many have no `userId`. */
+export const userIdReportPage = internalQuery({
+  args: { table: tableName, cursor: v.optional(v.union(v.string(), v.null())), batch: v.optional(v.number()) },
+  handler: async (ctx, { table, cursor, batch }): Promise<{ total: number; withoutUserId: number; cursor: string; isDone: boolean }> => {
+    const page = await ctx.db.query(table).paginate({ cursor: cursor ?? null, numItems: Math.max(1, Math.floor(batch ?? PAGE_SIZE[table])) });
+    return { total: page.page.length, withoutUserId: page.page.filter((r) => (r as { userId?: string }).userId === undefined).length, cursor: page.continueCursor, isDone: page.isDone };
+  },
+});
+
+/**
+ * ADR-039: per table, the number of rows and the number of rows with no `userId`, read page by page (a query alone could not read a big table).
+ *   npx convex run jobs/migrations:userIdReport '{}'
+ * Returns `{ ownerUser, tables: { <table>: { total, withoutUserId } }, withoutUserId }` where the last field is the sum. Deploy point 2 may only
+ * be deployed when `withoutUserId` is 0 and `ownerUser` is true. Reads only; changes nothing.
+ */
+export const userIdReport = internalAction({
+  args: { batch: v.optional(v.number()) },
+  handler: async (ctx, { batch }): Promise<{ ownerUser: boolean; tables: Record<string, { total: number; withoutUserId: number }>; withoutUserId: number }> => {
+    const tables: Record<string, { total: number; withoutUserId: number }> = {};
+    let withoutUserId = 0;
+    for (const table of PER_USER_TABLES) {
+      const sum = { total: 0, withoutUserId: 0 };
+      let cursor: string | null = null;
+      for (;;) {
+        const r: { total: number; withoutUserId: number; cursor: string; isDone: boolean } = await ctx.runQuery(internal.jobs.migrations.userIdReportPage, { table, cursor, ...(batch !== undefined ? { batch } : {}) });
+        sum.total += r.total;
+        sum.withoutUserId += r.withoutUserId;
+        if (r.isDone) break;
+        cursor = r.cursor;
+      }
+      tables[table] = sum;
+      withoutUserId += sum.withoutUserId;
+    }
+    const ownerUser = await ctx.runQuery(internal.jobs.migrations.hasOwner, {});
+    return { ownerUser, tables, withoutUserId };
+  },
+});
+
+/** True when the `users` row of the owner exists (read by the report). */
+export const hasOwner = internalQuery({
+  args: {},
+  handler: async (ctx): Promise<boolean> => (await ctx.db.query("users").withIndex("by_userId", (q) => q.eq("userId", OWNER_USER_ID)).unique()) !== null,
 });

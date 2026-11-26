@@ -94,7 +94,7 @@ describe("the balance-board case (owner, 2026-11-24)", () => {
         { actionId: "a2", name: "replace_open_exercise", status: "applied", detail: "Single-leg stand → Balance board stand" },
       ],
     });
-    expect(await t.run((c) => c.db.query("aiCalls").withIndex("by_job", (q) => q.eq("job", "coach_turn")).collect())).toHaveLength(1);
+    expect(await t.run((c) => c.db.query("aiCalls").withIndex("by_user_and_job", (q) => q.eq("userId", "owner").eq("job", "coach_turn")).collect())).toHaveLength(1);
   });
 
   it("a repeated turn changes nothing more", async () => {
@@ -142,7 +142,7 @@ describe("the coach turn refuses what it may not do", () => {
     stubOpenAi(coach(() => ({ message: "Done.", actions: [{ id: "a1", name: "replace_open_exercise", arguments: { exerciseId: "e1", exercise: BALANCE } }, { id: "a2", name: "remove_open_exercise", arguments: { exerciseId: "e3" } }] })));
     await send("m1", "change the squat and drop the leg press", { ...CONTEXT, exerciseId: "e1" });
     await settle(t);
-    const [call] = await t.run((c) => c.db.query("aiCalls").withIndex("by_job", (q) => q.eq("job", "coach_turn")).collect());
+    const [call] = await t.run((c) => c.db.query("aiCalls").withIndex("by_user_and_job", (q) => q.eq("userId", "owner").eq("job", "coach_turn")).collect());
     expect(call).toMatchObject({
       ref: "m1",
       path: "ai",
@@ -244,9 +244,9 @@ describe("question, context and the old path", () => {
       expect(a.actions).toEqual([]);
     }
     expect(as.map((a) => a.turnId)).toEqual(["m1", "m2"]);
-    const calls = await t.run((c) => c.db.query("aiCalls").withIndex("by_job", (q) => q.eq("job", "coach_turn")).collect());
+    const calls = await t.run((c) => c.db.query("aiCalls").withIndex("by_user_and_job", (q) => q.eq("userId", "owner").eq("job", "coach_turn")).collect());
     expect(calls).toHaveLength(2);
-    expect(await t.run((c) => c.db.query("aiCalls").withIndex("by_job", (q) => q.eq("job", "chat")).collect())).toHaveLength(0);
+    expect(await t.run((c) => c.db.query("aiCalls").withIndex("by_user_and_job", (q) => q.eq("userId", "owner").eq("job", "chat")).collect())).toHaveLength(0);
   });
 
   it("rejects a context id that is too long", async () => {
@@ -296,7 +296,7 @@ describe("one prompt and the same data on every screen (owner's words 2026-11-24
     await e("eA", ["p1", "p2"]);
     await e("eB", ["p3"]);
     stubOpenAi(coach(() => ({ message: "ok", actions: [] })));
-    const images = async () => (await t.run((c) => c.db.query("aiCalls").withIndex("by_job", (q) => q.eq("job", "coach_turn")).order("desc").first()))!.images;
+    const images = async () => (await t.run((c) => c.db.query("aiCalls").withIndex("by_user_and_job", (q) => q.eq("userId", "owner").eq("job", "coach_turn")).order("desc").first()))!.images;
     await send("m1", "what do you know about my knee?", { screen: "chat" });
     await settle(t);
     expect(await images()).toBe(0);

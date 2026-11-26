@@ -20,7 +20,7 @@ const list = () => t.query(api.queries.places.list, { token: TOKEN });
 const changes = () => t.run((c) => c.db.query("placeChanges").collect());
 const saveSession = (s: unknown) => t.mutation(api.commands.sessions.save, { token: TOKEN, session: s as never });
 const setPlace = (sessionId: string, placeId: string | null) => t.mutation(api.commands.sessions.setPlace, { token: TOKEN, sessionId, placeId });
-const row = (sessionId: string) => t.run((c) => c.db.query("sessions").withIndex("by_sessionId", (q) => q.eq("sessionId", sessionId)).unique());
+const row = (sessionId: string) => t.run((c) => c.db.query("sessions").withIndex("by_user_and_sessionId", (q) => q.eq("userId", "owner").eq("sessionId", sessionId)).unique());
 
 describe("places:save and places:list", () => {
   it("lists places by name with placeId, name, text and updatedAt", async () => {

@@ -21,7 +21,7 @@ afterEach(() => {
 const first = (requestId: string, name = "Home", text?: string) => t.mutation(api.commands.start.request, { token: TOKEN, requestId, name, ...(text ? { text } : {}) });
 const again = (requestId: string, feedback?: string, previousRequestId?: string, extra: object = {}) =>
   t.mutation(api.commands.start.request, { token: TOKEN, requestId, ...(feedback !== undefined ? { feedback } : {}), ...(previousRequestId !== undefined ? { previousRequestId } : {}), ...extra });
-const row = (requestId: string) => t.run((c) => c.db.query("startRequests").withIndex("by_requestId", (q) => q.eq("requestId", requestId)).unique());
+const row = (requestId: string) => t.run((c) => c.db.query("startRequests").withIndex("by_user_and_requestId", (q) => q.eq("userId", "owner").eq("requestId", requestId)).unique());
 const get = (requestId: string) => t.query(api.queries.start.request, { token: TOKEN, requestId });
 const plan = (n: string) => ({ rationale: "r", exercises: [{ name: n, sets: [{ reps: 10, kg: 0, max: false }, { reps: 8, kg: 5, max: false }], note: "slow" }] });
 const answer = (n: string) => (job: string) => (job === "build_session" ? JSON.stringify({ kind: "gym", type: "Home", plan: plan(n) }) : "{}");

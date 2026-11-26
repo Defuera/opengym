@@ -45,7 +45,7 @@ const req = (proposalId: string, extra: Record<string, unknown> = { text: "knee 
 const rebuild = (proposalId: string, previousProposalId: string, feedback = "more cycling") => req(proposalId, { feedback, previousProposalId });
 const accept = (proposalId: string) => t.mutation(api.commands.proposals.accept, { token: TOKEN, proposalId });
 const decline = (proposalId: string) => t.mutation(api.commands.proposals.decline, { token: TOKEN, proposalId });
-const prop = (proposalId: string) => t.run((c) => c.db.query("proposals").withIndex("by_proposalId", (q) => q.eq("proposalId", proposalId)).unique());
+const prop = (proposalId: string) => t.run((c) => c.db.query("proposals").withIndex("by_user_and_proposalId", (q) => q.eq("userId", "owner").eq("proposalId", proposalId)).unique());
 const getP = (proposalId: string) => t.query(api.queries.proposals.get, { token: TOKEN, proposalId });
 const programs = () => t.run((c) => c.db.query("programs").collect());
 const list = () => t.query(api.queries.programs.list, { token: TOKEN });
@@ -315,7 +315,7 @@ describe("commands/proposals:accept, decline and the open list", () => {
     await settle(t);
     await decline("o6");
     await t.run(async (c) => {
-      const row = (await c.db.query("proposals").withIndex("by_proposalId", (q) => q.eq("proposalId", "o5")).unique())!;
+      const row = (await c.db.query("proposals").withIndex("by_user_and_proposalId", (q) => q.eq("userId", "owner").eq("proposalId", "o5")).unique())!;
       await c.db.patch(row._id, { status: "building" });
     });
     const open = await t.query(api.queries.proposals.open, { token: TOKEN });
@@ -372,7 +372,7 @@ describe("queries/programs:list and the session link", () => {
     const programId = await newProgram();
     const link = { programId, programWeek: 1, programSlot: 1, programKey: "A" };
     await save(session("s1", link));
-    const stored = await t.run((c) => c.db.query("sessions").withIndex("by_sessionId", (q) => q.eq("sessionId", "s1")).unique());
+    const stored = await t.run((c) => c.db.query("sessions").withIndex("by_user_and_sessionId", (q) => q.eq("userId", "owner").eq("sessionId", "s1")).unique());
     expect(stored).toMatchObject(link);
     const [p] = await list();
     expect(p!.now.slots.map((s) => s.done)).toEqual([true, false, false]);
@@ -440,7 +440,7 @@ describe("queries/programs:list and the session link", () => {
 describe("commands/start:request with previousPlan", () => {
   const plan = [{ name: "Squat", sets: [{ reps: 8, kg: 40, max: false }] }, { name: "Bike", measure: "time" as const, sets: [{ minutes: 20 }] }];
   const start = (requestId: string, extra: Record<string, unknown>) => t.mutation(api.commands.start.request, { token: TOKEN, requestId, ...extra } as never);
-  const row = (requestId: string) => t.run((c) => c.db.query("startRequests").withIndex("by_requestId", (q) => q.eq("requestId", requestId)).unique());
+  const row = (requestId: string) => t.run((c) => c.db.query("startRequests").withIndex("by_user_and_requestId", (q) => q.eq("userId", "owner").eq("requestId", requestId)).unique());
 
   it("keeps a text sent with previousPlan as the note for today", async () => {
     await start("n", { name: "Session A", text: " 2 hours session ", feedback: "too short", previousPlan: plan });

@@ -203,31 +203,20 @@ export default defineSchema({
 
   // Facts. Written only by commands (ADR-002).
   sessions: defineTable({ ...sessionFields, ...ownedBy })
-    .index("by_sessionId", ["sessionId"])
-    .index("by_endedAt", ["endedAt"])
-    .index("by_importId", ["importId"])
     .index("by_deletedAt", ["deletedAt"])
     .index("by_user_and_sessionId", ["userId", "sessionId"])
     .index("by_user_and_endedAt", ["userId", "endedAt"])
     .index("by_user_and_importId", ["userId", "importId"])
     .index("by_user_and_deletedAt", ["userId", "deletedAt"]),
   goals: defineTable({ ...goalFields, ...ownedBy })
-    .index("by_goalId", ["goalId"])
-    .index("by_createdAt", ["createdAt"])
-    .index("by_importId", ["importId"])
     .index("by_user_and_goalId", ["userId", "goalId"])
     .index("by_user_and_createdAt", ["userId", "createdAt"])
     .index("by_user_and_importId", ["userId", "importId"]),
   context: defineTable({ ...contextFields, ...ownedBy })
-    .index("by_itemId", ["itemId"])
-    .index("by_createdAt", ["createdAt"])
-    .index("by_importId", ["importId"])
     .index("by_user_and_itemId", ["userId", "itemId"])
     .index("by_user_and_createdAt", ["userId", "createdAt"])
     .index("by_user_and_importId", ["userId", "importId"]),
   entries: defineTable({ ...entryFields, read: v.optional(entryRead), ...ownedBy })
-    .index("by_entryId", ["entryId"])
-    .index("by_at", ["at"])
     .index("by_deletedAt", ["deletedAt"])
     .index("by_user_and_entryId", ["userId", "entryId"])
     .index("by_user_and_at", ["userId", "at"])
@@ -236,7 +225,7 @@ export default defineSchema({
   // Exercise art: one image per exercise name (two key poses side by side). The key is artKey(name).
   // The categories of log entries (ADR-031): one row per category, unique by `key` (the lower-cased label). The colour is chosen once,
   // by the AI or by plain code, and never changes by itself. `source` says which.
-  entryCategories: defineTable({ key: v.string(), label: v.string(), color: v.string(), createdAt: v.number(), source: v.union(v.literal("ai"), v.literal("rules")), ...ownedBy }).index("by_key", ["key"]).index("by_user_and_key", ["userId", "key"]),
+  entryCategories: defineTable({ key: v.string(), label: v.string(), color: v.string(), createdAt: v.number(), source: v.union(v.literal("ai"), v.literal("rules")), ...ownedBy }).index("by_user_and_key", ["userId", "key"]),
   exerciseArt: defineTable({
     key: v.string(),
     name: v.string(),
@@ -254,39 +243,28 @@ export default defineSchema({
     .index("by_key", ["key"])
     .index("by_updatedAt", ["updatedAt"]),
   // Tracker readings from the phone's health store (ADR-036). Written only by commands/tracker:sync. Never sessions, never written by an AI job.
-  trackerDays: defineTable({ ...trackerDayFields, updatedAt: v.number(), ...ownedBy }).index("by_date", ["date"]).index("by_user_and_date", ["userId", "date"]),
+  trackerDays: defineTable({ ...trackerDayFields, updatedAt: v.number(), ...ownedBy }).index("by_user_and_date", ["userId", "date"]),
   trackerWorkouts: defineTable({ ...trackerWorkoutFields, updatedAt: v.number(), ...ownedBy })
-    .index("by_workoutId", ["workoutId"])
-    .index("by_startedAt", ["startedAt"])
     .index("by_user_and_workoutId", ["userId", "workoutId"])
     .index("by_user_and_startedAt", ["userId", "startedAt"]),
-  places: defineTable({ ...placeFields, ...ownedBy }).index("by_placeId", ["placeId"]).index("by_user_and_placeId", ["userId", "placeId"]),
+  places: defineTable({ ...placeFields, ...ownedBy }).index("by_user_and_placeId", ["userId", "placeId"]),
   // Trace of every change of a place text (ADR-021), so a wrong line can be traced and undone. Never read by the app.
-  placeChanges: defineTable({ ...placeChangeFields, ...ownedBy }).index("by_placeId", ["placeId"]).index("by_user_and_placeId", ["userId", "placeId"]),
+  placeChanges: defineTable({ ...placeChangeFields, ...ownedBy }).index("by_user_and_placeId", ["userId", "placeId"]),
   // A program the person agreed to (see lib/programFields.ts). Written only by commands/proposals:accept and commands/programs.
   programs: defineTable({ ...programFields, ...ownedBy })
-    .index("by_programId", ["programId"])
     .index("by_deletedAt", ["deletedAt"])
     .index("by_user_and_programId", ["userId", "programId"])
     .index("by_user_and_deletedAt", ["userId", "deletedAt"]),
   // A coach proposal waiting for the person (a new or changed program). Not a fact. Written by commands/proposals and jobs/programs. Removed after 7 days.
   proposals: defineTable({ ...proposalFields, ...ownedBy })
-    .index("by_proposalId", ["proposalId"])
-    .index("by_createdAt", ["createdAt"])
-    .index("by_threadId", ["threadId"])
     .index("by_user_and_proposalId", ["userId", "proposalId"])
     .index("by_user_and_createdAt", ["userId", "createdAt"])
     .index("by_user_and_threadId", ["userId", "threadId"]),
-  limits: defineTable({ ...limitFields, importId: v.optional(v.string()), ...ownedBy }).index("by_limitId", ["limitId"]).index("by_user_and_limitId", ["userId", "limitId"]),
+  limits: defineTable({ ...limitFields, importId: v.optional(v.string()), ...ownedBy }).index("by_user_and_limitId", ["userId", "limitId"]),
   records: defineTable({ ...recordFields, ...ownedBy })
-    .index("by_recordId", ["recordId"])
-    .index("by_limitId", ["limitId"])
     .index("by_user_and_recordId", ["userId", "recordId"])
     .index("by_user_and_limitId", ["userId", "limitId"]),
   checkins: defineTable({ ...checkinFields, ...ownedBy })
-    .index("by_checkinId", ["checkinId"])
-    .index("by_limitId", ["limitId"])
-    .index("by_sessionId", ["sessionId"])
     .index("by_user_and_checkinId", ["userId", "checkinId"])
     .index("by_user_and_limitId", ["userId", "limitId"])
     .index("by_user_and_sessionId", ["userId", "sessionId"]),
@@ -300,8 +278,6 @@ export default defineSchema({
     createdAt: v.number(),
     ...ownedBy,
   })
-    .index("by_importId", ["importId"])
-    .index("by_createdAt", ["createdAt"])
     .index("by_user_and_importId", ["userId", "importId"])
     .index("by_user_and_createdAt", ["userId", "createdAt"]),
 
@@ -328,8 +304,6 @@ export default defineSchema({
     openSessionId: v.optional(v.string()),
     ...ownedBy,
   })
-    .index("by_threadId", ["threadId"])
-    .index("by_updatedAt", ["updatedAt"])
     .index("by_user_and_threadId", ["userId", "threadId"])
     .index("by_user_and_updatedAt", ["userId", "updatedAt"]),
   messages: defineTable({
@@ -360,9 +334,6 @@ export default defineSchema({
     createdAt: v.number(),
     ...ownedBy,
   })
-    .index("by_messageId", ["messageId"])
-    .index("by_threadId", ["threadId"])
-    .index("by_turnId", ["turnId"])
     .index("by_user_and_messageId", ["userId", "messageId"])
     .index("by_user_and_threadId", ["userId", "threadId"])
     .index("by_user_and_turnId", ["userId", "turnId"]),
@@ -375,7 +346,7 @@ export default defineSchema({
     kind: fileKind,
     createdAt: v.number(),
     ...ownedBy,
-  }).index("by_fileId", ["fileId"]).index("by_user_and_fileId", ["userId", "fileId"]),
+  }).index("by_user_and_fileId", ["userId", "fileId"]),
 
   // Read models. Written only by jobs. `version` is the dirtyAt of the rebuild that made the row;
   // a job result older than the stored row is dropped.
@@ -397,8 +368,6 @@ export default defineSchema({
     exercises: v.array(planExercise),
     ...ownedBy,
   })
-    .index("by_focus", ["focus"])
-    .index("by_activity", ["activityKey", "focusKey"])
     .index("by_user_and_focus", ["userId", "focus"])
     .index("by_user_and_activity", ["userId", "activityKey", "focusKey"]),
   predictions: defineTable({
@@ -416,7 +385,6 @@ export default defineSchema({
     modules: v.array(moduleSpec),
     ...ownedBy,
   })
-    .index("by_days", ["days"])
     .index("by_user_and_days", ["userId", "days"]),
   reviews: defineTable({
     sessionId: v.string(),
@@ -426,7 +394,7 @@ export default defineSchema({
     summary: v.string(),
     changes: v.array(v.string()),
     ...ownedBy,
-  }).index("by_sessionId", ["sessionId"]).index("by_user_and_sessionId", ["userId", "sessionId"]),
+  }).index("by_user_and_sessionId", ["userId", "sessionId"]),
 
   // A typed "Start session" request (ADR-016). Not a fact: it holds what the user typed and the proposal the AI job made.
   // Written by commands/start:request and jobs/startRequest. Removed after one day.
@@ -450,8 +418,6 @@ export default defineSchema({
     proposal: v.optional(startProposal),
     ...ownedBy,
   })
-    .index("by_requestId", ["requestId"])
-    .index("by_createdAt", ["createdAt"])
     .index("by_user_and_requestId", ["userId", "requestId"])
     .index("by_user_and_createdAt", ["userId", "createdAt"]),
 
@@ -481,7 +447,6 @@ export default defineSchema({
     ...ownedBy,
   })
     .index("by_at", ["at"])
-    .index("by_job", ["job", "at"])
     .index("by_user_and_at", ["userId", "at"])
     .index("by_user_and_job", ["userId", "job", "at"]),
 

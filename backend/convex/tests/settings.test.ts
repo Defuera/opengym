@@ -111,7 +111,7 @@ describe("coach model setting", () => {
       stubFetch(() => new Response('{"error":{"message":"model not found"}}', { status }));
       await setModel(t, `bad-${status}`);
       await t.action(internal.jobs.dashboards.build, { userId: "owner", days: 7, version: status });
-      const d = await t.run((c) => c.db.query("dashboards").withIndex("by_days", (q) => q.eq("days", 7)).unique());
+      const d = await t.run((c) => c.db.query("dashboards").withIndex("by_user_and_days", (q) => q.eq("userId", "owner").eq("days", 7)).unique());
       expect(d, String(status)).toMatchObject({ source: "rules" });
     }
   });

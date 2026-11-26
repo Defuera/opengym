@@ -20,7 +20,7 @@ afterEach(() => {
 
 const create = (threadId: string, extra: Record<string, unknown> = { about: { kind: "program" } }) => t.mutation(api.commands.threads.create, { token: TOKEN, threadId, ...extra } as never);
 const send = (messageId: string, text: string, threadId = "th1", fileIds?: string[], context: object = PROGRAM_CONTEXT) => t.mutation(api.commands.messages.send, { token: TOKEN, threadId, messageId, text, fileIds, context });
-const thread = (threadId = "th1") => t.run((c) => c.db.query("threads").withIndex("by_threadId", (q) => q.eq("threadId", threadId)).unique());
+const thread = (threadId = "th1") => t.run((c) => c.db.query("threads").withIndex("by_user_and_threadId", (q) => q.eq("userId", "owner").eq("threadId", threadId)).unique());
 const messages = (threadId = "th1") => t.query(api.queries.messages.list, { token: TOKEN, threadId });
 const proposals = () => t.run((c) => c.db.query("proposals").collect());
 const forThread = (threadId = "th1") => t.query(api.queries.proposals.forThread, { token: TOKEN, threadId });
@@ -28,7 +28,7 @@ const accept = (proposalId: string) => t.mutation(api.commands.proposals.accept,
 const BRIEF = "Write a two-week knee program.";
 /** A user message `turnId` in the thread and the stored answer of that turn with the given actions (the step the coach turn ends with). */
 async function saveTurn(threadId: string, turnId: string, actions: object[] = [{ id: "a1", name: "propose_program", arguments: { brief: BRIEF } }], context: object | undefined = PROGRAM_CONTEXT) {
-  if (!(await t.run((c) => c.db.query("messages").withIndex("by_messageId", (q) => q.eq("messageId", turnId)).unique()))) {
+  if (!(await t.run((c) => c.db.query("messages").withIndex("by_user_and_messageId", (q) => q.eq("userId", "owner").eq("messageId", turnId)).unique()))) {
     await t.run((c) => c.db.insert("messages", { userId: "owner", messageId: turnId, threadId, role: "user", text: "hello", fileIds: [], sources: [], ...(context ? { context } : {}), createdAt: Date.now() }));
   }
   return t.mutation(internal.jobs.coachTurn.save, { userId: "owner", threadId, turnId, message: "On it.", actions, sources: [] });
@@ -343,7 +343,7 @@ describe("accept, forThread, files, remove", () => {
     expect(await forThread("th2")).toEqual([]);
     // The program changes under the proposal: it is reported stale.
     await t.run(async (c) => {
-      const prog = await c.db.query("programs").withIndex("by_programId", (q) => q.eq("programId", programId)).unique();
+      const prog = await c.db.query("programs").withIndex("by_user_and_programId", (q) => q.eq("userId", "owner").eq("programId", programId)).unique();
       await c.db.patch(prog!._id, { rev: 2 });
     });
     expect((await forThread()).map((x) => x.status)).toEqual(["declined", "stale"]);

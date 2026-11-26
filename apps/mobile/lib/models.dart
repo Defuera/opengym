@@ -147,6 +147,7 @@ class Exercise {
     this.carry = false,
     this.note,
     this.comment,
+    this.planned,
   });
 
   String id;
@@ -166,6 +167,11 @@ class Exercise {
   /// it went that day. Saved with the session.
   String? comment;
 
+  /// The sets of the plan as they were when the exercise entered the session
+  /// (ADR-041). The person edits [sets], never this. Null: the exercise had no
+  /// plan (the person added it). Saved with the session, so the coach can judge it.
+  List<SetEntry>? planned;
+
   Map<String, dynamic> toJson() {
     return <String, dynamic>{
       'id': id,
@@ -176,10 +182,12 @@ class Exercise {
       'carry': carry,
       if (note != null) 'note': note,
       if (comment != null) 'comment': comment,
+      if (planned != null) 'planned': planned!.map((SetEntry s) => s.toContractJson()).toList(),
     };
   }
 
-  /// API shape: {name, sets}.
+  /// API shape: {name, sets}. A planned exercise also sends `planned` and
+  /// `planNote` (the coach's note of it, ADR-041).
   Map<String, dynamic> toContractJson() {
     final String n = name.length > 60 ? name.substring(0, 60) : name;
     return <String, dynamic>{
@@ -187,6 +195,8 @@ class Exercise {
       if (isTime) 'measure': measureTime,
       'sets': sets.take(12).map((SetEntry s) => s.toContractJson()).toList(),
       if (comment != null && comment!.trim().isNotEmpty) 'comment': cleanComment(comment),
+      if (planned != null) 'planned': planned!.take(30).map((SetEntry s) => s.toContractJson()).toList(),
+      if (planned != null && note != null && note!.trim().isNotEmpty) 'planNote': cutPlanNote(note!),
     };
   }
 
@@ -205,10 +215,50 @@ class Exercise {
       sets: list,
       fresh: j['fresh'] == true,
       carry: j['carry'] == true,
-      note: j['note'] is String ? j['note'] as String : null,
+      note: j['note'] is String ? j['note'] as String : (j['planNote'] is String ? j['planNote'] as String : null),
       comment: cleanComment(j['comment']),
+      planned: _readPlanned(j['planned']),
     );
   }
+}
+
+/// The planned sets of a stored or server exercise, or null when there are none to read.
+List<SetEntry>? _readPlanned(Object? raw) {
+  if (raw is! List) {
+    return null;
+  }
+  return <SetEntry>[
+    for (final Object? e in raw)
+      if (e is Map<String, dynamic>) SetEntry.fromJson(e),
+  ];
+}
+
+/// The longest plan note the server keeps.
+const int maxPlanNote = 400;
+
+/// A plan note cut to [maxPlanNote].
+String cutPlanNote(String t) => t.length > maxPlanNote ? t.substring(0, maxPlanNote) : t;
+
+/// A planned exercise that was removed or left with no done set (ADR-041): its
+/// name and the sets of the plan. The coach reads it as "skipped".
+class SkippedExercise {
+  const SkippedExercise({required this.name, this.measure = measureSets, required this.planned});
+
+  final String name;
+  final String measure;
+  final List<SetEntry> planned;
+
+  Map<String, dynamic> toContractJson() => <String, dynamic>{
+        'name': name.length > 60 ? name.substring(0, 60) : name,
+        if (measure == measureTime) 'measure': measureTime,
+        'planned': planned.take(30).map((SetEntry s) => s.toContractJson()).toList(),
+      };
+
+  factory SkippedExercise.fromJson(Map<String, dynamic> j) => SkippedExercise(
+        name: j['name'] as String,
+        measure: j['measure'] == measureTime ? measureTime : measureSets,
+        planned: _readPlanned(j['planned']) ?? <SetEntry>[],
+      );
 }
 
 class Session {
@@ -229,6 +279,7 @@ class Session {
     this.parse,
     this.placeId,
     this.program,
+    this.skipped,
   }) : exercises = exercises ?? <Exercise>[];
 
   String id;
@@ -267,6 +318,10 @@ class Session {
 
   /// The program, week and slot this session was started from, or null.
   ProgramLink? program;
+
+  /// Planned exercises that were removed or left with no done set (ADR-041).
+  /// Null: none (also for a session without a plan).
+  List<SkippedExercise>? skipped;
 
   /// The text of this session is still being read.
   bool get parsePending => parse == 'pending';
@@ -310,6 +365,10 @@ class Session {
       m['placeId'] = placeId;
     }
     _putProgram(m);
+    final List<SkippedExercise>? sk = skipped;
+    if (sk != null && sk.isNotEmpty) {
+      m['skipped'] = sk.map((SkippedExercise x) => x.toContractJson()).toList();
+    }
     return m;
   }
 
@@ -357,6 +416,14 @@ class Session {
     if (placeId != null) {
       m['placeId'] = placeId;
     }
+    final String? pn = planNote?.trim();
+    if (pn != null && pn.isNotEmpty) {
+      m['planNote'] = cutPlanNote(pn);
+    }
+    final List<SkippedExercise>? sk = skipped;
+    if (gym && sk != null && sk.isNotEmpty) {
+      m['skipped'] = sk.take(30).map((SkippedExercise x) => x.toContractJson()).toList();
+    }
     _putProgram(m);
     return m;
   }
@@ -401,8 +468,20 @@ class Session {
           : null,
       placeId: j['placeId'] is String && (j['placeId'] as String).isNotEmpty ? j['placeId'] as String : null,
       program: _readProgram(j),
+      skipped: _readSkipped(j['skipped']),
     );
   }
+}
+
+List<SkippedExercise>? _readSkipped(Object? raw) {
+  if (raw is! List) {
+    return null;
+  }
+  final List<SkippedExercise> out = <SkippedExercise>[
+    for (final Object? e in raw)
+      if (e is Map<String, dynamic>) SkippedExercise.fromJson(e),
+  ];
+  return out.isEmpty ? null : out;
 }
 
 /// The program link of a stored or server session, or null when any part is missing.

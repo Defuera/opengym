@@ -287,6 +287,7 @@ class AppStore extends ChangeNotifier {
     // The session as it is now, with the open sets: "Continue session" brings it back.
     final Session before = Session.fromJson(a.toJson());
     final List<Exercise> kept = <Exercise>[];
+    final List<SkippedExercise> skipped = <SkippedExercise>[...?a.skipped];
     for (final Exercise e in a.exercises) {
       final List<SetEntry> done = e.sets
           .where((SetEntry s) => s.done)
@@ -302,10 +303,14 @@ class AppStore extends ChangeNotifier {
               ))
           .toList();
       if (done.isNotEmpty) {
-        kept.add(Exercise(id: e.id, name: e.name, measure: e.measure, sets: done, comment: e.comment));
+        kept.add(Exercise(id: e.id, name: e.name, measure: e.measure, sets: done, comment: e.comment, note: e.note, planned: e.planned));
+      } else if (e.planned != null && e.planned!.isNotEmpty) {
+        // A planned exercise with no done set is skipped (ADR-041): the coach reads it.
+        skipped.add(SkippedExercise(name: e.name, measure: e.measure, planned: e.planned!));
       }
     }
     a.exercises = kept;
+    a.skipped = skipped.isEmpty ? null : skipped;
     String? savedId;
     if (kept.isNotEmpty) {
       a.endedAt = DateTime.now().millisecondsSinceEpoch;
@@ -565,7 +570,11 @@ class AppStore extends ChangeNotifier {
     }
     final String? keep = currentExercise?.id;
     final List<Exercise> list = a.exercises;
-    list.removeAt(v);
+    final Exercise gone = list.removeAt(v);
+    if (gone.planned != null && gone.planned!.isNotEmpty && !gone.sets.any((SetEntry s) => s.done)) {
+      // A planned exercise the person removed is skipped (ADR-041).
+      a.skipped = <SkippedExercise>[...?a.skipped, SkippedExercise(name: gone.name, measure: gone.measure, planned: gone.planned!)];
+    }
     final int k = list.indexWhere((Exercise e) => e.id == keep);
     _select(k >= 0 ? k : math.min(v, list.length - 1));
     _commit();

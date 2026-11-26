@@ -44,21 +44,25 @@ class PlanStore extends ChangeNotifier {
   /// The exercises of [plan] as fresh, not-yet-done session exercises.
   List<Exercise> exercisesFor(Plan plan) => exercisesOf(plan.exercises);
 
-  /// Plan exercises as fresh, not-yet-done session exercises.
+  /// Plan exercises as fresh, not-yet-done session exercises. Each keeps a copy
+  /// of the plan's sets in `planned` (ADR-041): the person edits `sets`, the
+  /// plan stays as it was when the exercise entered the session.
   List<Exercise> exercisesOf(List<PlanExercise> list) {
     return list.map((PlanExercise pe) {
+      List<SetEntry> sets() => pe.sets.map((PlanSet s) {
+            final double? min = s.minutes;
+            if (pe.measure == measureTime) {
+              return SetEntry.time(min ?? 10, distanceKm: s.distanceKm);
+            }
+            return SetEntry(reps: s.reps, kg: s.kg, isMax: s.max);
+          }).toList();
       return Exercise(
         id: newId(),
         name: pe.name,
         note: pe.note,
         measure: pe.measure == measureTime ? measureTime : measureSets,
-        sets: pe.sets.map((PlanSet s) {
-          final double? min = s.minutes;
-          if (pe.measure == measureTime) {
-            return SetEntry.time(min ?? 10, distanceKm: s.distanceKm);
-          }
-          return SetEntry(reps: s.reps, kg: s.kg, isMax: s.max);
-        }).toList(),
+        sets: sets(),
+        planned: sets(),
       );
     }).toList();
   }

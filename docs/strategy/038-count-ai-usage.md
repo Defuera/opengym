@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted
+Accepted (one clause is replaced by ADR-039: user ids on the other tables, and `currentUserId`)
 
 Note: the owner asked for this in the session of 2026-11-26, with the words quoted in `docs/requirements.md` ("let's count tokens so we can evaluate approximately how much it will cost us to run this app and for how much should we sell subscription"). The details below (field choices, the formulas) are the builder's and are not confirmed by the owner.
 
@@ -21,7 +21,7 @@ No token number was kept anywhere (verified by reading `backend/convex/functions
 - `ok` means the attempt gave a valid job result. A reply that the checks rejected is `ok: false` but still carries its tokens, because it was billed.
 - `inputTokens` includes the cached tokens (the OpenAI convention). For Anthropic the code adds `cache_read_input_tokens` and `cache_creation_input_tokens` to `input_tokens`; cache writes are then priced like normal input (inferred: Anthropic bills them higher; the app sends no cache control today, so none appear).
 - Providers report usage through an optional `onUsage` hook (chat: on the request; speech and image: a trailing options argument). The hook is called as soon as the answer is read, also when the reply is then found empty. `complete`, `transcribe` and `image` still return what they returned before.
-- One function, `functions/lib/currentUser.ts:currentUserId`, gives the user id of every usage write. It returns the constant `"owner"` today. The multi-user phase replaces its body. No other table gets a user id in this step.
+- One function, `functions/lib/currentUser.ts:currentUserId`, gave the user id of every usage write. It returned the constant `"owner"`. No other table got a user id in this step. (Replaced by ADR-039: `lib/auth.ts:requireUser` gives the user of a request, every per-user table has a `userId`, and `currentUserId` is gone.)
 - Prices are data: `functions/model/aiPrices.ts` holds a map from kind and model id to dollars. It is empty, because no price is in the repo. `costOf(row, prices)` returns `undefined` when the model or a needed price is unknown.
 - `queries/usage:summary` (token-checked) and the operator call `npm run usage` (internal `queries/usage:report`, no token) return totals, per day, per job, per model, per user, failed attempts, and per-user figures per active day and per 30 days. The formulas are in the doc comment of `queries/usage.ts`. A read is capped at 8000 rows and 366 days.
 

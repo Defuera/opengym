@@ -1,6 +1,6 @@
 import { internal } from "../_generated/api";
 import type { MutationCtx } from "../_generated/server";
-import { REBUILD_DEBOUNCE_MS } from "./constants";
+import { REBUILD_DEBOUNCE_MS, REBUILD_MAX_WAIT_MS } from "./constants";
 
 /**
  * Called by every command that changes facts of a user (ADR-039: the rebuild state is one row per user).
@@ -18,7 +18,10 @@ export async function markFactsChanged(ctx: MutationCtx, userId: string): Promis
     await ctx.scheduler.runAfter(REBUILD_DEBOUNCE_MS, internal.jobs.rebuild.run, { userId });
     return;
   }
-  if (state.runnerScheduled) {
+  // A runner that is scheduled picks the change up. One that has not run for longer than the debounce plus the max wait is lost (for example a job
+  // queued under the arguments of an older deploy, which the new code refuses): a new runner is scheduled, so the flag cannot block rebuilds for ever.
+  // Two runners are harmless: the second finds the flag off and returns.
+  if (state.runnerScheduled && now - state.dirtyAt <= REBUILD_DEBOUNCE_MS + REBUILD_MAX_WAIT_MS) {
     await ctx.db.patch(state._id, { dirtyAt: now });
     return;
   }

@@ -24,7 +24,12 @@ export interface OpenExercise {
   note?: string;
   /** What the person wrote about the exercise (ADR-029). */
   comment?: string;
+  /** The sets of the plan when the exercise entered the session (ADR-041). Absent: no plan. */
+  planned?: PlannedSet[];
 }
+
+/** One planned set kept with the exercise (ADR-041). */
+export type PlannedSet = { reps: number; kg: number; max: boolean } | { minutes: number; distanceKm?: number };
 
 /** A planned exercise as an outside writer gives it: no id, no done flag. */
 export interface PlannedExercise {
@@ -56,6 +61,8 @@ export function toOpenExercise(p: PlannedExercise, id: string): OpenExercise {
     fresh: false,
     carry: false,
     ...(p.note ? { note: p.note } : {}),
+    // The plan as it was when the exercise entered the session (ADR-041): the person edits `sets`, never this.
+    planned: p.sets.slice(0, OPEN_SESSION_MAX_SETS).map((s): PlannedSet => (time ? { minutes: s.minutes ?? 10, ...(s.distanceKm !== undefined ? { distanceKm: s.distanceKm } : {}) } : { reps: s.reps ?? 0, kg: s.kg ?? 0, max: s.max ?? false })),
   };
 }
 

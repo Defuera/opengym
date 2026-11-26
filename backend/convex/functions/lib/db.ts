@@ -25,6 +25,8 @@ export function toSession(d: Doc<"sessions">): Session {
     ...(d.programWeek !== undefined ? { programWeek: d.programWeek } : {}),
     ...(d.programSlot !== undefined ? { programSlot: d.programSlot } : {}),
     ...(d.programKey !== undefined ? { programKey: d.programKey } : {}),
+    ...(d.planNote !== undefined ? { planNote: d.planNote } : {}),
+    ...(d.skipped !== undefined ? { skipped: d.skipped } : {}),
   });
 }
 

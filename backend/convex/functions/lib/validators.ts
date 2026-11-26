@@ -14,6 +14,9 @@ export const planExercise = v.union(
   v.object({ name: v.string(), measure: v.optional(v.literal("sets")), sets: v.array(planSet), note: v.optional(v.string()) }),
   v.object({ name: v.string(), measure: v.literal("time"), sets: v.array(planTimeSet), note: v.optional(v.string()) }),
 );
+/** One set of the plan as it was when the exercise entered the session (ADR-041). */
+export const plannedSet = v.union(v.object({ reps: v.number(), kg: v.number(), max: v.boolean() }), v.object({ minutes: v.number(), distanceKm: v.optional(v.number()) }));
+export const skippedExercise = v.object({ name: v.string(), measure: v.optional(v.literal("time")), planned: v.array(plannedSet) });
 export const prediction = v.object({ kind: v.union(v.literal("gym"), v.literal("activity")), type: v.string(), focus: v.optional(v.string()), reason: v.string() });
 
 /** The compact copy of a plan kept on a feedback request: exercise names with their sets, no notes. */

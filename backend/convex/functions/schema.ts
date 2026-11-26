@@ -5,7 +5,7 @@ import { placeChangeFields, placeFields } from "./lib/placeFields";
 import { trackerDayFields, trackerWorkoutFields } from "./lib/trackerFields";
 import { programFields, proposalFields, threadAbout } from "./lib/programFields";
 import { aiUsageFields } from "./lib/usageFields";
-import { previousPlan, startProposal, startStatus, dashboardDays, feeling, limitRule, limitStatus, fileKind, threadStatus, goalKind, goalStatus, importCounts, importStatus, itemSource, moduleSpec, parseState, planExercise, prediction, proposalSource } from "./lib/validators";
+import { plannedSet, skippedExercise, previousPlan, startProposal, startStatus, dashboardDays, feeling, limitRule, limitStatus, fileKind, threadStatus, goalKind, goalStatus, importCounts, importStatus, itemSource, moduleSpec, parseState, planExercise, prediction, proposalSource } from "./lib/validators";
 
 /** One logged set. `reps` = completed reps; `failed` = one more rep was tried and not completed. */
 export const setEntry = v.object({
@@ -30,8 +30,8 @@ export const timeEntry = v.object({
  * `comment` is what the person wrote about this exercise in this session (ADR-029): how it went that day. A fact, the person's words.
  */
 export const exercise = v.union(
-  v.object({ name: v.string(), measure: v.optional(v.literal("sets")), sets: v.array(setEntry), comment: v.optional(v.string()) }),
-  v.object({ name: v.string(), measure: v.literal("time"), sets: v.array(timeEntry), comment: v.optional(v.string()) }),
+  v.object({ name: v.string(), measure: v.optional(v.literal("sets")), sets: v.array(setEntry), comment: v.optional(v.string()), planned: v.optional(v.array(plannedSet)), planNote: v.optional(v.string()) }),
+  v.object({ name: v.string(), measure: v.literal("time"), sets: v.array(timeEntry), comment: v.optional(v.string()), planned: v.optional(v.array(plannedSet)), planNote: v.optional(v.string()) }),
 );
 
 /** A fact: written only by the app or by an import the user started. Never by the AI. */
@@ -62,6 +62,9 @@ export const sessionFields = {
   programWeek: v.optional(v.number()),
   programSlot: v.optional(v.number()),
   programKey: v.optional(v.string()),
+  /** The plan this session started from (ADR-041), kept with the finished session so the coach can judge it: the coach's reason and the planned exercises that were removed or left with no done set. */
+  planNote: v.optional(v.string()),
+  skipped: v.optional(v.array(skippedExercise)),
 };
 
 /** A fact: a user goal. Client-made `goalId` makes writes idempotent. */
@@ -169,6 +172,8 @@ export const openSessionFields = {
   programWeek: v.optional(v.number()),
   programSlot: v.optional(v.number()),
   programKey: v.optional(v.string()),
+  /** Planned exercises the person removed (ADR-041). Written by the app. */
+  skipped: v.optional(v.array(skippedExercise)),
   exercises: v.array(
     v.object({
       id: v.string(),
@@ -181,6 +186,8 @@ export const openSessionFields = {
       note: v.optional(v.string()),
       /** What the person wrote about the exercise (ADR-029). Only the app writes it. */
       comment: v.optional(v.string()),
+      /** The sets of the plan when the exercise entered the session (ADR-041). Absent: no plan. */
+      planned: v.optional(v.array(plannedSet)),
     }),
   ),
 };

@@ -24,6 +24,22 @@ export const TimeEntrySchema = z
 export const EXERCISE_COMMENT_MAX = 1000;
 const ExerciseCommentSchema = z.string().min(1).max(EXERCISE_COMMENT_MAX).optional();
 
+/** One set of the plan as it was when the exercise entered the session (ADR-041): reps and kg, or minutes. Not a fact of the log. */
+export const PlannedSetSchema = z.union([
+  z.object({ reps: z.number().int().min(0).max(100), kg: z.number().min(0).max(500), max: z.boolean() }).strict(),
+  z.object({ minutes: z.number().gt(0).max(600), distanceKm: z.number().nonnegative().optional() }).strict(),
+]);
+export const PLAN_NOTE_MAX = 400;
+const PlannedFields = {
+  /** The sets of the plan when the exercise entered the session. Absent: the exercise had no plan. */
+  planned: z.array(PlannedSetSchema).max(30).optional(),
+  /** The coach's note of the exercise in the plan. */
+  planNote: z.string().max(PLAN_NOTE_MAX).optional(),
+};
+
+/** A planned exercise that was removed, or left with no done set. */
+export const SkippedExerciseSchema = z.object({ name: z.string().min(1).max(60), measure: z.literal("time").optional(), planned: z.array(PlannedSetSchema).max(30) });
+
 /** An exercise measured in sets and reps. `measure` is absent in all stored data: absent means "sets". */
 export const SetsExerciseSchema = z.object({
   name: z.string().min(1).max(60),
@@ -31,6 +47,7 @@ export const SetsExerciseSchema = z.object({
   // Strict: minutes/distanceKm must not appear on a sets entry, so a mixed exercise is rejected.
   sets: z.array(SetEntrySchema.strict()).max(12),
   comment: ExerciseCommentSchema,
+  ...PlannedFields,
 });
 
 /** An exercise measured in time. Usually one entry; more are allowed (intervals). */
@@ -39,6 +56,7 @@ export const TimeExerciseSchema = z.object({
   measure: z.literal("time"),
   sets: z.array(TimeEntrySchema).max(12),
   comment: ExerciseCommentSchema,
+  ...PlannedFields,
 });
 
 export const ExerciseSchema = z.union([SetsExerciseSchema, TimeExerciseSchema]);
@@ -66,6 +84,9 @@ export const SessionSchema = z
     programWeek: z.number().int().min(1).optional(),
     programSlot: z.number().int().min(1).optional(),
     programKey: z.string().min(1).max(12).optional(),
+    /** The plan this session started from (ADR-041): the coach's reason, and the planned exercises that were removed or left with no done set. Absent: no plan. */
+    planNote: z.string().max(PLAN_NOTE_MAX).optional(),
+    skipped: z.array(SkippedExerciseSchema).max(30).optional(),
   })
   .refine((s) => s.type.trim().length > 0, { message: "type must not be blank", path: ["type"] })
   .refine((s) => s.kind === "gym" || s.exercises.length === 0, {

@@ -66,6 +66,7 @@ class ComposerBar extends StatelessWidget {
 
   /// Starts a voice recording. Null: the composer has no mic button. The mic
   /// shows in the place of send while the field is empty and nothing is attached.
+  /// With attachments and an empty field it shows left of send. With typed text it is gone.
   final VoidCallback? onMic;
 
   /// Opens the camera at once (one tap, no sheet). Null: no camera button.
@@ -141,10 +142,11 @@ class ComposerBar extends StatelessWidget {
             ),
             const SizedBox(height: 4),
           ],
-          if (attachments.isNotEmpty && !recording) ...<Widget>[
+          if (attachments.isNotEmpty) ...<Widget>[
+            // Stays while recording and transcribing; the person can still see what goes with the text, but cannot remove it then.
             AttachmentStrip(
               items: attachments,
-              onRemove: (int i) => onRemoveAttachment?.call(i),
+              onRemove: (recording || transcribing) ? null : (int i) => onRemoveAttachment?.call(i),
             ),
             const SizedBox(height: 6),
           ],
@@ -202,22 +204,25 @@ class ComposerBar extends StatelessWidget {
                       ListenableBuilder(
                         listenable: controller,
                         builder: (BuildContext c, Widget? w) {
-                          final bool ready =
-                              controller.text.trim().isNotEmpty || attachments.isNotEmpty;
+                          final bool hasText = controller.text.trim().isNotEmpty;
+                          final bool ready = hasText || attachments.isNotEmpty;
+                          final Widget mic = _RoundTap(
+                            key: const ValueKey<String>('composer-mic'),
+                            icon: Icons.mic_none,
+                            onTap: off ? null : onMic,
+                          );
                           if (onSend == null || (!ready && !sending && onMic != null)) {
-                            if (onMic == null) {
-                              return const SizedBox.shrink();
-                            }
-                            return _RoundTap(
-                              key: const ValueKey<String>('composer-mic'),
-                              icon: Icons.mic_none,
-                              onTap: off ? null : onMic,
-                            );
+                            return onMic == null ? const SizedBox.shrink() : mic;
                           }
-                          return _SendTap(
+                          final Widget send = _SendTap(
                             sending: sending,
                             onTap: (sending || off || !ready) ? null : onSend,
                           );
+                          // Attachments and an empty field: the mic stays beside send, so the person can still speak the comment.
+                          if (onMic != null && !sending && !hasText) {
+                            return Row(mainAxisSize: MainAxisSize.min, children: <Widget>[mic, send]);
+                          }
+                          return send;
                         },
                       ),
                     ],

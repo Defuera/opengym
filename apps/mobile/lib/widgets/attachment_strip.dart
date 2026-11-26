@@ -17,7 +17,8 @@ class AttachmentStrip extends StatelessWidget {
   const AttachmentStrip({super.key, required this.items, required this.onRemove});
 
   final List<StripItem> items;
-  final ValueChanged<int> onRemove;
+  /// Null: no remove marks (the composer is recording).
+  final ValueChanged<int>? onRemove;
 
   @override
   Widget build(BuildContext context) {
@@ -30,11 +31,11 @@ class AttachmentStrip extends StatelessWidget {
         itemBuilder: (BuildContext c, int i) {
           final StripItem it = items[i];
           if (it.image != null) {
-            return AttachmentThumb(image: it.image, onRemove: () => onRemove(i));
+            return AttachmentThumb(image: it.image, onRemove: onRemove == null ? null : () => onRemove!(i));
           }
           return Align(
             alignment: Alignment.bottomCenter,
-            child: AttachmentChip(name: it.name, onRemove: () => onRemove(i)),
+            child: AttachmentChip(name: it.name, onRemove: onRemove == null ? null : () => onRemove!(i)),
           );
         },
       ),

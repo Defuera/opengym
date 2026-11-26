@@ -52,7 +52,7 @@ void main() {
     expect(levelFromDb(double.nan), 0);
   });
 
-  testWidgets('the mic shows only with an empty field and nothing attached', (WidgetTester t) async {
+  testWidgets('the mic shows alone with an empty field and nothing attached, and goes with typed text', (WidgetTester t) async {
     final FakeConvexClient fake = FakeConvexClient();
     final AppDeps d = await testDeps(fake,
         voice: FakeVoiceRecorder(), pickers: FakePickers(photo: UploadItem(path: 'p.png', name: 'p.png', bytes: tinyPng)));
@@ -66,13 +66,14 @@ void main() {
     await t.enterText(find.byType(TextField), '');
     await t.pump();
     expect(find.byKey(_mic), findsOneWidget);
-    // An attachment alone brings send back.
+    // An attachment alone brings send back, and the mic stays beside it.
     await t.tap(find.byKey(const ValueKey<String>('composer-plus')));
     await t.pumpAndSettle();
     await t.tap(find.text('Photo library'));
     await t.pumpAndSettle();
-    expect(find.byKey(_mic), findsNothing);
+    expect(find.byKey(_mic), findsOneWidget);
     expect(find.byKey(_send), findsOneWidget);
+    expect(t.getRect(find.byKey(_mic)).right, lessThanOrEqualTo(t.getRect(find.byKey(_send)).left));
   });
 
   testWidgets('mic and send sit in the same spot with the same size', (WidgetTester t) async {

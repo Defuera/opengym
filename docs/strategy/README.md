@@ -56,3 +56,4 @@ This directory holds the Architecture Decision Records (ADRs) for Gym Days (Open
 | [039](039-tables-ready-for-more-users.md) | Every Table and Function Is Ready for More Than One User | Accepted |
 | [040](040-one-reply-for-quick-messages.md) | One Reply for Quick Messages | Accepted |
 | [041](041-coach-debrief-after-a-session.md) | The Coach Debrief After a Session: an Evaluation That Ends With a Question | Accepted |
+| [042](042-session-fits-the-routine.md) | The Coach Builds a Session That Fits the Routine and Follows the Program Order | Part 1 Accepted, part 2 Proposed |

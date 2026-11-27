@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -124,6 +126,8 @@ class SetEditorCard extends StatelessWidget {
                   unit: 'reps',
                   onMinus: () => onRepsChanged(-1),
                   onPlus: () => onRepsChanged(1),
+                  onRepeatMinus: () => onRepsChanged(-10),
+                  onRepeatPlus: () => onRepsChanged(10),
                   onValueTap: onRepsSet == null ? null : () => _typeReps(context),
                   valueKey: const ValueKey<String>('reps-value'),
                 ),
@@ -135,6 +139,8 @@ class SetEditorCard extends StatelessWidget {
                   unit: isZeroKg(kg) ? 'body' : 'kg',
                   onMinus: () => onKgChanged(-2.5),
                   onPlus: () => onKgChanged(2.5),
+                  onRepeatMinus: () => onKgChanged(-10),
+                  onRepeatPlus: () => onKgChanged(10),
                   onValueTap: onKgSet == null ? null : () => _typeKg(context),
                   valueKey: const ValueKey<String>('kg-value'),
                 ),
@@ -191,7 +197,10 @@ class _FailedPill extends StatelessWidget {
 }
 
 /// A value with a minus and a plus button. A long press on a button calls
-/// the optional [onLongMinus] or [onLongPlus] (a larger step).
+/// the optional [onLongMinus] or [onLongPlus] once (a larger step). Or, with
+/// [onRepeatMinus] or [onRepeatPlus], it calls that at once and then again
+/// every [stepperRepeatInterval] until release, or until the value stops
+/// changing (a limit was reached).
 class NumberStepper extends StatelessWidget {
   const NumberStepper({
     super.key,
@@ -201,6 +210,8 @@ class NumberStepper extends StatelessWidget {
     required this.onPlus,
     this.onLongMinus,
     this.onLongPlus,
+    this.onRepeatMinus,
+    this.onRepeatPlus,
     this.onValueTap,
     this.valueKey,
   });
@@ -217,12 +228,20 @@ class NumberStepper extends StatelessWidget {
   final VoidCallback onPlus;
   final VoidCallback? onLongMinus;
   final VoidCallback? onLongPlus;
+  final VoidCallback? onRepeatMinus;
+  final VoidCallback? onRepeatPlus;
 
   @override
   Widget build(BuildContext context) {
     return Row(
       children: <Widget>[
-        StepperButton(icon: Icons.remove, onTap: onMinus, onLongPress: onLongMinus),
+        StepperButton(
+          icon: Icons.remove,
+          onTap: onMinus,
+          onLongPress: onLongMinus,
+          onRepeat: onRepeatMinus,
+          value: value,
+        ),
         Expanded(
           child: GestureDetector(
             key: onValueTap == null ? null : (valueKey ?? const ValueKey<String>('stepper-value')),
@@ -251,33 +270,100 @@ class NumberStepper extends StatelessWidget {
             ),
           ),
         ),
-        StepperButton(icon: Icons.add, onTap: onPlus, onLongPress: onLongPlus),
+        StepperButton(
+          icon: Icons.add,
+          onTap: onPlus,
+          onLongPress: onLongPlus,
+          onRepeat: onRepeatPlus,
+          value: value,
+        ),
       ],
     );
   }
 }
 
-class StepperButton extends StatelessWidget {
-  const StepperButton({super.key, required this.icon, required this.onTap, this.onLongPress});
+/// Time between repeats while a stepper button is held. The first repeat
+/// fires when the long press is recognised (about 500 ms after touch).
+const Duration stepperRepeatInterval = Duration(milliseconds: 400);
+
+class StepperButton extends StatefulWidget {
+  const StepperButton({
+    super.key,
+    required this.icon,
+    required this.onTap,
+    this.onLongPress,
+    this.onRepeat,
+    this.value,
+  });
 
   final IconData icon;
   final VoidCallback onTap;
   final VoidCallback? onLongPress;
 
+  /// Called at once on long press, then every [stepperRepeatInterval] until
+  /// release. Wins over [onLongPress].
+  final VoidCallback? onRepeat;
+
+  /// The shown value. While repeating, an unchanged value between two repeats
+  /// means a limit was reached, and the repeat stops. Null: never stops this way.
+  final String? value;
+
+  @override
+  State<StepperButton> createState() => _StepperButtonState();
+}
+
+class _StepperButtonState extends State<StepperButton> {
+  Timer? _timer;
+  String? _valueAtLastFire;
+
+  void _fire() {
+    HapticFeedback.lightImpact();
+    _valueAtLastFire = widget.value;
+    widget.onRepeat!();
+  }
+
+  void _start() {
+    _stop();
+    _fire();
+    _timer = Timer.periodic(stepperRepeatInterval, (Timer _) {
+      if (widget.value != null && widget.value == _valueAtLastFire) {
+        _stop();
+        return;
+      }
+      _fire();
+    });
+  }
+
+  void _stop() {
+    _timer?.cancel();
+    _timer = null;
+  }
+
+  @override
+  void dispose() {
+    _stop();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
+    final VoidCallback? once = widget.onLongPress;
+    final bool repeat = widget.onRepeat != null;
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: () {
         HapticFeedback.lightImpact();
-        onTap();
+        widget.onTap();
       },
-      onLongPress: onLongPress == null
+      onLongPress: repeat || once == null
           ? null
           : () {
               HapticFeedback.mediumImpact();
-              onLongPress!();
+              once();
             },
+      onLongPressStart: repeat ? (LongPressStartDetails _) => _start() : null,
+      onLongPressEnd: repeat ? (LongPressEndDetails _) => _stop() : null,
+      onLongPressCancel: repeat ? _stop : null,
       child: Container(
         width: 42,
         height: 52,
@@ -287,7 +373,7 @@ class StepperButton extends StatelessWidget {
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: OG.ink, width: 2),
         ),
-        child: Icon(icon, size: 22, color: OG.ink),
+        child: Icon(widget.icon, size: 22, color: OG.ink),
       ),
     );
   }

@@ -24,6 +24,8 @@ export interface OpenExercise {
   note?: string;
   /** What the person wrote about the exercise (ADR-029). */
   comment?: string;
+  /** The photos of the comment (ADR-043): ids of the person's own files. */
+  commentFileIds?: string[];
   /** The sets of the plan when the exercise entered the session (ADR-041). Absent: no plan. */
   planned?: PlannedSet[];
 }
@@ -43,8 +45,8 @@ export const OPEN_SESSION_MAX_EXERCISES = 40;
 export const OPEN_SESSION_MAX_SETS = 30;
 
 const key = (name: string) => name.trim().toLowerCase().replace(/\s+/g, " ");
-/** The person's own work on an exercise: a done set or a comment. An outside writer never touches it. */
-export const hasDone = (e: OpenExercise) => e.sets.some((s) => s.done) || !!e.comment;
+/** The person's own work on an exercise: a done set or a comment (text or photos). An outside writer never touches it. */
+export const hasDone = (e: OpenExercise) => e.sets.some((s) => s.done) || !!e.comment || (e.commentFileIds?.length ?? 0) > 0;
 
 /** A planned exercise in the open shape: no set done, sets cut to the cap. */
 export function toOpenExercise(p: PlannedExercise, id: string): OpenExercise {

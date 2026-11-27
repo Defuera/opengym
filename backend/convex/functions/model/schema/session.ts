@@ -23,6 +23,9 @@ export const TimeEntrySchema = z
 /** What the person wrote about an exercise in this session (ADR-029): how it went that day. Their own words. */
 export const EXERCISE_COMMENT_MAX = 1000;
 const ExerciseCommentSchema = z.string().min(1).max(EXERCISE_COMMENT_MAX).optional();
+/** The photos of the comment (ADR-043): ids of the person's own files. Not a text; the files are read through the user's own file rows. */
+export const EXERCISE_COMMENT_FILES_MAX = 10;
+const ExerciseCommentFilesSchema = z.array(z.string().min(1).max(100)).max(EXERCISE_COMMENT_FILES_MAX).optional();
 
 /** One set of the plan as it was when the exercise entered the session (ADR-041): reps and kg, or minutes. Not a fact of the log. */
 export const PlannedSetSchema = z.union([
@@ -47,6 +50,7 @@ export const SetsExerciseSchema = z.object({
   // Strict: minutes/distanceKm must not appear on a sets entry, so a mixed exercise is rejected.
   sets: z.array(SetEntrySchema.strict()).max(12),
   comment: ExerciseCommentSchema,
+  commentFileIds: ExerciseCommentFilesSchema,
   ...PlannedFields,
 });
 
@@ -56,6 +60,7 @@ export const TimeExerciseSchema = z.object({
   measure: z.literal("time"),
   sets: z.array(TimeEntrySchema).max(12),
   comment: ExerciseCommentSchema,
+  commentFileIds: ExerciseCommentFilesSchema,
   ...PlannedFields,
 });
 

@@ -26,7 +26,7 @@ A finished session held one note for the whole session, and a time entry could h
 
 ## Proposed next steps (not built)
 
-- Step 2: photos on the comment (`fileIds`, files in the `files` table), with an upload queue on the phone for offline use.
+- Step 2: photos on the comment. Built as `commentFileIds` by ADR-043 (without an upload queue: photos need a connection).
 - Step 3: an action "Make this a limit" on a comment; a job that reads a photo of a machine display and proposes numbers, which the person confirms before the app saves them (the AI never writes facts, ADR-002); voice.
 
 ## Consequences

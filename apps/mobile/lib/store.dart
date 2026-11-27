@@ -303,7 +303,7 @@ class AppStore extends ChangeNotifier {
               ))
           .toList();
       if (done.isNotEmpty) {
-        kept.add(Exercise(id: e.id, name: e.name, measure: e.measure, sets: done, comment: e.comment, note: e.note, planned: e.planned));
+        kept.add(Exercise(id: e.id, name: e.name, measure: e.measure, sets: done, comment: e.comment, commentFileIds: e.commentFileIds, note: e.note, planned: e.planned));
       } else if (e.planned != null && e.planned!.isNotEmpty) {
         // A planned exercise with no done set is skipped (ADR-041): the coach reads it.
         skipped.add(SkippedExercise(name: e.name, measure: e.measure, planned: e.planned!));
@@ -595,13 +595,16 @@ class AppStore extends ChangeNotifier {
   }
 
   /// Sets what the person wrote about the open exercise (ADR-029). An empty text removes it.
-  void setComment(String? text) {
+  /// [fileIds] are the photos of the comment (ADR-043), uploaded already; with no text they still make a comment.
+  void setComment(String? text, [List<String> fileIds = const <String>[]]) {
     final Exercise? e = currentExercise;
     final String? next = cleanComment(text);
-    if (e == null || e.comment == next) {
+    final List<String> files = cleanCommentFileIds(fileIds);
+    if (e == null || (e.comment == next && listEquals(e.commentFileIds, files))) {
       return;
     }
     e.comment = next;
+    e.commentFileIds = files;
     _commit();
   }
 

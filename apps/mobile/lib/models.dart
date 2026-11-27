@@ -147,6 +147,7 @@ class Exercise {
     this.carry = false,
     this.note,
     this.comment,
+    this.commentFileIds = const <String>[],
     this.planned,
   });
 
@@ -167,6 +168,9 @@ class Exercise {
   /// it went that day. Saved with the session.
   String? comment;
 
+  /// The photos of the comment (ADR-043): ids of files on the server, in the order the person added them. Empty: none.
+  List<String> commentFileIds;
+
   /// The sets of the plan as they were when the exercise entered the session
   /// (ADR-041). The person edits [sets], never this. Null: the exercise had no
   /// plan (the person added it). Saved with the session, so the coach can judge it.
@@ -182,6 +186,7 @@ class Exercise {
       'carry': carry,
       if (note != null) 'note': note,
       if (comment != null) 'comment': comment,
+      if (commentFileIds.isNotEmpty) 'commentFileIds': commentFileIds,
       if (planned != null) 'planned': planned!.map((SetEntry s) => s.toContractJson()).toList(),
     };
   }
@@ -195,6 +200,7 @@ class Exercise {
       if (isTime) 'measure': measureTime,
       'sets': sets.take(12).map((SetEntry s) => s.toContractJson()).toList(),
       if (comment != null && comment!.trim().isNotEmpty) 'comment': cleanComment(comment),
+      if (commentFileIds.isNotEmpty) 'commentFileIds': commentFileIds.take(maxCommentFiles).toList(),
       if (planned != null) 'planned': planned!.take(30).map((SetEntry s) => s.toContractJson()).toList(),
       if (planned != null && note != null && note!.trim().isNotEmpty) 'planNote': cutPlanNote(note!),
     };
@@ -217,6 +223,7 @@ class Exercise {
       carry: j['carry'] == true,
       note: j['note'] is String ? j['note'] as String : (j['planNote'] is String ? j['planNote'] as String : null),
       comment: cleanComment(j['comment']),
+      commentFileIds: cleanCommentFileIds(j['commentFileIds']),
       planned: _readPlanned(j['planned']),
     );
   }
@@ -516,6 +523,23 @@ class OpenRemote {
 
 /// The longest comment on an exercise (the server's limit).
 const int maxExerciseComment = 1000;
+
+/// The most photos on one comment (the server's limit).
+const int maxCommentFiles = 10;
+
+/// The file ids of a comment as they are stored: only texts, at most [maxCommentFiles], no repeat.
+List<String> cleanCommentFileIds(Object? raw) {
+  if (raw is! List) {
+    return <String>[];
+  }
+  final List<String> out = <String>[];
+  for (final Object? v in raw) {
+    if (v is String && v.isNotEmpty && v.length <= 100 && !out.contains(v) && out.length < maxCommentFiles) {
+      out.add(v);
+    }
+  }
+  return out;
+}
 
 /// A comment as it is stored: trimmed, cut to [maxExerciseComment], null when empty or not a text.
 String? cleanComment(Object? raw) {

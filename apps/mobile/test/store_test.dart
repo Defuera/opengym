@@ -324,6 +324,32 @@ void _storeSetAndOrderTests() {
     expect(Session.fromJson(saved.toJson()).exercises.single.comment, 'I feel my shoulder a bit');
   });
 
+  test('the photos of a comment are kept through finish, in the open wire and the server shape (ADR-043)', () async {
+    final AppStore store = await _newStore(InMemorySessionRepository());
+    store.begin(focus: 'Push', prepared: pushPlan());
+    store.setComment('level 9', <String>['f1', 'f2', 'f1', '']); // a repeat and an empty id are dropped
+    expect(store.currentExercise!.commentFileIds, <String>['f1', 'f2']);
+    expect(store.activeDirty, isTrue);
+    expect((openSessionWire(store.active!)['exercises'] as List<dynamic>).first['commentFileIds'], <String>['f1', 'f2']);
+    store.setComment(null, <String>['f1']); // photos alone are a comment too
+    expect(store.currentExercise!.comment, isNull);
+    expect(store.currentExercise!.commentFileIds, <String>['f1']);
+    store.completeSet();
+    final Session saved = store.sessionById(store.finish()!)!;
+    expect(saved.exercises.single.commentFileIds, <String>['f1']);
+    expect((saved.toContractJson()['exercises'] as List<dynamic>).single['commentFileIds'], <String>['f1']);
+    expect(Session.fromJson(saved.toJson()).exercises.single.commentFileIds, <String>['f1']);
+  });
+
+  test('no photos: the key is absent, and 11 photos are cut to 10', () async {
+    final AppStore store = await _newStore(InMemorySessionRepository());
+    store.begin(focus: 'Push', prepared: pushPlan());
+    store.setComment('note');
+    expect(store.currentExercise!.toJson().containsKey('commentFileIds'), isFalse);
+    store.setComment('note', <String>[for (int i = 0; i < 11; i++) 'f$i']);
+    expect(store.currentExercise!.commentFileIds, hasLength(10));
+  });
+
   test('an empty comment removes it; a long one is cut', () async {
     final AppStore store = await _newStore(InMemorySessionRepository());
     store.begin(focus: 'Push', prepared: pushPlan());

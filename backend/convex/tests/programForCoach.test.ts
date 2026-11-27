@@ -57,6 +57,14 @@ describe("the program link of a proposed session", () => {
     expect(programLinkFor(program, "A", [done(1), done(3)], "2026-11-27")).toEqual({ programId: "p1", week: 2, slot: 1, key: "A" });
   });
 
+  it("links the slot by its key when the chosen activity differs from the activity of the slot", () => {
+    // The person tapped "Gym"; the coach takes the bike day (activity "Cycling") because it comes first in the week.
+    const input = buildStartInput({ name: "Gym" }, { sessions: [done(1)], goals: [], context: [], limits: [], places: [], entries: [], programs: [program], now: Date.UTC(2026, 10, 24, 9) });
+    expect(input.job.programsThePersonFollows).toBeDefined();
+    expect(input.job.name).toBe("Gym");
+    expect(programLinkFor(program, "C", [done(1)], "2026-11-24")).toEqual({ programId: "p1", week: 1, slot: 2, key: "C" });
+  });
+
   it("is none when every slot with the key is done, the key is unknown, or the program does not run", () => {
     expect(programLinkFor(program, "A", [done(1), done(3)], "2026-11-23")).toBeNull();
     expect(programLinkFor(program, "Z", [], "2026-11-23")).toBeNull();

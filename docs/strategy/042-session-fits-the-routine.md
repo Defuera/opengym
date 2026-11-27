@@ -4,6 +4,7 @@
 
 - Part 1 (time budget from the routine): Rejected by the owner on 2026-11-27. See the decision.
 - Part 2 (program order): Proposed. The agent decided it as a coach-quality change. The owner has not confirmed it.
+- Part 3 (be adaptive): Accepted by the owner on 2026-11-27.
 
 ## Date
 
@@ -39,6 +40,27 @@ Decision:
 - It picks another session only when the request or the note asks for something else, or the chosen activity plainly cannot hold the slot (Swimming, Skiing, Yoga).
 - When the note of the slot says other work can go there, the coach adds that work from `recentSessions`.
 - The program link needs no change. Verified (read of `programLinkFor` and a test): the link is found by the key the coach names and does not compare the activity, so `type` (the activity, exactly as given) can differ from the activity of the slot.
+
+### 3. Be adaptive (Accepted)
+
+The owner, 2026-11-27: "please figure out why it is not adaptive. Maybe we should just tell it to be adaptive. That's it."
+
+Replaced in the `buildSession` prompt (`ROLE`):
+
+- The paragraph "The minutes are a promise" (the minutes arithmetic: cardio and holds, about two minutes a set, three on a heavy lift, one more to change the exercise, and "leave a whole exercise out") is replaced by one short sentence. It tells the coach to be adaptive: read `recentSessions` and `notesFromTheUser`, fit today's session to the routine even when the program session as written is bigger, and say in `plan.rationale` what was left out.
+- In the program paragraph, "Keep its exercises, their order, the sets and the reps as written for this phase" became "Keep to its exercises, sets and reps for this phase as far as the person's routine allows".
+- Not changed: `TIME_RULE`, `SHAPE` and the code checks (`fitPlanToMinutes` in `model/proposals.ts`).
+
+Evidence, replayed by the reviewing agent on the owner's real inputs of 26 and 27 Nov 2026, 1-2 samples each:
+
+| Input | Before | After |
+|---|---|---|
+| Friday (bike + upper body) | 85 min, 21 sets | 55 min, 10 sets, the cut named in the rationale |
+| Thursday (gym legs) | 10 exercises, 25 sets (60-62 min claimed) | the same |
+
+Thursday did not change because that is the program session as written.
+
+Not solved: the program's gym-legs session itself is 25 sets. The coach follows it. Making that session smaller is a program change, not a prompt change.
 
 ## Consequences
 

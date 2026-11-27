@@ -13,7 +13,7 @@ import { executeActions } from "../lib/coachToolsDb";
 import { logThreadContent } from "../lib/logDraftDb";
 import { proposalQuestion } from "../lib/proposalDb";
 import { knownCategories } from "../lib/categoriesDb";
-import { loadEntryImages } from "../lib/entriesDb";
+import { COACH_IMAGE_MAX, commentInViewImageFiles, loadEntryImages } from "../lib/entriesDb";
 import { fileByFileId, loadAttachment } from "../lib/files";
 import { coachQuestion } from "../lib/messageFields";
 import { allPlaces } from "../lib/placesDb";
@@ -62,6 +62,9 @@ export const input = internalQuery({
     const chat = await readChatInput(ctx, userId, threadId, messageId, hint.entryId);
     if (!chat || !trigger) return null;
     const row = await ctx.db.query("openSession").withIndex("by_user", (q) => q.eq("userId", userId)).unique();
+    // The photos of the comment on the exercise in view go to the coach like the photos of the entry in view (ADR-043).
+    const inView = row && hint.exerciseId ? row.exercises.find((e) => e.id === hint.exerciseId) : undefined;
+    const commentImages = await commentInViewImageFiles(ctx, userId, inView?.commentFileIds);
     const places = await allPlaces(ctx, userId);
     const thread = await threadByThreadId(ctx, userId, threadId);
     // A thread about a program is the program chat whatever the message says (a program thread is the program chat whatever the context says).
@@ -92,7 +95,8 @@ export const input = internalQuery({
       ...(programs.length > 0 ? { programsThePersonFollows: programs } : {}),
       ...(unanswered.length > 0 ? { attachedToThisMessage: chat.files.filter((f) => unanswered.includes(f.fileId)).map((f) => f.name) } : {}),
     };
-    return { chat: log ? { ...chat, files: log.files } : chat, turn, log: log ? { photosOnly: log.photosOnly } : null, base: { turnId: messageId, screen: screen.screen, ...(row ? { openSessionId: row.id, rev: row.rev } : {}) } };
+    const withComment = { ...chat, entryImages: [...chat.entryImages, ...commentImages].slice(0, COACH_IMAGE_MAX) };
+    return { chat: log ? { ...withComment, files: log.files } : withComment, turn, log: log ? { photosOnly: log.photosOnly } : null, base: { turnId: messageId, screen: screen.screen, ...(row ? { openSessionId: row.id, rev: row.rev } : {}) } };
   },
 });
 

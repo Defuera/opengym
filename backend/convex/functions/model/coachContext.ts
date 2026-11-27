@@ -78,7 +78,7 @@ export function assembleCoachContext(data: CoachData, files: AttachedFile[], sup
   }
   if (supportsImages && entryImages.length) {
     images.push(...entryImages);
-    parts.push("Photos of the log entry the person has open are shown to you.");
+    parts.push("Photos of the log entry or of the exercise comment the person has open are shown to you.");
   }
 
   for (const f of files) {

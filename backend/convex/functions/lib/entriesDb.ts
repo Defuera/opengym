@@ -52,6 +52,20 @@ export async function entryInViewImageFiles(ctx: Reader, userId: string, entryId
   return out;
 }
 
+/**
+ * The image files of the comment on the exercise the person has open (ADR-043), at most COACH_IMAGE_MAX. Looked up through the person's own
+ * file rows, so an id that is not theirs gives nothing. Photos of other exercises are not sent.
+ */
+export async function commentInViewImageFiles(ctx: Reader, userId: string, fileIds: string[] | undefined): Promise<FileDoc[]> {
+  const out: FileDoc[] = [];
+  for (const id of fileIds ?? []) {
+    const f = await fileByFileId(ctx, userId, id);
+    if (f && f.kind === "image") out.push(fileDoc(f));
+    if (out.length >= COACH_IMAGE_MAX) break;
+  }
+  return out;
+}
+
 /** The image files of entries of the last 24 hours, newest entry first, at most 4. Only for building a session, which reads the last day (not for a chat). */
 export async function entryImageFiles(ctx: Reader, userId: string, now: number): Promise<FileDoc[]> {
   const docs = await liveEntryDocs(ctx, userId, { order: "desc", from: now - COACH_IMAGE_HOURS * 3_600_000, to: now, limit: COACH_ENTRY_MAX });

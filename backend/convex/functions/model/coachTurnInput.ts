@@ -36,6 +36,7 @@ export function exerciseForPrompt(e: OpenExercise) {
     sets: e.sets.map(setLine(e)),
     ...(e.note ? { coachNote: e.note } : {}),
     ...(e.comment ? { commentFromThePerson: e.comment } : {}),
+    ...(e.commentFileIds?.length ? { commentPhotos: e.commentFileIds.length } : {}),
     personsWork: hasDone(e),
   };
 }

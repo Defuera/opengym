@@ -97,6 +97,15 @@ function plannedProblem(current: OpenExercise[], p: PlannedExercise, skipId?: st
   return null;
 }
 
+const sameSet = (a: OpenSet, b: OpenSet) => a.reps === b.reps && a.kg === b.kg && a.minutes === b.minutes && a.distanceKm === b.distanceKm;
+
+/** The coach may repeat the done sets first. Drops the leading coach sets that equal the done sets, in order, as far as they match. */
+function dropRepeatedDone(done: OpenSet[], fresh: OpenSet[]): OpenSet[] {
+  let n = 0;
+  while (n < done.length && n < fresh.length && sameSet(done[n]!, fresh[n]!)) n++;
+  return fresh.slice(n);
+}
+
 /**
  * Replaces ONE exercise, in its place, with a planned one. Every other exercise stays byte for byte.
  * An exercise with the person's work (a done set or a comment) keeps its id, name, measure, comment and every done set exactly as logged
@@ -114,7 +123,7 @@ export function replaceOne(current: OpenExercise[], exerciseId: string, p: Plann
     return { ok: true, exercises };
   }
   if (key(p.name) !== key(old.name) || (p.measure === "time") !== (old.measure === "time")) return { ok: false, reason: "the person has done a set of it or commented on it: only its not-done sets can change, not its name or kind" };
-  const fresh = toOpenExercise(p, id).sets;
+  const fresh = dropRepeatedDone(old.sets.filter((s) => s.done), toOpenExercise(p, id).sets);
   const sets: OpenSet[] = [];
   let next = 0;
   for (const s of old.sets) {

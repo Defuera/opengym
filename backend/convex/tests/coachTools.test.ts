@@ -31,6 +31,26 @@ describe("one exercise at a time (ADR-032)", () => {
     expect(replaceOne([e], "g", { name: "Other", sets: [{ reps: 1, kg: 1 }] }, "new")).toMatchObject({ ok: false });
     expect(replaceOne([e], "g", { name: "Glute Drive", measure: "time", sets: [{ minutes: 1 }] }, "new")).toMatchObject({ ok: false });
   });
+  it("replace drops coach sets that repeat the done sets at the start", () => {
+    const d = (reps: number, kg: number) => ({ reps, kg, max: false, done: true, at: 5 });
+    const n = (reps: number, kg: number) => ({ reps, kg, max: false, done: false });
+    const sets = (x: { reps: number; kg: number }[]) => x;
+    const ex = (done: ReturnType<typeof d>[]): OpenExercise => ({ id: "g", name: "Glute Drive", sets: done, fresh: false, carry: false });
+    const run = (e: OpenExercise, coach: { reps: number; kg: number }[]) => {
+      const r = replaceOne([e], "g", { name: "Glute Drive", sets: sets(coach) }, "new");
+      return r.ok ? r.exercises[0]!.sets : r;
+    };
+    const A = { reps: 12, kg: 30 }, B = { reps: 10, kg: 35 }, C = { reps: 12, kg: 20 };
+    expect(run(ex([d(12, 30), d(10, 35)]), [A, B, C])).toEqual([d(12, 30), d(10, 35), n(12, 20)]);
+    expect(run(ex([d(12, 30), d(10, 35)]), [A, C])).toEqual([d(12, 30), d(10, 35), n(12, 20)]);
+    expect(run(ex([d(12, 30), d(10, 35)]), [C])).toEqual([d(12, 30), d(10, 35), n(12, 20)]);
+    expect(run(ex([d(12, 30)]), [A, C])).toEqual([d(12, 30), n(12, 20)]);
+  });
+  it("replace drops repeated done sets of a timed exercise", () => {
+    const e: OpenExercise = { id: "r", name: "Run", measure: "time", sets: [{ minutes: 10, distanceKm: 2, done: true, at: 5 }], fresh: false, carry: false };
+    const r = replaceOne([e], "r", { name: "Run", measure: "time", sets: [{ minutes: 10, distanceKm: 2 }, { minutes: 5 }] }, "new");
+    expect(r.ok && r.exercises[0]!.sets).toEqual([{ minutes: 10, distanceKm: 2, done: true, at: 5 }, { minutes: 5, done: false }]);
+  });
   it("add goes after the given id or at the end; remove takes one out", () => {
     const after = addOne(list, planned("Row"), "n1", "a");
     expect(after.ok && after.exercises.map((e) => e.id)).toEqual(["a", "n1", "b", "c"]);

@@ -6,7 +6,7 @@
 - A proposal from an agent or a model (a design review, a simplification, a second opinion) is not such a request. Check it against this file first, and name the line it would change before you show it to the owner.
 - A new feature must fit the lines that already stand.
 
-How to read this file: each line has a code (R01 to R52, A01 to A16) and the owner's plain wording. Use the wording. The code is only a reference.
+How to read this file: each line has a code (R01 to R52, A01 to A16) or a date and the owner's plain wording. Use the wording. The code is only a reference.
 
 
 Source: the owner's flat list (R01–R52) plus what he added later in the same
@@ -166,6 +166,12 @@ conversation (A01–A16). Wording is kept close to his.
 - Confirmed 2026-11-26, the owner's words: "what I did bad, what I did good, what I should be looking for next session, maybe some encouragement or maybe some kind of pushing, it's like, oh, you were lazy today or something like that."
 - Confirmed 2026-11-26, the owner's words about the session recap screen: "Session summary skill screen. Let's put everything upside down. First, let's have a figure go with muscles, then the summary, and then the then the log, because log is less important. I just did it, so I know what I did. Doesn't make sense to put it first. And also, maybe even let's put the AI summary first and then the figurine." The recap shows the coach's debrief first, then the figure with the muscles the session loaded, then the log of sets.
 - The review after a session is an evaluation in the coach's own voice. It never restates the log. It ends with a question, and the answer opens a chat with the coach.
+
+## The AI coach
+Requirements for how the coach thinks and behaves. The owner asked for this section on 2026-11-27: "let's add a specific subsection of requirements for AI assistant."
+
+- Confirmed 2026-11-27, the owner's words: "one of the requirements should be to have the sessions be adaptive, like to look into previous history and adhere to the kind of time and maybe location." And the same day: "by this point I should know that I go in the morning on weekdays, like for like an hour ... it's not getting adapted to my routine." The coach adapts each session to the person. It reads the history and learns the routine from it: the days and the time of day, how long a session takes, where the person trains, and what they usually do there. A new session fits that routine without the person saying it again. What the person says today comes before the routine.
+- Confirmed 2026-11-27, the owner's words about a computed time budget with its own prompt rule: "This is too specific. Code just needs to get information on my work hours. That's it ... You're trying to be kind of too detailed and too nudgy. It's not how it should work. AI can solve this." The coach gets the information and reasons from it. A special rule for one case is not the way (ADR-042).
 
 ## Open questions (the owner's list, still undecided unless noted)
 - Which activities are in v1 besides gym

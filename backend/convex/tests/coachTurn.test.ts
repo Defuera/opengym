@@ -127,14 +127,24 @@ describe("the balance-board case (owner, 2026-11-24)", () => {
 });
 
 describe("the coach turn refuses what it may not do", () => {
-  it("an exercise with a done set is not replaced", async () => {
+  it("an exercise with a done set is not renamed or changed in kind", async () => {
     await world();
     stubOpenAi(coach(() => ({ message: "Changed squat.", actions: [{ id: "a1", name: "replace_open_exercise", arguments: { exerciseId: "e1", exercise: BALANCE } }] })));
     await send("m1", "change the squat", { ...CONTEXT, exerciseId: "e1" });
     await settle(t);
     expect(await open()).toMatchObject({ rev: 1, updatedBy: "app" });
     const a = (await messages())[1]!;
-    expect(a.actions).toEqual([{ actionId: "a1", name: "replace_open_exercise", status: "rejected", reason: "the person has done a set of it or commented on it" }]);
+    expect(a.actions).toEqual([{ actionId: "a1", name: "replace_open_exercise", status: "rejected", reason: "the person has done a set of it or commented on it: only its not-done sets can change, not its name or kind" }]);
+  });
+
+  it("an exercise with a done set gets new not-done sets and keeps the done set as logged (Glute Drive, 2026-11-27)", async () => {
+    await world();
+    stubOpenAi(coach(() => ({ message: "Set 2 is now 12 x 20 kg.", actions: [{ id: "a1", name: "replace_open_exercise", arguments: { exerciseId: "e1", exercise: { name: "Squat", sets: [{ reps: 12, kg: 20 }] } } }] })));
+    await send("m1", "I try 20 kg", { ...CONTEXT, exerciseId: "e1" });
+    await settle(t);
+    const sets = (await open()).session!.exercises.find((e) => e.id === "e1")!.sets;
+    expect(sets).toEqual([set(true), { reps: 12, kg: 20, max: false, done: false }]);
+    expect((await messages())[1]!.actions).toMatchObject([{ actionId: "a1", status: "applied" }]);
   });
 
   it("the trace of the turn in aiCalls holds the result of each action, the rejected ones with the reason", async () => {
@@ -147,7 +157,7 @@ describe("the coach turn refuses what it may not do", () => {
       ref: "m1",
       path: "ai",
       actions: [
-        { actionId: "a1", name: "replace_open_exercise", status: "rejected", reason: "the person has done a set of it or commented on it" },
+        { actionId: "a1", name: "replace_open_exercise", status: "rejected", reason: "the person has done a set of it or commented on it: only its not-done sets can change, not its name or kind" },
         { actionId: "a2", name: "remove_open_exercise", status: "applied" },
       ],
     });

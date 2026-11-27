@@ -97,15 +97,32 @@ function plannedProblem(current: OpenExercise[], p: PlannedExercise, skipId?: st
   return null;
 }
 
-/** Replaces ONE exercise, in its place, with a planned one. Every other exercise stays byte for byte. The person's work is never replaced. */
+/**
+ * Replaces ONE exercise, in its place, with a planned one. Every other exercise stays byte for byte.
+ * An exercise with the person's work (a done set or a comment) keeps its id, name, measure, comment and every done set exactly as logged
+ * (same values, same done flag, same position); the planned sets replace only the not-done sets, in order. Not-done slots beyond the plan are dropped, extra planned sets follow the last set.
+ */
 export function replaceOne(current: OpenExercise[], exerciseId: string, p: PlannedExercise, id: string): OneChange {
   const i = current.findIndex((e) => e.id === exerciseId);
   if (i < 0) return { ok: false, reason: "no such exercise in the open session" };
-  if (hasDone(current[i]!)) return { ok: false, reason: LOCKED };
+  const old = current[i]!;
   const problem = plannedProblem(current, p, exerciseId);
   if (problem) return { ok: false, reason: problem };
   const exercises = current.slice();
-  exercises[i] = toOpenExercise(p, id);
+  if (!hasDone(old)) {
+    exercises[i] = toOpenExercise(p, id);
+    return { ok: true, exercises };
+  }
+  if (key(p.name) !== key(old.name) || (p.measure === "time") !== (old.measure === "time")) return { ok: false, reason: "the person has done a set of it or commented on it: only its not-done sets can change, not its name or kind" };
+  const fresh = toOpenExercise(p, id).sets;
+  const sets: OpenSet[] = [];
+  let next = 0;
+  for (const s of old.sets) {
+    if (s.done) sets.push(s);
+    else if (next < fresh.length) sets.push(fresh[next++]!);
+  }
+  sets.push(...fresh.slice(next));
+  exercises[i] = { ...old, sets: sets.slice(0, OPEN_SESSION_MAX_SETS), ...(p.note ? { note: p.note } : {}) };
   return { ok: true, exercises };
 }
 

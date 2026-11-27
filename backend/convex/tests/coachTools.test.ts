@@ -15,9 +15,21 @@ describe("one exercise at a time (ADR-032)", () => {
   });
   it("never touches the person's work, nor a name already there", () => {
     expect(replaceOne(list, "a", planned("Row"), "n1")).toMatchObject({ ok: false });
+    expect(replaceOne(list, "c", { name: "Ex c", sets: [{ reps: 5, kg: 20 }] }, "n1")).toMatchObject({ ok: true });
     expect(removeOne(list, "c")).toMatchObject({ ok: false });
     expect(replaceOne(list, "b", planned("ex A"), "n1")).toMatchObject({ ok: false, reason: '"ex A" is in the session already' });
     expect(replaceOne(list, "zz", planned("Row"), "n1")).toMatchObject({ ok: false });
+  });
+  it("replace on an exercise with done sets keeps every done set, in place, and replaces only the not-done ones", () => {
+    const d = (reps: number, kg: number) => ({ reps, kg, max: false, done: true, at: 5 });
+    const n = (reps: number, kg: number) => ({ reps, kg, max: false, done: false });
+    const e: OpenExercise = { id: "g", name: "Glute Drive", sets: [d(12, 30), n(12, 40), d(10, 35), n(8, 40)], fresh: false, carry: false, comment: "knee" };
+    const r = replaceOne([e], "g", { name: " glute drive ", note: "x", sets: [{ reps: 12, kg: 20 }] }, "new");
+    expect(r.ok && r.exercises[0]).toEqual({ ...e, note: "x", sets: [d(12, 30), n(12, 20), d(10, 35)] });
+    const more = replaceOne([e], "g", { name: "Glute Drive", sets: [{ reps: 1, kg: 1 }, { reps: 2, kg: 2 }, { reps: 3, kg: 3 }] }, "new");
+    expect(more.ok && more.exercises[0]!.sets).toEqual([d(12, 30), n(1, 1), d(10, 35), n(2, 2), n(3, 3)]);
+    expect(replaceOne([e], "g", { name: "Other", sets: [{ reps: 1, kg: 1 }] }, "new")).toMatchObject({ ok: false });
+    expect(replaceOne([e], "g", { name: "Glute Drive", measure: "time", sets: [{ minutes: 1 }] }, "new")).toMatchObject({ ok: false });
   });
   it("add goes after the given id or at the end; remove takes one out", () => {
     const after = addOne(list, planned("Row"), "n1", "a");

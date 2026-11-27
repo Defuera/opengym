@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../app/deps.dart';
 import '../models.dart';
 import '../planner.dart';
 import '../store.dart';
@@ -17,6 +18,8 @@ import '../widgets/note_box.dart';
 import '../widgets/og_sheet.dart';
 import '../widgets/set_list.dart';
 import '../widgets/time_list.dart';
+import 'comment_photos.dart';
+import 'comment_sheet.dart';
 
 /// Maps the active session's exercises onto the carousel.
 class ExerciseStrip extends StatelessWidget {
@@ -88,9 +91,12 @@ class ExerciseStrip extends StatelessWidget {
 
 /// Maps the current exercise onto the big card (title plus list of sets).
 class SessionPanel extends StatelessWidget {
-  const SessionPanel({super.key, required this.store, this.art});
+  const SessionPanel({super.key, required this.store, this.art, this.deps});
 
   final AppStore store;
+
+  /// With it the exercise has its comment line (the shared composer needs the app's stores). Null: no comment line.
+  final AppDeps? deps;
 
   /// The exercise pictures. Null: no picture shows.
   final ExerciseArtStore? art;
@@ -108,11 +114,12 @@ class SessionPanel extends StatelessWidget {
     final ImageProvider? image = art?.imageFor(ex.name);
     return ListenableBuilder(
       listenable: store.countdown,
-      builder: (BuildContext c, Widget? w) => _panel(ex, image),
+      builder: (BuildContext c, Widget? w) => _panel(c, ex, image),
     );
   }
 
-  Widget _panel(Exercise ex, ImageProvider? image) {
+  Widget _panel(BuildContext context, Exercise ex, ImageProvider? image) {
+    final AppDeps? d = deps;
     final CountdownStore cd = store.countdown;
     int? cdIndex;
     for (int i = 0; i < ex.sets.length; i++) {
@@ -177,7 +184,12 @@ class SessionPanel extends StatelessWidget {
           onToggle: store.toggleSet,
           checkPrefix: 'set-check-${store.curEx}',
         ),
-        CommentLine(comment: ex.comment, onChanged: store.setComment),
+        if (d != null)
+          CommentLine(
+            comment: ex.comment,
+            photos: commentPhotoTiles(context, d, ex.commentFileIds),
+            onEdit: () => editExerciseComment(context, d, store, ex),
+          ),
       ],
     );
   }

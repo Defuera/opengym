@@ -17,6 +17,7 @@ import '../widgets/recap_exercise_card.dart';
 import '../widgets/sheet_link.dart';
 import '../widgets/review_card.dart';
 import 'chat_screen.dart';
+import 'comment_photos.dart';
 import 'entry_screen.dart';
 import 'place_mark_view.dart';
 import 'session_edit_screen.dart';
@@ -273,7 +274,7 @@ class _SessionRecapScreenState extends State<SessionRecapScreen> {
           ),
         ),
       for (final Exercise e in s.exercises) ...<Widget>[
-        RecapExerciseCard(name: e.name, lines: <String>[for (final SetEntry x in e.sets) setLine(x)], comment: e.comment),
+        RecapExerciseCard(name: e.name, lines: <String>[for (final SetEntry x in e.sets) setLine(x)], comment: e.comment, photos: commentPhotoTiles(context, widget.deps, e.commentFileIds)),
         const SizedBox(height: 10),
       ],
       if (note != null && note.isNotEmpty) ...<Widget>[

@@ -454,7 +454,8 @@ class _SessionScreenState extends State<SessionScreen>
                                                 (BuildContext c, Widget? w) =>
                                                     SessionPanel(
                                                         store: store,
-                                                        art: deps!.art),
+                                                        art: deps!.art,
+                                                        deps: deps),
                                           ),
                                   ),
                                 ),

@@ -15,6 +15,8 @@ export interface FactsEntry {
   kind: string;
   text: string;
   at: number;
+  /** True when the entry made a session (the log chat, ADR-032): its text is the workout the person wrote, not a body note. */
+  madeSession?: boolean;
 }
 
 export interface FactsOptions {
@@ -126,11 +128,19 @@ export function reviewFacts(all: Session[], s: Session, o: FactsOptions = {}) {
   const programs = (o.programs ?? []).filter((p) => p.status === "active").flatMap((p) => {
     const now = programNow(p, day, (week, slot) => all.some((x) => x.programId === p.programId && x.programWeek === week && x.programSlot === slot), () => []);
     if (now.state !== "running") return [];
-    return [{ title: p.title, week: `${now.week} of ${now.weeks}`, sessionsDoneThisWeek: now.slots.filter((x) => x.done).length, sessionsPlannedThisWeek: now.slots.length, daysToProgramEnd: (dayNumber(p.endsOn) ?? 0) - (dayNumber(day) ?? 0) }];
+    // Done = every finished session that ended in the program week (the same week the "of N" slots belong to), up to the day of the
+    // reviewed session, which is counted too. Not only sessions linked to a slot: a session started outside the program still counts.
+    const weekStart = (dayNumber(p.startsOn) ?? 0) + (now.week - 1) * 7;
+    const today = dayNumber(day) ?? weekStart;
+    const done = [...all.filter((x) => x.id !== s.id), s].filter((x) => {
+      const d = dayNumber(localDate(x.endedAt, tz)) ?? -1;
+      return d >= weekStart && d <= Math.min(weekStart + 6, today);
+    }).length;
+    return [{ title: p.title, week: `${now.week} of ${now.weeks}`, sessionsDoneThisWeek: done, sessionsPlannedThisWeek: now.slots.length, daysToProgramEnd: (dayNumber(p.endsOn) ?? 0) - (dayNumber(day) ?? 0) }];
   });
 
   const comments = s.exercises.filter((e) => e.comment).map((e) => ({ exercise: e.name, text: e.comment! }));
-  const body = (o.entries ?? []).filter((e) => activityKey(e.kind) === "body" && localDate(e.at, tz) === day).map((e) => ({ time: localTime(e.at, tz), text: e.text }));
+  const body = (o.entries ?? []).filter((e) => activityKey(e.kind) === "body" && !e.madeSession && e.text.trim() !== "" && localDate(e.at, tz) === day).map((e) => ({ time: localTime(e.at, tz), text: e.text }));
 
   return {
     session: { activity: s.type, ...(s.focus ? { focus: s.focus } : {}), date: day, ...(minutes !== undefined ? { minutes } : {}), ...(s.distanceKm !== undefined ? { distanceKm: s.distanceKm } : {}), doneSets: setCount(s), ...(usual ? { usual } : {}) },

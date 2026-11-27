@@ -19,7 +19,7 @@ export const input = internalQuery({
     const doc = await sessionBySessionId(ctx, userId, sessionId);
     const tz = await userTimezone(ctx, userId);
     // The entries of the day of the session (the body log of the day is part of the facts) and the programs of the person.
-    const entries = doc ? (await liveEntryDocs(ctx, userId, { order: "asc", from: doc.startedAt - 86_400_000, to: doc.endedAt + 86_400_000, limit: 100 })).map((e) => ({ kind: e.read?.kind ?? "", text: e.text, at: e.at })) : [];
+    const entries = doc ? (await liveEntryDocs(ctx, userId, { order: "asc", from: doc.startedAt - 86_400_000, to: doc.endedAt + 86_400_000, limit: 100 })).map((e) => ({ kind: e.read?.kind ?? "", text: e.text, at: e.at, madeSession: e.read?.made?.sessionId !== undefined })) : [];
     return doc ? buildReviewInput(await allSessions(ctx, userId), toSession(doc), await limitsForAi(ctx, userId), { goals: await allGoals(ctx, userId), context: await allContext(ctx, userId), tracker: await coachTracker(ctx, userId, doc.startedAt, tz), timeZone: tz, entries, programs: await liveProgramDocs(ctx, userId) }) : null;
   },
 });

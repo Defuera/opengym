@@ -131,4 +131,28 @@ describe("program, comments and the body log", () => {
     expect(f.noteFromThePerson).toBe("tired");
     expect(f.bodyLogToday).toEqual([{ time: "07:00", text: "left knee a bit sore" }]);
   });
+
+  it("leaves out body entries with empty text and entries that made a session", () => {
+    const s = sess("c", 0, [ex("Squat", [[5, 80]])]);
+    const entries = [
+      { kind: "Body", text: "", at: T0 - 60_000 },
+      { kind: "Body", text: "  ", at: T0 - 60_000 },
+      { kind: "Body", text: "legs 3x10 then bike", at: T0 - 60_000, madeSession: true },
+      { kind: "body", text: "shoulder tight", at: T0 - 120_000, madeSession: false },
+    ];
+    expect(reviewFacts([s], s, { entries, timeZone: "UTC" }).bodyLogToday).toEqual([{ time: "09:58", text: "shoulder tight" }]);
+  });
+
+  it("counts every finished session of the program week, linked to a slot or not, and the reviewed one", () => {
+    // Program from Thu 2026-11-19; week 2 = 26 Nov to 2 Dec. Reviewed session on 26 Nov; two earlier ones on 24 and 25 Nov are week 1.
+    const p = { ...program, startsOn: "2026-11-19", endsOn: "2026-12-16", week: ["A", "B", "A", "B", "A"] } as ProgramForCoach;
+    const s = sess("c", 0, [ex("Squat", [[5, 80]])]);
+    const a = sess("a", 2, [ex("Squat", [[5, 80]])]);
+    const b = sess("b", 1, [ex("Squat", [[5, 80]])]);
+    const f = reviewFacts([a, b, s], s, { programs: [p], timeZone: "UTC" });
+    expect(f.program![0]).toMatchObject({ week: "2 of 4", sessionsDoneThisWeek: 1, sessionsPlannedThisWeek: 5 });
+    // A second one on 27 Nov is after the reviewed day: not counted. One on 26 Nov before it is counted.
+    const early = sess("e", 0, [ex("Row", [[5, 40]])], { startedAt: T0 - 5 * 3600_000, endedAt: T0 - 4 * 3600_000 });
+    expect(reviewFacts([a, b, early, s], s, { programs: [p], timeZone: "UTC" }).program![0]!.sessionsDoneThisWeek).toBe(2);
+  });
 });

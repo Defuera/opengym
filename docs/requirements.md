@@ -66,6 +66,7 @@ conversation (A01–A16). Wording is kept close to his.
 - R29 Exercise list above it
 - R30 Reorder, discard, add from that list
 - R31 Every action one or two clicks
+- Confirmed 2026-11-27, the owner's words (with a screenshot of the set editor): "When I long press to increase reps or weight, I want you to start adding 10 kilos or reps, and then until I release 10, 10, 10, 10." A long press on + or − of reps or kilograms steps by 10 and repeats until release.
 
 ## Chat
 - R32 Chat mode for advice

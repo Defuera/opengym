@@ -22,10 +22,11 @@ ImageProvider? imageForUpload(UploadItem u) {
 /// anything else. A message from this device shows the local photo at once;
 /// older ones use the file address from the server.
 class ChatFileThumb extends StatefulWidget {
-  const ChatFileThumb({super.key, required this.coach, required this.fileId});
+  const ChatFileThumb({super.key, required this.coach, required this.fileId, this.size = 72});
 
   final CoachStore coach;
   final String fileId;
+  final double size;
 
   @override
   State<ChatFileThumb> createState() => _ChatFileThumbState();
@@ -49,21 +50,21 @@ class _ChatFileThumbState extends State<ChatFileThumb> {
     final UploadItem? local = _local;
     if (local != null) {
       final ImageProvider? img = imageForUpload(local);
-      return img != null ? AttachmentThumb(image: img, size: 72) : AttachmentChip(name: local.name);
+      return img != null ? AttachmentThumb(image: img, size: widget.size) : AttachmentChip(name: local.name);
     }
     return FutureBuilder<FileLink?>(
       future: _link,
       builder: (BuildContext c, AsyncSnapshot<FileLink?> snap) {
         final FileLink? l = snap.data;
         if (snap.connectionState != ConnectionState.done) {
-          return const AttachmentThumb(size: 72);
+          return AttachmentThumb(size: widget.size);
         }
         if (l == null) {
           return const AttachmentChip(name: 'File');
         }
         final String? url = l.url;
         if (l.meta.kind == 'image' && url != null) {
-          return AttachmentThumb(image: NetworkImage(url), size: 72);
+          return AttachmentThumb(image: NetworkImage(url), size: widget.size);
         }
         return AttachmentChip(name: l.meta.name);
       },

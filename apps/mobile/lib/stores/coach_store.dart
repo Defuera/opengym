@@ -173,6 +173,9 @@ class CoachStore extends ChangeNotifier {
   /// The local file behind a message this device sent, else null.
   UploadItem? localFile(String fileId) => _sentFiles[fileId];
 
+  /// Keeps the local file of a photo this device uploaded for something else (a comment, ADR-043), so it shows at once and offline.
+  void rememberFile(String fileId, UploadItem item) => _sentFiles[fileId] = item;
+
   /// What the open chat is about: its thread, or the draft before it exists.
   ThreadAbout? get currentAbout => currentThread?.about ?? draftAbout;
 

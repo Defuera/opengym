@@ -28,6 +28,9 @@ class ComposerBar extends StatelessWidget {
     this.hint = 'Message',
     this.onMic,
     this.onCamera,
+    this.attachOff = false,
+    this.sendLabel = 'Send',
+    this.sendWhenEmpty = false,
     this.recording = false,
     this.recordSeconds = 0,
     this.onCancelRecording,
@@ -71,6 +74,15 @@ class ComposerBar extends StatelessWidget {
 
   /// Opens the camera at once (one tap, no sheet). Null: no camera button.
   final VoidCallback? onCamera;
+
+  /// True: the "+" and the camera show but do not work (a file needs the link and there is none). The text, the mic and send stay as they are.
+  final bool attachOff;
+
+  /// What a screen reader says for the send button ("Save" where send saves a comment).
+  final String sendLabel;
+
+  /// True: send works with an empty field and nothing attached (a screen where an empty save removes something).
+  final bool sendWhenEmpty;
 
   /// True: the composer is a recording bar (red dot, timer, cancel, stop and send).
   final bool recording;
@@ -191,13 +203,13 @@ class ComposerBar extends StatelessWidget {
                         _RoundTap(
                           key: const ValueKey<String>('composer-plus'),
                           icon: Icons.add,
-                          onTap: off ? null : onAttach,
+                          onTap: (off || attachOff) ? null : onAttach,
                         ),
                       if (onCamera != null)
                         _RoundTap(
                           key: const ValueKey<String>('composer-camera'),
                           icon: Icons.photo_camera_outlined,
-                          onTap: off ? null : onCamera,
+                          onTap: (off || attachOff) ? null : onCamera,
                         ),
                       const Spacer(),
                       if (onSend != null || onMic != null)
@@ -205,7 +217,7 @@ class ComposerBar extends StatelessWidget {
                         listenable: controller,
                         builder: (BuildContext c, Widget? w) {
                           final bool hasText = controller.text.trim().isNotEmpty;
-                          final bool ready = hasText || attachments.isNotEmpty;
+                          final bool ready = hasText || attachments.isNotEmpty || sendWhenEmpty;
                           final Widget mic = _RoundTap(
                             key: const ValueKey<String>('composer-mic'),
                             icon: Icons.mic_none,
@@ -215,6 +227,7 @@ class ComposerBar extends StatelessWidget {
                             return onMic == null ? const SizedBox.shrink() : mic;
                           }
                           final Widget send = _SendTap(
+                            label: sendLabel,
                             sending: sending,
                             onTap: (sending || off || !ready) ? null : onSend,
                           );
@@ -290,6 +303,7 @@ class ComposerBar extends StatelessWidget {
           Expanded(child: VoiceWave(key: const ValueKey<String>('record-wave'), levels: recordLevels)),
           const SizedBox(width: 10),
           _SendTap(
+            label: 'Stop recording',
             sending: false,
             onTap: onStopRecording,
             buttonKey: const ValueKey<String>('composer-stop-record'),
@@ -337,12 +351,14 @@ class _RoundTap extends StatelessWidget {
 
 class _SendTap extends StatelessWidget {
   const _SendTap({
+    this.label = 'Send',
     required this.sending,
     required this.onTap,
     this.buttonKey = const ValueKey<String>('composer-send'),
   });
 
   final Key buttonKey;
+  final String label;
 
   final bool sending;
   final VoidCallback? onTap;
@@ -350,7 +366,11 @@ class _SendTap extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bool on = onTap != null;
-    return GestureDetector(
+    return Semantics(
+      button: true,
+      label: label,
+      excludeSemantics: true,
+      child: GestureDetector(
       key: buttonKey,
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
@@ -374,6 +394,7 @@ class _SendTap extends StatelessWidget {
                 : Icon(Icons.arrow_upward, size: 22, color: on ? OG.white : OG.mute),
           ),
         ),
+      ),
       ),
     );
   }

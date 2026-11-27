@@ -39,6 +39,15 @@ const draft = (args: object, message = "Understood.") => ({ message, actions: [{
 const RUN = (km: number) => ({ kind: "training", summary: `Run, ${km} km in 30 min`, at: YESTERDAY, session: { kind: "activity", type: "Run", minutes: 30, distanceKm: km } });
 
 describe("a draft writes nothing", () => {
+  it("ADR-044: the coach's own question stays as the text of the draft question; Done and Add or change stay", async () => {
+    await world();
+    stubOpenAi(reply(() => ({ ...draft({ kind: "body", summary: "knee sore on stairs" }, "Likely the tendon; ease off squats today."), question: { text: "Does it hurt more going down or up?" } })));
+    await send("m1", "my knee hurts on stairs");
+    await settle(t);
+    const a = await lastAssistant();
+    expect(a).toMatchObject({ text: "Likely the tendon; ease off squats today.", question: { text: "Does it hurt more going down or up?", answers: [{ id: "approve", label: "Done" }, { id: "change", label: "Add or change" }] }, proposal: { type: "log", state: "open" } });
+  });
+
   it("dinner with a photo: kind meal; Done writes one entry, labelled, with no reader job and no session", async () => {
     await world();
     await upload("f1");

@@ -13,11 +13,9 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:opengym/app/deps.dart';
 import 'package:opengym/data/upload_item.dart';
-import 'package:opengym/screens/comment_photos.dart';
 import 'package:opengym/screens/comment_sheet.dart';
 import 'package:opengym/screens/session_parts.dart';
 import 'package:opengym/theme.dart';
-import 'package:opengym/widgets/choice_sheet.dart';
 
 import '../support/chat_fixtures.dart';
 import '../support/fake_convex_client.dart';

@@ -43,7 +43,7 @@ Done sets are stored as before. Where the plan is captured: the app copies the p
 - per exercise: the best set today; the last earlier session with the same exercise (the same name after trim, case and space folding, no fuzzy match) with its date and best set; the signed change as text ("+5 kg", "+2 reps at the same weight", "same"); `firstTime`; `daysSinceLast`;
 - against the plan: per exercise planned and done (sets and top set) with a verdict (more, less, as planned; compared by reps times kg, or minutes); skipped planned exercises; added exercises that were not planned;
 - session level: duration, done sets, and the usual of the same activity and focus over 8 weeks (median minutes and sets, and "more / fewer or shorter / about the same" within 20 percent), only with at least 3 such sessions;
-- program position when a live program runs on that day: week x of y, sessions done and planned this week, days to the end of the program;
+- program position when a live program runs on that day: week x of y, sessions done and planned this week (done = every finished session in the program week up to the reviewed day, linked to a program slot or not; changed 2026-11-27 after a live run counted 0), days to the end of the program;
 - the person's comments, the session note and the body log entries of that day, word for word.
 
 The prompt says these are the only numbers the model may use. A code check refuses a message with a number that is not in the data, and the model retries once (inferred: this keeps the model from doing arithmetic; not measured).

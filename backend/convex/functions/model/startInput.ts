@@ -11,7 +11,6 @@ import { rulesPlan } from "./rules/planner";
 import type { ContextItem, Entry, Goal, LimitForAi, PlanDraft, Session } from "./schema";
 import type { TrackerForCoach } from "./trackerForCoach";
 import { activityKey } from "./sessionShape";
-import { usualSessionNow } from "./usualSession";
 
 /** What the start request holds (the fields the input reads). */
 export interface StartDoc {
@@ -57,7 +56,6 @@ export function buildStartInput(doc: StartDoc, d: StartData) {
   const withSets = known.filter((a) => a.kind === "gym" && (!doc.name || activityKey(a.type) === activityKey(doc.name)));
   const fociTheUserUses = withSets.map((a) => ({ activity: a.type, foci: fociByUse(d.sessions, a.type).slice(0, 8) })).filter((a) => a.foci.length > 0).slice(0, 6);
   const programs = programsForCoach(d.programs ?? [], d.sessions, localDate(d.now, d.timeZone));
-  const usual = usualSessionNow(d.sessions, d.now, d.timeZone);
   const current = doc.feedback && doc.previousPlaceId ? d.places.find((p) => p.placeId === doc.previousPlaceId) : undefined;
   const job: BuildSessionInput = {
     name: doc.name ?? null,
@@ -68,7 +66,6 @@ export function buildStartInput(doc: StartDoc, d: StartData) {
     placesTheCoachKnows,
     ...(programs.length > 0 ? { programsThePersonFollows: programs } : {}),
     fociTheUserUses,
-    ...(usual ? { usualSessionNow: usual } : {}),
     picture: coachPicture(d.sessions, [...d.goals].sort((x, y) => x.createdAt - y.createdAt), d.context, d.limits, d.entries, d.now, d.tracker, d.timeZone, d.afterSession),
     limits: d.limits,
   };

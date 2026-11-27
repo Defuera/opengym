@@ -171,7 +171,6 @@ import type * as model_threadTitle from "../model/threadTitle.js";
 import type * as model_timezone from "../model/timezone.js";
 import type * as model_trackerForCoach from "../model/trackerForCoach.js";
 import type * as model_usageSummary from "../model/usageSummary.js";
-import type * as model_usualSession from "../model/usualSession.js";
 import type * as model_voice from "../model/voice.js";
 import type * as queries_aboutMe from "../queries/aboutMe.js";
 import type * as queries_context from "../queries/context.js";
@@ -364,7 +363,6 @@ declare const fullApi: ApiFromModules<{
   "model/timezone": typeof model_timezone;
   "model/trackerForCoach": typeof model_trackerForCoach;
   "model/usageSummary": typeof model_usageSummary;
-  "model/usualSession": typeof model_usualSession;
   "model/voice": typeof model_voice;
   "queries/aboutMe": typeof queries_aboutMe;
   "queries/context": typeof queries_context;

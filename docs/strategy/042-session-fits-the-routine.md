@@ -1,8 +1,8 @@
-# ADR-042: The Coach Builds a Session That Fits the Person's Routine and Follows the Program Order
+# ADR-042: The Coach Reads the Routine From the Raw Session Times and Follows the Program Order
 
 ## Status
 
-- Part 1 (time budget from the routine): Accepted. The owner reported the fault and asked for the fix in the session of 2026-11-27.
+- Part 1 (time budget from the routine): Rejected by the owner on 2026-11-27. See the decision.
 - Part 2 (program order): Proposed. The agent decided it as a coach-quality change. The owner has not confirmed it.
 
 ## Date
@@ -21,30 +21,27 @@ Second fault, reported on the same day. The program week lists the sessions in o
 
 ## Decision
 
-### 1. A time budget, computed by code, obeyed by the coach (Accepted)
+### 1. The routine: the coach reads it from the raw data (Rejected: the time budget)
 
-- Code computes `usualSessionNow` (`functions/model/usualSession.ts`) and passes it in the `build_session` input, also on a rebuild after feedback.
-- Source: the finished sessions done in the app (not imported) of the last 8 weeks, with a length of 10 to 240 minutes.
-- The slot is the kind of day (weekday or weekend) times the part of day of now (morning before 12:00, afternoon before 17:00, else evening). The time zone is the one of the user (ADR-039): the start time of each session and `now` are read in that zone.
-- Value: `{ when, sessions, usualMinutes (median length), usualSets (median number of sets) }`.
-- With fewer than 3 sessions in the slot, all sessions of the same kind of day count and `when` says only "weekday" or "weekend". With fewer than 3 again, the fact is left out.
-- Prompt: the budget is, in this order, a time the person names in the request, the note for today or the feedback; a time the person states in `notesFromTheUser` about their routine; else `usualSessionNow.usualMinutes`. `minutes` must not exceed it. When the program session does not fit, the coach keeps what matters most for the purpose of the program and the limits, cuts or shortens the rest, and says in `plan.rationale` in one short clause what it left out. The rule "the minutes are a promise" stays.
-- No hard reject in code for the time. This is a prompt and a fact only. There is no wording safeguard (ADR-022).
+The first version computed a time budget in code (`usualSessionNow`: the median length of the sessions in the slot of weekday and part of day) and added a prompt rule to obey it. The owner rejected it on 2026-11-27. His words: "I don't like this solution. This is too specific. Code just needs to get information on my work hours. That's it. He needs to encourage himself with no additional prompts. You're trying to be kind of too detailed and too nudgy. It's not how it should work. AI can solve this."
+
+Decision:
+
+- The coach picture already gives, for each recent session, `date`, `start` (local time) and `durationMin`, and gives `timeNow` (`model/ai/jobs/coachPicture.ts`). That raw data is the whole solution. The coach reads the routine from it.
+- There is no computed fact and no prompt rule about a time budget. The code `usualSession.ts`, its test and the `usualSessionNow` input field were removed.
+- The rule "the minutes are a promise" stays as it was.
+- Whether the model now fits the session to the routine is unverified. The owner tests this in the app.
 
 ### 2. The program order (Proposed)
 
 - With a program, and a generic start (Gym, Strength, Cycling), the coach takes the first open slot of the week in the listed order, when the slot can be done at the current place. A bike day can be done at a gym.
 - It names that session in `reason`, for example "Program order: Bike day 1 comes before B".
 - It picks another session only when the request or the note asks for something else, or the chosen activity plainly cannot hold the slot (Swimming, Skiing, Yoga).
-- When the note of the slot says other work can go there, the coach adds that work from `recentSessions` within the time budget.
+- When the note of the slot says other work can go there, the coach adds that work from `recentSessions`.
 - The program link needs no change. Verified (read of `programLinkFor` and a test): the link is found by the key the coach names and does not compare the activity, so `type` (the activity, exactly as given) can differ from the activity of the slot.
 
 ## Consequences
 
-- Verified: the typecheck and the unit tests of the routine and of the link pass.
-- Unverified: whether the model obeys the budget and the order. No live call was made. The owner tests this in the app.
-- Bet (ADR-less rule of the working practices): the metric is the share of generated sessions whose planned `minutes` exceed the usual length of the slot by more than 20 percent, read from the live log. The value before is not measured. The read date is set after the owner has used the change for two weeks.
-
-## Not decided
-
-- Whether the budget should use the median or a higher percentile. The median is the builder's choice (inferred as the simplest; not confirmed by the owner).
+- Verified: the typecheck and the unit tests pass after the removal.
+- Unverified: whether the model obeys the program order and reads the routine well. No live call was made. The owner tests this in the app.
+- Less code and a shorter prompt. The coach has no extra nudge about time.

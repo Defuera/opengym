@@ -225,12 +225,12 @@ class _CommentSheetBodyState extends State<CommentSheetBody> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
+              padding: const EdgeInsets.only(bottom: 10),
               child: Text('How did it go?', key: const ValueKey<String>('comment-question'), style: OG.muted(size: 15, weight: FontWeight.w600)),
             ),
             if (_error != null)
               Padding(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+                padding: const EdgeInsets.only(bottom: 8),
                 child: Text(_error!, key: const ValueKey<String>('comment-error'), style: OG.body(size: 15, weight: FontWeight.w600)),
               ),
             ComposerBar(

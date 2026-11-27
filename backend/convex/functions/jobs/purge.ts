@@ -5,7 +5,7 @@ import { deleteFile } from "../lib/entriesDb";
 
 /**
  * Erases for good what was marked as deleted more than DELETE_AFTER_MS ago (ADR-020). Run hourly by crons.ts.
- * A session goes with its review row. A note goes with its file rows and blobs. A program is erased as it is; the sessions logged on it stay (they are facts). At most PURGE_BATCH rows of each table per pass;
+ * A session goes with its review row and the photos of its comments. A note goes with its file rows and blobs. A program is erased as it is; the sessions logged on it stay (they are facts). At most PURGE_BATCH rows of each table per pass;
  * a full pass schedules the next one at once. The read models already left the rows out when they were marked, so no rebuild is needed.
  * Stored AI calls go AI_CALL_KEEP_MS (90 days) after they were made (ADR-027).
  * These reads are deliberately raw: they look at marked rows only, through `by_deletedAt` (rows without a mark are before 0), over ALL users (ADR-039):
@@ -19,6 +19,8 @@ export const run = internalMutation({
     for (const s of sessions) {
       const review = await ctx.db.query("reviews").withIndex("by_user_and_sessionId", (q) => q.eq("userId", s.userId).eq("sessionId", s.sessionId)).unique();
       if (review) await ctx.db.delete(review._id);
+      // The photos of the comments go with the session (ADR-043).
+      for (const e of s.exercises) for (const id of e.commentFileIds ?? []) await deleteFile(ctx, s.userId, id);
       await ctx.db.delete(s._id);
     }
     const entries = await ctx.db.query("entries").withIndex("by_deletedAt", (q) => q.gt("deletedAt", 0).lt("deletedAt", cutoff)).take(PURGE_BATCH);

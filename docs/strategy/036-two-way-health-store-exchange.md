@@ -57,3 +57,5 @@ Per platform (read in `HealthDataWriter.kt` and `HealthDataWriter.swift`): Andro
 - Reading works only while the app is in the foreground (no background sync, as in ADR-019).
 - iPhone does not say whether reading was refused. An empty result looks the same as no data.
 - The HealthKit capability must be on the App ID for a signed device build. Writing needs `NSHealthUpdateUsageDescription` (added) in addition to the read text.
+
+- Decided by the agent (Proposed): when the server holds no tracker data, the coach chat context (`assembleCoachContext`, used by `coach_turn`) carries one plain fact (`NO_TRACKER_DATA_FACT`): what the app can receive, how to turn it on (Settings > Trackers), and that live heart rate never arrives. The present path, the session builder, plan and review are unchanged.

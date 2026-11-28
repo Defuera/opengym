@@ -10,6 +10,10 @@ export const TRACKER_PROMPT_WORKOUTS_MAX = 30;
 /** A tracker workout and a logged session are the same workout when their times overlap, give or take this much. */
 export const OVERLAP_MARGIN_MS = 15 * MIN;
 
+/** What the coach chat is told when no tracker data has reached the server (ADR-036). A plain fact, not a rule. */
+export const NO_TRACKER_DATA_FACT =
+  "No tracker data has come from the phone. The app can receive sleep, resting heart rate, steps, active energy and workouts with their average heart rate, from Apple Health or Health Connect, when the person turns on 'Send tracker data to my coach' in Settings > Trackers. The app never gets live heart rate during a session.";
+
 /** What the server holds of the phone's health store, as the jobs read it (ADR-036). */
 export interface TrackerForCoach {
   days: TrackerDay[];

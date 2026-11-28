@@ -2,7 +2,7 @@ import type { ImageInput } from "./ai/provider";
 import { contextForPrompt, goalsForPrompt, limitsForPrompt, logForPrompt } from "./ai/jobs/shared";
 import { CHUNK_CHARS } from "./fileText";
 import { entriesForPrompt } from "./entryContext";
-import { type TrackerForCoach, trackerForPrompt } from "./trackerForCoach";
+import { NO_TRACKER_DATA_FACT, type TrackerForCoach, trackerForPrompt } from "./trackerForCoach";
 import type { ContextItem, Entry, FileMeta, Goal, LimitForAi, Session } from "./schema";
 
 export interface CoachContext {
@@ -75,6 +75,8 @@ export function assembleCoachContext(data: CoachData, files: AttachedFile[], sup
   if (phone) {
     parts.push(`Tracker data from the phone (trackerFromThePhone):\n${JSON.stringify(phone)}`);
     sources.push("tracker");
+  } else {
+    parts.push(NO_TRACKER_DATA_FACT);
   }
   if (supportsImages && entryImages.length) {
     images.push(...entryImages);

@@ -5,7 +5,7 @@ import { coachPicture } from "../functions/model/ai/jobs/coachPicture";
 import { buildPlanInput } from "../functions/model/ai/jobs/inputs";
 import { planSessionJob } from "../functions/model/ai/jobs/planSession";
 import { assembleCoachContext } from "../functions/model/coachContext";
-import { trackerForPrompt } from "../functions/model/trackerForCoach";
+import { NO_TRACKER_DATA_FACT, trackerForPrompt } from "../functions/model/trackerForCoach";
 import { TOKEN, pushSession, setup, type T } from "./helpers";
 
 const NOW = Date.UTC(2026, 10, 25, 12, 0);
@@ -156,6 +156,17 @@ describe("tracker block for the coach", () => {
     const ctx = assembleCoachContext({ otherThreads: [], sessions: [], goals: [], context: [], tracker, now: NOW }, [], false);
     expect(ctx.contextBlock).toContain("trackerFromThePhone");
     expect(ctx.sources).toContain("tracker");
+    expect(ctx.contextBlock).not.toContain(NO_TRACKER_DATA_FACT);
+  });
+
+  it("with no tracker data the chat context carries the plain fact about what the app can receive", () => {
+    for (const tracker of [undefined, { days: [], workouts: [] }]) {
+      const ctx = assembleCoachContext({ otherThreads: [], sessions: [], goals: [], context: [], tracker, now: NOW }, [], false);
+      expect(ctx.contextBlock).toContain(NO_TRACKER_DATA_FACT);
+      expect(ctx.contextBlock).toContain("Settings > Trackers");
+      expect(ctx.contextBlock).toContain("never gets live heart rate");
+      expect(ctx.sources).not.toContain("tracker");
+    }
   });
 
   it("coachTracker reads only the last 7 days and 14 days of workouts", async () => {
